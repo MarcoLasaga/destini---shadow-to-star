@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_main">#F0EDE8</color>
+    <color name="bg_card">#FFFFFF</color>
+    <color name="bg_how_section">#E8E4DE</color>
+    <color name="accent_orange">#D4761A</color>
+    <color name="text_primary">#1A1A1A</color>
+    <color name="text_secondary">#666666</color>
+    <color name="text_label">#888888</color>
+    <color name="btn_dark">#1A1A1A</color>
+    <color name="btn_dark_text">#FFFFFF</color>
+    <color name="divider">#D8D3CC</color>
+    <color name="nav_bg">#F5F2EE</color>
+    <color name="footer_bg">#FFFFFF</color>
+</resources>
