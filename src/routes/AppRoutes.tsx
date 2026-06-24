@@ -1,7 +1,8 @@
 import { Routes, Route } from 'react-router-dom'
 import Layout from '../components/layout/layout'
 import Home from '../pages/Home/Home'
-import Wardrobe from '../pages/Wardrobe'
+import Wardrobe from '../pages/Wardrobe/Wardrobe'
+import AddClothes from '../pages/Wardrobe/AddClothes'
 import Discover from '../pages/Discover'
 import Planner from '../pages/Planner'
 import Analytics from '../pages/Analytics'
@@ -19,6 +20,7 @@ export default function AppRoutes() {
     <Routes>
       <Route path="/" element={<Layout><Home /></Layout>} />
       <Route path="/wardrobe" element={<Layout><Wardrobe /></Layout>} />
+      <Route path="/wardrobe/add" element={<Layout><AddClothes /></Layout>} />
       <Route path="/discover" element={<Layout><Discover /></Layout>} />
       <Route path="/planner" element={<Layout><Planner /></Layout>} />
       <Route path="/analytics" element={<Layout><Analytics /></Layout>} />
