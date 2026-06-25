@@ -1,28 +1,109 @@
-// Replace PageName with the actual name (e.g. Wardrobe, Discover, etc.)
+import { motion } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
+import { Shirt, Share2 } from 'lucide-react'
+import { useWardrobe } from '../../context/useWardrobe'
+
+const FF = 'Baloo Tamma 2, sans-serif'
+const FH = 'Bagel Fat One, cursive'
+
 export default function Community() {
+  const navigate = useNavigate()
+  const { items } = useWardrobe()
+
+  const hasEnough =
+    items.filter(i => i.category === 'Top').length > 0 &&
+    items.filter(i => i.category === 'Bottom').length > 0
+
+  function handleShare() {
+    if (!hasEnough) {
+      navigate('/outfit-generator')
+    } else {
+      navigate('/outfit-generator')
+    }
+  }
+
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      minHeight: '70vh', gap: 16,
-    }}>
-      <div style={{
-        width: 64, height: 64, borderRadius: 16,
-        background: 'rgba(255,213,134,0.3)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <svg width="28" height="28" fill="none" stroke="#756e9e" strokeWidth="1.8" viewBox="0 0 24 24">
-          <rect x="3" y="4" width="18" height="18" rx="2"/>
-          <line x1="12" y1="9" x2="12" y2="15"/>
-          <line x1="9" y1="12" x2="15" y2="12"/>
-        </svg>
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      style={{ background: '#faf7f2', minHeight: '100vh', padding: '36px 36px 80px' }}
+    >
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
+        <div>
+          <h1 style={{ fontFamily: FH, fontSize: 30, color: '#2b1f0e', marginBottom: 4 }}>
+            Community Feed
+          </h1>
+          <p style={{ fontFamily: FF, fontSize: 13.5, color: '#9c866c' }}>
+            Outfits from the StyleSense community — likes &amp; ratings shape your recommendations
+          </p>
+        </div>
+        <motion.button
+          whileHover={{ scale: 1.02, y: -1 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={handleShare}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 7,
+            fontFamily: FF, fontSize: 13.5, fontWeight: 700,
+            color: '#fff', background: '#2b1f0e',
+            border: 'none', borderRadius: 30,
+            padding: '10px 20px', cursor: 'pointer', flexShrink: 0,
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = '#FF8C00' }}
+          onMouseLeave={e => { e.currentTarget.style.background = '#2b1f0e' }}
+        >
+          <Share2 size={14} /> Share Outfit
+        </motion.button>
       </div>
-      <h1 style={{ fontFamily: 'Bagel Fat One, cursive', fontSize: 32, color: '#2b1f0e' }}>
-        PageName
-      </h1>
-      <p style={{ fontFamily: 'Baloo Tamma 2, sans-serif', fontSize: 15, color: '#9c866c' }}>
-        Coming soon — this page is being built.
-      </p>
-    </div>
+
+      {/* Empty state card */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
+        style={{ maxWidth: 580, margin: '0 auto' }}
+      >
+        <div style={{
+          background: '#fffcf8',
+          border: '1.5px dashed rgba(160,120,70,0.2)',
+          borderRadius: 16,
+          padding: '80px 24px',
+          textAlign: 'center',
+        }}>
+          <div style={{
+            width: 64, height: 64,
+            background: 'rgba(255,213,134,0.25)',
+            borderRadius: 18,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 20px',
+          }}>
+            <Shirt size={30} style={{ color: '#756e9e' }} />
+          </div>
+          <h2 style={{ fontFamily: FH, fontSize: 22, color: '#2b1f0e', marginBottom: 8 }}>
+            No outfits posted yet
+          </h2>
+          <p style={{ fontFamily: FF, fontSize: 14, color: '#9c866c', marginBottom: 28 }}>
+            Be the first to share a look from your wardrobe
+          </p>
+          <motion.button
+            whileHover={{ scale: 1.02, y: -1 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={handleShare}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+              fontFamily: FF, fontSize: 14, fontWeight: 700,
+              color: '#fff', background: '#2b1f0e',
+              border: 'none', borderRadius: 30,
+              padding: '12px 24px', cursor: 'pointer',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#FF8C00' }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#2b1f0e' }}
+          >
+            Generate an outfit
+          </motion.button>
+        </div>
+      </motion.div>
+    </motion.div>
   )
 }

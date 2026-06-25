@@ -2,7 +2,7 @@ import { useMemo, type CSSProperties, type ElementType } from 'react'
 import { motion } from 'framer-motion'
 import { Leaf, ShoppingBag, RefreshCw, TrendingUp } from 'lucide-react'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
-import { useWardrobe } from '../../context/useWardrobe'
+import { useWardrobe } from '../../context/useWardrobe.ts'
 import type { ClothingItem } from '../../types/wardrobe'
 
 const FF = 'Baloo Tamma 2, sans-serif'
