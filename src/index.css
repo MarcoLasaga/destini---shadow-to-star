@@ -1,11 +1,45 @@
 @import url('https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Baloo+Tamma+2:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body {
   font-family: 'Baloo Tamma 2', sans-serif;
   background: #faf7f2;
   color: #2b1f0e;
   -webkit-font-smoothing: antialiased;
+  transition: background 0.3s, color 0.3s;
+}
+.font-head { font-family: 'Bagel Fat One', cursive; }
+
+/* ── Dark theme ── */
+[data-theme="dark"] body,
+[data-theme="dark"] {
+  background: #1a1612 !important;
+  color: #f0e8dc !important;
+}
+[data-theme="dark"] nav {
+  background: rgba(28,22,16,0.95) !important;
+  border-color: rgba(255,213,134,0.1) !important;
+}
+[data-theme="dark"] .ss-card {
+  background: #26201a !important;
+  border-color: rgba(255,213,134,0.1) !important;
+}
+[data-theme="dark"] input,
+[data-theme="dark"] select {
+  background: #2e261e !important;
+  color: #f0e8dc !important;
+  border-color: rgba(255,213,134,0.15) !important;
+}
+
+/* Save toast */
+#ss-save-toast {
+  position: fixed; bottom: 28px; right: 28px; z-index: 999;
+  background: #2b1f0e; color: #fff;
+  font-family: 'Baloo Tamma 2', sans-serif; font-size: 13.5px; font-weight: 600;
+  padding: 12px 22px; border-radius: 30px;
+  box-shadow: 0 8px 32px rgba(43,31,14,0.22);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s;
 }
