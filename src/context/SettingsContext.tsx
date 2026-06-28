@@ -1,69 +1,58 @@
-/* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
+import { SettingsContext } from './SettingsContextBase'
 
 export type Theme      = 'light' | 'dark' | 'system'
 export type Layout     = 'comfortable' | 'compact'
 export type Visibility = 'Public' | 'Friends' | 'Private'
 
 interface SettingsState {
-  // Notifications
-  outfitReminders:    boolean
-  plannerReminders:   boolean
-  weatherAlerts:      boolean
-  communityActivity:  boolean
+  outfitReminders:      boolean
+  plannerReminders:     boolean
+  weatherAlerts:        boolean
+  communityActivity:    boolean
   styleRecommendations: boolean
-  emailNotifications: boolean
-  pushNotifications:  boolean
-  // Theme
-  theme:              Theme
-  accentColor:        string
-  // Appearance
-  layout:             Layout
-  enableAnimations:   boolean
-  reducedMotion:      boolean
-  // Security (shown only when logged in)
-  twoFactor:          boolean
-  // Privacy
-  profileVisibility:  Visibility
-  showInCommunity:    boolean
-  shareActivity:      boolean
-  // General
-  language:           string
-  region:             string
-  timezone:           string
-  dateFormat:         string
-  tempUnit:           '°C' | '°F'
-  timeFormat:         '12h' | '24h'
-}
-
-interface SettingsCtx extends SettingsState {
-  set: <K extends keyof SettingsState>(key: K, value: SettingsState[K]) => void
-  save: () => void
+  emailNotifications:   boolean
+  pushNotifications:    boolean
+  theme:                Theme
+  accentColor:          string
+  layout:               Layout
+  enableAnimations:     boolean
+  reducedMotion:        boolean
+  twoFactor:            boolean
+  profileVisibility:    Visibility
+  showInCommunity:      boolean
+  shareActivity:        boolean
+  language:             string
+  region:               string
+  timezone:             string
+  dateFormat:           string
+  tempUnit:             '°C' | '°F'
+  timeFormat:           '12h' | '24h'
 }
 
 const DEFAULTS: SettingsState = {
-  outfitReminders:     true,
-  plannerReminders:    true,
-  weatherAlerts:       true,
-  communityActivity:   false,
-  styleRecommendations:true,
-  emailNotifications:  false,
-  pushNotifications:   true,
-  theme:               'light',
-  accentColor:         '#ffd586',
-  layout:              'comfortable',
-  enableAnimations:    true,
-  reducedMotion:       false,
-  twoFactor:           false,
-  profileVisibility:   'Public',
-  showInCommunity:     true,
-  shareActivity:       true,
-  language:            'English',
-  region:              'United States',
-  timezone:            'UTC',
-  dateFormat:          'MM/DD/YYYY',
-  tempUnit:            '°C',
-  timeFormat:          '12h',
+  outfitReminders:      true,
+  plannerReminders:     true,
+  weatherAlerts:        true,
+  communityActivity:    false,
+  styleRecommendations: true,
+  emailNotifications:   false,
+  pushNotifications:    true,
+  theme:                'light',
+  accentColor:          '#ffd586',
+  layout:               'comfortable',
+  enableAnimations:     true,
+  reducedMotion:        false,
+  twoFactor:            false,
+  profileVisibility:    'Public',
+  showInCommunity:      true,
+  shareActivity:        true,
+  language:             'English',
+  region:               'United States',
+  timezone:             'UTC',
+  dateFormat:           'MM/DD/YYYY',
+  tempUnit:             '°C',
+  timeFormat:           '12h',
 }
 
 function load(): SettingsState {
@@ -73,19 +62,20 @@ function load(): SettingsState {
   } catch { return DEFAULTS }
 }
 
-const Ctx = createContext<SettingsCtx | null>(null)
+function resolveIsDark(theme: Theme): boolean {
+  if (theme === 'dark') return true
+  if (theme === 'light') return false
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+}
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<SettingsState>(load)
 
-  // Apply theme to document
+  const isDark = resolveIsDark(state.theme)
+
   useEffect(() => {
     const root = document.documentElement
-    const isDark =
-      state.theme === 'dark' ||
-      (state.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-
-    if (isDark) {
+    if (resolveIsDark(state.theme)) {
       root.setAttribute('data-theme', 'dark')
     } else {
       root.removeAttribute('data-theme')
@@ -93,29 +83,41 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     root.style.setProperty('--accent', state.accentColor)
   }, [state.theme, state.accentColor])
 
-  // Apply reduced motion
   useEffect(() => {
     document.documentElement.style.setProperty(
-      '--motion-duration', state.reducedMotion ? '0.01ms' : '300ms'
+      '--motion-duration', state.reducedMotion ? '0.01ms' : '0.22s'
     )
   }, [state.reducedMotion])
 
-  const set = useCallback(<K extends keyof SettingsState>(key: K, value: SettingsState[K]) => {
+  // Listen for system theme changes
+  useEffect(() => {
+    if (state.theme !== 'system') return
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const handler = () => {
+      const root = document.documentElement
+      if (mq.matches) root.setAttribute('data-theme', 'dark')
+      else root.removeAttribute('data-theme')
+    }
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [state.theme])
+
+  function set<K extends keyof SettingsState>(key: K, value: SettingsState[K]) {
     setState(prev => ({ ...prev, [key]: value }))
-  }, [])
+  }
 
   function save() {
     localStorage.setItem('ss_settings', JSON.stringify(state))
-    // Brief flash to confirm
     const el = document.getElementById('ss-save-toast')
-    if (el) { el.style.opacity = '1'; setTimeout(() => { el.style.opacity = '0' }, 2000) }
+    if (el) {
+      el.style.opacity = '1'
+      setTimeout(() => { el.style.opacity = '0' }, 2200)
+    }
   }
 
-  return <Ctx.Provider value={{ ...state, set, save }}>{children}</Ctx.Provider>
-}
-
-export function useSettings() {
-  const ctx = useContext(Ctx)
-  if (!ctx) throw new Error('useSettings must be inside SettingsProvider')
-  return ctx
+  return (
+    <SettingsContext.Provider value={{ ...state, set, save, isDark }}>
+      {children}
+    </SettingsContext.Provider>
+  )
 }
