@@ -4,9 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Home, Shirt, Compass, CalendarDays, BarChart2,
   Bookmark, Settings, HelpCircle,
-  ChevronDown, Search, BookOpen,
+  ChevronDown, Search, BookOpen, Luggage,
 } from 'lucide-react'
-import { useSettings } from '../../context'
+import { useSettings } from '../../context/useSettings'
 
 const PRIMARY = [
   { to: '/',         label: 'Home',     Icon: Home        },
@@ -16,11 +16,12 @@ const PRIMARY = [
 ]
 
 const MORE = [
-  { to: '/analytics',     label: 'Analytics',    Icon: BarChart2   },
-  { to: '/cookbook',      label: 'Cookbook',     Icon: BookOpen    },
-  { to: '/saved-outfits', label: 'Saved Outfits',Icon: Bookmark    },
-  { to: '/settings',      label: 'Settings',     Icon: Settings    },
-  { to: '/help',          label: 'Help',         Icon: HelpCircle  },
+  { to: '/analytics',         label: 'Analytics',         Icon: BarChart2  },
+  { to: '/cookbook',          label: 'Cookbook',          Icon: BookOpen   },
+  { to: '/packing-assistant', label: 'Packing Assistant', Icon: Luggage    },
+  { to: '/saved-outfits',     label: 'Saved Outfits',     Icon: Bookmark   },
+  { to: '/settings',          label: 'Settings',          Icon: Settings   },
+  { to: '/help',              label: 'Help',              Icon: HelpCircle },
 ]
 
 export default function Navbar() {
@@ -73,11 +74,7 @@ export default function Navbar() {
             color: '#2b1f0e', fontFamily: 'Bagel Fat One, cursive', fontSize: 17,
           }}
         >S</motion.div>
-        <span style={{
-          fontFamily: 'Baloo Tamma 2, sans-serif',
-          fontWeight: 800, fontSize: 19,
-          color: 'var(--text-heading)', letterSpacing: -0.3,
-        }}>
+        <span style={{ fontFamily: 'Baloo Tamma 2, sans-serif', fontWeight: 800, fontSize: 19, color: 'var(--text-heading)', letterSpacing: -0.3 }}>
           Style<span style={{ color: 'var(--text-secondary)' }}>Sense</span>
         </span>
       </Link>
@@ -86,17 +83,13 @@ export default function Navbar() {
       <div style={{ flex: 1, maxWidth: 320, position: 'relative' }}>
         <Search size={14} style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
         <input
-          type="text"
-          placeholder="Search clothes, outfits, styles…"
+          type="text" placeholder="Search clothes, outfits, styles…"
           style={{
             width: '100%', height: 36,
-            border: '1.5px solid var(--border)',
-            borderRadius: 24, padding: '0 16px 0 38px',
-            fontFamily: 'Baloo Tamma 2, sans-serif',
-            fontSize: 13.5,
-            color: 'var(--text-body)',
-            background: 'var(--bg-input)',
-            outline: 'none',
+            border: '1.5px solid var(--border)', borderRadius: 24,
+            padding: '0 16px 0 38px',
+            fontFamily: 'Baloo Tamma 2, sans-serif', fontSize: 13.5,
+            color: 'var(--text-body)', background: 'var(--bg-input)', outline: 'none',
           }}
           onFocus={e => { e.target.style.borderColor = '#ffd586'; e.target.style.boxShadow = '0 0 0 3px rgba(255,213,134,0.2)' }}
           onBlur={e  => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none' }}
@@ -125,14 +118,13 @@ export default function Navbar() {
           )
         })}
 
-        {/* More */}
+        {/* More dropdown */}
         <div ref={ref} style={{ position: 'relative' }}>
           <button onClick={() => setOpen(p => !p)}
             style={{
-              display: 'flex', alignItems: 'center', gap: 4,
-              background: 'none', border: 'none', cursor: 'pointer',
-              fontFamily: 'Baloo Tamma 2, sans-serif',
-              fontSize: 14, fontWeight: 600,
+              display: 'flex', alignItems: 'center', gap: 4, background: 'none',
+              border: 'none', cursor: 'pointer',
+              fontFamily: 'Baloo Tamma 2, sans-serif', fontSize: 14, fontWeight: 600,
               color: 'var(--text-secondary)',
             }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent-hover)' }}
@@ -153,11 +145,9 @@ export default function Navbar() {
                 transition={{ duration: 0.2, ease: [0.34, 1.2, 0.64, 1] }}
                 style={{
                   position: 'absolute', top: 'calc(100% + 14px)', right: 0,
-                  background: 'var(--bg-card)',
-                  borderRadius: 14, padding: '8px 0',
-                  minWidth: 186, zIndex: 300,
-                  border: '1px solid var(--border)',
-                  boxShadow: 'var(--shadow-lg)',
+                  background: 'var(--bg-card)', borderRadius: 14, padding: '8px 0',
+                  minWidth: 200, zIndex: 300,
+                  border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)',
                 }}
               >
                 {MORE.map(({ to, label, Icon }) => (
@@ -167,8 +157,7 @@ export default function Navbar() {
                       padding: '9px 18px', textDecoration: 'none',
                       color: 'var(--text-body)',
                       fontFamily: 'Baloo Tamma 2, sans-serif',
-                      fontSize: 13.5, fontWeight: 500,
-                      transition: 'all 0.14s',
+                      fontSize: 13.5, fontWeight: 500, transition: 'all 0.14s',
                     }}
                     onMouseEnter={e => {
                       const el = e.currentTarget as HTMLElement
@@ -197,10 +186,8 @@ export default function Navbar() {
           style={{
             background: isDark ? 'var(--accent)' : '#2b1f0e',
             color: isDark ? '#2b1f0e' : '#fff',
-            border: 'none', borderRadius: 30,
-            padding: '9px 22px', cursor: 'pointer',
-            fontFamily: 'Baloo Tamma 2, sans-serif',
-            fontSize: 14, fontWeight: 700,
+            border: 'none', borderRadius: 30, padding: '9px 22px', cursor: 'pointer',
+            fontFamily: 'Baloo Tamma 2, sans-serif', fontSize: 14, fontWeight: 700,
           }}
           onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-hover)'; e.currentTarget.style.color = '#fff' }}
           onMouseLeave={e => {
