@@ -9,7 +9,7 @@ export interface SettingsCtxState {
   emailNotifications: boolean
   pushNotifications: boolean
   theme: 'light' | 'dark' | 'system'
-  accentColor: string
+  accentColor?: string
   layout: 'comfortable' | 'compact'
   enableAnimations: boolean
   reducedMotion: boolean

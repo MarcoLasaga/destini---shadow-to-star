@@ -3,7 +3,7 @@ import Navbar from '../navbar/Navbar'
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
-    <div style={{ minHeight: '100vh', background: '#faf7f2' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-page)' }}>
       <Navbar />
       <main>{children}</main>
     </div>

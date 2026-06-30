@@ -167,6 +167,7 @@ export default function PackingAssistant() {
   const [categories, setCategories]     = useState<PackCategory[]>([])
   const [generated, setGenerated]       = useState(false)
   const [tips, setTips]                 = useState<string[]>([])
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
 
   // Total items / packed count
   const allItems   = categories.flatMap(c => c.items)
@@ -185,17 +186,30 @@ export default function PackingAssistant() {
 
   // Generate
   async function generate() {
-    if (!destination.trim()) return
+    const trimmedDestination = destination.trim()
     setFetching(true)
-    const auto = await fetchWeatherForDestination(destination)
-    if (auto) { setWeather(auto.type); setAutoWeather({ temp: auto.temp, condition: auto.condition }) }
-    else { setAutoWeather(null) }
+    setStatusMessage(null)
+
+    let auto = null
+    if (trimmedDestination) {
+      auto = await fetchWeatherForDestination(trimmedDestination)
+    }
+
+    if (auto) {
+      setWeather(auto.type)
+      setAutoWeather({ temp: auto.temp, condition: auto.condition })
+      setStatusMessage(`Forecast for ${trimmedDestination} loaded.`)
+    } else if (trimmedDestination) {
+      setAutoWeather(null)
+      setStatusMessage('Weather lookup was unavailable, so the list uses your selected weather.')
+    }
+
     const wt = auto?.type ?? weather
     setCategories(buildPackingList(wt, days))
     setTips(getTips(wt))
     setGenerated(true)
     setFetching(false)
-    setTimeout(() => document.getElementById('packing-list')?.scrollIntoView({ behavior: 'smooth' }), 200)
+    requestAnimationFrame(() => document.getElementById('packing-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
   }
 
   const inputStyle: React.CSSProperties = {
@@ -295,11 +309,16 @@ export default function PackingAssistant() {
           </div>
 
           {/* Generate button */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
+            {statusMessage && (
+              <p style={{ fontFamily: FF, fontSize: 12.5, color: 'var(--text-muted)', margin: 0 }}>
+                {statusMessage}
+              </p>
+            )}
             <motion.button
               whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.97 }}
               onClick={generate}
-              disabled={fetching || !destination.trim()}
+              disabled={fetching}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 fontFamily: FF, fontSize: 14, fontWeight: 700,

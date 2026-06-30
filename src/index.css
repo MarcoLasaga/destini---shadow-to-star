@@ -6,23 +6,37 @@ html { scroll-behavior: smooth; }
 
 body {
   font-family: 'Baloo Tamma 2', sans-serif;
-  background: #faf7f2;
-  color: #faf7f2;
+  background: var(--bg-page);
+  color: var(--text-body);
   -webkit-font-smoothing: antialiased;
   transition: background 0.3s, color 0.3s;
 }
 
-/* ── LIGHT MODE (default) ───────────────────────────── */
+/* ══════════════════════════════════════════════════
+   60-30-10 COLOR SYSTEM
+   60% = tertiary/background | 30% = secondary/accent-bg | 10% = primary/accent
+═══════════════════════════════════════════════════ */
+
+/* ── LIGHT MODE ── */
 :root {
+  /* 60% — primary background */
   --bg-page:      #faf7f2;
   --bg-card:      #fffcf8;
-  --bg-alt:       #f0ede8;
+  --bg-alt:       #f3eee5;
   --bg-input:     #f7f4ef;
   --bg-nav:       #faf7f2;
 
-  --text-primary:   #ffd586;
+  /* 30% — secondary (warm gold) */
+  --secondary:        #ffd586;
+  --secondary-soft:   rgba(255,213,134,0.18);
+  --secondary-strong: rgba(255,213,134,0.32);
+
+  /* 10% — accent (purple), used sparingly */
+  --accent:       #756e9e;
+  --accent-hover: #5f5882;
+
+  --text-primary:   #2b1f0e;
   --text-secondary: #756e9e;
-  --text-tertiary:  #faf7f2;
   --text-heading:   #2b1f0e;
   --text-body:      #5c4a35;
   --text-muted:     #9c866c;
@@ -30,88 +44,103 @@ body {
   --border:       rgba(160,120,70,0.15);
   --border-solid: #e0d0be;
 
-  --accent:       #ffd586;
-  --accent-hover: #FF8C00;
-  --purple:       #756e9e;
-
   --shadow-sm:    0 2px 8px rgba(80,50,20,0.07);
   --shadow-md:    0 6px 24px rgba(80,50,20,0.10);
   --shadow-lg:    0 16px 48px rgba(80,50,20,0.13);
+
+  /* Typography scale */
+  --title-size:    45px;   /* 1.5x of old 30px */
+  --title-size-lg: 51px;   /* 1.5x of old 34px hero pages */
+  --nav-h:         72px;
 }
 
-/* ── DARK MODE ──────────────────────────────────────── */
+/* ── DARK MODE — 60% gold / 30% cream / 10% purple ── */
 [data-theme="dark"] {
-  --bg-page:      #13100d;
-  --bg-card:      #1e1812;
-  --bg-alt:       #261f16;
-  --bg-input:     #2a2219;
-  --bg-nav:       #181310;
+  --bg-page:      #14110d;
+  --bg-card:      #1d1812;
+  --bg-alt:       #251e16;
+  --bg-input:     #271f17;
+  --bg-nav:       #181410;
+
+  --secondary:        #faf7f2;
+  --secondary-soft:   rgba(250,247,242,0.07);
+  --secondary-strong: rgba(250,247,242,0.14);
+
+  --accent:       #9d97c8;
+  --accent-hover: #b3aedb;
 
   --text-primary:   #ffd586;
-  --text-secondary: #756e9e;
-  --text-tertiary:  #faf7f2;
+  --text-secondary: #c9c4e8;
   --text-heading:   #ffd586;
-  --text-body:      #faf7f2;
-  --text-muted:     #9c866c;
+  --text-body:      #f0e8da;
+  --text-muted:     #b3a489;
 
   --border:       rgba(255,213,134,0.10);
   --border-solid: rgba(255,213,134,0.18);
-
-  --accent:       #ffd586;
-  --accent-hover: #FF8C00;
-  --purple:       #9d97c8;
 
   --shadow-sm:    0 2px 8px rgba(0,0,0,0.3);
   --shadow-md:    0 6px 24px rgba(0,0,0,0.4);
   --shadow-lg:    0 16px 48px rgba(0,0,0,0.5);
 }
 
-/* Apply variables globally */
-body {
-  background: var(--bg-page);
-  color: var(--text-body);
-}
+body { background: var(--bg-page); color: var(--text-body); }
 
-/* ── GLOBAL COMPONENT RESETS using CSS vars ─────────── */
-nav {
-  background: var(--bg-nav) !important;
-  border-bottom-color: var(--border) !important;
-}
-
-.ss-card {
-  background: var(--bg-card) !important;
-  border-color: var(--border) !important;
-}
-
+/* Generic component resets */
+nav { background: var(--bg-nav) !important; border-bottom-color: var(--border) !important; }
+.ss-card { background: var(--bg-card) !important; border-color: var(--border) !important; }
 input, select, textarea {
   background: var(--bg-input) !important;
   color: var(--text-body) !important;
   border-color: var(--border-solid) !important;
 }
+input::placeholder, textarea::placeholder { color: var(--text-muted) !important; }
 
-input::placeholder, textarea::placeholder {
-  color: var(--text-muted) !important;
+/* ══════════════════════════════════════════════════
+   SHARED PAGE TITLE SYSTEM (1.5x larger globally)
+═══════════════════════════════════════════════════ */
+.page-title {
+  font-family: 'Bagel Fat One', cursive;
+  font-size: var(--title-size);
+  color: var(--text-heading);
+  line-height: 1.05;
+  margin-bottom: 6px;
+}
+.page-title-lg {
+  font-family: 'Bagel Fat One', cursive;
+  font-size: var(--title-size-lg);
+  color: var(--text-heading);
+  line-height: 1.05;
+  margin-bottom: 8px;
+}
+.page-subtitle {
+  font-family: 'Baloo Tamma 2', sans-serif;
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--text-muted);
 }
 
-/* ── TYPOGRAPHY GLOBAL HELPERS ──────────────────────── */
+@media (max-width: 767px) {
+  :root {
+    --title-size:    32px;
+    --title-size-lg: 36px;
+  }
+}
+
+/* Typography helpers */
 .t-primary   { color: var(--text-primary) !important; }
 .t-secondary { color: var(--text-secondary) !important; }
-.t-tertiary  { color: var(--text-tertiary) !important; }
-.t-heading   { color: var(--text-heading) !important; }
 .t-muted     { color: var(--text-muted) !important; }
+.t-heading   { color: var(--text-heading) !important; }
 
-/* ── TRANSITIONS ────────────────────────────────────── */
 *, nav, .ss-card, input, select, textarea, button {
   transition-property: background, color, border-color, box-shadow, opacity, transform;
   transition-duration: 0.22s;
   transition-timing-function: cubic-bezier(0.4,0,0.2,1);
 }
 
-/* ── SAVE TOAST ─────────────────────────────────────── */
 #ss-save-toast {
   position: fixed; bottom: 28px; right: 28px; z-index: 999;
-  background: var(--text-primary);
-  color: #2b1f0e;
+  background: var(--accent); color: #fff;
   font-family: 'Baloo Tamma 2', sans-serif;
   font-size: 13.5px; font-weight: 700;
   padding: 12px 22px; border-radius: 30px;
@@ -120,12 +149,30 @@ input::placeholder, textarea::placeholder {
   transition: opacity 0.3s;
 }
 
-/* ── SCROLLBAR ──────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-alt); }
 ::-webkit-scrollbar-thumb { background: var(--border-solid); border-radius: 99px; }
 
-/* ── REDUCED MOTION ─────────────────────────────────── */
+/* ══════════════════════════════════════════════════
+   GLOBAL RESPONSIVE HELPERS
+═══════════════════════════════════════════════════ */
+.ss-page-wrapper {
+  padding: 36px 36px 80px;
+}
+.ss-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.ss-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.ss-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+@media (max-width: 1199px) {
+  .ss-grid-3 { grid-template-columns: repeat(2, 1fr); }
+  .ss-grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 767px) {
+  .ss-page-wrapper { padding: 20px 16px 56px; }
+  .ss-grid-2, .ss-grid-3, .ss-grid-4 { grid-template-columns: 1fr !important; }
+  .page-title { font-size: 32px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
