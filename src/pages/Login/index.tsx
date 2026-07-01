@@ -4,10 +4,8 @@ import { motion } from 'framer-motion'
 import { Sparkles, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
 
 const FF = 'Baloo Tamma 2, sans-serif'
-const FH = 'Bagel Fat One, cursive'
 
-// ── Google "G" logo (official 4-colour SVG, inline) ──────────────────────────
-function GoogleIcon({ size = 18 }: { size?: number }) {
+function GoogleIcon({ size = 19 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24">
       <path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.2-2.27H12v4.51h6.47c-.28 1.48-1.13 2.73-2.4 3.58v2.97h3.88c2.27-2.09 3.58-5.17 3.58-8.79z"/>
@@ -18,58 +16,26 @@ function GoogleIcon({ size = 18 }: { size?: number }) {
   )
 }
 
-// ── Reusable input ─────────────────────────────────────────────────────────────
-function FieldInput({
-  label, icon: Icon, type = 'text', value, onChange, placeholder, error, rightSlot,
-}: {
-  label: string
-  icon: React.ElementType
-  type?: string
-  value: string
-  onChange: (v: string) => void
-  placeholder: string
-  error?: string
-  rightSlot?: React.ReactNode
+function FieldInput({ label, icon: Icon, type = 'text', value, onChange, placeholder, error, rightSlot }: {
+  label: string; icon: React.ElementType; type?: string; value: string
+  onChange: (v: string) => void; placeholder: string; error?: string; rightSlot?: React.ReactNode
 }) {
   return (
-    <div style={{ marginBottom: 18 }}>
-      <label style={{ fontFamily: FF, fontSize: 13.5, fontWeight: 700, color: 'var(--text-heading)', display: 'block', marginBottom: 7 }}>
-        {label}
-      </label>
+    <div style={{ marginBottom: 20 }}>
+      <label style={{ fontFamily: FF, fontSize: 14.5, fontWeight: 700, color: 'var(--text-heading)', display: 'block', marginBottom: 9 }}>{label}</label>
       <div style={{ position: 'relative' }}>
-        <Icon size={15} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-        <input
-          type={type}
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder={placeholder}
-          style={{
-            width: '100%', height: 46,
-            border: `1.5px solid ${error ? '#e03a3a' : 'var(--border-solid)'}`,
-            borderRadius: 12, padding: '0 14px 0 38px',
-            fontFamily: FF, fontSize: 14, color: 'var(--text-body)',
-            background: 'var(--bg-input)', outline: 'none',
-            transition: 'border-color 0.2s, box-shadow 0.2s',
-          }}
-          onFocus={e => {
-            if (!error) {
-              e.target.style.borderColor = 'var(--accent)'
-              e.target.style.boxShadow = '0 0 0 3px rgba(255,213,134,0.2)'
-            }
-          }}
-          onBlur={e => {
-            if (!error) {
-              e.target.style.borderColor = 'var(--border-solid)'
-              e.target.style.boxShadow = 'none'
-            }
-          }}
+        <Icon size={16} style={{ position: 'absolute', left: 15, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+        <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+          style={{ width: '100%', height: 48, border: `1.5px solid ${error ? '#e03a3a' : 'var(--border-solid)'}`, borderRadius: 13, padding: '0 16px 0 42px', fontFamily: FF, fontSize: 14.5, color: 'var(--text-body)', background: 'var(--bg-input)', outline: 'none', transition: 'border-color 0.2s, box-shadow 0.2s' }}
+          onFocus={e => { if (!error) { e.target.style.borderColor = 'var(--secondary)'; e.target.style.boxShadow = '0 0 0 3px var(--secondary-soft)' } }}
+          onBlur={e  => { if (!error) { e.target.style.borderColor = 'var(--border-solid)'; e.target.style.boxShadow = 'none' } }}
         />
         {rightSlot}
       </div>
       {error && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 6 }}>
-          <AlertCircle size={12} style={{ color: '#e03a3a' }} />
-          <span style={{ fontFamily: FF, fontSize: 12, color: '#e03a3a' }}>{error}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 7 }}>
+          <AlertCircle size={13} style={{ color: '#e03a3a' }} />
+          <span style={{ fontFamily: FF, fontSize: 12.5, color: '#e03a3a' }}>{error}</span>
         </div>
       )}
     </div>
@@ -84,7 +50,7 @@ export default function Login() {
   const [errors,   setErrors]   = useState<{ email?: string; password?: string }>({})
   const [loading,  setLoading]  = useState(false)
 
-  function validate(): boolean {
+  function validate() {
     const next: typeof errors = {}
     if (!email.trim()) next.email = 'Email is required'
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) next.email = 'Enter a valid email address'
@@ -97,166 +63,91 @@ export default function Login() {
     e.preventDefault()
     if (!validate()) return
     setLoading(true)
-    // TODO: connect to real auth endpoint here (POST /api/auth/login)
-    setTimeout(() => {
-      setLoading(false)
-      navigate('/')
-    }, 900)
+    // TODO: POST /api/auth/login
+    setTimeout(() => { setLoading(false); navigate('/') }, 900)
   }
 
-  function handleGoogleSignIn() {
-    // TODO: wire up real Google OAuth flow here (e.g. Google Identity Services / Firebase Auth)
-    console.log('Google Sign In clicked — connect OAuth provider here')
+  function handleGoogle() {
+    // TODO: Google OAuth
+    console.log('Google Sign In — connect OAuth here')
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
-      style={{ background: 'var(--bg-page)', minHeight: '100vh', padding: '64px 24px 80px' }}
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
+      style={{ background: 'var(--bg-page)', minHeight: '100vh', padding: '70px 24px 80px' }}
     >
-      <div style={{ maxWidth: 440, margin: '0 auto', textAlign: 'center' }}>
+      <div style={{ maxWidth: 460, margin: '0 auto', textAlign: 'center' }}>
 
-        {/* Badge */}
-        <motion.div
-          initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.36 }}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            borderRadius: 30, padding: '5px 16px', marginBottom: 18,
-            background: 'rgba(255,213,134,0.18)',
-            fontFamily: FF, fontSize: 11, fontWeight: 700, letterSpacing: '0.10em',
-            color: 'var(--accent-hover)',
-          }}
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.36 }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 7, borderRadius: 30, padding: '6px 18px', marginBottom: 20, background: 'var(--secondary-soft)', fontFamily: FF, fontSize: 12, fontWeight: 700, letterSpacing: '0.10em', color: 'var(--accent)' }}
         >
-          <Sparkles size={12} /> STYLESENSE
+          <Sparkles size={13} style={{ color: 'var(--secondary)' }} /> STYLESENSE
         </motion.div>
 
-        {/* Heading */}
-        <motion.h1
-          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.36, delay: 0.06 }}
-          style={{ fontFamily: FH, fontSize: 36, color: 'var(--text-heading)', marginBottom: 8 }}
-        >
-          Welcome Back
-        </motion.h1>
-        <motion.p
-          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.36, delay: 0.1 }}
-          style={{ fontFamily: FF, fontSize: 14, color: 'var(--text-muted)', marginBottom: 32 }}
-        >
-          Sign in to your digital closet
-        </motion.p>
+        <motion.h1 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.36, delay: 0.06 }}
+          className="page-title-lg" style={{ marginBottom: 9 }}
+        >Welcome Back</motion.h1>
 
-        {/* Form card */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.14 }}
-          style={{
-            background: 'var(--bg-card)', border: '1px solid var(--border)',
-            borderRadius: 20, padding: '32px 28px', textAlign: 'left',
-            boxShadow: 'var(--shadow-sm)',
-          }}
-        >
-          {/* Google button */}
-          <motion.button
-            type="button"
-            whileHover={{ scale: 1.01, y: -1 }} whileTap={{ scale: 0.98 }}
-            onClick={handleGoogleSignIn}
-            style={{
-              width: '100%', height: 48,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-              background: 'var(--bg-card)', border: '1.5px solid var(--border-solid)',
-              borderRadius: 30, cursor: 'pointer',
-              fontFamily: FF, fontSize: 14.5, fontWeight: 700, color: 'var(--text-heading)',
-              transition: 'border-color 0.2s, box-shadow 0.2s',
-              marginBottom: 20,
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.borderColor = 'var(--accent-hover)'
-              e.currentTarget.style.boxShadow = '0 4px 14px rgba(255,140,0,0.15)'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.borderColor = 'var(--border-solid)'
-              e.currentTarget.style.boxShadow = 'none'
-            }}
-          >
-            <GoogleIcon /> Continue with Google
-          </motion.button>
+        <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.36, delay: 0.10 }}
+          className="page-subtitle" style={{ marginBottom: 34 }}
+        >Sign in to your digital closet</motion.p>
 
-          {/* Divider */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.14 }}
+          style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 22, padding: '34px 30px', textAlign: 'left', boxShadow: 'var(--shadow-sm)' }}
+        >
+          {/* Google */}
+          <motion.button type="button" whileHover={{ scale: 1.01, y: -1 }} whileTap={{ scale: 0.98 }}
+            onClick={handleGoogle}
+            style={{ width: '100%', height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 11, background: 'var(--bg-card)', border: '1.5px solid var(--border-solid)', borderRadius: 30, cursor: 'pointer', fontFamily: FF, fontSize: 15, fontWeight: 700, color: 'var(--text-heading)', transition: 'border-color 0.2s, box-shadow 0.2s', marginBottom: 22 }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--secondary)'; e.currentTarget.style.boxShadow = '0 4px 14px var(--secondary-soft)' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-solid)'; e.currentTarget.style.boxShadow = 'none' }}
+          ><GoogleIcon /> Continue with Google</motion.button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 22 }}>
             <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-            <span style={{ fontFamily: FF, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.10em', color: 'var(--text-muted)' }}>OR</span>
+            <span style={{ fontFamily: FF, fontSize: 11, fontWeight: 700, letterSpacing: '0.10em', color: 'var(--text-muted)' }}>OR</span>
             <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit}>
-            <FieldInput
-              label="Email" icon={Mail} type="email"
-              value={email} onChange={setEmail}
-              placeholder="you@example.com"
-              error={errors.email}
-            />
-            <FieldInput
-              label="Password" icon={Lock}
-              type={showPwd ? 'text' : 'password'}
-              value={password} onChange={setPassword}
-              placeholder="••••••••"
-              error={errors.password}
+            <FieldInput label="Email" icon={Mail} type="email" value={email} onChange={setEmail} placeholder="you@example.com" error={errors.email} />
+            <FieldInput label="Password" icon={Lock} type={showPwd ? 'text' : 'password'} value={password} onChange={setPassword} placeholder="••••••••" error={errors.password}
               rightSlot={
                 <button type="button" onClick={() => setShowPwd(p => !p)}
-                  style={{
-                    position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)',
-                    background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2,
-                  }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent-hover)' }}
+                  style={{ position: 'absolute', right: 15, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 3 }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)' }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)' }}
                 >
-                  {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+                  {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               }
             />
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 18, marginTop: -8 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 22, marginTop: -8 }}>
               <Link to="/forgot-password"
-                style={{ fontFamily: FF, fontSize: 12.5, fontWeight: 600, color: 'var(--accent-hover)', textDecoration: 'none' }}
+                style={{ fontFamily: FF, fontSize: 13.5, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.textDecoration = 'underline' }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.textDecoration = 'none' }}
-              >
-                Forgot Password?
-              </Link>
+              >Forgot Password?</Link>
             </div>
 
-            <motion.button
-              type="submit"
-              whileHover={{ scale: 1.01, y: -1 }} whileTap={{ scale: 0.98 }}
+            <motion.button type="submit" whileHover={{ scale: 1.01, y: -1 }} whileTap={{ scale: 0.98 }}
               disabled={loading}
-              style={{
-                width: '100%', height: 50,
-                background: loading ? 'var(--text-muted)' : '#2b1f0e',
-                color: '#fff', border: 'none', borderRadius: 30,
-                fontFamily: FF, fontSize: 15, fontWeight: 700,
-                cursor: loading ? 'wait' : 'pointer',
-                transition: 'background 0.2s',
-              }}
+              style={{ width: '100%', height: 52, background: loading ? 'var(--text-muted)' : 'var(--accent)', color: '#fff', border: 'none', borderRadius: 30, fontFamily: FF, fontSize: 15.5, fontWeight: 700, cursor: loading ? 'wait' : 'pointer', transition: 'background 0.2s' }}
               onMouseEnter={e => { if (!loading) e.currentTarget.style.background = 'var(--accent-hover)' }}
-              onMouseLeave={e => { e.currentTarget.style.background = loading ? 'var(--text-muted)' : '#2b1f0e' }}
-            >
-              {loading ? 'Signing in…' : 'Sign In'}
-            </motion.button>
+              onMouseLeave={e => { e.currentTarget.style.background = loading ? 'var(--text-muted)' : 'var(--accent)' }}
+            >{loading ? 'Signing in…' : 'Sign In'}</motion.button>
           </form>
         </motion.div>
 
-        {/* Footer link */}
-        <motion.p
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4, delay: 0.3 }}
-          style={{ fontFamily: FF, fontSize: 13.5, color: 'var(--text-muted)', marginTop: 24 }}
+        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4, delay: 0.3 }}
+          style={{ fontFamily: FF, fontSize: 14, color: 'var(--text-muted)', marginTop: 26 }}
         >
           Don't have an account?{' '}
-          <Link to="/signup"
-            style={{ color: 'var(--accent-hover)', fontWeight: 700, textDecoration: 'none' }}
+          <Link to="/signup" style={{ color: 'var(--accent)', fontWeight: 700, textDecoration: 'none' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.textDecoration = 'underline' }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.textDecoration = 'none' }}
-          >
-            Sign Up
-          </Link>
+          >Sign Up</Link>
         </motion.p>
       </div>
     </motion.div>
