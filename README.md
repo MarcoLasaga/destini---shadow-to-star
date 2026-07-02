@@ -1,73 +1,96 @@
-# React + TypeScript + Vite
+## Intro (Ceana)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Woah-oh-oh-oh-oh woah
 
-Currently, two official plugins are available:
+## Verse 1 (Shiekah)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Hiding in the dark, ang dilim ng paligid
+Eyes on the ground, 'di lang makakitang inggit
+Whispers in the air, sinong maglalakas-loob
+Dreams are buried deep, now we’re breaking the globe
 
-## React Compiler
+Nasa dilim ako noon
+Shadows whispered all alone
+But now the fire's in my bones
+Watch me rise, I'm taking the throne
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Interlude (Ceana)
 
-## Expanding the ESLint configuration
+And now the stage is mine
+Oh, can you feel the fire?
+I’m breaking all the lines
+Soaring higher and higher
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Pre-Chorus (Shiekah)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+'Di na takot, 'di na magtatago
+Ready na ako, mundo'y magbabago
+Oh, hear me loud, no more echo
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Chorus (Shiekah)
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+From shadow to star, 'di mo mapipigilan
+Lahat ng ilaw, sa akin lang nagniningning
+From shadow to star, brighter than the sun
+No chains can hold me, my moment has begun
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Verse 2 (Ceana, Shiekah)
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+I'm a spotlight hunter, shining stronger
+Hinding-hindi na magtatago
+Now the spotlight's mine to follow (Woah, woah)
+No fear, no blunder
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Verse 3 (Shiekah)
+
+Diretso sa bawat hakbang, puso ko'y palaban
+Kung nakinig ka lang sana, 'di ka nag-aabang
+Diretso sa bawat hakbang, puso ko’y palaban
+Kung nakinig ka lang sana, 'di ka nag-aabang
+
+## Verse 4 (Ceana)
+
+They thought I’d stay low
+Thought I'd lay low
+Ngayon ako'y rocketship, tuloy-tuloy ang show
+
+Eyes on me, spotlight beam
+My time has arrived
+Ang liwanag ko'y eternal
+Never dim, never die
+
+From ashes I rose, phoenix in my soul
+Built my kingdom, now I’m in control
+Bawat sugat naging badge of honor
+No retreat, just conquer
+
+I'm a fighter, every bruise, every scar
+Made me who I am so far
+I'm a diamond born from the dark (From the dark)
+
+## Pre-Chorus (Shiekah)
+
+'Di na takot, 'di na magtatago
+Ready na ako, mundo'y magbabago
+Oh, hear me loud, no more echo
+
+## Chorus (Shiekah)
+
+From shadow to star, 'di mo mapipigilan
+Lahat ng ilaw, sa akin lang nagniningning
+From shadow to star, brighter than the sun
+No chains can hold me, my moment has begun
+
+## Bridge (Shiekah, Ceana)
+
+Lahat ng sugat, healed in time
+Wounds turned gold, they shine
+Ang mundo ko ngayon may himig
+Hear my anthem, hear my rhyme
+
+## Chorus (Shiekah)
+
+From shadow to star, 'di mo mapipigilan ('Di mo mapipigilan)
+Lahat ng ilaw, sa akin lang nagniningning (Nagniningning)
+From shadow to star, brighter than the sun
+No chains can hold me, my moment has begun
