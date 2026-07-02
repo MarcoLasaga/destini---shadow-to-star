@@ -2,8 +2,9 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { SettingsProvider } from './context/SettingsContext'
 import { WardrobeProvider } from './context/WardrobeContext'
-import { SettingsProvider } from './context'
+import { AuthProvider } from './context/AuthContext'
 import './index.css'
 import App from './App'
 
@@ -14,9 +15,11 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
         <SettingsProvider>
-          <WardrobeProvider>
-            <App />
-          </WardrobeProvider>
+          <AuthProvider>
+            <WardrobeProvider>
+              <App />
+            </WardrobeProvider>
+          </AuthProvider>
         </SettingsProvider>
       </QueryClientProvider>
     </BrowserRouter>
