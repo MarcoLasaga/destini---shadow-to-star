@@ -1,5 +1,8 @@
 import { useState, type ReactNode } from 'react'
-import { Ctx, type UserProfile } from './AuthContextBase'
+import { Ctx } from './AuthContextBase'
+import type { UserProfile, UserRole, AuthCtx } from './AuthContextBase'
+
+export type { UserRole, UserProfile, AuthCtx }
 
 const MOCK_USER: UserProfile = {
   name:           'Melgeri',
@@ -13,23 +16,22 @@ const MOCK_USER: UserProfile = {
   styles:         ['Casual'],
   colors:         ['Black', 'White'],
   occasions:      ['Everyday'],
+  role:           'admin',          
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Start as logged in with mock data so the profile page is immediately visible
   const [isLoggedIn, setIsLoggedIn] = useState(true)
   const [user, setUser]             = useState<UserProfile | null>(MOCK_USER)
 
-  function login(u: UserProfile)                  { setUser(u); setIsLoggedIn(true) }
-  function logout()                               { setUser(null); setIsLoggedIn(false) }
-  function updateUser(patch: Partial<UserProfile>){ setUser(prev => prev ? { ...prev, ...patch } : prev) }
+  const isAdmin = isLoggedIn && user?.role === 'admin'
+
+  function login(u: UserProfile)                   { setUser(u); setIsLoggedIn(true) }
+  function logout()                                { setUser(null); setIsLoggedIn(false) }
+  function updateUser(patch: Partial<UserProfile>) { setUser(prev => prev ? { ...prev, ...patch } : prev) }
 
   return (
-    <Ctx.Provider value={{ isLoggedIn, user, login, logout, updateUser }}>
+    <Ctx.Provider value={{ isLoggedIn, user, isAdmin, login, logout, updateUser }}>
       {children}
     </Ctx.Provider>
   )
 }
-
-// `useAuth` is provided in a separate module to keep this file's exports
-// focused on the provider and types (improves fast refresh behavior).

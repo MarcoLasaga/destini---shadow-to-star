@@ -23,6 +23,7 @@ import TermsOfService from '../pages/TermsOfService'
 import AdminLayout from '../admin/AdminLayout'
 import AdminDashboard from '../admin/pages/Dashboard'
 import AdminUsers from '../admin/pages/Users'
+import AdminWardrobeData from '../admin/pages/WardrobeData'
 import AdminComingSoon from '../admin/pages/AdminComingSoon'
 
 export default function AppRoutes() {
@@ -53,7 +54,7 @@ export default function AppRoutes() {
         <Route index                  element={<AdminDashboard />} />
         <Route path="dashboard"       element={<AdminDashboard />} />
         <Route path="users"           element={<AdminUsers />} />
-        <Route path="wardrobe"        element={<AdminComingSoon title="Wardrobe Data" />} />
+        <Route path="wardrobe"        element={<AdminWardrobeData />} />
         <Route path="analytics"       element={<AdminComingSoon title="Analytics" />} />
         <Route path="recommendations" element={<AdminComingSoon title="Recommendations" />} />
         <Route path="performance"     element={<AdminComingSoon title="Performance" />} />
