@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Sparkles, User, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { User, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
 
 const FF = 'Baloo Tamma 2, sans-serif'
 
@@ -95,21 +95,15 @@ export default function Signup() {
     >
       <div style={{ maxWidth: 460, margin: '0 auto', textAlign: 'center' }}>
 
-        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.36 }}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 7, borderRadius: 30, padding: '6px 18px', marginBottom: 20, background: 'var(--secondary-soft)', fontFamily: FF, fontSize: 12, fontWeight: 700, letterSpacing: '0.10em', color: 'var(--accent)' }}
-        >
-          <Sparkles size={13} style={{ color: 'var(--secondary)' }} /> STYLESENSE
-        </motion.div>
-
-        <motion.h1 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.36, delay: 0.06 }}
+        <motion.h1 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.36, delay: 0 }}
           className="page-title-lg" style={{ marginBottom: 9 }}
         >Create Account</motion.h1>
 
-        <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.36, delay: 0.10 }}
+        <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.36, delay: 0.06 }}
           className="page-subtitle" style={{ marginBottom: 34 }}
         >Start organizing your wardrobe</motion.p>
 
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.14 }}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.12 }}
           style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 22, padding: '34px 30px', textAlign: 'left', boxShadow: 'var(--shadow-sm)' }}
         >
           {/* Google */}

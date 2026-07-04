@@ -24,6 +24,9 @@ import AdminLayout from '../admin/AdminLayout'
 import AdminDashboard from '../admin/pages/Dashboard'
 import AdminUsers from '../admin/pages/Users'
 import AdminWardrobeData from '../admin/pages/WardrobeData'
+import AdminAnalytics from '../admin/pages/AdminAnalytics'
+import Recommendations from '../admin/pages/Recommendations'
+import Performance from '../admin/pages/Performance'
 import AdminComingSoon from '../admin/pages/AdminComingSoon'
 
 export default function AppRoutes() {
@@ -55,9 +58,9 @@ export default function AppRoutes() {
         <Route path="dashboard"       element={<AdminDashboard />} />
         <Route path="users"           element={<AdminUsers />} />
         <Route path="wardrobe"        element={<AdminWardrobeData />} />
-        <Route path="analytics"       element={<AdminComingSoon title="Analytics" />} />
-        <Route path="recommendations" element={<AdminComingSoon title="Recommendations" />} />
-        <Route path="performance"     element={<AdminComingSoon title="Performance" />} />
+        <Route path="analytics"       element={<AdminAnalytics />} />
+        <Route path="recommendations" element={<Recommendations />} />
+        <Route path="performance"     element={<Performance />} />
         <Route path="research"        element={<AdminComingSoon title="Research Analytics" />} />
         <Route path="thesis"          element={<AdminComingSoon title="Thesis Contributions" />} />
       </Route>

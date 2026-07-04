@@ -77,33 +77,20 @@ export default function Home() {
 
       {/* ── HERO ── */}
       <section style={{ textAlign: 'center', maxWidth: 820, margin: '0 auto', padding: '90px 24px 70px' }}>
-        <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={0}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8, borderRadius: 30,
-            padding: '6px 18px', marginBottom: 34,
-            border: '1.5px solid var(--secondary)', color: 'var(--accent)',
-            background: 'var(--secondary-soft)',
-            fontFamily: S.ff, fontSize: 12, fontWeight: 700, letterSpacing: '0.10em',
-          }}
-        >
-          <Sparkles size={14} style={{ color: 'var(--secondary)' }} />
-          YOUR AI WARDROBE ASSISTANT
-        </motion.div>
-
-        <motion.h1 variants={fadeUp} initial="hidden" animate="visible" custom={1}
+        <motion.h1 variants={fadeUp} initial="hidden" animate="visible" custom={0}
           style={{ fontFamily: S.fh, fontSize: 'clamp(54px,7vw,84px)', lineHeight: 1.06, color: 'var(--text-heading)', marginBottom: 16 }}
         >
           Your Wardrobe.<br />
           <span style={{ color: 'var(--accent)' }}>Smarter.</span>
         </motion.h1>
 
-        <motion.p variants={fadeUp} initial="hidden" animate="visible" custom={2}
+        <motion.p variants={fadeUp} initial="hidden" animate="visible" custom={1}
           style={{ fontFamily: S.ff, fontSize: 17.5, fontWeight: 500, lineHeight: 1.65, color: 'var(--text-body)', maxWidth: 540, margin: '0 auto 44px' }}
         >
           Upload your clothes, generate outfits, plan your week, and discover new combinations without buying anything new.
         </motion.p>
 
-        <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={3}
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={2}
           style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}
         >
           <BtnPrimary to="/wardrobe">Start Building Wardrobe <ArrowRight size={17} /></BtnPrimary>
