@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { supabase } from '../../integrations/supabase/client'
+import { useAuth } from '../../context'
 
 const FF = 'Baloo Tamma 2, sans-serif'
 
@@ -44,11 +46,38 @@ function FieldInput({ label, icon: Icon, type = 'text', value, onChange, placeho
 
 export default function Login() {
   const navigate = useNavigate()
+  const { isLoggedIn, user: authUser, isAdmin } = useAuth()
+
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
   const [showPwd,  setShowPwd]  = useState(false)
-  const [errors,   setErrors]   = useState<{ email?: string; password?: string }>({})
+  const [errors,   setErrors]   = useState<{ email?: string; password?: string; general?: string }>({})
   const [loading,  setLoading]  = useState(false)
+
+  useEffect(() => {
+    if (isLoggedIn && authUser) {
+      if (isAdmin) {
+        navigate('/admin')
+      } else {
+        navigate('/wardrobe')
+      }
+    }
+  }, [isLoggedIn, authUser, isAdmin, navigate])
+
+  function getErrorMessage(error: any): string {
+    if (!error) return 'An unknown error occurred'
+    if (typeof error === 'string') return error
+    if (error instanceof Error) return error.message
+    if (typeof error === 'object') {
+      if ('message' in error && error.message) return String(error.message)
+      if ('error_description' in error && error.error_description) return String(error.error_description)
+      if ('error' in error && typeof error.error === 'string') return error.error
+      
+      const str = error.toString ? error.toString() : ''
+      if (str && str !== '[object Object]') return str
+    }
+    return 'An error occurred. Please check the browser console for details.'
+  }
 
   function validate() {
     const next: typeof errors = {}
@@ -59,17 +88,60 @@ export default function Login() {
     return Object.keys(next).length === 0
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!validate()) return
     setLoading(true)
-    // TODO: POST /api/auth/login
-    setTimeout(() => { setLoading(false); navigate('/') }, 900)
+    setErrors(prev => ({ ...prev, general: undefined }))
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (error) {
+        setErrors(prev => ({ ...prev, general: getErrorMessage(error) }))
+        setLoading(false)
+      }
+    } catch (err: any) {
+      setErrors(prev => ({ ...prev, general: getErrorMessage(err) }))
+      setLoading(false)
+    }
   }
 
-  function handleGoogle() {
-    // TODO: Google OAuth
-    console.log('Google Sign In — connect OAuth here')
+  async function handleGoogle() {
+    setLoading(true)
+    setErrors(prev => ({ ...prev, general: undefined }))
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin
+        }
+      })
+      if (error) throw error
+    } catch (err: any) {
+      setErrors(prev => ({ ...prev, general: getErrorMessage(err) }))
+      setLoading(false)
+    }
+  }
+
+  async function handleFacebook() {
+    setLoading(true)
+    setErrors(prev => ({ ...prev, general: undefined }))
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'facebook',
+        options: {
+          redirectTo: window.location.origin
+        }
+      })
+      if (error) throw error
+    } catch (err: any) {
+      setErrors(prev => ({ ...prev, general: getErrorMessage(err) }))
+      setLoading(false)
+    }
   }
 
   return (
@@ -89,13 +161,40 @@ export default function Login() {
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.12 }}
           style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 22, padding: '34px 30px', textAlign: 'left', boxShadow: 'var(--shadow-sm)' }}
         >
-          {/* Google */}
-          <motion.button type="button" whileHover={{ scale: 1.01, y: -1 }} whileTap={{ scale: 0.98 }}
-            onClick={handleGoogle}
-            style={{ width: '100%', height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 11, background: 'var(--bg-card)', border: '1.5px solid var(--border-solid)', borderRadius: 30, cursor: 'pointer', fontFamily: FF, fontSize: 15, fontWeight: 700, color: 'var(--text-heading)', transition: 'border-color 0.2s, box-shadow 0.2s', marginBottom: 22 }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--secondary)'; e.currentTarget.style.boxShadow = '0 4px 14px var(--secondary-soft)' }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-solid)'; e.currentTarget.style.boxShadow = 'none' }}
-          ><GoogleIcon /> Continue with Google</motion.button>
+          {errors.general && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'rgba(224,58,58,0.1)', borderRadius: 10, marginBottom: 18 }}>
+              <AlertCircle size={16} style={{ color: '#e03a3a', flexShrink: 0 }} />
+              <span style={{ fontFamily: FF, fontSize: 13, color: '#e03a3a', fontWeight: 600 }}>{errors.general}</span>
+            </div>
+          )}
+
+          {/* Social OAuth Buttons */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 22 }}>
+            {/* Google */}
+            <motion.button type="button" whileHover={{ scale: 1.01, y: -1 }} whileTap={{ scale: 0.98 }}
+              onClick={handleGoogle}
+              disabled={loading}
+              style={{ height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, background: 'var(--bg-card)', border: '1.5px solid var(--border-solid)', borderRadius: 30, cursor: 'pointer', fontFamily: FF, fontSize: 14.5, fontWeight: 700, color: 'var(--text-heading)', transition: 'all 0.2s' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--secondary)'; e.currentTarget.style.boxShadow = '0 4px 14px var(--secondary-soft)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-solid)'; e.currentTarget.style.boxShadow = 'none' }}
+            >
+              <GoogleIcon /> Google
+            </motion.button>
+
+            {/* Facebook */}
+            <motion.button type="button" whileHover={{ scale: 1.01, y: -1 }} whileTap={{ scale: 0.98 }}
+              onClick={handleFacebook}
+              disabled={loading}
+              style={{ height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, background: 'var(--bg-card)', border: '1.5px solid var(--border-solid)', borderRadius: 30, cursor: 'pointer', fontFamily: FF, fontSize: 14.5, fontWeight: 700, color: 'var(--text-heading)', transition: 'all 0.2s' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--secondary)'; e.currentTarget.style.boxShadow = '0 4px 14px var(--secondary-soft)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-solid)'; e.currentTarget.style.boxShadow = 'none' }}
+            >
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="#1877F2">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+              </svg>
+              Facebook
+            </motion.button>
+          </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 22 }}>
             <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
