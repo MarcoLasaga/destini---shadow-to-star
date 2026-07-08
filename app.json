@@ -29,7 +29,8 @@
         {
           "locationWhenInUsePermission": "StyleSense uses your location to show local weather and outfit suggestions."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ]
   }
 }

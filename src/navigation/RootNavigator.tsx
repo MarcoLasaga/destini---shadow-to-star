@@ -2,9 +2,18 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import BottomTabNavigator from './BottomTabNavigator';
-import PlaceholderScreen from '../screen/PlaceholderScreen';
-import ClothingDetailsScreen from '../screen/ClothingDetailsScreen';
-import EditClothingScreen from '../screen/EditClothingScreen';
+import PlaceholderScreen from '../screens/PlaceholderScreen';
+import ClothingDetailsScreen from '../screens/ClothingDetailsScreen';
+import EditClothingScreen from '../screens/EditClothingScreen';
+import EditProfileScreen from '../screens/EditProfileScreen';
+import SavedOutfitsScreen from '../screens/SavedOutfitsScreen';
+import AnalyticsScreen from '../screens/AnalyticsScreen';
+import CookbookScreen from '../screens/CookbookScreen';
+import PackingScreen from '../screens/PackingScreen';
+import PackingTripDetailScreen from '../screens/PackingTripDetailScreen';
+import SettingsScreen from '../screens/SettingsScreen';
+import HelpScreen from '../screens/HelpScreen';
+import OutfitDetailsScreen from '../screens/OutfitDetailsScreen';
 import { RootStackParamList } from '../types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -31,14 +40,17 @@ export default function RootNavigator() {
         <Stack.Screen name="PlanDay" options={{ title: 'Plan Day' }}>
           {() => <PlaceholderScreen title="Plan Day" />}
         </Stack.Screen>
-        <Stack.Screen name="PackTrip" options={{ title: 'Pack Trip' }}>
-          {() => <PlaceholderScreen title="Pack Trip" />}
-        </Stack.Screen>
-        <Stack.Screen name="Analytics" options={{ title: 'Wardrobe Analytics' }}>
-          {() => <PlaceholderScreen title="Wardrobe Analytics" />}
-        </Stack.Screen>
         <Stack.Screen name="ClothingDetails" component={ClothingDetailsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="EditClothing" component={EditClothingScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="SavedOutfits" component={SavedOutfitsScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Analytics" component={AnalyticsScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Cookbook" component={CookbookScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Packing" component={PackingScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="PackingTripDetail" component={PackingTripDetailScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Help" component={HelpScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="OutfitDetails" component={OutfitDetailsScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

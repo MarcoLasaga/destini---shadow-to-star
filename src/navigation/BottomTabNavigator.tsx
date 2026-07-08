@@ -1,9 +1,11 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import HomeScreen from '../screen/HomeScreen';
-import WardrobeScreen from '../screen/WardrobeScreen';
-import PlaceholderScreen from '../screen/PlaceholderScreen';
+import HomeScreen from '../screens/HomeScreen';
+import WardrobeScreen from '../screens/WardrobeScreen';
+import OutfitScreen from '../screens/OutfitScreen';
+import ProfileScreen from '../screens/ProfileScreen';
+import PlaceholderScreen from '../screens/PlaceholderScreen';
 import { MainTabParamList } from '../types';
 import { useAppTheme } from '../hooks/useAppTheme';
 
@@ -56,10 +58,10 @@ export default function BottomTabNavigator() {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Wardrobe" component={WardrobeScreen} />
-      <Tab.Screen name="Outfit">{() => <PlaceholderScreen title="Outfit" />}</Tab.Screen>
+      <Tab.Screen name="Outfit" component={OutfitScreen} />
       <Tab.Screen name="Discover">{() => <PlaceholderScreen title="Discover" />}</Tab.Screen>
       <Tab.Screen name="Planner">{() => <PlaceholderScreen title="Planner" />}</Tab.Screen>
-      <Tab.Screen name="Profile">{() => <PlaceholderScreen title="Account" />}</Tab.Screen>
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }

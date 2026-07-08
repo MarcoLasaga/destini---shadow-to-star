@@ -10,7 +10,7 @@ const SHORTCUTS = [
   { key: 'AddClothes', label: 'Add Clothes', icon: 'add', bg: '#FFE7BE', fg: '#C9852B' },
   { key: 'GenerateOutfit', label: 'Generate Outfit', icon: 'sparkles', bg: '#E3DEF2', fg: '#756E9E' },
   { key: 'PlanDay', label: 'Plan Day', icon: 'calendar', bg: '#D8EEE4', fg: '#3F9C77' },
-  { key: 'PackTrip', label: 'Pack Trip', icon: 'briefcase', bg: '#F7DAD6', fg: '#D4674F' },
+  { key: 'Packing', label: 'Pack Trip', icon: 'briefcase', bg: '#F7DAD6', fg: '#D4674F' },
 ] as const;
 
 export default function QuickShortcuts() {

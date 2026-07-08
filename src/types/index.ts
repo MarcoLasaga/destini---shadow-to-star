@@ -52,16 +52,75 @@ export interface ClothingItem {
   addedDate: string;
 }
 
+export interface UserProfile {
+  firstName: string;
+  lastName: string;
+  displayName: string;
+  email: string;
+  memberSince: string;
+  avatarUri: string | null;
+  clothingSize: string;
+  preferredSize: string;
+  location: string;
+}
+
+export interface SavedOutfit {
+  id: string;
+  name: string;
+  occasion: string;
+  image: string;
+  itemCount: number;
+  createdDate: string;
+}
+
+export interface PackingItem {
+  id: string;
+  label: string;
+  category: 'Clothing' | 'Footwear' | 'Accessories' | 'Toiletries' | 'Essentials';
+  checked: boolean;
+}
+
+export interface PackingTrip {
+  id: string;
+  destination: string;
+  lat: number;
+  lon: number;
+  startDate: string;
+  endDate: string;
+  checklist: PackingItem[];
+}
+
+export interface FaqItem {
+  id: string;
+  question: string;
+  answer: string;
+}
+
+export interface NotificationPrefs {
+  all: boolean;
+  laundryReminders: boolean;
+  outfitReminders: boolean;
+  weatherAlerts: boolean;
+  sustainabilityTips: boolean;
+}
+
 export type RootStackParamList = {
   MainTabs: undefined;
   Notifications: undefined;
   AddClothes: undefined;
   GenerateOutfit: undefined;
   PlanDay: undefined;
-  PackTrip: undefined;
-  Analytics: undefined;
   ClothingDetails: { id: string };
   EditClothing: { id: string };
+  EditProfile: undefined;
+  SavedOutfits: undefined;
+  Analytics: undefined;
+  Cookbook: undefined;
+  Packing: undefined;
+  PackingTripDetail: { tripId: string };
+  Settings: undefined;
+  Help: undefined;
+  OutfitDetails: { outfitId: string };
 };
 
 export type MainTabParamList = {
@@ -72,3 +131,60 @@ export type MainTabParamList = {
   Planner: undefined;
   Profile: undefined;
 };
+
+export type ClothingRole = 'Top' | 'Bottom' | 'Shoes' | 'Accessory' | 'Outerwear';
+
+export interface OutfitClothingItem {
+  id: string;
+  name: string;
+  category: ClothingRole;
+  image: string;
+}
+
+export interface ColorSwatch {
+  name: string;
+  hex: string;
+}
+
+export interface WhyReasonDetail {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+export interface FeedbackReview {
+  id: string;
+  stars: number;
+  quote: string;
+}
+
+export interface GeneratedOutfit {
+  id: string;
+  name: string;
+  occasionLabel: string;
+  badge?: string;
+  image: string;
+  matchPercent: number;
+  sustainPercent: number;
+  comfortRating: number;
+  weatherCondition: string;
+  weatherTempF: number;
+  location: string;
+  clothingItems: OutfitClothingItem[];
+  colorPalette: ColorSwatch[];
+  whyReasons: WhyReasonDetail[];
+  feedback: FeedbackReview[];
+  favorited: boolean;
+  saved: boolean;
+  worn: boolean;
+  wearNotes?: string;
+  wearRating?: number;
+}
+
+export interface RecommendationStats {
+  matchLabel: string;
+  weatherLabel: string;
+  styleLabel: string;
+  sustainLabel: string;
+  reuseLabel: string;
+}
