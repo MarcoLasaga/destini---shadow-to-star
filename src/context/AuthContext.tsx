@@ -2,8 +2,22 @@ import { useState, useEffect, type ReactNode } from 'react'
 import { Ctx } from './AuthContextBase'
 import type { UserProfile, UserRole, AuthCtx } from './AuthContextBase'
 import { supabase } from '../integrations/supabase/client'
+import { DEFAULT_AVATAR_URL } from '../utils/profileAvatar'
 
 export type { UserRole, UserProfile, AuthCtx }
+
+function normalizeStyles(styles?: string[] | null): string[] {
+  if (!styles?.length) return []
+  if (styles.length === 1 && styles[0].toLowerCase() === 'casual') return []
+  return styles.map(s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase())
+}
+
+function resolveSize(rawSize: string | null | undefined, styles: string[]): string {
+  const size = rawSize?.trim() ?? ''
+  if (!size) return ''
+  if (size === 'M' && styles.length === 0) return ''
+  return size
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -49,19 +63,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         memberSince = `${months[date.getMonth()]} ${date.getFullYear()}`
       }
 
+      const styles = normalizeStyles(profileData?.preferred_styles)
+      const size = resolveSize(profileData?.current_size, styles)
+
       return {
         name: profileData?.display_name || email.split('@')[0],
         email: email,
         memberSince: memberSince,
-        avatarUrl: avatarUrl,
-        preferredStyle: profileData?.preferred_styles?.[0] || 'Casual',
-        size: profileData?.current_size || 'M',
-        age: '22',
-        gender: 'Prefer-Not-To-Say',
-        bodyType: 'Average',
-        styles: profileData?.preferred_styles || ['Casual'],
-        colors: ['Black', 'White'],
-        occasions: ['Everyday'],
+        avatarUrl: avatarUrl || DEFAULT_AVATAR_URL,
+        preferredStyle: styles[0] ?? '',
+        size,
+        age: '',
+        gender: '',
+        bodyType: '',
+        styles,
+        colors: [],
+        occasions: [],
         role: role,
       }
     } catch (e) {
@@ -127,7 +144,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (patch.name !== undefined) dbUpdate.display_name = patch.name
     if (patch.size !== undefined) dbUpdate.current_size = patch.size
     if (patch.styles !== undefined) dbUpdate.preferred_styles = patch.styles
-    if (patch.avatarUrl !== undefined) dbUpdate.avatar_url = patch.avatarUrl
+    if (patch.avatarUrl !== undefined && patch.avatarUrl !== DEFAULT_AVATAR_URL) {
+      dbUpdate.avatar_url = patch.avatarUrl
+    }
     
     if (Object.keys(dbUpdate).length > 0) {
       await supabase

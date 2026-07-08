@@ -10,8 +10,13 @@
 ALTER TABLE public.profiles 
   ADD COLUMN IF NOT EXISTS display_name TEXT NOT NULL DEFAULT '',
   ADD COLUMN IF NOT EXISTS avatar_initial TEXT NOT NULL DEFAULT '?',
-  ADD COLUMN IF NOT EXISTS current_size TEXT NOT NULL DEFAULT 'M',
-  ADD COLUMN IF NOT EXISTS preferred_styles TEXT[] NOT NULL DEFAULT ARRAY['casual']::TEXT[];
+  ADD COLUMN IF NOT EXISTS current_size TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS preferred_styles TEXT[] NOT NULL DEFAULT '{}'::TEXT[];
+
+-- 1b. Use empty defaults for new accounts (no pre-selected size/style)
+ALTER TABLE public.profiles
+  ALTER COLUMN current_size SET DEFAULT '',
+  ALTER COLUMN preferred_styles SET DEFAULT '{}'::TEXT[];
 
 -- 2. Backfill display_name from existing full_name if present
 UPDATE public.profiles 
@@ -57,7 +62,7 @@ END $$;
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
-  INSERT INTO public.profiles (id, display_name, avatar_initial, avatar_url)
+  INSERT INTO public.profiles (id, display_name, avatar_initial, avatar_url, current_size, preferred_styles)
   VALUES (
     NEW.id,
     COALESCE(
@@ -73,7 +78,9 @@ BEGIN
     COALESCE(
       NEW.raw_user_meta_data->>'avatar_url',
       NEW.raw_user_meta_data->>'picture'
-    )
+    ),
+    '',
+    '{}'::TEXT[]
   )
   ON CONFLICT (id) DO UPDATE SET
     display_name = EXCLUDED.display_name,

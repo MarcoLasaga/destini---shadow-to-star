@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { useSettings } from '../../context/useSettings'
 import { useAuth } from '../../context/useAuth'
+import { resolveAvatarUrl } from '../../utils/profileAvatar'
 
 const FF = 'Baloo Tamma 2, sans-serif'
 const FH = 'Bagel Fat One, cursive'
@@ -89,7 +90,7 @@ export default function Navbar() {
     ? scrolled ? 'rgba(24,20,16,0.96)' : 'var(--bg-nav)'
     : scrolled ? 'rgba(250,247,242,0.94)' : 'var(--bg-nav)'
 
-  const avatarLetter = user?.name?.[0]?.toUpperCase() ?? '?'
+  const avatarSrc = resolveAvatarUrl(user?.avatarUrl)
 
   return (
     <>
@@ -244,12 +245,9 @@ export default function Navbar() {
               {/* Avatar */}
               <motion.button whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
                 onClick={() => navigate('/account')}
-                style={{ width: 40, height: 40, borderRadius: '50%', background: user?.avatarUrl ? 'transparent' : '#2b1f0e', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}
+                style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--bg-alt)', border: '1.5px solid var(--border-solid)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}
               >
-                {user?.avatarUrl
-                  ? <img src={user.avatarUrl} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : <span style={{ fontFamily: FH, fontSize: 17, color: '#fff', lineHeight: 1 }}>{avatarLetter}</span>
-                }
+                <img src={avatarSrc} alt={user?.name ?? 'Profile'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </motion.button>
 
               {/* Logout */}

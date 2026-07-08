@@ -6,12 +6,10 @@ import {
   Sun, Moon, Monitor, Key, Clock, Smartphone,
   LogOut, ChevronDown,
 } from 'lucide-react'
-import { useSettings, type Theme, type Visibility } from '../../context'
+import { useSettings, useAuth, type Theme, type Visibility } from '../../context'
 
 const FF = 'Baloo Tamma 2, sans-serif'
 const FH = 'Bagel Fat One, cursive'
-
-const IS_LOGGED_IN = false
 
 function SectionCard({ children }: { children: React.ReactNode }) {
   return (
@@ -157,6 +155,7 @@ const DATE_FMTS  = ['MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD']
 
 export default function Settings() {
   const navigate = useNavigate()
+  const { isLoggedIn } = useAuth()
   const s = useSettings()
   const setSetting = s.set
 
@@ -272,7 +271,7 @@ export default function Settings() {
       <motion.div custom={3} variants={sectionVariants} initial="hidden" animate="visible">
         <SectionCard>
           <SectionHeader icon={Shield} title="Security" subtitle="Protect your account and sessions." />
-          {IS_LOGGED_IN ? (
+          {isLoggedIn ? (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 13, marginBottom: 4 }}>
                 <SecurityCard icon={Key}        label="Change password"   />
@@ -318,7 +317,7 @@ export default function Settings() {
       <motion.div custom={4} variants={sectionVariants} initial="hidden" animate="visible">
         <SectionCard>
           <SectionHeader icon={Eye} title="Privacy" subtitle="Control what others can see about you." />
-          {IS_LOGGED_IN ? (
+          {isLoggedIn ? (
             <>
               <div style={{ fontFamily: FF, fontSize: 11, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 13 }}>
                 PROFILE VISIBILITY

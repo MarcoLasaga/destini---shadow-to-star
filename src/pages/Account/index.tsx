@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../../context'
 import { useWardrobe } from '../../context/WardrobeContext'
+import { resolveAvatarUrl } from '../../utils/profileAvatar'
 
 const FF = 'Baloo Tamma 2, sans-serif'
 const FH = 'Bagel Fat One, cursive'
@@ -74,12 +75,12 @@ export default function Account() {
   // Local editable state (mirrors user)
   const [name,      setName]      = useState(user?.name      ?? '')
   const [age,       setAge]       = useState(user?.age       ?? '')
-  const [gender,    setGender]    = useState(user?.gender    ?? 'Prefer-Not-To-Say')
-  const [bodyType,  setBodyType]  = useState(user?.bodyType  ?? 'Average')
-  const [size,      setSize]      = useState(user?.size      ?? 'M')
-  const [styles,    setStyles]    = useState<string[]>(user?.styles   ?? ['Casual'])
-  const [colors,    setColors]    = useState<string[]>(user?.colors   ?? ['Black'])
-  const [occasions, setOccasions] = useState<string[]>(user?.occasions ?? ['Everyday'])
+  const [gender,    setGender]    = useState(user?.gender    ?? '')
+  const [bodyType,  setBodyType]  = useState(user?.bodyType  ?? '')
+  const [size,      setSize]      = useState(user?.size      ?? '')
+  const [styles,    setStyles]    = useState<string[]>(user?.styles   ?? [])
+  const [colors,    setColors]    = useState<string[]>(user?.colors   ?? [])
+  const [occasions, setOccasions] = useState<string[]>(user?.occasions ?? [])
   const [saved,     setSaved]     = useState(false)
   const [logoutOpen,setLogoutOpen]= useState(false)
 
@@ -98,7 +99,7 @@ export default function Account() {
   }
 
   function handleSave() {
-    updateUser({ name, age, gender, bodyType, size, styles, colors, occasions })
+    updateUser({ name, age, gender, bodyType, size, styles, colors, occasions, preferredStyle: styles[0] ?? '' })
     setSaved(true)
     setTimeout(() => setSaved(false), 2400)
   }
@@ -107,7 +108,7 @@ export default function Account() {
     setLogoutOpen(false); logout(); navigate('/')
   }
 
-  const avatarLetter = user.name?.[0]?.toUpperCase() ?? '?'
+  const avatarSrc = resolveAvatarUrl(user.avatarUrl)
 
   const STATS = [
     { label: 'TOTAL CLOTHES',   value: items.length, Icon: Shirt        },
@@ -127,11 +128,8 @@ export default function Account() {
       >
         {/* Avatar */}
         <div style={{ position: 'relative', flexShrink: 0 }}>
-          <div style={{ width: 90, height: 90, borderRadius: '50%', background: user.avatarUrl ? 'transparent' : '#2b1f0e', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-            {user.avatarUrl
-              ? <img src={user.avatarUrl} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <span style={{ fontFamily: FH, fontSize: 38, color: '#fff', lineHeight: 1 }}>{avatarLetter}</span>
-            }
+          <div style={{ width: 90, height: 90, borderRadius: '50%', background: 'var(--bg-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '2px solid var(--border-solid)' }}>
+            <img src={avatarSrc} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.94 }}
             onClick={() => fileRef.current?.click()}
@@ -150,14 +148,20 @@ export default function Account() {
           <p style={{ fontFamily: FF, fontSize: 14.5, color: 'var(--text-muted)', marginBottom: 14 }}>
             {user.email} · Member since {user.memberSince}
           </p>
-          <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: FF, fontSize: 13.5, fontWeight: 600, color: 'var(--text-body)', background: 'var(--bg-alt)', borderRadius: 30, padding: '5px 15px' }}>
-              {user.preferredStyle}
-            </span>
-            <span style={{ fontFamily: FF, fontSize: 13.5, fontWeight: 600, color: 'var(--accent)', background: 'var(--secondary-soft)', border: '1px solid var(--secondary)', borderRadius: 30, padding: '5px 15px' }}>
-              Size {user.size}
-            </span>
-          </div>
+          {(user.preferredStyle || user.size) && (
+            <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+              {user.preferredStyle && (
+                <span style={{ fontFamily: FF, fontSize: 13.5, fontWeight: 600, color: 'var(--text-body)', background: 'var(--bg-alt)', borderRadius: 30, padding: '5px 15px' }}>
+                  {user.preferredStyle}
+                </span>
+              )}
+              {user.size && (
+                <span style={{ fontFamily: FF, fontSize: 13.5, fontWeight: 600, color: 'var(--accent)', background: 'var(--secondary-soft)', border: '1px solid var(--secondary)', borderRadius: 30, padding: '5px 15px' }}>
+                  Size {user.size}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Log Out link */}
