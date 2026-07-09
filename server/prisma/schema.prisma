@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ── Models ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id             String   @id @default(uuid())
+  firstName      String   @map("first_name")
+  lastName       String   @map("last_name")
+  email          String   @unique
+  passwordHash   String   @map("password_hash")
+  role           String   @default("USER")
+  profilePicture String?  @map("profile_picture")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  profile        UserProfile?
+  refreshTokens  RefreshToken[]
+  wardrobeItems  WardrobeItem[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id                String    @id @default(uuid())
+  userId            String    @unique @map("user_id")
+  age               Int?
+  gender            String?
+  bodyType          String?   @map("body_type")
+  height            Float?
+  weight            Float?
+  clothingSize      String?   @map("clothing_size")
+  preferredStyle    String?   @map("preferred_style")
+  favoriteColor     String?   @map("favorite_color")
+  preferredOccasion String?   @map("preferred_occasion")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model WardrobeItem {
+  id             String    @id @default(uuid())
+  userId         String    @map("user_id")
+  imageUrl       String?   @map("image_url")
+  category       String
+  subcategory    String?
+  clothingName   String    @map("clothing_name")
+  color          String?
+  material       String?
+  brand          String?
+  style          String?
+  occasion       String?
+  season         String?
+  size           String?
+  estimatedPrice Float?    @map("estimated_price")
+  notes          String?
+  isFavorite     Boolean   @default(false) @map("is_favorite")
+  laundryStatus  String    @default("CLEAN") @map("laundry_status")
+  wearCount      Int       @default(0) @map("wear_count")
+  washCount      Int       @default(0) @map("wash_count")
+  lastWornAt     DateTime? @map("last_worn_at")
+  lastWashedAt   DateTime? @map("last_washed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, category])
+  @@index([userId, isFavorite])
+  @@index([userId, laundryStatus])
+  @@map("wardrobe_items")
+}
