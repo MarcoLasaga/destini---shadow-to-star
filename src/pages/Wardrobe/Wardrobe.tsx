@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { Search, Plus, Shirt, RefreshCw } from 'lucide-react'
-import { useWardrobeItems, useDeleteItem, useToggleFavorite } from '../../hooks/useWardrobe'
+import { useWardrobeItems } from '../../hooks/useWardrobe'
 import type { WardrobeFilters } from '../../api/wardrobe.api'
 
 const FF = 'Baloo Tamma 2, sans-serif'
@@ -13,20 +13,20 @@ const STYLES = ['All', 'CASUAL', 'FORMAL', 'SPORTY', 'STREETWEAR', 'MINIMALIST',
 type CatFilter = typeof CATEGORIES[number]
 type StyleFilter = typeof STYLES[number]
 
-function Toast({ msg, visible }: { msg: string; visible: boolean }) {
-  return (
-    <AnimatePresence>
-      {visible && (
-        <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 14 }}
-          style={{ position: 'fixed', bottom: 28, right: 28, zIndex: 9999, background: 'var(--bg-card)', border: '1px solid var(--border-solid)', borderRadius: 13, padding: '13px 22px', boxShadow: 'var(--shadow-lg)', fontFamily: FF, fontSize: 14, fontWeight: 700, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: 10, minWidth: 220 }}
-        >✓ {msg}</motion.div>
-      )}
-    </AnimatePresence>
-  )
-}
+// function Toast({ msg, visible }: { msg: string; visible: boolean }) {
+//   return (
+//     <AnimatePresence>
+//       {visible && (
+//         <motion.div
+//           initial={{ opacity: 0, y: 14 }}
+//           animate={{ opacity: 1, y: 0 }}
+//           exit={{ opacity: 0, y: 14 }}
+//           style={{ position: 'fixed', bottom: 28, right: 28, zIndex: 9999, background: 'var(--bg-card)', border: '1px solid var(--border-solid)', borderRadius: 13, padding: '13px 22px', boxShadow: 'var(--shadow-lg)', fontFamily: FF, fontSize: 14, fontWeight: 700, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: 10, minWidth: 220 }}
+//         >✓ {msg}</motion.div>
+//       )}
+//     </AnimatePresence>
+//   )
+// }
 
 export default function Wardrobe() {
   const navigate = useNavigate()
@@ -34,8 +34,8 @@ export default function Wardrobe() {
   const [search, setSearch] = useState('')
   const [cat, setCat] = useState<CatFilter>('All')
   const [style, setStyle] = useState<StyleFilter>('All')
-  const [toast, setToast] = useState('')
-  const [toastV, setToastV] = useState(false)
+  // const [toast, setToast] = useState('')
+  // const [toastV, setToastV] = useState(false)
 
   const filters: WardrobeFilters = {
     search: search || undefined,
@@ -45,25 +45,25 @@ export default function Wardrobe() {
   }
 
   const { data, isLoading, isError, refetch } = useWardrobeItems(filters)
-  const deleteMut = useDeleteItem()
-  const favoriteMut = useToggleFavorite()
+  // const deleteMut = useDeleteItem()
+  // const favoriteMut = useToggleFavorite()
 
-  function showToast(msg: string) {
-    setToast(msg)
-    setToastV(true)
-    setTimeout(() => setToastV(false), 2800)
-  }
+  // function showToast(msg: string) {
+  //   setToast(msg)
+  //   setToastV(true)
+  //   setTimeout(() => setToastV(false), 2800)
+  // }
 
-  async function handleDelete(id: string, name: string) {
-    if (!confirm(`Are you sure you want to remove "${name}"?`)) return
-    await deleteMut.mutateAsync(id)
-    showToast('Clothing removed successfully')
-  }
+  // async function handleDelete(id: string, name: string) {
+  //   if (!confirm(`Are you sure you want to remove "${name}"?`)) return
+  //   await deleteMut.mutateAsync(id)
+  //   showToast('Clothing removed successfully')
+  // }
 
-  async function handleFavorite(id: string, isFav: boolean) {
-    const { data: res } = await favoriteMut.mutateAsync(id)
-    showToast(res.message ?? (isFav ? 'Removed from Favorites' : 'Added to Favorites'))
-  }
+  // async function handleFavorite(id: string, isFav: boolean) {
+  //   const { data: res } = await favoriteMut.mutateAsync(id)
+  //   showToast(res.message ?? (isFav ? 'Removed from Favorites' : 'Added to Favorites'))
+  // }
 
   const items = data?.items ?? []
 
@@ -153,7 +153,7 @@ export default function Wardrobe() {
         </motion.div>
       )}
 
-      <Toast msg={toast} visible={toastV} />
+      {/* <Toast msg={toast} visible={toastV} /> */}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { wardrobeApi, type WardrobeFilters, type CreateItemPayload } from '../api/wardrobe.api'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/useAuth'
 
 export const WARDROBE_KEY = 'wardrobe'
 
