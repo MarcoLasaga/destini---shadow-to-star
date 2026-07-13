@@ -8,6 +8,7 @@ import * as ImagePicker from 'expo-image';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useProfile } from '../contexts/ProfileContext';
 import { useWardrobe } from '../contexts/WardrobeContext';
+import { useAuth } from '../contexts/AuthContext';
 import { Image } from 'expo-image';
 
 const MENU_ITEMS = [
@@ -24,6 +25,7 @@ export default function ProfileScreen() {
   const navigation = useNavigation<any>();
   const { profile, setAvatar } = useProfile();
   const { items } = useWardrobe();
+  const { logout } = useAuth();
 
   const favoritesCount = items.filter((i) => i.favorite).length;
   const totalWears = items.reduce((sum, i) => sum + i.timesWorn, 0);
@@ -103,7 +105,7 @@ export default function ProfileScreen() {
           ))}
         </View>
 
-        <Pressable style={styles.logoutButton}>
+        <Pressable onPress={logout} style={styles.logoutButton}>
           <Ionicons name="log-out-outline" size={17} color="#E5484D" />
           <Text style={styles.logoutLabel}>Log Out</Text>
         </Pressable>

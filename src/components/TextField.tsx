@@ -1,18 +1,17 @@
-import React from 'react';
-import { View, Text, TextInput, StyleSheet } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TextInputProps } from 'react-native';
 import { useAppTheme } from '../hooks/useAppTheme';
+
+interface TextFieldProps extends TextInputProps {
+  label: string;
+}
 
 export default function TextField({
   label,
   value,
   onChangeText,
   placeholder,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (text: string) => void;
-  placeholder?: string;
-}) {
+  ...props
+}: TextFieldProps) {
   const theme = useAppTheme();
   return (
     <View style={styles.wrapper}>
@@ -23,6 +22,7 @@ export default function TextField({
         placeholder={placeholder}
         placeholderTextColor={theme.textMuted}
         style={[styles.input, { borderColor: theme.border, backgroundColor: theme.surface, color: theme.text }]}
+        {...props}
       />
     </View>
   );

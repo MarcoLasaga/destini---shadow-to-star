@@ -2,6 +2,7 @@
   "expo": {
     "name": "StyleSense",
     "slug": "StyleSense",
+    "scheme": "stylesense",
     "version": "1.0.0",
     "orientation": "portrait",
     "jsEngine": "jsc",
@@ -30,7 +31,8 @@
           "locationWhenInUsePermission": "StyleSense uses your location to show local weather and outfit suggestions."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-web-browser"
     ]
   }
 }

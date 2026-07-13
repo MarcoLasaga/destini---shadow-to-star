@@ -121,6 +121,8 @@ export type RootStackParamList = {
   Settings: undefined;
   Help: undefined;
   OutfitDetails: { outfitId: string };
+  Login: undefined;
+  Signup: undefined;
 };
 
 export type MainTabParamList = {

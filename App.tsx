@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import RootNavigator from './src/navigation/RootNavigator';
 import { WardrobeProvider } from './src/contexts/WardrobeContext';
 import { ToastProvider } from './src/contexts/ToastContext';
+import { AuthProvider } from './src/contexts/AuthContext';
 import { ProfileProvider } from './src/contexts/ProfileContext';
 import { SettingsProvider } from './src/contexts/SettingsContext';
 import { PackingProvider } from './src/contexts/PackingContext';
@@ -17,20 +18,22 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <ProfileProvider>
-          <SettingsProvider>
-            <WardrobeProvider>
-              <OutfitProvider>
-                <PackingProvider>
-                  <ToastProvider>
-                    <StatusBar style="dark" />
-                    <RootNavigator />
-                  </ToastProvider>
-                </PackingProvider>
-              </OutfitProvider>
-            </WardrobeProvider>
-          </SettingsProvider>
-        </ProfileProvider>
+        <AuthProvider>
+          <ProfileProvider>
+            <SettingsProvider>
+              <WardrobeProvider>
+                <OutfitProvider>
+                  <PackingProvider>
+                    <ToastProvider>
+                      <StatusBar style="dark" />
+                      <RootNavigator />
+                    </ToastProvider>
+                  </PackingProvider>
+                </OutfitProvider>
+              </WardrobeProvider>
+            </SettingsProvider>
+          </ProfileProvider>
+        </AuthProvider>
       </QueryClientProvider>
     </SafeAreaProvider>
   );
