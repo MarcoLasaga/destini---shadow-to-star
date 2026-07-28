@@ -7,7 +7,7 @@ export interface UploadResult {
 
 export const uploadService = {
   async uploadBuffer(buffer: Buffer, filename: string, mimetype: string, token?: string): Promise<UploadResult> {
-    const supabase = getSupabaseClient(token)
+    const supabase = await getSupabaseClient(token)
 
     // Attempt to ensure bucket exists (only works if admin key is configured, safe warning if not)
     try {
@@ -48,7 +48,7 @@ export const uploadService = {
   },
 
   async deleteFile(publicId: string, token?: string): Promise<void> {
-    const supabase = getSupabaseClient(token)
+    const supabase = await getSupabaseClient(token)
     const { error } = await supabase.storage
       .from('wardrobe-images')
       .remove([publicId])

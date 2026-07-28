@@ -49,7 +49,7 @@ function toCamel(row: any) {
 export const wardrobeRepository = {
   async findAll(userId: string, filters: FilterInput, token?: string) {
     const { category, style, occasion, season, laundryStatus, isFavorite, search, sortBy, sortDir, page, limit } = filters
-    const supabase = getSupabaseClient(token)
+    const supabase = await getSupabaseClient(token)
 
     let query = supabase
       .from('wardrobe_items')
@@ -94,7 +94,7 @@ export const wardrobeRepository = {
   },
 
   async findById(id: string, userId: string, token?: string) {
-    const supabase = getSupabaseClient(token)
+    const supabase = await getSupabaseClient(token)
     const { data, error } = await supabase
       .from('wardrobe_items')
       .select('*')
@@ -107,7 +107,7 @@ export const wardrobeRepository = {
   },
 
   async create(userId: string, data: CreateItemInput, imageUrl?: string, token?: string) {
-    const supabase = getSupabaseClient(token)
+    const supabase = await getSupabaseClient(token)
     const row = {
       user_id: userId,
       image_url: imageUrl || null,
@@ -142,7 +142,7 @@ export const wardrobeRepository = {
   },
 
   async update(id: string, userId: string, data: UpdateItemInput, imageUrl?: string, token?: string) {
-    const supabase = getSupabaseClient(token)
+    const supabase = await getSupabaseClient(token)
     const updates: any = {}
 
     if (imageUrl !== undefined) updates.image_url = imageUrl
@@ -180,7 +180,7 @@ export const wardrobeRepository = {
   },
 
   async delete(id: string, userId: string, token?: string) {
-    const supabase = getSupabaseClient(token)
+    const supabase = await getSupabaseClient(token)
     const existing = await wardrobeRepository.findById(id, userId, token)
     if (!existing) return null
 
@@ -195,7 +195,7 @@ export const wardrobeRepository = {
   },
 
   async toggleFavorite(id: string, userId: string, token?: string) {
-    const supabase = getSupabaseClient(token)
+    const supabase = await getSupabaseClient(token)
     const item = await wardrobeRepository.findById(id, userId, token)
     if (!item) return null
 
@@ -212,7 +212,7 @@ export const wardrobeRepository = {
   },
 
   async markClean(id: string, userId: string, token?: string) {
-    const supabase = getSupabaseClient(token)
+    const supabase = await getSupabaseClient(token)
     const item = await wardrobeRepository.findById(id, userId, token)
     if (!item) return null
 
@@ -234,7 +234,7 @@ export const wardrobeRepository = {
   },
 
   async incrementWear(id: string, userId: string, token?: string) {
-    const supabase = getSupabaseClient(token)
+    const supabase = await getSupabaseClient(token)
     const item = await wardrobeRepository.findById(id, userId, token)
     if (!item) return null
 
@@ -261,7 +261,7 @@ export const wardrobeRepository = {
   },
 
   async countByUser(userId: string, token?: string) {
-    const supabase = getSupabaseClient(token)
+    const supabase = await getSupabaseClient(token)
     const { count, error } = await supabase
       .from('wardrobe_items')
       .select('*', { count: 'exact', head: true })
