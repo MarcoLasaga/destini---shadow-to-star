@@ -254,6 +254,90 @@ export type Database = {
         }
         Relationships: []
       }
+      wardrobe_items: {
+        Row: {
+          id: string
+          user_id: string
+          image_url: string | null
+          category: string
+          subcategory: string | null
+          clothing_name: string
+          color: string | null
+          material: string | null
+          brand: string | null
+          style: string | null
+          occasion: string | null
+          season: string | null
+          size: string | null
+          estimated_price: number | null
+          notes: string | null
+          is_favorite: boolean
+          laundry_status: string
+          wear_count: number
+          wash_count: number
+          last_worn_at: string | null
+          last_washed_at: string | null
+          created_at: string
+          updated_at: string
+          seasons: string[]
+          occasions: string[]
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          image_url?: string | null
+          category: string
+          subcategory?: string | null
+          clothing_name: string
+          color?: string | null
+          material?: string | null
+          brand?: string | null
+          style?: string | null
+          occasion?: string | null
+          season?: string | null
+          size?: string | null
+          estimated_price?: number | null
+          notes?: string | null
+          is_favorite?: boolean
+          laundry_status?: string
+          wear_count?: number
+          wash_count?: number
+          last_worn_at?: string | null
+          last_washed_at?: string | null
+          created_at?: string
+          updated_at?: string
+          seasons?: string[]
+          occasions?: string[]
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          image_url?: string | null
+          category?: string
+          subcategory?: string | null
+          clothing_name?: string
+          color?: string | null
+          material?: string | null
+          brand?: string | null
+          style?: string | null
+          occasion?: string | null
+          season?: string | null
+          size?: string | null
+          estimated_price?: number | null
+          notes?: string | null
+          is_favorite?: boolean
+          laundry_status?: string
+          wear_count?: number
+          wash_count?: number
+          last_worn_at?: string | null
+          last_washed_at?: string | null
+          created_at?: string
+          updated_at?: string
+          seasons?: string[]
+          occasions?: string[]
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
