@@ -91,10 +91,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Check session on mount
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
+        localStorage.setItem('ss_token', session.access_token)
         const p = await fetchProfile(session.user.id, session.user.email || '')
         setUser(p)
         setIsLoggedIn(true)
       } else {
+        localStorage.removeItem('ss_token')
         setUser(null)
         setIsLoggedIn(false)
       }
@@ -104,10 +106,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Listen to changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
+        localStorage.setItem('ss_token', session.access_token)
         const p = await fetchProfile(session.user.id, session.user.email || '')
         setUser(p)
         setIsLoggedIn(true)
       } else {
+        localStorage.removeItem('ss_token')
         setUser(null)
         setIsLoggedIn(false)
       }
@@ -126,6 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function logout() {
     await supabase.auth.signOut()
+    localStorage.removeItem('ss_token')
     setUser(null)
     setIsLoggedIn(false)
   }
