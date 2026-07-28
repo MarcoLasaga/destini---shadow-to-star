@@ -5,6 +5,9 @@
 -- It creates the public.wardrobe_items table and configures Row Level Security.
 -- ====================================================================
 
+-- UNCOMMENT THE FOLLOWING LINE IF YOU WANT A CLEAN SLATE (WARNING: deletes all data):
+-- DROP TABLE IF EXISTS public.wardrobe_items CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.wardrobe_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
