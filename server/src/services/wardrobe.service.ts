@@ -7,27 +7,27 @@ function notFound() {
 }
 
 export const wardrobeService = {
-  async getAll(userId: string, filters: FilterInput) {
-    return wardrobeRepository.findAll(userId, filters)
+  async getAll(userId: string, filters: FilterInput, token?: string) {
+    return wardrobeRepository.findAll(userId, filters, token)
   },
 
-  async getById(id: string, userId: string) {
-    const item = await wardrobeRepository.findById(id, userId)
+  async getById(id: string, userId: string, token?: string) {
+    const item = await wardrobeRepository.findById(id, userId, token)
     if (!item) throw notFound()
     return item
   },
 
-  async create(userId: string, data: CreateItemInput, file?: Express.Multer.File) {
+  async create(userId: string, data: CreateItemInput, file?: Express.Multer.File, token?: string) {
     let imageUrl: string | undefined
     if (file) {
       const result = await uploadService.uploadBuffer(file.buffer, file.originalname, file.mimetype)
       imageUrl = result.url
     }
-    return wardrobeRepository.create(userId, data, imageUrl)
+    return wardrobeRepository.create(userId, data, imageUrl, token)
   },
 
-  async update(id: string, userId: string, data: UpdateItemInput, file?: Express.Multer.File) {
-    const existing = await wardrobeRepository.findById(id, userId)
+  async update(id: string, userId: string, data: UpdateItemInput, file?: Express.Multer.File, token?: string) {
+    const existing = await wardrobeRepository.findById(id, userId, token)
     if (!existing) throw notFound()
 
     let imageUrl: string | undefined
@@ -41,13 +41,13 @@ export const wardrobeService = {
       imageUrl = result.url
     }
 
-    const updated = await wardrobeRepository.update(id, userId, data, imageUrl)
+    const updated = await wardrobeRepository.update(id, userId, data, imageUrl, token)
     if (!updated) throw notFound()
     return updated
   },
 
-  async delete(id: string, userId: string) {
-    const item = await wardrobeRepository.findById(id, userId)
+  async delete(id: string, userId: string, token?: string) {
+    const item = await wardrobeRepository.findById(id, userId, token)
     if (!item) throw notFound()
 
     // Delete image from storage
@@ -56,25 +56,25 @@ export const wardrobeService = {
       if (publicId) await uploadService.deleteFile(publicId).catch(() => null)
     }
 
-    const deleted = await wardrobeRepository.delete(id, userId)
+    const deleted = await wardrobeRepository.delete(id, userId, token)
     if (!deleted) throw notFound()
     return deleted
   },
 
-  async toggleFavorite(id: string, userId: string) {
-    const item = await wardrobeRepository.toggleFavorite(id, userId)
+  async toggleFavorite(id: string, userId: string, token?: string) {
+    const item = await wardrobeRepository.toggleFavorite(id, userId, token)
     if (!item) throw notFound()
     return item
   },
 
-  async markClean(id: string, userId: string) {
-    const item = await wardrobeRepository.markClean(id, userId)
+  async markClean(id: string, userId: string, token?: string) {
+    const item = await wardrobeRepository.markClean(id, userId, token)
     if (!item) throw notFound()
     return item
   },
 
-  async recordWear(id: string, userId: string) {
-    const item = await wardrobeRepository.incrementWear(id, userId)
+  async recordWear(id: string, userId: string, token?: string) {
+    const item = await wardrobeRepository.incrementWear(id, userId, token)
     if (!item) throw notFound()
     return item
   },

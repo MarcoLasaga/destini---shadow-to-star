@@ -12,7 +12,7 @@ export const wardrobeController = {
         sendError(res, 'Invalid filters', 422)
         return
       }
-      const result = await wardrobeService.getAll(req.user!.userId, parsed.data)
+      const result = await wardrobeService.getAll(req.user!.userId, parsed.data, req.user!.token)
       sendSuccess(res, result)
     } catch (err) {
       next(err)
@@ -21,7 +21,7 @@ export const wardrobeController = {
 
   async getById(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const item = await wardrobeService.getById(req.params.id, req.user!.userId)
+      const item = await wardrobeService.getById(req.params.id as string, req.user!.userId, req.user!.token)
       sendSuccess(res, item)
     } catch (err) {
       next(err)
@@ -30,7 +30,7 @@ export const wardrobeController = {
 
   async create(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const item = await wardrobeService.create(req.user!.userId, req.body, req.file)
+      const item = await wardrobeService.create(req.user!.userId, req.body, req.file, req.user!.token)
       sendSuccess(res, item, 'Clothing added successfully', 201)
     } catch (err) {
       next(err)
@@ -39,7 +39,7 @@ export const wardrobeController = {
 
   async update(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const item = await wardrobeService.update(req.params.id, req.user!.userId, req.body, req.file)
+      const item = await wardrobeService.update(req.params.id as string, req.user!.userId, req.body, req.file, req.user!.token)
       sendSuccess(res, item, 'Clothing updated successfully')
     } catch (err) {
       next(err)
@@ -48,7 +48,7 @@ export const wardrobeController = {
 
   async delete(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      await wardrobeService.delete(req.params.id, req.user!.userId)
+      await wardrobeService.delete(req.params.id as string, req.user!.userId, req.user!.token)
       sendSuccess(res, null, 'Clothing removed successfully')
     } catch (err) {
       next(err)
@@ -57,7 +57,7 @@ export const wardrobeController = {
 
   async toggleFavorite(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const item = await wardrobeService.toggleFavorite(req.params.id, req.user!.userId)
+      const item = await wardrobeService.toggleFavorite(req.params.id as string, req.user!.userId, req.user!.token)
       const msg = item.isFavorite ? 'Added to Favorites' : 'Removed from Favorites'
       sendSuccess(res, item, msg)
     } catch (err) {
@@ -67,7 +67,7 @@ export const wardrobeController = {
 
   async markClean(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const item = await wardrobeService.markClean(req.params.id, req.user!.userId)
+      const item = await wardrobeService.markClean(req.params.id as string, req.user!.userId, req.user!.token)
       sendSuccess(res, item, 'Marked as Clean')
     } catch (err) {
       next(err)
@@ -76,7 +76,7 @@ export const wardrobeController = {
 
   async recordWear(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const item = await wardrobeService.recordWear(req.params.id, req.user!.userId)
+      const item = await wardrobeService.recordWear(req.params.id as string, req.user!.userId, req.user!.token)
       sendSuccess(res, item, 'Wear recorded')
     } catch (err) {
       next(err)
