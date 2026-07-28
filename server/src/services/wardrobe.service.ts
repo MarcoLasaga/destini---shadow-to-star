@@ -20,7 +20,7 @@ export const wardrobeService = {
   async create(userId: string, data: CreateItemInput, file?: Express.Multer.File, token?: string) {
     let imageUrl: string | undefined
     if (file) {
-      const result = await uploadService.uploadBuffer(file.buffer, file.originalname, file.mimetype)
+      const result = await uploadService.uploadBuffer(file.buffer, file.originalname, file.mimetype, token)
       imageUrl = result.url
     }
     return wardrobeRepository.create(userId, data, imageUrl, token)
@@ -32,12 +32,18 @@ export const wardrobeService = {
 
     let imageUrl: string | undefined
     if (file) {
-      // Delete old image if local
-      if (existing.imageUrl && !existing.imageUrl.includes('cloudinary')) {
-        const oldPublicId = existing.imageUrl.split('/uploads/')[1]
-        if (oldPublicId) await uploadService.deleteFile(oldPublicId).catch(() => null)
+      // Delete old image
+      if (existing.imageUrl) {
+        const pathPrefix = '/storage/v1/object/public/wardrobe-images/'
+        if (existing.imageUrl.includes(pathPrefix)) {
+          const oldPath = existing.imageUrl.split(pathPrefix)[1]
+          if (oldPath) await uploadService.deleteFile(oldPath, token).catch(() => null)
+        } else if (!existing.imageUrl.includes('cloudinary')) {
+          const oldPublicId = existing.imageUrl.split('/uploads/')[1]
+          if (oldPublicId) await uploadService.deleteFile(oldPublicId, token).catch(() => null)
+        }
       }
-      const result = await uploadService.uploadBuffer(file.buffer, file.originalname, file.mimetype)
+      const result = await uploadService.uploadBuffer(file.buffer, file.originalname, file.mimetype, token)
       imageUrl = result.url
     }
 
@@ -51,9 +57,15 @@ export const wardrobeService = {
     if (!item) throw notFound()
 
     // Delete image from storage
-    if (item.imageUrl && !item.imageUrl.includes('cloudinary')) {
-      const publicId = item.imageUrl.split('/uploads/')[1]
-      if (publicId) await uploadService.deleteFile(publicId).catch(() => null)
+    if (item.imageUrl) {
+      const pathPrefix = '/storage/v1/object/public/wardrobe-images/'
+      if (item.imageUrl.includes(pathPrefix)) {
+        const oldPath = item.imageUrl.split(pathPrefix)[1]
+        if (oldPath) await uploadService.deleteFile(oldPath, token).catch(() => null)
+      } else if (!item.imageUrl.includes('cloudinary')) {
+        const publicId = item.imageUrl.split('/uploads/')[1]
+        if (publicId) await uploadService.deleteFile(publicId, token).catch(() => null)
+      }
     }
 
     const deleted = await wardrobeRepository.delete(id, userId, token)

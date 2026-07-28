@@ -1,36 +1,60 @@
-import path from 'path'
-import fs from 'fs'
-import { ENV } from './env'
+import { getSupabaseClient } from './supabase'
 
-// ── Storage interface — implement Cloudinary later ─────────────────────────────
 export interface UploadResult {
   url: string
   publicId: string
 }
 
-// ── Local storage (dev/fallback) ───────────────────────────────────────────────
-const UPLOAD_DIR = path.join(process.cwd(), 'uploads')
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true })
-
 export const uploadService = {
-  async uploadBuffer(buffer: Buffer, filename: string, _mimetype: string): Promise<UploadResult> {
-    // TODO: swap this block with Cloudinary upload when ready
-    // const result = await cloudinary.uploader.upload_stream(...)
+  async uploadBuffer(buffer: Buffer, filename: string, mimetype: string, token?: string): Promise<UploadResult> {
+    const supabase = getSupabaseClient(token)
+
+    // Attempt to ensure bucket exists (only works if admin key is configured, safe warning if not)
+    try {
+      const { data: buckets } = await supabase.storage.listBuckets()
+      if (!buckets?.find(b => b.id === 'wardrobe-images')) {
+        await supabase.storage.createBucket('wardrobe-images', {
+          public: true,
+          fileSizeLimit: 5242880, // 5MB
+        })
+      }
+    } catch (e) {
+      console.warn('Could not verify/create Supabase Storage bucket automatically (this is normal if using anon key):', e)
+    }
 
     const safeName = `${Date.now()}-${filename.replace(/[^a-z0-9.]/gi, '_')}`
-    const filepath = path.join(UPLOAD_DIR, safeName)
-    fs.writeFileSync(filepath, buffer)
+    const path = `uploads/${safeName}`
 
-    const baseUrl = `http://localhost:${ENV.PORT}`
+    const { error } = await supabase.storage
+      .from('wardrobe-images')
+      .upload(path, buffer, {
+        contentType: mimetype,
+        upsert: true,
+      })
+
+    if (error) {
+      console.error('Error uploading file to Supabase Storage:', error)
+      throw error
+    }
+
+    const { data: urlData } = supabase.storage
+      .from('wardrobe-images')
+      .getPublicUrl(path)
+
     return {
-      url: `${baseUrl}/uploads/${safeName}`,
-      publicId: safeName,
+      url: urlData.publicUrl,
+      publicId: path,
     }
   },
 
-  async deleteFile(publicId: string): Promise<void> {
-    // TODO: swap with Cloudinary delete
-    const filepath = path.join(UPLOAD_DIR, publicId)
-    if (fs.existsSync(filepath)) fs.unlinkSync(filepath)
+  async deleteFile(publicId: string, token?: string): Promise<void> {
+    const supabase = getSupabaseClient(token)
+    const { error } = await supabase.storage
+      .from('wardrobe-images')
+      .remove([publicId])
+
+    if (error) {
+      console.error('Error deleting file from Supabase Storage:', error)
+    }
   },
 }
