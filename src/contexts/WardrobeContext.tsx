@@ -3,6 +3,26 @@ import { ClothingItem, LaundryStatus } from '../types';
 import { useAuth } from './AuthContext';
 import { supabase } from '../integrations/supabase/client';
 
+const CATEGORY_TO_DISPLAY: Record<string, string> = {
+  TOP: 'Tops',
+  BOTTOM: 'Bottoms',
+  SHOES: 'Shoes',
+  OUTERWEAR: 'Outerwear',
+  ACCESSORIES: 'Accessories',
+};
+
+const CATEGORY_TO_DATABASE: Record<string, string> = {
+  Tops: 'TOP',
+  Bottoms: 'BOTTOM',
+  Shoes: 'SHOES',
+  Outerwear: 'OUTERWEAR',
+  Accessories: 'ACCESSORIES',
+};
+
+const STYLE_TO_DATABASE: Record<string, string> = { Casual: 'CASUAL', Formal: 'FORMAL', Business: 'FORMAL', Streetwear: 'STREETWEAR', Athletic: 'SPORTY', Bohemian: 'BOHEMIAN' };
+const SEASON_TO_DATABASE: Record<string, string> = { Spring: 'SPRING', Summer: 'SUMMER', Fall: 'AUTUMN', Winter: 'WINTER', All: 'ALL_SEASONS' };
+const OCCASION_TO_DATABASE: Record<string, string> = { Casual: 'EVERYDAY', Work: 'WORK', Formal: 'PARTY', Sport: 'GYM', Date: 'DATE', Party: 'PARTY', Travel: 'OUTDOOR', Lounge: 'EVERYDAY' };
+
 function mapSupabaseToMobile(row: any): ClothingItem {
   const timesWorn = row.wear_count || 0;
   const price = row.estimated_price ? parseFloat(row.estimated_price) : 0;
@@ -10,7 +30,7 @@ function mapSupabaseToMobile(row: any): ClothingItem {
   return {
     id: row.id,
     name: row.clothing_name || '',
-    category: row.category || '',
+    category: CATEGORY_TO_DISPLAY[row.category] || row.category || '',
     color: row.color || '',
     brand: row.brand || '',
     material: row.material || '',
@@ -38,20 +58,20 @@ function mapMobileToSupabase(item: Partial<ClothingItem>): any {
   const row: any = {};
   
   if (item.name !== undefined) row.clothing_name = item.name;
-  if (item.category !== undefined) row.category = item.category;
+  if (item.category !== undefined) row.category = CATEGORY_TO_DATABASE[item.category] || item.category;
   if (item.color !== undefined) row.color = item.color;
   if (item.brand !== undefined) row.brand = item.brand;
   if (item.material !== undefined) row.material = item.material;
-  if (item.style !== undefined) row.style = item.style;
+  if (item.style !== undefined) row.style = STYLE_TO_DATABASE[item.style] || item.style;
   
   if (item.seasons !== undefined) {
-    row.seasons = item.seasons;
-    row.season = item.seasons[0] || null;
+    row.seasons = item.seasons.map((season) => SEASON_TO_DATABASE[season] || season);
+    row.season = row.seasons[0] || null;
   }
   
   if (item.occasions !== undefined) {
-    row.occasions = item.occasions;
-    row.occasion = item.occasions[0] || null;
+    row.occasions = item.occasions.map((occasion) => OCCASION_TO_DATABASE[occasion] || occasion);
+    row.occasion = row.occasions[0] || null;
   }
   
   if (item.image !== undefined) row.image_url = item.image;
@@ -68,6 +88,7 @@ function mapMobileToSupabase(item: Partial<ClothingItem>): any {
 
 interface WardrobeContextValue {
   items: ClothingItem[];
+  addItem: (item: Omit<ClothingItem, 'id' | 'addedDate'>) => Promise<ClothingItem>;
   toggleFavorite: (id: string) => void;
   deleteItem: (id: string) => void;
   updateItem: (id: string, updates: Partial<ClothingItem>) => void;
@@ -144,6 +165,30 @@ export function WardrobeProvider({ children }: { children: React.ReactNode }) {
     }
   }, [items]);
 
+  const addItem = useCallback(async (item: Omit<ClothingItem, 'id' | 'addedDate'>) => {
+    const user = session?.user;
+    if (!user) throw new Error('Please sign in before adding clothing.');
+
+    const payload = {
+      user_id: user.id,
+      ...mapMobileToSupabase(item),
+      laundry_status: 'CLEAN',
+      is_favorite: false,
+      wear_count: 0,
+      wash_count: 0,
+    };
+    const { data, error } = await supabase
+      .from('wardrobe_items')
+      .insert(payload)
+      .select()
+      .single();
+
+    if (error) throw error;
+    const created = mapSupabaseToMobile(data);
+    setItems((previous) => [created, ...previous]);
+    return created;
+  }, [session]);
+
   const deleteItem = useCallback(async (id: string) => {
     // Optimistic update
     setItems((prev) => prev.filter((i) => i.id !== id));
@@ -190,7 +235,7 @@ export function WardrobeProvider({ children }: { children: React.ReactNode }) {
   const getItem = useCallback((id: string) => items.find((item) => item.id === id), [items]);
 
   return (
-    <WardrobeContext.Provider value={{ items, toggleFavorite, deleteItem, updateItem, getItem }}>
+    <WardrobeContext.Provider value={{ items, addItem, toggleFavorite, deleteItem, updateItem, getItem }}>
       {children}
     </WardrobeContext.Provider>
   );

@@ -6,6 +6,7 @@ import BottomTabNavigator from './BottomTabNavigator';
 import PlaceholderScreen from '../screens/PlaceholderScreen';
 import ClothingDetailsScreen from '../screens/ClothingDetailsScreen';
 import EditClothingScreen from '../screens/EditClothingScreen';
+import AddClothesScreen from '../screens/AddClothesScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import SavedOutfitsScreen from '../screens/SavedOutfitsScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
@@ -47,9 +48,7 @@ export default function RootNavigator() {
         <Stack.Screen name="Notifications" options={{ title: 'Notifications' }}>
           {() => <PlaceholderScreen title="Notifications" />}
         </Stack.Screen>
-        <Stack.Screen name="AddClothes" options={{ title: 'Add Clothes' }}>
-          {() => <PlaceholderScreen title="Add Clothes" />}
-        </Stack.Screen>
+        <Stack.Screen name="AddClothes" component={AddClothesScreen} options={{ headerShown: false }} />
         <Stack.Screen name="GenerateOutfit" options={{ title: 'Generate Outfit' }}>
           {() => <PlaceholderScreen title="Generate Outfit" />}
         </Stack.Screen>

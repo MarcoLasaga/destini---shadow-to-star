@@ -26,6 +26,14 @@
     "plugins": [
       "expo-font",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "StyleSense uses your photos to add clothing to your wardrobe.",
+          "cameraPermission": "StyleSense uses your camera to add clothing to your wardrobe.",
+          "microphonePermission": false
+        }
+      ],
+      [
         "expo-location",
         {
           "locationWhenInUsePermission": "StyleSense uses your location to show local weather and outfit suggestions."
