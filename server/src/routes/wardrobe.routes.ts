@@ -12,6 +12,7 @@ router.use(requireAuth)
 
 // CRUD
 router.get('/', wardrobeController.getAll)
+router.post('/analyze', uploadSingle('image'), wardrobeController.analyzeImage)
 router.get('/:id', wardrobeController.getById)
 router.post('/', uploadSingle('image'), validate(createItemSchema), wardrobeController.create)
 router.put('/:id', uploadSingle('image'), validate(updateItemSchema), wardrobeController.update)

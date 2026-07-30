@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Upload, Camera, Check, ArrowLeft, X, AlertCircle } from 'lucide-react'
 import { useCreateItem } from '../../hooks/useWardrobe'
+import { wardrobeApi } from '../../api/wardrobe.api'
 
 const FF = 'Baloo Tamma 2, sans-serif'
 
@@ -68,12 +69,24 @@ export default function AddClothes() {
   const [notes, setNotes] = useState('')
   const [error, setError] = useState('')
 
-  function handleFile(file: File) {
+  async function handleFile(file: File) {
     setImageFile(file)
     setFileName(file.name)
     const reader = new FileReader()
     reader.onload = e => setPreview(e.target?.result as string)
     reader.readAsDataURL(file)
+    // Predictions are suggestions only; users retain the final say before saving.
+    try {
+      const { data } = await wardrobeApi.analyzeImage(file)
+      const prediction = data.data
+      if (prediction.category) setCategory(prediction.category as (typeof CATEGORIES)[number])
+      if (prediction.color) setColor(prediction.color)
+      if (prediction.style) setStyle(prediction.style as (typeof STYLES)[number])
+      if (prediction.category && !name.trim()) setName(`${prediction.color ? `${prediction.color} ` : ''}${prediction.category}`)
+    } catch (analysisError) {
+      // Uploading still works when the optional CNN service is unavailable.
+      console.info('Image analysis unavailable; continuing with manual entry.', analysisError)
+    }
   }
 
   async function handleAdd() {

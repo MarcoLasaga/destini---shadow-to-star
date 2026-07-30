@@ -63,6 +63,13 @@ export interface CreateItemPayload {
   notes?: string
 }
 
+export interface ClothingPrediction {
+  category?: CreateItemPayload['category']
+  color?: string
+  style?: NonNullable<CreateItemPayload['style']>
+  confidence?: number
+}
+
 export const wardrobeApi = {
   getAll: (filters: WardrobeFilters = {}) =>
     apiClient.get<{ data: WardrobeListResponse }>('/wardrobe', { params: filters }),
@@ -77,6 +84,14 @@ export const wardrobeApi = {
     })
     if (image) form.append('image', image)
     return apiClient.post<{ data: WardrobeItem }>('/wardrobe', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+
+  analyzeImage: (image: File) => {
+    const form = new FormData()
+    form.append('image', image)
+    return apiClient.post<{ data: ClothingPrediction }>('/wardrobe/analyze', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },

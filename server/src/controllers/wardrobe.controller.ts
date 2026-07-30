@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express'
 import { wardrobeService } from '../services/wardrobe.service'
 import { sendSuccess, sendError } from '../utils/response'
 import { filterSchema } from '../validators/wardrobe.validator'
+import { imageAnalysisService } from '../services/image-analysis.service'
 import type { AuthRequest } from '../types'
 
 export const wardrobeController = {
@@ -32,6 +33,19 @@ export const wardrobeController = {
     try {
       const item = await wardrobeService.create(req.user!.userId, req.body, req.file, req.user!.token)
       sendSuccess(res, item, 'Clothing added successfully', 201)
+    } catch (err) {
+      next(err)
+    }
+  },
+
+  async analyzeImage(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      if (!req.file) {
+        sendError(res, 'An image is required for analysis.', 422)
+        return
+      }
+      const prediction = await imageAnalysisService.analyze(req.file)
+      sendSuccess(res, prediction, 'Image analyzed successfully')
     } catch (err) {
       next(err)
     }

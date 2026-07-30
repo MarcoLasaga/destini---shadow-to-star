@@ -172,7 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <Ctx.Provider value={{ isLoggedIn, user, isAdmin, login, logout, updateUser }}>
+    <Ctx.Provider value={{ isLoggedIn, loading, user, isAdmin, login, logout, updateUser }}>
       {children}
     </Ctx.Provider>
   )

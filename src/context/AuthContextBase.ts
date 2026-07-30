@@ -20,6 +20,7 @@ export interface UserProfile {
 
 export interface AuthCtx {
   isLoggedIn:   boolean
+  loading:      boolean
   user:         UserProfile | null
   isAdmin:      boolean
   login:        (u: UserProfile) => void

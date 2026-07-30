@@ -1,8 +1,8 @@
 import dotenv from 'dotenv'
 import path from 'path'
 
-// Load environment variables from src/server/.env
-dotenv.config({ path: path.join(process.cwd(), 'src', 'server', '.env') })
+// Local server overrides are optional; the workspace .env remains the fallback.
+dotenv.config({ path: [path.join(process.cwd(), 'server', '.env'), path.join(process.cwd(), '.env')] })
 
 export const ENV = {
   PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 5000,
@@ -13,5 +13,8 @@ export const ENV = {
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || 'dev_jwt_refresh_secret_min_length',
   SUPABASE_URL: process.env.VITE_SUPABASE_URL || 'https://wdvndocbxxzpltywtpub.supabase.co',
   SUPABASE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || '',
+  // URL of the separately deployed clothing CNN. It receives a normalized image body
+  // and returns category, color, style and optional confidence scores.
+  CNN_ANALYSIS_URL: process.env.CNN_ANALYSIS_URL || '',
 }
 

@@ -20,7 +20,7 @@ export const wardrobeService = {
   async create(userId: string, data: CreateItemInput, file?: Express.Multer.File, token?: string) {
     let imageUrl: string | undefined
     if (file) {
-      const result = await uploadService.uploadBuffer(file.buffer, file.originalname, file.mimetype, token)
+      const result = await uploadService.uploadBuffer(file.buffer, file.originalname, file.mimetype, userId, token)
       imageUrl = result.url
     }
     return wardrobeRepository.create(userId, data, imageUrl, token)
@@ -43,7 +43,7 @@ export const wardrobeService = {
           if (oldPublicId) await uploadService.deleteFile(oldPublicId, token).catch(() => null)
         }
       }
-      const result = await uploadService.uploadBuffer(file.buffer, file.originalname, file.mimetype, token)
+      const result = await uploadService.uploadBuffer(file.buffer, file.originalname, file.mimetype, userId, token)
       imageUrl = result.url
     }
 

@@ -9,18 +9,11 @@ export async function getSupabaseClient(token?: string) {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
-    }
+    },
+    // Forward the caller's JWT to PostgREST. This is what makes auth.uid()
+    // available to Supabase RLS policies; a publishable key alone is anonymous.
+    global: token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
   })
-
-  if (token) {
-    const { error } = await client.auth.setSession({
-      access_token: token,
-      refresh_token: '',
-    })
-    if (error) {
-      console.error('Error setting Supabase session on backend:', error)
-    }
-  }
 
   return client
 }

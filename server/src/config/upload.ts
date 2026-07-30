@@ -6,7 +6,7 @@ export interface UploadResult {
 }
 
 export const uploadService = {
-  async uploadBuffer(buffer: Buffer, filename: string, mimetype: string, token?: string): Promise<UploadResult> {
+  async uploadBuffer(buffer: Buffer, filename: string, mimetype: string, userId: string, token?: string): Promise<UploadResult> {
     const supabase = await getSupabaseClient(token)
 
     // Attempt to ensure bucket exists (only works if admin key is configured, safe warning if not)
@@ -23,7 +23,8 @@ export const uploadService = {
     }
 
     const safeName = `${Date.now()}-${filename.replace(/[^a-z0-9.]/gi, '_')}`
-    const path = `uploads/${safeName}`
+    // First path segment is the owner id; Storage RLS policies rely on it.
+    const path = `${userId}/${safeName}`
 
     const { error } = await supabase.storage
       .from('wardrobe-images')
