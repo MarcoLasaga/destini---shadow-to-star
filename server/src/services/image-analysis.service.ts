@@ -25,9 +25,9 @@ function optionalEnum<T extends readonly string[]>(value: unknown, allowed: T): 
 async function preprocessForCnn(buffer: Buffer) {
   return sharp(buffer, { failOn: 'error' })
     .rotate()
-    .resize(224, 224, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1 } })
+    .resize(1280, 1280, { fit: 'inside', withoutEnlargement: true })
     .removeAlpha()
-    .jpeg({ quality: 90 })
+    .jpeg({ quality: 92, mozjpeg: true })
     .toBuffer()
 }
 
