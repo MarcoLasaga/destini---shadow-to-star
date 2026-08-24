@@ -32,6 +32,19 @@ Place labeled images in `dataset/TOP`, `dataset/BOTTOM`, `dataset/SHOES`,
 python train.py --data ./dataset --output ./models/stylesense-resnet50.pt --epochs 15
 ```
 
+The trainer refuses to run unless every category has at least 200 images by
+default. Use `--min-per-class 10` only for an explicitly experimental smoke
+test; that is not enough data for a credible model.
+
+Approved images can be exported from the admin API after review. Set an admin
+JWT and run the exporter from the repository root:
+
+```powershell
+$env:STYLESENSE_ADMIN_TOKEN = "<admin Supabase access token>"
+python ml-service/export_dataset.py --api http://localhost:5000/api
+python ml-service/train.py --data ml-service/dataset --output ml-service/models/stylesense-resnet50.pt
+```
+
 The training command creates a stratified validation split, applies realistic
 image augmentation, balances uneven categories, fine-tunes only the useful
 ResNet layers, saves the best validation macro-F1 checkpoint, and stops when

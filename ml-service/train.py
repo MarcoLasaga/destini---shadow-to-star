@@ -30,6 +30,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--batch-size', type=int, default=16)
     parser.add_argument('--val-split', type=float, default=0.2)
     parser.add_argument('--patience', type=int, default=4)
+    parser.add_argument('--min-per-class', type=int, default=200, help='Minimum images required in every category')
     parser.add_argument('--seed', type=int, default=42)
     return parser.parse_args()
 
@@ -81,8 +82,8 @@ def main() -> None:
     for index, (_, label) in enumerate(source.samples):
         indices_by_class[label].append(index)
     for label, indices in indices_by_class.items():
-        if len(indices) < 10:
-            raise SystemExit(f'{source.classes[label]} has only {len(indices)} images; provide at least 10 per category.')
+        if len(indices) < args.min_per_class:
+            raise SystemExit(f'{source.classes[label]} has only {len(indices)} images; provide at least {args.min_per_class} per category.')
 
     train_indices: list[int] = []
     validation_indices: list[int] = []

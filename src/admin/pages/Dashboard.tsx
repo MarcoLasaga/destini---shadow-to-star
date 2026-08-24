@@ -1,7 +1,8 @@
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   Users, Shirt, Heart, Layers, Camera, Tag, Cpu, Users2,
-  Sparkles, Bookmark, Palette, PieChart, TrendingUp, UploadCloud, Settings,
+  Sparkles, Bookmark, Palette, PieChart, TrendingUp, UploadCloud, Settings, Check, X, RefreshCw, ChevronDown,
 } from 'lucide-react'
 import {
   PieChart as RePieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -12,6 +13,7 @@ import {
   REGISTERED_USERS, CLOTHING_DISTRIBUTION, USER_GROWTH,
 } from '../mockData'
 import type { AdminUser } from '../mockData'
+import { adminApi, type DatasetOverview, type DatasetStatus } from '../../api/admin.api'
 
 const FF = 'Baloo Tamma 2, sans-serif'
 const FH = 'Bagel Fat One, cursive'
@@ -104,6 +106,118 @@ function UserRow({ user, i }: { user: AdminUser; i: number }) {
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
+function DatasetReview() {
+  const [overview, setOverview] = useState<DatasetOverview | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [activeCategory, setActiveCategory] = useState('ALL')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [error, setError] = useState('')
+  function apiErrorMessage(error: unknown, fallback: string) {
+    if (typeof error === 'object' && error !== null && 'response' in error) {
+      const response = (error as { response?: { data?: { message?: string } } }).response
+      if (response?.data?.message) return response.data.message
+    }
+    return fallback
+  }
+
+  async function load() {
+    setLoading(true); setError('')
+    try { setOverview((await adminApi.getDataset()).data.data) }
+    catch (error) { setError(apiErrorMessage(error, 'Could not load the dataset review queue.')) }
+    finally { setLoading(false) }
+  }
+  useEffect(() => {
+    let active = true
+    adminApi.getDataset()
+      .then(response => { if (active) setOverview(response.data.data) })
+      .catch(error => { if (active) setError(apiErrorMessage(error, 'Could not load the dataset review queue.')) })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [])
+
+  async function review(id: string, status: DatasetStatus) {
+    setBusyId(id)
+    try { await adminApi.reviewDatasetItem(id, status); await load() }
+    catch (error) { setError(apiErrorMessage(error, 'The review decision could not be saved.')) }
+    finally { setBusyId(null) }
+  }
+
+  const pending = overview?.pending.filter(item => activeCategory === 'ALL' || item.category === activeCategory) ?? []
+  const categories = ['ALL', ...(overview?.categories.map(category => category.category) ?? [])]
+
+  function rubric(item: DatasetOverview['pending'][number]) {
+    const hasImage = Boolean(item.image_url)
+    const hasName = Boolean(item.clothing_name?.trim())
+    const metadataCount = [item.color, item.material, item.brand, item.style, item.occasion, item.season].filter(Boolean).length
+    const hardReject = !hasImage
+    const suggestApprove = hasImage && hasName && metadataCount >= 2
+    return {
+      label: hardReject ? 'SUGGEST REJECT' : suggestApprove ? 'SUGGEST APPROVE' : 'NEEDS REVIEW',
+      color: hardReject ? '#c02020' : suggestApprove ? '#238636' : '#9c6b10',
+      checks: [
+        { label: 'Image is present', pass: hasImage },
+        { label: 'Name is descriptive', pass: hasName },
+        { label: 'At least two metadata fields supplied', pass: metadataCount >= 2 },
+        { label: 'One garment is clearly visible and in focus', pass: null },
+        { label: 'Submitted category matches the image', pass: null },
+        { label: 'Not a duplicate or near-duplicate', pass: null },
+      ],
+    }
+  }
+
+  return (
+    <section style={{ marginBottom: 36 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <SectionHeader icon={Layers} label="CNN Dataset Readiness" />
+        <button onClick={() => void load()} title="Refresh dataset counts" disabled={loading}
+          style={{ border: '1px solid var(--border-solid)', borderRadius: 9, padding: '7px 10px', background: 'var(--bg-card)', color: 'var(--text-muted)', cursor: 'pointer' }}><RefreshCw size={15} /></button>
+      </div>
+      {error && <p style={{ fontFamily: FF, color: '#b42318', fontSize: 13, marginBottom: 12 }}>{error}</p>}
+      {overview && <>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12, marginBottom: 16 }} className="admin-dataset-grid">
+          {overview.categories.map(category => <div key={category.category} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 13, padding: 16 }}>
+            <div style={{ fontFamily: FF, fontWeight: 800, fontSize: 12, color: 'var(--text-heading)', marginBottom: 8 }}>{category.category}</div>
+            <div style={{ fontFamily: FH, fontSize: 25, color: category.ready ? '#238636' : 'var(--text-heading)' }}>{category.approved} <span style={{ fontFamily: FF, fontSize: 12, color: 'var(--text-muted)' }}>/ {category.target}</span></div>
+            <div style={{ height: 6, background: 'var(--bg-alt)', borderRadius: 99, overflow: 'hidden', margin: '10px 0' }}><div style={{ width: `${Math.min(100, category.approved / category.target * 100)}%`, height: '100%', background: category.ready ? '#238636' : 'var(--accent)' }} /></div>
+            <div style={{ fontFamily: FF, fontSize: 11.5, color: 'var(--text-muted)' }}>{category.pending} pending · {category.rejected} rejected</div>
+          </div>)}
+        </div>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 13, padding: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
+            <div><div style={{ fontFamily: FF, fontWeight: 800, fontSize: 18, color: 'var(--text-heading)' }}>Review queue</div><div style={{ fontFamily: FF, fontSize: 13, color: 'var(--text-muted)' }}>{overview.totals.pending} pending · {overview.ready ? 'Ready to train' : 'Not ready to train'}</div></div>
+            <span style={{ fontFamily: FF, fontWeight: 800, fontSize: 12, color: overview.ready ? '#238636' : '#9c6b10' }}>{overview.ready ? 'DATASET READY' : 'COLLECT MORE DATA'}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+            {categories.map(category => <button key={category} onClick={() => setActiveCategory(category)} style={{ border: '1px solid var(--border-solid)', borderRadius: 99, padding: '6px 12px', background: activeCategory === category ? '#2b1f0e' : 'var(--bg-card)', color: activeCategory === category ? '#fff' : 'var(--text-body)', fontFamily: FF, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>{category}{category === 'ALL' ? ` (${overview.pending.length})` : ` (${overview.categories.find(item => item.category === category)?.pending ?? 0})`}</button>)}
+          </div>
+          {pending.length === 0 ? <div style={{ fontFamily: FF, color: 'var(--text-muted)', fontSize: 14 }}>No uploads waiting in this category.</div> : pending.map(item => <div key={item.id} style={{ padding: '12px 0', borderTop: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {item.image_url ? <img src={item.image_url} alt={item.clothing_name} style={{ width: 58, height: 58, objectFit: 'cover', borderRadius: 9 }} /> : <div style={{ width: 58, height: 58, borderRadius: 9, background: 'var(--bg-alt)' }} />}
+              <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontFamily: FF, fontWeight: 700, color: 'var(--text-heading)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.clothing_name}</div><div style={{ fontFamily: FF, fontSize: 12, color: 'var(--text-muted)' }}>{item.category} · submitted by {item.user_id.slice(0, 8)}</div></div>
+              <button onClick={() => setExpandedId(expandedId === item.id ? null : item.id)} title="Show upload details" style={{ display: 'flex', alignItems: 'center', gap: 4, border: '1px solid var(--border-solid)', borderRadius: 8, padding: '7px 9px', background: 'var(--bg-card)', color: 'var(--text-body)', fontFamily: FF, fontSize: 12, cursor: 'pointer' }}>Details <ChevronDown size={14} style={{ transform: expandedId === item.id ? 'rotate(180deg)' : undefined }} /></button>
+              <button onClick={() => void review(item.id, 'APPROVED')} disabled={busyId === item.id} title="Approve for dataset" style={{ border: 0, borderRadius: 8, padding: 8, background: 'rgba(35,134,54,.12)', color: '#238636', cursor: 'pointer' }}><Check size={17} /></button>
+              <button onClick={() => void review(item.id, 'REJECTED')} disabled={busyId === item.id} title="Reject from dataset" style={{ border: 0, borderRadius: 8, padding: 8, background: 'rgba(224,58,58,.10)', color: '#c02020', cursor: 'pointer' }}><X size={17} /></button>
+            </div>
+            {expandedId === item.id && <div style={{ margin: '12px 0 0 70px', padding: 14, borderRadius: 10, background: 'var(--bg-alt)', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: '9px 18px' }} className="dataset-details">
+              <div style={{ gridColumn: '1 / -1', borderBottom: '1px solid var(--border)', paddingBottom: 12, marginBottom: 2 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}><div style={{ fontFamily: FF, fontWeight: 800, fontSize: 13, color: 'var(--text-heading)' }}>Review rubric</div><span style={{ fontFamily: FF, fontSize: 11, fontWeight: 800, color: rubric(item).color }}>{rubric(item).label}</span></div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 5 }} className="rubric-grid">
+                  {rubric(item).checks.map(check => <div key={check.label} style={{ fontFamily: FF, fontSize: 12, color: check.pass === null ? 'var(--text-muted)' : check.pass ? '#238636' : '#c02020' }}>{check.pass === null ? '○' : check.pass ? '✓' : '×'} {check.label}{check.pass === null ? ' — verify manually' : ''}</div>)}
+                </div>
+                <div style={{ fontFamily: FF, fontSize: 11.5, color: 'var(--text-muted)', marginTop: 8 }}>This is a suggestion only. Confirm the image and metadata before approving.</div>
+              </div>
+              {[['Category', item.category], ['Color', item.color], ['Material', item.material], ['Brand', item.brand], ['Style', item.style], ['Occasion', item.occasion], ['Season', item.season], ['Subcategory', item.subcategory], ['Notes', item.notes]].map(([label, value]) => <div key={label}><div style={{ fontFamily: FF, fontSize: 10, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--text-muted)', fontWeight: 800 }}>{label}</div><div style={{ fontFamily: FF, fontSize: 13, color: 'var(--text-body)', marginTop: 2 }}>{value || 'Not provided'}</div></div>)}
+            </div>}
+          </div>)}
+        </div>
+      </>}
+      {!overview && loading && <div style={{ fontFamily: FF, color: 'var(--text-muted)', fontSize: 14 }}>Loading review data…</div>}
+      <style>{`@media (max-width: 1100px) { .admin-dataset-grid { grid-template-columns: repeat(2,1fr) !important; } .dataset-details { grid-template-columns: repeat(2, minmax(0,1fr)) !important; } } @media (max-width: 560px) { .admin-dataset-grid { grid-template-columns: 1fr !important; } .dataset-details, .rubric-grid { grid-template-columns: 1fr !important; margin-left: 0 !important; } }`}</style>
+    </section>
+  )
+}
+
 export default function AdminDashboard() {
   return (
     <motion.div
@@ -119,6 +233,8 @@ export default function AdminDashboard() {
           IPO Model — Input, Process, and Output monitoring for system evaluation
         </p>
       </div>
+
+      <DatasetReview />
 
       {/* ── INPUT MONITORING ─────────────────────────────────────────── */}
       <section style={{ marginBottom: 36 }}>

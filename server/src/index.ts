@@ -7,6 +7,7 @@ import { ENV } from './config/env'
 import { errorHandler } from './middleware/errorHandler'
 import wardrobeRoutes from './routes/wardrobe.routes'
 import outfitRoutes from './routes/outfit.routes'
+import adminRoutes from './routes/admin.routes'
 
 const app = express()
 
@@ -28,6 +29,7 @@ app.get('/health', (_req, res) => res.json({ success: true, message: 'StyleSense
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api/wardrobe', wardrobeRoutes)
 app.use('/api/outfits', outfitRoutes)
+app.use('/api/admin', adminRoutes)
 
 // ── 404 ───────────────────────────────────────────────────────────────────────
 app.use((_req, res) => res.status(404).json({ success: false, message: 'Route not found' }))
