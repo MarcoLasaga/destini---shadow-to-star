@@ -13,7 +13,7 @@ The web (`master`) and mobile (`mobile-dev`) worktrees share the same Supabase
   image normalization, Storage upload, and insert into the shared wardrobe.
 - Both clients request image analysis after an image is selected and use the
   response only as editable form suggestions.
-- `ml-service/` is a Dockerized PyTorch ResNet-50 baseline that returns category,
+- `ml-service/` is a local PyTorch ResNet-50 baseline that returns category,
   color, style and confidence. It is operational infrastructure, not yet a
   thesis-accuracy fashion model.
 
@@ -54,11 +54,13 @@ computer's LAN IP, not `localhost`.
 ```powershell
 # Web/API worktree
 npm ci
-docker build -t stylesense-cnn .\ml-service
-docker run --rm -p 8000:8000 stylesense-cnn
 npm run server:dev
 # separate terminal
 npm run dev
+
+# Optional ML service, in a third terminal
+cd ml-service
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 # Mobile worktree
 cd ..\stylesense-mobile
@@ -67,7 +69,9 @@ npm start
 ```
 
 The API reads `CNN_ANALYSIS_URL=http://localhost:8000/analyze`. Verify the ML
-service first at `http://localhost:8000/health`.
+service first at `http://localhost:8000/health`. Docker is not required for the
+current portal and service workflow; install the Python dependencies from
+`ml-service/requirements.txt` when running image analysis locally.
 
 ## Validation completed
 
