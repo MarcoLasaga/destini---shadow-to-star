@@ -1,8 +1,10 @@
 import dotenv from 'dotenv'
 import path from 'path'
 
-// Local server overrides are optional; the workspace .env remains the fallback.
-dotenv.config({ path: [path.join(process.cwd(), 'server', '.env'), path.join(process.cwd(), '.env')] })
+// The workspace .env is shared with Vite. Load it first so an unfilled server
+// template cannot replace real Supabase values; server/.env adds server-only
+// settings such as CNN_ANALYSIS_URL.
+dotenv.config({ path: [path.join(process.cwd(), '.env'), path.join(process.cwd(), 'server', '.env')] })
 
 export const ENV = {
   PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 5000,
