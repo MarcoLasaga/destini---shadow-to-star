@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import BottomTabNavigator from './BottomTabNavigator';
@@ -18,6 +19,7 @@ import HelpScreen from '../screens/HelpScreen';
 import OutfitDetailsScreen from '../screens/OutfitDetailsScreen';
 import LoginScreen from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
+import OnboardingScreen from '../screens/OnboardingScreen';
 import { RootStackParamList } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -30,8 +32,13 @@ const screenOptions: NativeStackNavigationOptions = {
 
 export default function RootNavigator() {
   const { isLoggedIn, loading } = useAuth();
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
 
-  if (loading) {
+  useEffect(() => {
+    AsyncStorage.getItem('stylesense_onboarding_complete').then(value => setOnboardingComplete(value === 'true'));
+  }, []);
+
+  if (loading || onboardingComplete === null) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FAF7F2' }}>
         <ActivityIndicator size="large" color="#756E9E" />
@@ -42,7 +49,16 @@ export default function RootNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={screenOptions}>
-        {isLoggedIn ? (
+        {!onboardingComplete ? (
+          <>
+            <Stack.Screen name="Onboarding" options={{ headerShown: false }}>
+              {() => <OnboardingScreen onComplete={() => setOnboardingComplete(true)} />}
+            </Stack.Screen>
+            <Stack.Screen name="MainTabs" component={BottomTabNavigator} options={{ headerShown: false }} />
+            <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="Signup" component={SignupScreen} options={{ headerShown: false }} />
+          </>
+        ) : isLoggedIn ? (
           <>
             <Stack.Screen name="MainTabs" component={BottomTabNavigator} options={{ headerShown: false }} />
         <Stack.Screen name="Notifications" options={{ title: 'Notifications' }}>

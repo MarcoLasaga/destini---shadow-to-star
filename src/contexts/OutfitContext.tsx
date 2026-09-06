@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { GeneratedOutfit } from '../types';
-import { buildOutfitFromTemplate, buildSurpriseOutfit, remixOutfit } from '../constants/outfitMockData';
+import { useAuth } from './AuthContext';
+import { generateRecommendations, updateRecommendation } from '../services/outfitRecommendationService';
 
 interface OutfitContextValue {
   occasion: string;
@@ -8,8 +9,8 @@ interface OutfitContextValue {
   currentOutfit: GeneratedOutfit | null;
   isLoading: boolean;
   savedOutfits: GeneratedOutfit[];
-  generateOutfit: () => void;
-  surpriseMe: () => void;
+  generateOutfit: () => Promise<void>;
+  surpriseMe: () => Promise<void>;
   remixCurrentOutfit: () => void;
   toggleFavorite: (id: string) => void;
   toggleSave: (id: string) => void;
@@ -20,36 +21,35 @@ interface OutfitContextValue {
 
 const OutfitContext = createContext<OutfitContextValue | undefined>(undefined);
 
-const LOADING_DURATION = 1400;
-
 export function OutfitProvider({ children }: { children: React.ReactNode }) {
+  const { session } = useAuth();
   const [occasion, setOccasion] = useState('Any occasion');
   const [currentOutfit, setCurrentOutfit] = useState<GeneratedOutfit | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [savedOutfits, setSavedOutfits] = useState<GeneratedOutfit[]>([]);
   const [history, setHistory] = useState<Record<string, GeneratedOutfit>>({});
 
-  const runWithLoading = useCallback((builder: () => GeneratedOutfit) => {
+  const runWithLoading = useCallback(async (selectedOccasion: string) => {
+    if (!session?.access_token) return;
     setIsLoading(true);
-    setTimeout(() => {
-      const outfit = builder();
+    try {
+      const outfits = await generateRecommendations(selectedOccasion, session.access_token);
+      const outfit = outfits[0] ?? null;
       setCurrentOutfit(outfit);
-      setHistory((prev) => ({ ...prev, [outfit.id]: outfit }));
-      setIsLoading(false);
-    }, LOADING_DURATION);
-  }, []);
+      if (outfit) setHistory((prev) => ({ ...prev, [outfit.id]: outfit }));
+    } finally { setIsLoading(false); }
+  }, [session]);
 
   const generateOutfit = useCallback(() => {
-    runWithLoading(() => buildOutfitFromTemplate(occasion));
+    return runWithLoading(occasion);
   }, [occasion, runWithLoading]);
 
   const surpriseMe = useCallback(() => {
-    runWithLoading(() => buildSurpriseOutfit());
+    return runWithLoading('Any occasion');
   }, [runWithLoading]);
 
   const remixCurrentOutfit = useCallback(() => {
-    if (!currentOutfit) return;
-    runWithLoading(() => remixOutfit(currentOutfit));
+    return runWithLoading(occasion);
   }, [currentOutfit, runWithLoading]);
 
   const updateOutfitEverywhere = useCallback((id: string, updates: Partial<GeneratedOutfit>) => {
@@ -72,7 +72,8 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
       const target = currentOutfit?.id === id ? currentOutfit : history[id];
       if (!target) return;
       const nextSaved = !target.saved;
-      updateOutfitEverywhere(id, { saved: nextSaved });
+      updateOutfitEverywhere(id, { saved: nextSaved, favorited: nextSaved });
+      if (session?.access_token) updateRecommendation(id, { isSaved: nextSaved }, session.access_token).catch(console.error);
       setSavedOutfits((prev) => {
         if (nextSaved) {
           const alreadyIn = prev.some((o) => o.id === id);
@@ -81,21 +82,23 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
         return prev.filter((o) => o.id !== id);
       });
     },
-    [currentOutfit, history, updateOutfitEverywhere]
+    [currentOutfit, history, updateOutfitEverywhere, session]
   );
 
   const markAsWorn = useCallback(
     (id: string) => {
       updateOutfitEverywhere(id, { worn: true });
+      if (session?.access_token) updateRecommendation(id, { isWorn: true }, session.access_token).catch(console.error);
     },
-    [updateOutfitEverywhere]
+    [updateOutfitEverywhere, session]
   );
 
   const submitWearFeedback = useCallback(
     (id: string, rating: number, notes: string) => {
       updateOutfitEverywhere(id, { wearRating: rating, wearNotes: notes });
+      if (session?.access_token) updateRecommendation(id, { rating, note: notes }, session.access_token).catch(console.error);
     },
-    [updateOutfitEverywhere]
+    [updateOutfitEverywhere, session]
   );
 
   const getOutfit = useCallback(

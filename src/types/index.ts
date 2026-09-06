@@ -123,6 +123,7 @@ export type RootStackParamList = {
   OutfitDetails: { outfitId: string };
   Login: undefined;
   Signup: undefined;
+  Onboarding: undefined;
 };
 
 export type MainTabParamList = {
