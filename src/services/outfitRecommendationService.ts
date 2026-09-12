@@ -21,6 +21,13 @@ export async function generateRecommendations(occasion: string, accessToken: str
   return (body.data as ApiOutfit[]).map(mapOutfit);
 }
 
+export async function getRecommendationHistory(accessToken: string): Promise<GeneratedOutfit[]> {
+  const response = await fetch(`${API_URL}/outfits/history`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body?.message || 'Could not load outfit history.');
+  return (body.data as ApiOutfit[]).map(mapOutfit);
+}
+
 export async function updateRecommendation(id: string, patch: Record<string, unknown>, accessToken: string) {
   const response = await fetch(`${API_URL}/outfits/${id}/feedback`, { method: 'PATCH', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
   if (!response.ok) throw new Error('Could not save outfit feedback.');

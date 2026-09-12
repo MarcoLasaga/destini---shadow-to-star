@@ -17,6 +17,7 @@ import PackingTripDetailScreen from '../screens/PackingTripDetailScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import HelpScreen from '../screens/HelpScreen';
 import OutfitDetailsScreen from '../screens/OutfitDetailsScreen';
+import OutfitScreen from '../screens/OutfitScreen';
 import LoginScreen from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
@@ -66,7 +67,7 @@ export default function RootNavigator() {
         </Stack.Screen>
         <Stack.Screen name="AddClothes" component={AddClothesScreen} options={{ headerShown: false }} />
         <Stack.Screen name="GenerateOutfit" options={{ title: 'Generate Outfit' }}>
-          {() => <PlaceholderScreen title="Generate Outfit" />}
+          {() => <OutfitScreen />}
         </Stack.Screen>
         <Stack.Screen name="PlanDay" options={{ title: 'Plan Day' }}>
           {() => <PlaceholderScreen title="Plan Day" />}

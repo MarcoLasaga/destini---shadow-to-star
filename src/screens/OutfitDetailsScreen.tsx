@@ -15,7 +15,7 @@ export default function OutfitDetailsScreen() {
   const theme = useAppTheme();
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RootStackParamList, 'OutfitDetails'>>();
-  const { getOutfit, toggleFavorite, markAsWorn, submitWearFeedback } = useOutfit();
+  const { getOutfit, toggleFavorite, markAsWorn, submitWearFeedback, submitPreferenceEvent } = useOutfit();
 
   const outfit = getOutfit(route.params.outfitId);
   const [wearRating, setWearRating] = useState(outfit?.wearRating ?? 0);
@@ -157,6 +157,15 @@ export default function OutfitDetailsScreen() {
             </Pressable>
           </View>
 
+          <View style={styles.actionsRow}>
+            <Pressable onPress={() => submitPreferenceEvent(outfit.id, 'LIKE')} style={[styles.shareButton, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+              <Ionicons name="thumbs-up-outline" size={16} color="#2F8F5B" /><Text style={[styles.shareLabel, { color: theme.text }]}>I like this</Text>
+            </Pressable>
+            <Pressable onPress={() => submitPreferenceEvent(outfit.id, 'DISLIKE')} style={[styles.shareButton, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+              <Ionicons name="thumbs-down-outline" size={16} color="#E5484D" /><Text style={[styles.shareLabel, { color: theme.text }]}>Not for me</Text>
+            </Pressable>
+          </View>
+
           <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <View style={styles.sectionHeader}>
               <View style={[styles.sparkleIcon, { backgroundColor: theme.mode === 'dark' ? '#2A2A31' : '#F4F1EA' }]}>
@@ -179,7 +188,6 @@ export default function OutfitDetailsScreen() {
 
           <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>User Feedback</Text>
-            <Text style={[styles.sampleDataLabel, { color: theme.textMuted }]}>Sample data</Text>
             {outfit.feedback.map((review) => (
               <View key={review.id} style={styles.feedbackRow}>
                 <StarRating rating={review.stars} size={14} />

@@ -3,6 +3,7 @@ import { UserProfile } from '../types';
 import { initialProfile } from '../constants/profileMockData';
 import { useAuth } from './AuthContext';
 import { supabase } from '../integrations/supabase/client';
+import * as Crypto from 'expo-crypto';
 
 interface ProfileContextValue {
   profile: UserProfile;
@@ -128,7 +129,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   }, [session]);
 
   const setAvatar = useCallback(async (uri: string | null) => {
-    await updateProfile({ avatarUri: uri });
+    const user = session?.user;
+    if (!user || !uri) { await updateProfile({ avatarUri: null }); return; }
+    const response = await fetch(uri);
+    const bytes = await response.arrayBuffer();
+    const path = `${user.id}/avatar-${Crypto.randomUUID()}.jpg`;
+    const { error } = await supabase.storage.from('wardrobe-images').upload(path, bytes, { contentType: 'image/jpeg', upsert: false });
+    if (error) throw error;
+    await updateProfile({ avatarUri: supabase.storage.from('wardrobe-images').getPublicUrl(path).data.publicUrl });
   }, [updateProfile]);
 
   return (

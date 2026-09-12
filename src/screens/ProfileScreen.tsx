@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
-import * as ImagePicker from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useProfile } from '../contexts/ProfileContext';
 import { useWardrobe } from '../contexts/WardrobeContext';
@@ -41,10 +41,14 @@ export default function ProfileScreen() {
   };
 
   const pickImage = async (source: 'library' | 'camera') => {
-    // NOTE: requires `expo-image-picker` (not yet installed). Install with:
-    // npx expo install expo-image-picker
-    // Left as a stub call here so avatar UI + local state wiring is ready;
-    // swap in real ImagePicker.launchImageLibraryAsync / launchCameraAsync once installed.
+    const permission = source === 'camera' ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) { Alert.alert('Permission required', 'Allow photo access to update your profile picture.'); return; }
+    const result = source === 'camera'
+      ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.85 })
+      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.85 });
+    if (!result.canceled && result.assets[0]) {
+      try { await setAvatar(result.assets[0].uri); } catch { Alert.alert('Could not update photo', 'Please try again.'); }
+    }
   };
 
   return (

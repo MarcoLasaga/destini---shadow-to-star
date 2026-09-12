@@ -37,6 +37,7 @@ export default function AddClothesScreen() {
   const [occasions, setOccasions] = useState<string[]>(['Casual']);
   const [saving, setSaving] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [confidence, setConfidence] = useState<number | null>(null);
 
   const pickImage = async (useCamera: boolean) => {
     const permission = useCamera
@@ -60,6 +61,7 @@ export default function AddClothesScreen() {
       setAnalyzing(true);
       try {
         const prediction = await analyzeClothingImage(processed.uri, session.access_token);
+        setConfidence(typeof prediction.confidence === 'number' ? prediction.confidence : null);
         const suggestedCategory = prediction.category ? CATEGORY_FROM_API[prediction.category] : undefined;
         const suggestedStyle = prediction.style ? STYLE_FROM_API[prediction.style] : undefined;
         if (suggestedCategory) setCategory(suggestedCategory);
@@ -67,6 +69,7 @@ export default function AddClothesScreen() {
         if (suggestedStyle) setStyle(suggestedStyle);
         if (!name.trim() && prediction.category) setName(`${prediction.color ? `${prediction.color} ` : ''}${CATEGORY_NAME_FROM_API[prediction.category]}`);
       } catch (error) {
+        setConfidence(null);
         // A photo can still be saved when the API/CNN is unreachable.
         console.info('Image analysis unavailable; continue with manual values.', error);
       } finally {
@@ -114,6 +117,7 @@ export default function AddClothesScreen() {
       <View style={[styles.photo, { backgroundColor: theme.surface, borderColor: theme.border }]}>{imageUri ? <Image source={{ uri: imageUri }} style={styles.photoImage} /> : <Ionicons name="shirt-outline" size={44} color={theme.textMuted} />}</View>
       <View style={styles.photoActions}><Pressable onPress={() => pickImage(false)} style={[styles.photoButton, { borderColor: theme.border }]}><Ionicons name="images-outline" size={18} color={theme.text} /><Text style={{ color: theme.text }}>Choose photo</Text></Pressable><Pressable onPress={() => pickImage(true)} style={[styles.photoButton, { backgroundColor: theme.secondaryAccent }]}><Ionicons name="camera-outline" size={18} color="#fff" /><Text style={{ color: '#fff' }}>Take photo</Text></Pressable></View>
       {analyzing && <Text style={[styles.analyzingText, { color: theme.textMuted }]}>Analyzing photo and suggesting details…</Text>}
+      {!analyzing && confidence !== null && <Text style={[styles.analyzingText, { color: theme.textMuted }]}>AI suggestion confidence: {Math.round(confidence * 100)}%. Review the fields before saving.</Text>}
       <TextField label="Name *" value={name} onChangeText={setName} placeholder="e.g. Black hoodie" />
       <SelectField label="Category" required value={category} options={CLOTHING_CATEGORIES.filter((entry) => entry !== 'All' && entry !== 'Dresses')} onChange={setCategory} />
       <View style={styles.row}><SelectField label="Color" value={color} options={COLOR_OPTIONS} onChange={setColor} /><View style={styles.gap} /><TextField label="Brand" value={brand} onChangeText={setBrand} placeholder="Optional" /></View>

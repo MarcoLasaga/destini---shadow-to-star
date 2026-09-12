@@ -130,8 +130,6 @@ export type MainTabParamList = {
   Home: undefined;
   Wardrobe: undefined;
   Outfit: undefined;
-  Discover: undefined;
-  Planner: undefined;
   Profile: undefined;
 };
 

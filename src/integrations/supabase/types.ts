@@ -164,6 +164,18 @@ export type Database = {
         }
         Relationships: []
       }
+      preference_profiles: {
+        Row: { user_id: string; style_weights: Json; color_weights: Json; occasion_weights: Json; category_weights: Json; disliked_items: string[]; feedback_count: number; created_at: string; updated_at: string }
+        Insert: { user_id: string; style_weights?: Json; color_weights?: Json; occasion_weights?: Json; category_weights?: Json; disliked_items?: string[]; feedback_count?: number; created_at?: string; updated_at?: string }
+        Update: { user_id?: string; style_weights?: Json; color_weights?: Json; occasion_weights?: Json; category_weights?: Json; disliked_items?: string[]; feedback_count?: number; created_at?: string; updated_at?: string }
+        Relationships: []
+      }
+      preference_events: {
+        Row: { id: string; user_id: string; recommendation_id: string | null; event_type: string; rating: number | null; note: string | null; occasion: string | null; item_ids: string[]; created_at: string }
+        Insert: { id?: string; user_id: string; recommendation_id?: string | null; event_type: string; rating?: number | null; note?: string | null; occasion?: string | null; item_ids?: string[]; created_at?: string }
+        Update: { id?: string; user_id?: string; recommendation_id?: string | null; event_type?: string; rating?: number | null; note?: string | null; occasion?: string | null; item_ids?: string[]; created_at?: string }
+        Relationships: []
+      }
       shared_outfits: {
         Row: {
           caption: string | null

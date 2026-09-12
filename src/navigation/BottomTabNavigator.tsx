@@ -5,7 +5,6 @@ import HomeScreen from '../screens/HomeScreen';
 import WardrobeScreen from '../screens/WardrobeScreen';
 import OutfitScreen from '../screens/OutfitScreen';
 import ProfileScreen from '../screens/ProfileScreen';
-import PlaceholderScreen from '../screens/PlaceholderScreen';
 import { MainTabParamList } from '../types';
 import { useAppTheme } from '../hooks/useAppTheme';
 
@@ -15,8 +14,6 @@ const ICONS: Record<keyof MainTabParamList, keyof typeof Ionicons.glyphMap> = {
   Home: 'home',
   Wardrobe: 'shirt',
   Outfit: 'sparkles',
-  Discover: 'compass',
-  Planner: 'calendar',
   Profile: 'person',
 };
 
@@ -24,8 +21,6 @@ const LABELS: Record<keyof MainTabParamList, string> = {
   Home: 'Home',
   Wardrobe: 'Wardrobe',
   Outfit: 'Outfit',
-  Discover: 'Discover',
-  Planner: 'Planner',
   Profile: 'Account',
 };
 
@@ -59,8 +54,6 @@ export default function BottomTabNavigator() {
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Wardrobe" component={WardrobeScreen} />
       <Tab.Screen name="Outfit" component={OutfitScreen} />
-      <Tab.Screen name="Discover">{() => <PlaceholderScreen title="Discover" />}</Tab.Screen>
-      <Tab.Screen name="Planner">{() => <PlaceholderScreen title="Planner" />}</Tab.Screen>
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
