@@ -6,7 +6,7 @@ import {
   Activity, FlaskConical, BookOpen, Home, Shield,
   ChevronLeft, ChevronRight, Menu, X,
 } from 'lucide-react'
-import Navbar from '../components/navbar/Navbar'
+import PortalNavbar from '../components/portal/PortalNavbar'
 import { useAuth } from '../context/useAuth'
 
 const FF = 'Baloo Tamma 2, sans-serif'
@@ -146,7 +146,7 @@ export default function AdminLayout() {
       <div className="admin-shell" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
 
         {/* ── SHARED MAIN NAVBAR (top) ── */}
-        <Navbar />
+        <PortalNavbar />
 
         {/* ── BELOW NAV: sidebar + content ── */}
         <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
