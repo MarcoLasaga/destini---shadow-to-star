@@ -5,5 +5,6 @@ import { outfitController } from '../controllers/outfit.controller'
 const router = Router()
 router.use(requireAuth)
 router.get('/generate', outfitController.generate)
+router.get('/history', outfitController.history)
 router.patch('/:id/feedback', outfitController.feedback)
 export default router
