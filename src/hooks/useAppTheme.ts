@@ -1,7 +1,6 @@
-import { useColorScheme } from 'react-native';
-import { lightTheme, darkTheme } from '../constants/theme';
+import { lightTheme, Theme } from '../constants/theme';
 
-export function useAppTheme() {
-  const scheme = useColorScheme();
-  return scheme === 'dark' ? darkTheme : lightTheme;
+export function useAppTheme(): Theme {
+  // Dark mode is not yet implemented; force light theme across all screens and components
+  return lightTheme;
 }
