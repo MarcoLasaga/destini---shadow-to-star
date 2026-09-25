@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "start": "tsx server/src/index.ts",
+    "server:start": "tsx server/src/index.ts",
     "server:dev": "tsx watch server/src/index.ts",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
@@ -29,11 +31,13 @@
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.21.0",
     "multer": "^2.2.0",
+    "prisma": "^7.10.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router-dom": "^7.18.0",
     "recharts": "^3.9.0",
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "tsx": "^4.23.15"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -47,9 +51,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
-    "prisma": "^5.22.0",
     "tailwindcss": "^4.3.1",
-    "tsx": "4.20.6",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12"

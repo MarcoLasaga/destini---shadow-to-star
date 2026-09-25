@@ -59,11 +59,7 @@ export default function Signup() {
 
   useEffect(() => {
     if (isLoggedIn && authUser) {
-      if (isAdmin) {
-        navigate('/admin')
-      } else {
-        navigate('/wardrobe')
-      }
+      navigate(isAdmin ? '/admin' : '/')
     }
   }, [isLoggedIn, authUser, isAdmin, navigate])
 
