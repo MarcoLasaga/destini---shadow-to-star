@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "start": "tsx server/src/index.ts",
+    "server:start": "tsx server/src/index.ts",
     "server:dev": "tsx watch server/src/index.ts",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

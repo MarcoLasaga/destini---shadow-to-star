@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: stylesense-api
+    runtime: node
+    plan: free
+    buildCommand: npm install && npx prisma generate --schema=server/prisma/schema.prisma
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_SUPABASE_URL
+        value: https://wdvndocbxxzpltywtpub.supabase.co
+      - key: VITE_SUPABASE_PUBLISHABLE_KEY
+        value: sb_publishable_xEtId77ZWOEpifOvACxllw_hKFo9GEB
+      - key: DATABASE_URL
+        value: file:./prisma/dev.db
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
