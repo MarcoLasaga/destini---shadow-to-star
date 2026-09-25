@@ -3,7 +3,7 @@ services:
     name: stylesense-api
     runtime: node
     plan: free
-    buildCommand: npm install && npx prisma generate --schema=server/prisma/schema.prisma
+    buildCommand: npm install && npm run prisma:generate
     startCommand: npm run start
     envVars:
       - key: NODE_ENV
