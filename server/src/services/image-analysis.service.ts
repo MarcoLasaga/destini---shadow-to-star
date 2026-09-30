@@ -7,9 +7,12 @@ const STYLES = ['CASUAL', 'FORMAL', 'SPORTY', 'STREETWEAR', 'MINIMALIST', 'BOHEM
 
 export interface ClothingPrediction {
   category?: (typeof CATEGORIES)[number]
+  categoryConfidence?: number
   color?: string
   style?: (typeof STYLES)[number]
   confidence?: number
+  palette?: Record<string, unknown>
+  attributes?: Record<string, unknown> | null
 }
 
 function optionalEnum<T extends readonly string[]>(value: unknown, allowed: T): T[number] | undefined {
@@ -25,9 +28,9 @@ function optionalEnum<T extends readonly string[]>(value: unknown, allowed: T): 
 async function preprocessForCnn(buffer: Buffer) {
   return sharp(buffer, { failOn: 'error' })
     .rotate()
-    .resize(224, 224, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1 } })
+    .resize(1280, 1280, { fit: 'inside', withoutEnlargement: true })
     .removeAlpha()
-    .jpeg({ quality: 90 })
+    .jpeg({ quality: 92, mozjpeg: true })
     .toBuffer()
 }
 
@@ -47,9 +50,12 @@ export const imageAnalysisService = {
 
     return {
       category: optionalEnum(result.category, CATEGORIES),
+      categoryConfidence: confidence,
       color: typeof result.color === 'string' && result.color.length <= 50 ? result.color : undefined,
       style: optionalEnum(result.style, STYLES),
       confidence,
+      palette: result.palette && typeof result.palette === 'object' ? result.palette as Record<string, unknown> : undefined,
+      attributes: result.attributes && typeof result.attributes === 'object' ? result.attributes as Record<string, unknown> : null,
     }
   },
 }

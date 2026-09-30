@@ -6,6 +6,7 @@ same prediction shape expected by POST /api/wardrobe/analyze.
 
 from contextlib import asynccontextmanager
 from io import BytesIO
+import os
 from typing import Literal
 
 import numpy as np
@@ -15,11 +16,15 @@ from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel
 from torchvision.models import ResNet50_Weights, resnet50
 
+from kmeans_color import extract_clothing_palette
+
 Category = Literal['TOP', 'BOTTOM', 'SHOES', 'OUTERWEAR', 'ACCESSORIES']
 Style = Literal['CASUAL', 'FORMAL', 'SPORTY', 'STREETWEAR', 'MINIMALIST', 'BOHEMIAN', 'VINTAGE', 'CLASSIC']
 
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+MIN_CATEGORY_CONFIDENCE = float(os.getenv('MIN_CATEGORY_CONFIDENCE', '0.55'))
 MODEL: torch.nn.Module | None = None
+FINE_TUNED_CLASS_NAMES: list[str] | None = None
 WEIGHTS = ResNet50_Weights.IMAGENET1K_V2
 
 # ImageNet has no general "clothing" class. These are the garment labels in its
@@ -35,9 +40,12 @@ LABEL_CATEGORY_HINTS: dict[Category, tuple[str, ...]] = {
 
 class Prediction(BaseModel):
     category: Category | None = None
+    categoryConfidence: float | None = None
     color: str | None = None
     style: Style | None = None
     confidence: float
+    palette: dict
+    attributes: dict | None = None
 
 
 def category_from_labels(labels: list[str], probabilities: list[float]) -> tuple[Category | None, float, str]:
@@ -49,23 +57,25 @@ def category_from_labels(labels: list[str], probabilities: list[float]) -> tuple
     return None, probabilities[0], labels[0].lower()
 
 
-def style_from_label(category: Category | None, label: str) -> Style | None:
+def style_from_label(label: str) -> Style | None:
     if any(hint in label for hint in ('running shoe', 'sneaker', 'jersey', 'maillot')):
         return 'SPORTY'
     if any(hint in label for hint in ('suit', 'tie', 'loafer', 'trench')):
         return 'FORMAL'
-    if category in ('TOP', 'BOTTOM', 'SHOES', 'OUTERWEAR'):
-        return 'CASUAL'
     return None
 
 
 def dominant_color(image: Image.Image) -> str:
-    """Estimate a named garment color while ignoring near-white backgrounds."""
-    pixels = np.asarray(image.convert('RGB').resize((96, 96)), dtype=np.float32).reshape(-1, 3)
+    """Estimate a named garment color while excluding most plain backgrounds."""
+    pixels = np.asarray(image.convert('RGB').resize((128, 128)), dtype=np.float32).reshape(-1, 3)
     saturation = pixels.max(axis=1) - pixels.min(axis=1)
     brightness = pixels.mean(axis=1)
-    garment_pixels = pixels[(brightness < 242) & ((saturation > 12) | (brightness < 100))]
-    rgb = np.median(garment_pixels if len(garment_pixels) else pixels, axis=0)
+    garment_pixels = pixels[(brightness < 235) | (saturation > 18)]
+    if len(garment_pixels) < len(pixels) * 0.04:
+        garment_pixels = pixels
+    quantized = (garment_pixels // 32).astype(np.int16)
+    _, inverse, counts = np.unique(quantized, axis=0, return_inverse=True, return_counts=True)
+    rgb = np.median(garment_pixels[inverse == int(np.argmax(counts))], axis=0)
     red, green, blue = rgb
     maximum, minimum = rgb.max(), rgb.min()
     if maximum < 55:
@@ -89,9 +99,21 @@ def dominant_color(image: Image.Image) -> str:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    global MODEL
+    global MODEL, FINE_TUNED_CLASS_NAMES
     # Weights download once on the first container start and are cached by torch.
-    MODEL = resnet50(weights=WEIGHTS).eval()
+    checkpoint_path = os.getenv('MODEL_CHECKPOINT')
+    if checkpoint_path and os.path.exists(checkpoint_path):
+        checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
+        FINE_TUNED_CLASS_NAMES = checkpoint['class_names']
+        supported_classes = {'TOP', 'BOTTOM', 'SHOES', 'OUTERWEAR', 'ACCESSORIES'}
+        if not FINE_TUNED_CLASS_NAMES or not set(FINE_TUNED_CLASS_NAMES).issubset(supported_classes):
+            raise RuntimeError('MODEL_CHECKPOINT contains unsupported StyleSense category classes.')
+        MODEL = resnet50(weights=None)
+        MODEL.fc = torch.nn.Linear(MODEL.fc.in_features, len(FINE_TUNED_CLASS_NAMES))
+        MODEL.load_state_dict(checkpoint['state_dict'])
+    else:
+        MODEL = resnet50(weights=WEIGHTS)
+    MODEL.eval()
     yield
     MODEL = None
 
@@ -101,7 +123,7 @@ app = FastAPI(title='StyleSense CNN image analysis', version='1.0.0', lifespan=l
 
 @app.get('/health')
 def health() -> dict[str, str]:
-    return {'status': 'ok', 'model': 'resnet50-imagenet1k-v2'}
+    return {'status': 'ok', 'model': 'fashion-finetuned-resnet50' if FINE_TUNED_CLASS_NAMES else 'resnet50-imagenet1k-v2'}
 
 
 @app.post('/analyze', response_model=Prediction)
@@ -121,8 +143,30 @@ async def analyze(request: Request) -> Prediction:
     tensor = WEIGHTS.transforms()(image).unsqueeze(0)
     with torch.inference_mode():
         probabilities = torch.softmax(MODEL(tensor)[0], dim=0)
-    top = torch.topk(probabilities, k=8)
-    labels = [WEIGHTS.meta['categories'][index] for index in top.indices.tolist()]
+    top = torch.topk(probabilities, k=min(8, len(probabilities)))
+    labels = [FINE_TUNED_CLASS_NAMES[index] for index in top.indices.tolist()] if FINE_TUNED_CLASS_NAMES else [WEIGHTS.meta['categories'][index] for index in top.indices.tolist()]
     scores = top.values.tolist()
-    category, confidence, label = category_from_labels(labels, scores)
-    return Prediction(category=category, color=dominant_color(image), style=style_from_label(category, label), confidence=round(float(confidence), 4))
+    if FINE_TUNED_CLASS_NAMES:
+        category, confidence, label = labels[0], scores[0], labels[0].lower()
+        if confidence < MIN_CATEGORY_CONFIDENCE:
+            category = None
+        # This checkpoint is trained only for category. Do not invent a style.
+        style = None
+    else:
+        category, confidence, label = category_from_labels(labels, scores)
+        # ImageNet labels do not provide a reliable fashion-style prediction.
+        style = None
+
+    palette_result = extract_clothing_palette(image)
+    palette = {
+        'dominant_color': palette_result.dominant_color,
+        'dominant_rgb': palette_result.dominant_rgb,
+        'dominant_hex': palette_result.dominant_hex,
+        'dominant_lab': palette_result.dominant_lab,
+        'palette': [cluster.__dict__ for cluster in palette_result.palette],
+        'silhouette_score': palette_result.silhouette_score,
+        'davies_bouldin_index': palette_result.davies_bouldin_index,
+        'inertia': palette_result.inertia,
+    }
+    confidence_value = round(float(confidence), 4)
+    return Prediction(category=category, categoryConfidence=confidence_value, color=palette_result.dominant_color, style=style, confidence=confidence_value, palette=palette, attributes=None)
