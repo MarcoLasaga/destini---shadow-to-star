@@ -9,7 +9,7 @@ export default function OutfitRecommendationStatsBar({ outfit }: { outfit: Gener
 
   const stats = [
     { value: `${outfit.matchPercent}%`, label: 'Match' },
-    { value: outfit.weatherTempF < 65 ? 'Cool' : outfit.weatherTempF > 82 ? 'Warm' : 'Excellent', label: 'Weather' },
+    { value: outfit.weatherTempF === null ? 'Unavailable' : outfit.weatherTempF < 65 ? 'Cool' : outfit.weatherTempF > 82 ? 'Warm' : 'Excellent', label: 'Weather' },
     { value: outfit.occasionLabel, label: 'Style' },
     { value: `${outfit.sustainPercent}%`, label: 'Sustain' },
     { value: outfit.sustainPercent > 80 ? 'High' : 'Moderate', label: 'Reuse' },

@@ -148,6 +148,7 @@ export interface ColorSwatch {
 }
 
 export interface WhyReasonDetail {
+  id: string;
   icon: string;
   title: string;
   description: string;
@@ -168,9 +169,9 @@ export interface GeneratedOutfit {
   matchPercent: number;
   sustainPercent: number;
   comfortRating: number;
-  weatherCondition: string;
-  weatherTempF: number;
-  location: string;
+  weatherCondition: string | null;
+  weatherTempF: number | null;
+  location: string | null;
   clothingItems: OutfitClothingItem[];
   colorPalette: ColorSwatch[];
   whyReasons: WhyReasonDetail[];

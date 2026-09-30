@@ -7,6 +7,7 @@ interface OutfitContextValue {
   occasion: string;
   setOccasion: (value: string) => void;
   currentOutfit: GeneratedOutfit | null;
+  currentOutfits: GeneratedOutfit[];
   isLoading: boolean;
   savedOutfits: GeneratedOutfit[];
   generateOutfit: () => Promise<void>;
@@ -26,6 +27,7 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
   const [occasion, setOccasion] = useState('Any occasion');
   const [currentOutfit, setCurrentOutfit] = useState<GeneratedOutfit | null>(null);
+  const [currentOutfits, setCurrentOutfits] = useState<GeneratedOutfit[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [savedOutfits, setSavedOutfits] = useState<GeneratedOutfit[]>([]);
   const [history, setHistory] = useState<Record<string, GeneratedOutfit>>({});
@@ -49,8 +51,9 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
     try {
       const outfits = await generateRecommendations(selectedOccasion, session.access_token);
       const outfit = outfits[0] ?? null;
+      setCurrentOutfits(outfits);
       setCurrentOutfit(outfit);
-      if (outfit) setHistory((prev) => ({ ...prev, [outfit.id]: outfit }));
+      if (outfits.length) setHistory((prev) => ({ ...prev, ...Object.fromEntries(outfits.map((item) => [item.id, item])) }));
     } finally { setIsLoading(false); }
   }, [session]);
 
@@ -69,6 +72,7 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
 
   const updateOutfitEverywhere = useCallback((id: string, updates: Partial<GeneratedOutfit>) => {
     setCurrentOutfit((prev) => (prev && prev.id === id ? { ...prev, ...updates } : prev));
+    setCurrentOutfits((prev) => prev.map((o) => (o.id === id ? { ...o, ...updates } : o)));
     setSavedOutfits((prev) => prev.map((o) => (o.id === id ? { ...o, ...updates } : o)));
     setHistory((prev) => (prev[id] ? { ...prev, [id]: { ...prev[id], ...updates } } : prev));
   }, []);
@@ -137,6 +141,7 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
         occasion,
         setOccasion,
         currentOutfit,
+        currentOutfits,
         isLoading,
         savedOutfits,
         generateOutfit,

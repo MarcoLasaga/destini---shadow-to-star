@@ -19,7 +19,6 @@ import { CLOTHING_CATEGORIES, COLOR_OPTIONS, OCCASION_OPTIONS, SEASON_OPTIONS, S
 const MAX_IMAGE_EDGE = 1600;
 const CATEGORY_FROM_API: Record<string, string> = { TOP: 'Tops', BOTTOM: 'Bottoms', SHOES: 'Shoes', OUTERWEAR: 'Outerwear', ACCESSORIES: 'Accessories' };
 const CATEGORY_NAME_FROM_API: Record<string, string> = { TOP: 'Top', BOTTOM: 'Bottom', SHOES: 'Shoes', OUTERWEAR: 'Outerwear', ACCESSORIES: 'Accessory' };
-const STYLE_FROM_API: Record<string, string> = { CASUAL: 'Casual', FORMAL: 'Formal', SPORTY: 'Athletic', STREETWEAR: 'Streetwear', MINIMALIST: 'Casual', BOHEMIAN: 'Bohemian', VINTAGE: 'Casual', CLASSIC: 'Formal' };
 
 export default function AddClothesScreen() {
   const theme = useAppTheme();
@@ -61,17 +60,15 @@ export default function AddClothesScreen() {
       setAnalyzing(true);
       try {
         const prediction = await analyzeClothingImage(processed.uri, session.access_token);
-        setConfidence(typeof prediction.confidence === 'number' ? prediction.confidence : null);
+        setConfidence(typeof prediction.categoryConfidence === 'number' ? prediction.categoryConfidence : typeof prediction.confidence === 'number' ? prediction.confidence : null);
         const suggestedCategory = prediction.category ? CATEGORY_FROM_API[prediction.category] : undefined;
-        const suggestedStyle = prediction.style ? STYLE_FROM_API[prediction.style] : undefined;
         if (suggestedCategory) setCategory(suggestedCategory);
         if (prediction.color && COLOR_OPTIONS.includes(prediction.color as typeof COLOR_OPTIONS[number])) setColor(prediction.color);
-        if (suggestedStyle) setStyle(suggestedStyle);
         if (!name.trim() && prediction.category) setName(`${prediction.color ? `${prediction.color} ` : ''}${CATEGORY_NAME_FROM_API[prediction.category]}`);
       } catch (error) {
         setConfidence(null);
         // A photo can still be saved when the API/CNN is unreachable.
-        console.info('Image analysis unavailable; continue with manual values.', error);
+        if (__DEV__) console.info('[StyleSense] wardrobe analysis unavailable; manual values remain editable.', error);
       } finally {
         setAnalyzing(false);
       }

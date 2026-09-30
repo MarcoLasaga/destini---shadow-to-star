@@ -87,7 +87,7 @@ export default function OutfitDetailsScreen() {
                 <Text style={[styles.infoLabel, { color: theme.textMuted }]}>Weather</Text>
               </View>
               <Text style={[styles.infoValue, { color: theme.text }]}>
-                {outfit.weatherCondition} · {outfit.weatherTempF}°F
+                {outfit.weatherCondition && outfit.weatherTempF !== null ? `${outfit.weatherCondition} · ${outfit.weatherTempF}°F` : 'Weather unavailable'}
               </Text>
             </View>
             <View style={[styles.infoBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -114,8 +114,8 @@ export default function OutfitDetailsScreen() {
               <Text style={[styles.sectionTitle, { color: theme.text }]}>Color Palette</Text>
             </View>
             <View style={styles.paletteRow}>
-              {outfit.colorPalette.map((color) => (
-                <View key={color.name} style={styles.paletteItem}>
+              {outfit.colorPalette.map((color, index) => (
+                <View key={`${color.name}-${color.hex}-${index}`} style={styles.paletteItem}>
                   <View style={[styles.swatch, { backgroundColor: color.hex, borderColor: theme.border }]} />
                   <Text style={[styles.swatchLabel, { color: theme.textMuted }]}>{color.name}</Text>
                 </View>
@@ -174,7 +174,7 @@ export default function OutfitDetailsScreen() {
               <Text style={[styles.sectionTitle, { color: theme.text }]}>Why was this outfit recommended?</Text>
             </View>
             {outfit.whyReasons.map((reason) => (
-              <View key={reason.title} style={styles.reasonRow}>
+              <View key={reason.id} style={styles.reasonRow}>
                 <View style={[styles.reasonIcon, { backgroundColor: theme.mode === 'dark' ? '#2A2A31' : '#F4F1EA' }]}>
                   <Ionicons name={reason.icon as any} size={15} color={theme.text} />
                 </View>

@@ -48,7 +48,7 @@ export default function OutfitPreviewCard({ outfit }: { outfit: GeneratedOutfit 
             <Text style={[styles.occasionChipText, { color: theme.textMuted }]}>{outfit.occasionLabel}</Text>
           </View>
           <Text style={[styles.weatherText, { color: theme.textMuted }]}>
-            {outfit.weatherCondition} · {outfit.weatherTempF}°F
+            {outfit.weatherCondition && outfit.weatherTempF !== null ? `${outfit.weatherCondition} · ${outfit.weatherTempF}°F` : 'Weather unavailable'}
           </Text>
         </View>
 
@@ -85,7 +85,7 @@ export default function OutfitPreviewCard({ outfit }: { outfit: GeneratedOutfit 
         <Text style={[styles.subHeading, { color: theme.textMuted }]}>WHY THIS OUTFIT</Text>
         <View style={styles.chipsWrap}>
           {outfit.whyReasons.map((reason) => (
-            <View key={reason.title} style={[styles.reasonChip, { backgroundColor: theme.mode === 'dark' ? '#2A2A31' : '#F4F1EA' }]}>
+            <View key={reason.id} style={[styles.reasonChip, { backgroundColor: theme.mode === 'dark' ? '#2A2A31' : '#F4F1EA' }]}>
               <Text style={[styles.reasonText, { color: theme.text }]}>{reason.title}</Text>
             </View>
           ))}

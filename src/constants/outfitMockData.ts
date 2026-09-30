@@ -15,12 +15,12 @@ export const OCCASION_OPTIONS = [
 export const SURPRISE_BADGES = ['Trending', "Editor's Pick", 'Staff Favorite', 'Smart Match', 'Weekend Choice'];
 
 const whyReasonPool: WhyReasonDetail[] = [
-  { icon: 'sunny-outline', title: "Matches today's weather", description: 'Fabrics and layers suit current conditions.' },
-  { icon: 'sparkles-outline', title: 'Fits your preferred style', description: 'Aligns with your saved style preferences.' },
-  { icon: 'refresh-outline', title: 'Uses unworn pieces', description: "Includes items you haven't worn in the last 14 days." },
-  { icon: 'color-palette-outline', title: 'Coordinates color palette', description: 'Neutral tones complement your favorite colors.' },
-  { icon: 'leaf-outline', title: 'Boosts sustainability', description: 'Reuses existing clothing — no new purchases needed.' },
-  { icon: 'pricetag-outline', title: 'Appropriate for the occasion', description: 'Selected pieces match your chosen occasion.' },
+  { id: 'weather', icon: 'sunny-outline', title: "Matches today's weather", description: 'Fabrics and layers suit current conditions.' },
+  { id: 'style', icon: 'sparkles-outline', title: 'Fits your preferred style', description: 'Aligns with your saved style preferences.' },
+  { id: 'unworn', icon: 'refresh-outline', title: 'Uses unworn pieces', description: "Includes items you haven't worn in the last 14 days." },
+  { id: 'palette', icon: 'color-palette-outline', title: 'Coordinates color palette', description: 'Neutral tones complement your favorite colors.' },
+  { id: 'sustainability', icon: 'leaf-outline', title: 'Boosts sustainability', description: 'Reuses existing clothing — no new purchases needed.' },
+  { id: 'occasion', icon: 'pricetag-outline', title: 'Appropriate for the occasion', description: 'Selected pieces match your chosen occasion.' },
 ];
 
 const feedbackPool: FeedbackReview[] = [

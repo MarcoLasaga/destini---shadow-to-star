@@ -18,7 +18,7 @@ export default function OutfitScreen() {
   const theme = useAppTheme();
   const navigation = useNavigation<any>();
   const { items } = useWardrobe();
-  const { occasion, setOccasion, currentOutfit, isLoading, generateOutfit, surpriseMe } = useOutfit();
+  const { occasion, setOccasion, currentOutfit, currentOutfits, isLoading, generateOutfit, surpriseMe } = useOutfit();
 
   const cleanItemsCount = items.filter((i) => i.status === 'clean').length;
   const hasEnoughClothes = cleanItemsCount >= MIN_CLEAN_ITEMS;
@@ -85,10 +85,14 @@ export default function OutfitScreen() {
 
         {isLoading && <OutfitLoadingView />}
 
-        {!isLoading && currentOutfit && (
+        {!isLoading && currentOutfits.length > 0 && (
           <>
-            <OutfitRecommendationStatsBar outfit={currentOutfit} />
-            <OutfitPreviewCard outfit={currentOutfit} />
+            {currentOutfits.map((outfit) => (
+              <React.Fragment key={outfit.id}>
+                <OutfitRecommendationStatsBar outfit={outfit} />
+                <OutfitPreviewCard outfit={outfit} />
+              </React.Fragment>
+            ))}
           </>
         )}
       </ScrollView>
