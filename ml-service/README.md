@@ -23,6 +23,44 @@ pretrained ResNet weights. This baseline detects common apparel/shoe/accessory
 classes; for thesis-grade accuracy, fine-tune the model on your labeled wardrobe
 dataset.
 
+## DeepFashion Dataset Ingestion & Integration
+
+The ML development pipeline includes support for the **DeepFashion Category & Attribute Prediction Benchmark** (Liu et al., CVPR 2016).
+
+### 1. Taxonomy Mapping
+DeepFashion's 50 categories map to StyleSense's 5 core taxonomy slots as follows:
+- **`TOP` (11 categories):** Blouse, Button-Down, Flannel, Halter, Henley, Jersey, Sweater, Tank, Tee, Top, Turtleneck.
+- **`BOTTOM` (16 categories):** Capris, Chinos, Culottes, Cutoffs, Gauchos, Jeans, Jeggings, Jodhpurs, Joggers, Leggings, Sarong, Shorts, Skirt, Sweatpants, Sweatshorts, Trunks.
+- **`OUTERWEAR` (11 categories):** Anorak, Blazer, Bomber, Cardigan, Coat, Cape, Hoodie, Jacket, Parka, Peacoat, Poncho.
+- **`SHOES` (0 categories):** Unavailable in DeepFashion Category & Attribute Prediction benchmark (supplemented via user wardrobe export).
+- **`ACCESSORIES` (0 categories):** Unavailable in DeepFashion Category & Attribute Prediction benchmark (supplemented via user wardrobe export).
+- **Preserved Ambiguous Categories (12 categories):** Dress, Jumpsuit, Romper, Shirtdress, Sundress, Caftan, Kaftan, Coverup, Kimono, Nightdress, Onesie, Robe. These full-body/one-piece garments are preserved as `AMBIGUOUS_UNMAPPED` to prevent corrupting the `Top x Bottom` recommendation pairing engine.
+
+See `deepfashion_config.json` for full rationale and attribute mappings.
+
+### 2. Preparing DeepFashion
+Set `DEEPFASHION_ROOT` or pass `--data-dir`:
+
+```powershell
+# Ingest annotations and produce a reproducible manifest
+python ml-service/prepare_deepfashion.py --data-dir "C:/path/to/DeepFashion" --output-dir "ml-service/data/deepfashion_prepared" --manifest-only
+
+# Or export train split directly into the ImageFolder layout with class balancing
+python ml-service/prepare_deepfashion.py --data-dir "C:/path/to/DeepFashion" --output-dir "ml-service/dataset" --export-imagefolder --max-per-class 1000
+```
+
+### 3. Programmatic PyTorch Dataset
+You can load the prepared dataset directly in PyTorch:
+
+```python
+from deepfashion_dataset import DatasetManifest, DeepFashionDataset
+from torch.utils.data import DataLoader
+
+manifest = DatasetManifest.from_json("ml-service/data/deepfashion_prepared/deepfashion_manifest.json")
+dataset = DeepFashionDataset(manifest, deepfashion_root="C:/path/to/DeepFashion", split="train")
+loader = DataLoader(dataset, batch_size=32, shuffle=True)
+```
+
 ## Fine-tune for real wardrobe accuracy
 
 Place labeled images in `dataset/TOP`, `dataset/BOTTOM`, `dataset/SHOES`,
