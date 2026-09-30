@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader, Subset, WeightedRandomSampler
 from torchvision import datasets, transforms
 from torchvision.models import ResNet50_Weights, resnet50
 
-VALID_CLASSES = {'TOP', 'BOTTOM', 'SHOES', 'OUTERWEAR', 'ACCESSORIES'}
+VALID_CLASSES = {'TOP', 'BOTTOM', 'OUTERWEAR'}
 WEIGHTS = ResNet50_Weights.IMAGENET1K_V2
 
 

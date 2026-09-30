@@ -25,3 +25,15 @@ __pycache__/
 *.njsproj
 *.sln
 *.sw?
+
+# Datasets and ML Model Checkpoints
+ml-service/dataset/*
+!ml-service/dataset/**/.gitkeep
+ml-service/models/
+*.pt
+*.pth
+data/
+datasets/
+deepfashion*/
+DeepFashion*/
+raw_data/

@@ -433,49 +433,9 @@ UNAVAILABLE_CATEGORIES: dict[str, dict[str, str]] = {
     },
 }
 
-# Style attribute mapping
-STYLE_ATTRIBUTE_MAPPING: dict[str, str] = {
-    "casual": "CASUAL",
-    "everyday": "CASUAL",
-    "relaxed": "CASUAL",
-    "basic": "CASUAL",
-    "formal": "FORMAL",
-    "business": "FORMAL",
-    "office": "FORMAL",
-    "work": "FORMAL",
-    "suit": "FORMAL",
-    "sporty": "SPORTY",
-    "athletic": "SPORTY",
-    "active": "SPORTY",
-    "gym": "SPORTY",
-    "workout": "SPORTY",
-    "track": "SPORTY",
-    "street": "STREETWEAR",
-    "streetwear": "STREETWEAR",
-    "punk": "STREETWEAR",
-    "grunge": "STREETWEAR",
-    "skate": "STREETWEAR",
-    "hip-hop": "STREETWEAR",
-    "minimal": "MINIMALIST",
-    "minimalist": "MINIMALIST",
-    "simple": "MINIMALIST",
-    "clean": "MINIMALIST",
-    "neutral": "MINIMALIST",
-    "boho": "BOHEMIAN",
-    "bohemian": "BOHEMIAN",
-    "ethnic": "BOHEMIAN",
-    "tribal": "BOHEMIAN",
-    "peasant": "BOHEMIAN",
-    "folk": "BOHEMIAN",
-    "vintage": "VINTAGE",
-    "retro": "VINTAGE",
-    "nostalgic": "VINTAGE",
-    "classic": "CLASSIC",
-    "elegant": "CLASSIC",
-    "traditional": "CLASSIC",
-    "preppy": "CLASSIC",
-    "tailored": "CLASSIC",
-}
+# DeepFashion annotations in this repository contain category, bounding-box,
+# and split data, but no parsed StyleSense style labels. Style remains nullable
+# until a documented attribute-to-style model is implemented.
 
 
 @dataclass
@@ -896,7 +856,7 @@ def export_to_imagefolder(
     split: str = "train",
     copy_mode: str = "copy",  # 'copy', 'symlink', 'hardlink'
     max_per_class: Optional[int] = None,
-    create_empty_placeholders: bool = True,
+    create_empty_placeholders: bool = False,
     seed: int = 42,
 ) -> dict[str, int]:
     """Export items to the ImageFolder directory structure expected by train.py.
@@ -916,16 +876,19 @@ def export_to_imagefolder(
         split: Split to export ('train', 'val', 'test', or 'all').
         copy_mode: 'copy', 'symlink', or 'hardlink'.
         max_per_class: Optional limit per class.
-        create_empty_placeholders: Create SHOES and ACCESSORIES folders with documentation
-                                  to satisfy train.py VALID_CLASSES requirements.
+        create_empty_placeholders: Optionally create documentation folders for unavailable
+                                  StyleSense categories. These folders are not training classes.
         seed: Random seed for subsampling.
     """
     root = Path(deepfashion_root).resolve()
     out = Path(output_dir).resolve()
     rng = random.Random(seed)
 
-    # Initialize all 5 StyleSense category directories
-    for cat in STYLESENSE_TAXONOMY:
+    # DeepFashion supplies only the mapped apparel classes. SHOES and ACCESSORIES
+    # must be supplemented separately and are not created in the training corpus.
+    mapped_categories = [cat for cat in STYLESENSE_TAXONOMY if cat not in UNAVAILABLE_CATEGORIES]
+    export_categories = STYLESENSE_TAXONOMY if create_empty_placeholders else mapped_categories
+    for cat in export_categories:
         cat_dir = out / cat
         cat_dir.mkdir(parents=True, exist_ok=True)
         # Create .gitkeep so empty directories are trackable if needed without tracking images
@@ -933,6 +896,7 @@ def export_to_imagefolder(
 
     if create_empty_placeholders:
         for missing_cat, info in UNAVAILABLE_CATEGORIES.items():
+            (out / missing_cat).mkdir(parents=True, exist_ok=True)
             readme = out / missing_cat / "README.md"
             if not readme.exists():
                 readme.write_text(
@@ -956,7 +920,7 @@ def export_to_imagefolder(
     for item in items_to_export:
         by_category.setdefault(item.stylesense_category, []).append(item)  # type: ignore[arg-type]
 
-    exported_counts: dict[str, int] = {c: 0 for c in STYLESENSE_TAXONOMY}
+    exported_counts: dict[str, int] = {c: 0 for c in export_categories}
 
     for cat, items in by_category.items():
         rng.shuffle(items)

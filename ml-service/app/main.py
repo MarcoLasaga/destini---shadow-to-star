@@ -16,6 +16,8 @@ from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel
 from torchvision.models import ResNet50_Weights, resnet50
 
+from kmeans_color import extract_clothing_palette
+
 Category = Literal['TOP', 'BOTTOM', 'SHOES', 'OUTERWEAR', 'ACCESSORIES']
 Style = Literal['CASUAL', 'FORMAL', 'SPORTY', 'STREETWEAR', 'MINIMALIST', 'BOHEMIAN', 'VINTAGE', 'CLASSIC']
 
@@ -38,9 +40,12 @@ LABEL_CATEGORY_HINTS: dict[Category, tuple[str, ...]] = {
 
 class Prediction(BaseModel):
     category: Category | None = None
+    categoryConfidence: float | None = None
     color: str | None = None
     style: Style | None = None
     confidence: float
+    palette: dict
+    attributes: dict | None = None
 
 
 def category_from_labels(labels: list[str], probabilities: list[float]) -> tuple[Category | None, float, str]:
@@ -100,8 +105,9 @@ async def lifespan(_: FastAPI):
     if checkpoint_path and os.path.exists(checkpoint_path):
         checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
         FINE_TUNED_CLASS_NAMES = checkpoint['class_names']
-        if set(FINE_TUNED_CLASS_NAMES) != {'TOP', 'BOTTOM', 'SHOES', 'OUTERWEAR', 'ACCESSORIES'}:
-            raise RuntimeError('MODEL_CHECKPOINT must contain exactly the five StyleSense category classes.')
+        supported_classes = {'TOP', 'BOTTOM', 'SHOES', 'OUTERWEAR', 'ACCESSORIES'}
+        if not FINE_TUNED_CLASS_NAMES or not set(FINE_TUNED_CLASS_NAMES).issubset(supported_classes):
+            raise RuntimeError('MODEL_CHECKPOINT contains unsupported StyleSense category classes.')
         MODEL = resnet50(weights=None)
         MODEL.fc = torch.nn.Linear(MODEL.fc.in_features, len(FINE_TUNED_CLASS_NAMES))
         MODEL.load_state_dict(checkpoint['state_dict'])
@@ -148,5 +154,19 @@ async def analyze(request: Request) -> Prediction:
         style = None
     else:
         category, confidence, label = category_from_labels(labels, scores)
-        style = style_from_label(label)
-    return Prediction(category=category, color=dominant_color(image), style=style, confidence=round(float(confidence), 4))
+        # ImageNet labels do not provide a reliable fashion-style prediction.
+        style = None
+
+    palette_result = extract_clothing_palette(image)
+    palette = {
+        'dominant_color': palette_result.dominant_color,
+        'dominant_rgb': palette_result.dominant_rgb,
+        'dominant_hex': palette_result.dominant_hex,
+        'dominant_lab': palette_result.dominant_lab,
+        'palette': [cluster.__dict__ for cluster in palette_result.palette],
+        'silhouette_score': palette_result.silhouette_score,
+        'davies_bouldin_index': palette_result.davies_bouldin_index,
+        'inertia': palette_result.inertia,
+    }
+    confidence_value = round(float(confidence), 4)
+    return Prediction(category=category, categoryConfidence=confidence_value, color=palette_result.dominant_color, style=style, confidence=confidence_value, palette=palette, attributes=None)

@@ -41,7 +41,7 @@ function combinations(items: WardrobeRow[], occasion?: string, preferences?: Pre
   for (const top of tops) for (const bottom of bottoms) {
     const base = [top, bottom, shoes.find((shoe) => shoe.style === top.style) || shoes[0], accessories[0]].filter(Boolean) as WardrobeRow[]
     const result = scoreCombination(base, occasion, preferences)
-    results.push({ items: base, ...result })
+    results.push({ items: base, ...result, reasons: [...new Set(result.reasons)] })
   }
   return results.sort((a, b) => b.score - a.score).slice(0, 3)
 }
