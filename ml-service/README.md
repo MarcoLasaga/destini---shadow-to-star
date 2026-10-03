@@ -141,3 +141,31 @@ The service automatically switches from ImageNet label heuristics to the
 fine-tuned five-class CNN. It leaves category blank below 0.55 confidence rather
 than prefilling an unreliable label; lower or raise that threshold with
 `MIN_CATEGORY_CONFIDENCE` after reviewing validation and real-upload results.
+
+## CNN Dataset Consolidation and Training Status
+
+`cnn_taxonomy.json` is the single authoritative class order:
+
+`0 TOP`, `1 BOTTOM`, `2 SHOES`, `3 OUTERWEAR`, `4 ACCESSORIES`.
+
+`cnn_dataset.py` normalizes mapped records from DeepFashion and Polyvore into
+records containing image path, normalized label, source, original label, split,
+and stable item/record identifiers. It reports per-class train/validation/test
+statistics and validates duplicate paths, item overlap, optional image hashes,
+invalid splits, Polyvore split conflicts, and missing classes. Unmapped records
+are excluded; their labels are never guessed.
+
+Once real dataset roots are available, build a validated manifest with:
+
+```powershell
+python prepare_cnn_dataset.py --deepfashion-root C:/path/to/DeepFashion --polyvore-root C:/path/to/Polyvore --output data/cnn_manifest.json --hash-images
+```
+
+The current repository has neither `DEEPFASHION_ROOT` nor `POLYVORE_ROOT`
+configured, so no real class counts or five-class training metrics are claimed.
+The trainer defaults to the final five-class taxonomy and supports an explicit
+`--class-set deepfashion-3` mode only for a clearly labelled DeepFashion
+baseline. It uses the existing ResNet-50, weighted sampling, staged fine-tuning,
+and early stopping. Checkpoints now store class order, architecture,
+preprocessing, training arguments, dataset mode, and validation macro-F1 so
+FastAPI can reject incompatible class-order metadata.

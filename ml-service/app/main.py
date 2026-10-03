@@ -16,6 +16,8 @@ from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel
 from torchvision.models import ResNet50_Weights, resnet50
 
+from cnn_dataset import CLASS_NAMES
+
 from kmeans_color import extract_clothing_palette
 
 Category = Literal['TOP', 'BOTTOM', 'SHOES', 'OUTERWEAR', 'ACCESSORIES']
@@ -105,9 +107,11 @@ async def lifespan(_: FastAPI):
     if checkpoint_path and os.path.exists(checkpoint_path):
         checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
         FINE_TUNED_CLASS_NAMES = checkpoint['class_names']
-        supported_classes = {'TOP', 'BOTTOM', 'SHOES', 'OUTERWEAR', 'ACCESSORIES'}
+        supported_classes = set(CLASS_NAMES)
         if not FINE_TUNED_CLASS_NAMES or not set(FINE_TUNED_CLASS_NAMES).issubset(supported_classes):
             raise RuntimeError('MODEL_CHECKPOINT contains unsupported StyleSense category classes.')
+        if checkpoint.get('class_to_id') != {name: index for index, name in enumerate(FINE_TUNED_CLASS_NAMES)}:
+            raise RuntimeError('MODEL_CHECKPOINT class ordering metadata is missing or inconsistent.')
         MODEL = resnet50(weights=None)
         MODEL.fc = torch.nn.Linear(MODEL.fc.in_features, len(FINE_TUNED_CLASS_NAMES))
         MODEL.load_state_dict(checkpoint['state_dict'])

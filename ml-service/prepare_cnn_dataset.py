@@ -1,0 +1,34 @@
+"""Build and validate the unified CNN training manifest."""
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
+from cnn_dataset import build_cnn_manifest, validate_cnn_manifest
+from deepfashion_dataset import build_deepfashion_manifest
+from polyvore_dataset import build_polyvore_manifest
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--deepfashion-root", type=Path)
+    parser.add_argument("--polyvore-root", type=Path)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--hash-images", action="store_true")
+    args = parser.parse_args()
+    if not args.deepfashion_root and not args.polyvore_root:
+        parser.error("provide at least one real dataset root")
+    deepfashion = build_deepfashion_manifest(args.deepfashion_root, include_ambiguous=False, verify_images_exist=True) if args.deepfashion_root else None
+    polyvore = build_polyvore_manifest(args.polyvore_root) if args.polyvore_root else None
+    manifest = build_cnn_manifest(deepfashion, polyvore, args.deepfashion_root, args.polyvore_root, args.hash_images)
+    errors = validate_cnn_manifest(manifest, require_files=True)
+    if errors:
+        raise SystemExit("Manifest validation failed:\n" + "\n".join(errors))
+    manifest.to_json(args.output)
+    print(f"Wrote {len(manifest.records)} records to {args.output}")
+    for split, counts in manifest.class_statistics().items():
+        print(split, counts)
+
+
+if __name__ == "__main__":
+    main()

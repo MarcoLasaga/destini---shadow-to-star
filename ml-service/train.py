@@ -13,12 +13,31 @@ import torch
 from torch import nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torch.utils.data import DataLoader, Subset, WeightedRandomSampler
+from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 from torchvision import datasets, transforms
 from torchvision.models import ResNet50_Weights, resnet50
 
-VALID_CLASSES = {'TOP', 'BOTTOM', 'OUTERWEAR'}
+from cnn_dataset import CLASS_NAMES
+
+FINAL_CLASSES = tuple(CLASS_NAMES)
+DEEPFASHION_BASELINE_CLASSES = ('TOP', 'BOTTOM', 'OUTERWEAR')
 WEIGHTS = ResNet50_Weights.IMAGENET1K_V2
+
+
+class RelabeledSubset(Dataset):
+    """ImageFolder subset whose targets follow the authoritative taxonomy order."""
+
+    def __init__(self, dataset: Dataset, indices: list[int], label_map: dict[int, int]) -> None:
+        self.dataset = dataset
+        self.indices = indices
+        self.label_map = label_map
+
+    def __len__(self) -> int:
+        return len(self.indices)
+
+    def __getitem__(self, index: int):
+        image, label = self.dataset[self.indices[index]]
+        return image, self.label_map[label]
 
 
 def parse_args() -> argparse.Namespace:
@@ -31,6 +50,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--val-split', type=float, default=0.2)
     parser.add_argument('--patience', type=int, default=4)
     parser.add_argument('--min-per-class', type=int, default=200, help='Minimum images required in every category')
+    parser.add_argument('--class-set', choices=['stylesense-5', 'deepfashion-3'], default='stylesense-5',
+                        help='Train the final five-class taxonomy or an explicitly labelled DeepFashion-only baseline.')
     parser.add_argument('--seed', type=int, default=42)
     return parser.parse_args()
 
@@ -65,6 +86,7 @@ def main() -> None:
         raise SystemExit('--val-split must be between 0.05 and 0.49.')
     random.seed(args.seed)
     torch.manual_seed(args.seed)
+    expected_classes = FINAL_CLASSES if args.class_set == 'stylesense-5' else DEEPFASHION_BASELINE_CLASSES
 
     train_transform = transforms.Compose([
         transforms.RandomResizedCrop(224, scale=(0.65, 1.0), ratio=(0.8, 1.25)),
@@ -75,8 +97,8 @@ def main() -> None:
         transforms.Normalize(mean=WEIGHTS.transforms().mean, std=WEIGHTS.transforms().std),
     ])
     source = datasets.ImageFolder(args.data)
-    if set(source.classes) != VALID_CLASSES:
-        raise SystemExit(f'Dataset folders must be exactly {sorted(VALID_CLASSES)}; found {source.classes}')
+    if tuple(source.classes) != tuple(sorted(expected_classes)):
+        raise SystemExit(f'Dataset folders must be exactly {list(sorted(expected_classes))}; found {source.classes}')
 
     indices_by_class: dict[int, list[int]] = defaultdict(list)
     for index, (_, label) in enumerate(source.samples):
@@ -95,13 +117,15 @@ def main() -> None:
 
     train_dataset = datasets.ImageFolder(args.data, transform=train_transform)
     validation_dataset = datasets.ImageFolder(args.data, transform=WEIGHTS.transforms())
-    train_labels = [source.targets[index] for index in train_indices]
+    taxonomy_index = {name: index for index, name in enumerate(expected_classes)}
+    source_to_taxonomy = {source.class_to_idx[name]: taxonomy_index[name] for name in expected_classes}
+    train_labels = [source_to_taxonomy[source.targets[index]] for index in train_indices]
     class_counts = torch.bincount(torch.tensor(train_labels), minlength=len(source.classes)).float()
     sample_weights = [float(1.0 / class_counts[label]) for label in train_labels]
     sampler = WeightedRandomSampler(sample_weights, len(sample_weights), replacement=True)
     workers = 0 if not torch.cuda.is_available() else 2
-    train_loader = DataLoader(Subset(train_dataset, train_indices), batch_size=args.batch_size, sampler=sampler, num_workers=workers)
-    validation_loader = DataLoader(Subset(validation_dataset, validation_indices), batch_size=args.batch_size, shuffle=False, num_workers=workers)
+    train_loader = DataLoader(RelabeledSubset(train_dataset, train_indices, source_to_taxonomy), batch_size=args.batch_size, sampler=sampler, num_workers=workers)
+    validation_loader = DataLoader(RelabeledSubset(validation_dataset, validation_indices, source_to_taxonomy), batch_size=args.batch_size, shuffle=False, num_workers=workers)
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model = resnet50(weights=WEIGHTS)
@@ -152,7 +176,22 @@ def main() -> None:
                 break
 
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
-    torch.save({'state_dict': best_state, 'class_names': source.classes, 'validation_macro_f1': best_f1, 'image_size': 224}, args.output)
+    torch.save({
+        'state_dict': best_state,
+        'class_names': list(expected_classes),
+        'class_to_id': taxonomy_index,
+        'num_classes': len(expected_classes),
+        'architecture': 'resnet50',
+        'validation_macro_f1': best_f1,
+        'image_size': 224,
+        'preprocessing': {
+            'weights': 'IMAGENET1K_V2',
+            'mean': list(WEIGHTS.transforms().mean),
+            'std': list(WEIGHTS.transforms().std),
+        },
+        'training': vars(args),
+        'dataset': {'class_set': args.class_set, 'root': str(Path(args.data).resolve())},
+    }, args.output)
     print(f'Saved best checkpoint to {args.output} (validation macro-F1={best_f1:.3f})')
 
 
