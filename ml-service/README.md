@@ -38,6 +38,41 @@ DeepFashion's 50 categories map to StyleSense's 5 core taxonomy slots as follows
 
 See `deepfashion_config.json` for full rationale and attribute mappings.
 
+## Polyvore Dataset Integration
+
+`polyvore_dataset.py` supports the two layouts documented by the Polyvore
+compatibility/retrieval releases: category definitions plus train/validation/
+test outfit JSON, with optional item metadata, images, and compatibility text
+files. The dataset itself is external and is not included in this repository.
+Set `POLYVORE_ROOT` or pass a root path to `build_polyvore_manifest`.
+
+Polyvore records are kept at two levels: `PolyvoreItem` represents an item and
+its actual category/metadata, while `PolyvoreOutfit` represents an outfit/set
+and its ordered item relationships. Outfit membership is never used as an
+individual item classification label. The manifest preserves unmapped records
+instead of forcing them into a StyleSense slot.
+
+The configured category mapping covers actual Polyvore taxonomy names when
+those IDs are present: tops and bottom garments map to `TOP`/`BOTTOM`, shoes
+map to `SHOES`, bags/jewelry/etc. map to `ACCESSORIES`, and coats/jackets/
+cardigans/vests map to `OUTERWEAR`. Dresses, suits, swimwear, sleepwear,
+beauty, home, electronics, and other non-slot or non-wardrobe categories stay
+`UNMAPPED`. The mapping is schema-based and should be checked against the
+specific release's category file; no local Polyvore data is currently present
+for a real-data smoke test. Thus shoes, accessories, and outerwear are
+supported by the parser/configuration, but their sample counts in a particular
+release remain to be measured.
+
+Official splits are preserved when supplied. `verify_split_leakage` reports
+item overlap across those splits; this matters because related items must not
+be treated as independent image samples. When no official split exists,
+`split_outfits_deterministically(..., ensure_disjoint=True)` groups by item
+relationships, uses a fixed seed, and avoids cross-split item leakage where
+possible. `validate_polyvore_manifest` checks outfit/item referential
+integrity. Outfit data is suitable for future compatibility/co-occurrence
+experiments and item images may supplement CNN classification, but this goal
+does not train the CNN or alter the hybrid recommendation formula.
+
 ### 2. Preparing DeepFashion
 Set `DEEPFASHION_ROOT` or pass `--data-dir`:
 
