@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
 from cnn_dataset import build_cnn_manifest, validate_cnn_manifest
@@ -11,8 +12,8 @@ from polyvore_dataset import build_polyvore_manifest
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--deepfashion-root", type=Path)
-    parser.add_argument("--polyvore-root", type=Path)
+    parser.add_argument("--deepfashion-root", type=Path, default=os.environ.get("DEEPFASHION_ROOT") or None)
+    parser.add_argument("--polyvore-root", type=Path, default=os.environ.get("POLYVORE_ROOT") or None)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--hash-images", action="store_true")
     args = parser.parse_args()
@@ -21,10 +22,14 @@ def main() -> None:
     deepfashion = build_deepfashion_manifest(args.deepfashion_root, include_ambiguous=False, verify_images_exist=True) if args.deepfashion_root else None
     polyvore = build_polyvore_manifest(args.polyvore_root) if args.polyvore_root else None
     manifest = build_cnn_manifest(deepfashion, polyvore, args.deepfashion_root, args.polyvore_root, args.hash_images)
-    errors = validate_cnn_manifest(manifest, require_files=True)
-    if errors:
-        raise SystemExit("Manifest validation failed:\n" + "\n".join(errors))
+    errors = validate_cnn_manifest(manifest, require_files=True, require_all_five_classes=True)
+    manifest.metadata["validation_errors"] = errors
+    manifest.metadata["five_class_ready"] = not errors
     manifest.to_json(args.output)
+    if errors:
+        print("Manifest validation failed:")
+        print("\n".join(errors))
+        raise SystemExit(2)
     print(f"Wrote {len(manifest.records)} records to {args.output}")
     for split, counts in manifest.class_statistics().items():
         print(split, counts)

@@ -169,3 +169,38 @@ baseline. It uses the existing ResNet-50, weighted sampling, staged fine-tuning,
 and early stopping. Checkpoints now store class order, architecture,
 preprocessing, training arguments, dataset mode, and validation macro-F1 so
 FastAPI can reject incompatible class-order metadata.
+
+### Goal 5 real-data readiness status
+
+Status: **BLOCKED / MISSING REAL DATA**. No DeepFashion annotation root or
+Polyvore root is present locally. `ml-service/dataset` contains only empty
+placeholder folders, so actual class counts, image readability, duplicate
+hashes, leakage, and five-class readiness are all `UNKNOWN`, not zero.
+
+To supply DeepFashion, obtain the **DeepFashion Category and Attribute
+Prediction Benchmark** from the official CUHK project page:
+<https://mmlab.ie.cuhk.edu.hk/projects/DeepFashion/AttributePrediction.html>.
+The page identifies the benchmark as 289,222 images, 50 clothing categories,
+and provides category, image, bounding-box, and train/validation/test
+annotations. Extract it outside Git and set `DEEPFASHION_ROOT` to its root, or
+pass `--deepfashion-root` to `prepare_cnn_dataset.py`. The download may require
+the access/password flow described by the project page.
+
+For Polyvore, use the dataset release and instructions from the author-linked
+repository <https://github.com/xthan/polyvore-dataset>. Its README documents
+the Han release as 21,889 outfits split into 17,316 train, 1,497 validation,
+and 3,076 test outfits, with `category_id.txt`, `train_no_dup.json`,
+`valid_no_dup.json`, and `test_no_dup.json`. Extract it outside Git and set
+`POLYVORE_ROOT` or pass `--polyvore-root`. The repository notes that original
+image URLs are no longer available and refers to an unofficial image source;
+do not use that source without separately verifying permission and suitability.
+
+After both roots are supplied, run:
+
+```powershell
+python prepare_cnn_dataset.py --output data/cnn_manifest.json --hash-images
+```
+
+The command preserves the manifest even when readiness fails, records
+validation errors and `five_class_ready`, prints actual split/class counts,
+and exits nonzero until all required checks pass. It does not train the CNN.

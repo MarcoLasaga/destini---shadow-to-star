@@ -537,13 +537,23 @@ def find_deepfashion_files(root_dir: Union[str, Path]) -> dict[str, Path]:
     found: dict[str, Path] = {}
 
     candidates: dict[str, list[str]] = {
-        "category_cloth": ["list_category_cloth.txt", "Anno/list_category_cloth.txt", "Anno_fine/list_category_cloth.txt"],
+        "category_cloth": [
+            "list_category_cloth.txt",
+            "Anno/list_category_cloth.txt",
+            "Anno_coarse/list_category_cloth.txt",
+            "Anno_fine/list_category_cloth.txt",
+        ],
         "eval_partition": ["list_eval_partition.txt", "Eval/list_eval_partition.txt"],
-        "category_img": ["list_category_img.txt", "Anno/list_category_img.txt", "Anno_fine/list_category_img.txt"],
-        "bbox": ["list_bbox.txt", "Anno/list_bbox.txt"],
-        "attr_cloth": ["list_attr_cloth.txt", "Anno/list_attr_cloth.txt"],
-        "attr_img": ["list_attr_img.txt", "Anno/list_attr_img.txt"],
-        "img_dir": ["img", "images", "."],
+        "category_img": [
+            "list_category_img.txt",
+            "Anno/list_category_img.txt",
+            "Anno_coarse/list_category_img.txt",
+            "Anno_fine/list_category_img.txt",
+        ],
+        "bbox": ["list_bbox.txt", "Anno/list_bbox.txt", "Anno_coarse/list_bbox.txt"],
+        "attr_cloth": ["list_attr_cloth.txt", "Anno/list_attr_cloth.txt", "Anno_coarse/list_attr_cloth.txt"],
+        "attr_img": ["list_attr_img.txt", "Anno/list_attr_img.txt", "Anno_coarse/list_attr_img.txt"],
+        "img_dir": ["img-001/img", "img", "images", "."],
     }
 
     for key, relative_paths in candidates.items():
@@ -563,6 +573,37 @@ def find_deepfashion_files(root_dir: Union[str, Path]) -> dict[str, Path]:
         )
 
     return found
+
+
+def resolve_deepfashion_image_path(
+    root_dir: Union[str, Path],
+    annotation_path: Union[str, Path],
+    image_dir: Optional[Union[str, Path]] = None,
+) -> Path:
+    """Resolve an annotation path against flat and official extracted layouts.
+
+    DeepFashion annotations use paths such as ``img/foo/image.jpg``. In the
+    official Category/Attribute extraction, those files live below
+    ``img-001/img``; the annotation prefix is not itself a root-level folder.
+    """
+    root = Path(root_dir).resolve()
+    annotation = Path(str(annotation_path).replace("\\", "/"))
+    if annotation.is_absolute():
+        return annotation
+
+    relative = Path(*annotation.parts[1:]) if annotation.parts and annotation.parts[0].lower() == "img" else annotation
+    if image_dir is not None:
+        image_root = Path(image_dir)
+        if not image_root.is_absolute():
+            image_root = root / image_root
+        candidate = image_root / relative
+        if candidate.exists() or image_root.name.lower() in {"img", "images"}:
+            return candidate.resolve()
+
+    official_candidate = root / "img-001" / annotation
+    if official_candidate.exists() or (annotation.parts and annotation.parts[0].lower() == "img"):
+        return official_candidate.resolve()
+    return (root / annotation).resolve()
 
 
 def parse_category_cloth(filepath: Union[str, Path]) -> dict[int, DeepFashionCategory]:
@@ -737,15 +778,20 @@ def build_deepfashion_manifest(
         if not include_ambiguous and cat_info.status != STATUS_MAPPED:
             continue
 
+        full_img_path = resolve_deepfashion_image_path(root, img_relpath, files.get("img_dir"))
         if verify_images_exist:
-            full_img_path = root / img_relpath
             if not full_img_path.exists():
                 continue
+
+        try:
+            manifest_image_path = full_img_path.relative_to(root).as_posix()
+        except ValueError:
+            manifest_image_path = full_img_path.as_posix()
 
         bbox = bboxes.get(img_relpath)
 
         item = DeepFashionItem(
-            image_path=img_relpath,
+            image_path=manifest_image_path,
             raw_category_name=cat_info.name,
             raw_category_id=cat_id,
             stylesense_category=cat_info.stylesense_category,

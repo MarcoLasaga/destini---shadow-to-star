@@ -35,6 +35,7 @@ from deepfashion_dataset import (
     parse_category_cloth,
     parse_category_img,
     parse_eval_partition,
+    resolve_deepfashion_image_path,
 )
 
 
@@ -141,6 +142,59 @@ def test_find_deepfashion_files_flat_layout(tmp_path):
     assert found["category_cloth"] == tmp_path / "list_category_cloth.txt"
     assert found["eval_partition"] == tmp_path / "list_eval_partition.txt"
     assert found["category_img"] == tmp_path / "list_category_img.txt"
+
+
+def test_find_deepfashion_files_official_anno_coarse_img001_layout(tmp_path):
+    """Discover the official extracted Category/Attribute directory layout."""
+    anno_dir = tmp_path / "Anno_coarse"
+    eval_dir = tmp_path / "Eval"
+    image_dir = tmp_path / "img-001" / "img"
+    anno_dir.mkdir()
+    eval_dir.mkdir()
+    image_dir.mkdir(parents=True)
+
+    (anno_dir / "list_category_cloth.txt").write_text("1\ncategory_name category_type\nBlouse 1\n", encoding="utf-8")
+    (anno_dir / "list_category_img.txt").write_text(
+        "1\nimage_name category_label\nimg/Sheer_Pleated-Front_Blouse/img_00000001.jpg 1\n",
+        encoding="utf-8",
+    )
+    (eval_dir / "list_eval_partition.txt").write_text(
+        "1\nimage_name eval_status\nimg/Sheer_Pleated-Front_Blouse/img_00000001.jpg train\n",
+        encoding="utf-8",
+    )
+
+    found = find_deepfashion_files(tmp_path)
+    assert found["category_cloth"] == anno_dir / "list_category_cloth.txt"
+    assert found["category_img"] == anno_dir / "list_category_img.txt"
+    assert found["eval_partition"] == eval_dir / "list_eval_partition.txt"
+    assert found["img_dir"] == image_dir
+
+
+def test_resolve_deepfashion_image_path_official_img001_layout(tmp_path):
+    image = tmp_path / "img-001" / "img" / "Sheer_Pleated-Front_Blouse" / "img_00000001.jpg"
+    image.parent.mkdir(parents=True)
+    image.write_bytes(b"fixture")
+
+    resolved = resolve_deepfashion_image_path(tmp_path, "img/Sheer_Pleated-Front_Blouse/img_00000001.jpg", tmp_path / "img-001" / "img")
+    assert resolved == image.resolve()
+
+
+def test_build_manifest_resolves_official_img001_layout(tmp_path):
+    anno_dir = tmp_path / "Anno_coarse"
+    eval_dir = tmp_path / "Eval"
+    image = tmp_path / "img-001" / "img" / "Sheer_Pleated-Front_Blouse" / "img_00000001.jpg"
+    anno_dir.mkdir()
+    eval_dir.mkdir()
+    image.parent.mkdir(parents=True)
+    image.write_bytes(b"fixture")
+    (anno_dir / "list_category_cloth.txt").write_text("1\ncategory_name category_type\nBlouse 1\n", encoding="utf-8")
+    annotation = "img/Sheer_Pleated-Front_Blouse/img_00000001.jpg"
+    (anno_dir / "list_category_img.txt").write_text(f"1\nimage_name category_label\n{annotation} 1\n", encoding="utf-8")
+    (eval_dir / "list_eval_partition.txt").write_text(f"1\nimage_name eval_status\n{annotation} train\n", encoding="utf-8")
+
+    manifest = build_deepfashion_manifest(tmp_path, include_ambiguous=False, verify_images_exist=True)
+    assert len(manifest.items) == 1
+    assert manifest.items[0].image_path == "img-001/img/Sheer_Pleated-Front_Blouse/img_00000001.jpg"
 
 
 def test_find_deepfashion_files_missing_raises(tmp_path):

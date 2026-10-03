@@ -18,6 +18,7 @@ def test_deepfashion_normalization_excludes_unmapped_items():
     assert len(manifest.records) == 1
     assert manifest.records[0].source == "deepfashion"
     assert manifest.records[0].label == "TOP"
+    assert manifest.records[0].class_id == 0
     assert manifest.class_statistics()["train"]["TOP"] == 1
 
 

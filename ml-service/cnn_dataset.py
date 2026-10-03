@@ -32,6 +32,7 @@ class CNNRecord:
     original_label: str
     split: str
     record_id: str
+    class_id: int = -1
     item_id: Optional[str] = None
     outfit_id: Optional[str] = None
     image_sha256: Optional[str] = None
@@ -100,6 +101,7 @@ def from_deepfashion(
             original_label=item.raw_category_name,
             split=item.split,
             record_id=f"deepfashion:{item.image_path}",
+            class_id=CLASS_TO_ID[item.stylesense_category],
             item_id=item.image_path,
             image_sha256=image_hash,
         ))
@@ -134,6 +136,7 @@ def from_polyvore(
             original_label=item.raw_category_name,
             split=split,
             record_id=f"polyvore:{item_id}",
+            class_id=CLASS_TO_ID[item.stylesense_category],
             item_id=item_id,
             image_sha256=image_hash,
         ))
@@ -176,6 +179,8 @@ def validate_cnn_manifest(
     for record in manifest.records:
         if record.label not in CLASS_TO_ID:
             errors.append(f"{record.record_id}: unknown label {record.label!r}")
+        elif record.class_id != CLASS_TO_ID[record.label]:
+            errors.append(f"{record.record_id}: class_id does not match label")
         if record.split not in VALID_SPLITS:
             errors.append(f"{record.record_id}: invalid split {record.split!r}")
         if record.record_id in seen_records:
