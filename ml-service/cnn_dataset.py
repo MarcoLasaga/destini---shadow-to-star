@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import random
 from collections import Counter
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -22,6 +23,28 @@ with open(_TAXONOMY_PATH, "r", encoding="utf-8") as _taxonomy_file:
 CLASS_NAMES: tuple[str, ...] = tuple(entry["name"] for entry in _taxonomy["classes"])
 CLASS_TO_ID: dict[str, int] = {name: index for index, name in enumerate(CLASS_NAMES)}
 VALID_SPLITS = ("train", "val", "test")
+
+REPOLYVORE_CATEGORY_MAPPING: dict[str, str] = {
+    "top": "TOP",
+    "pants": "BOTTOM",
+    "skirt": "BOTTOM",
+    "shoes": "SHOES",
+    "outwear": "OUTERWEAR",
+    "bag": "ACCESSORIES",
+    "bracelet": "ACCESSORIES",
+    "brooch": "ACCESSORIES",
+    "earrings": "ACCESSORIES",
+    "eyewear": "ACCESSORIES",
+    "gloves": "ACCESSORIES",
+    "hairwear": "ACCESSORIES",
+    "hats": "ACCESSORIES",
+    "necklace": "ACCESSORIES",
+    "neckwear": "ACCESSORIES",
+    "rings": "ACCESSORIES",
+    "watches": "ACCESSORIES",
+}
+REPOLYVORE_EXCLUDED_CATEGORIES = frozenset({"dress", "jumpsuit", "legwear"})
+REPOLYVORE_IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".bmp"})
 
 
 @dataclass(frozen=True)
@@ -143,18 +166,103 @@ def from_polyvore(
     return records
 
 
+def discover_repolyvore_categories(root_dir: Union[str, Path]) -> dict[str, Path]:
+    """Discover Re-PolyVore category directories without touching their files."""
+    root = Path(root_dir).resolve()
+    if not root.is_dir():
+        raise FileNotFoundError(f"Re-PolyVore root directory does not exist: {root}")
+    directories = {entry.name.lower(): entry for entry in root.iterdir() if entry.is_dir()}
+    missing = sorted(set(REPOLYVORE_CATEGORY_MAPPING) - set(directories))
+    if missing:
+        raise FileNotFoundError(f"Missing Re-PolyVore category directories in '{root}': {missing}")
+    return {name: directories[name] for name in sorted(REPOLYVORE_CATEGORY_MAPPING)}
+
+
+def from_repolyvore(
+    root_dir: Union[str, Path],
+    val_ratio: float = 0.1,
+    test_ratio: float = 0.1,
+    seed: int = 42,
+) -> list[CNNRecord]:
+    """Normalize Re-PolyVore images and split duplicate groups deterministically.
+
+    Re-PolyVore has category folders but no train/validation/test folders. Every
+    supported image is hashed before splitting, so byte-identical images stay in
+    one split. Non-image files (for example Windows shortcut files) are ignored.
+    """
+    if not 0 <= val_ratio < 1 or not 0 <= test_ratio < 1 or val_ratio + test_ratio >= 1:
+        raise ValueError("val_ratio and test_ratio must be non-negative and sum to less than 1")
+
+    root = Path(root_dir).resolve()
+    category_dirs = discover_repolyvore_categories(root)
+    entries: list[tuple[str, str, Path, str]] = []
+    for native_label, category_dir in category_dirs.items():
+        for path in sorted(category_dir.rglob("*")):
+            if path.is_file() and path.suffix.lower() in REPOLYVORE_IMAGE_EXTENSIONS:
+                entries.append((native_label, REPOLYVORE_CATEGORY_MAPPING[native_label], path, _sha256_file(path)))
+
+    groups: dict[str, list[tuple[str, str, Path, str]]] = {}
+    for entry in entries:
+        groups.setdefault(entry[3], []).append(entry)
+    group_keys = sorted(groups)
+    random.Random(seed).shuffle(group_keys)
+
+    total = len(entries)
+    test_target = round(total * test_ratio)
+    val_target = round(total * val_ratio)
+    test_count = val_count = 0
+    split_by_hash: dict[str, str] = {}
+    for image_hash in group_keys:
+        group_size = len(groups[image_hash])
+        if test_count < test_target:
+            split_by_hash[image_hash] = "test"
+            test_count += group_size
+        elif val_count < val_target:
+            split_by_hash[image_hash] = "val"
+            val_count += group_size
+        else:
+            split_by_hash[image_hash] = "train"
+
+    records: list[CNNRecord] = []
+    for native_label, label, path, image_hash in entries:
+        relative = path.relative_to(root).as_posix()
+        records.append(CNNRecord(
+            image_path=str(path),
+            label=label,
+            source="re-polyvore",
+            original_label=native_label,
+            split=split_by_hash[image_hash],
+            record_id=f"re-polyvore:{relative}",
+            class_id=CLASS_TO_ID[label],
+            item_id=relative,
+            image_sha256=image_hash,
+        ))
+    return records
+
+
 def build_cnn_manifest(
     deepfashion: Optional[DeepFashionManifest] = None,
     polyvore: Optional[PolyvoreManifest] = None,
     deepfashion_root: Optional[Union[str, Path]] = None,
     polyvore_root: Optional[Union[str, Path]] = None,
     hash_images: bool = False,
+    repolyvore_root: Optional[Union[str, Path]] = None,
+    repolyvore_val_ratio: float = 0.1,
+    repolyvore_test_ratio: float = 0.1,
+    repolyvore_seed: int = 42,
 ) -> CNNManifest:
     records: list[CNNRecord] = []
     if deepfashion is not None:
         records.extend(from_deepfashion(deepfashion, deepfashion_root, hash_images))
     if polyvore is not None:
         records.extend(from_polyvore(polyvore, polyvore_root, hash_images))
+    if repolyvore_root is not None:
+        records.extend(from_repolyvore(
+            repolyvore_root,
+            val_ratio=repolyvore_val_ratio,
+            test_ratio=repolyvore_test_ratio,
+            seed=repolyvore_seed,
+        ))
     records.sort(key=lambda record: (record.source, record.split, record.record_id))
     manifest = CNNManifest(records=records, metadata={
         "taxonomy": list(CLASS_NAMES),
@@ -176,6 +284,9 @@ def validate_cnn_manifest(
     paths_by_split: dict[str, set[str]] = {split: set() for split in VALID_SPLITS}
     ids_by_split: dict[str, set[str]] = {split: set() for split in VALID_SPLITS}
     hashes_by_split: dict[str, set[str]] = {split: set() for split in VALID_SPLITS}
+    path_records: dict[str, list[str]] = {}
+    hash_records: dict[str, list[tuple[str, str, str]]] = {}
+    hash_labels: dict[str, set[str]] = {}
     for record in manifest.records:
         if record.label not in CLASS_TO_ID:
             errors.append(f"{record.record_id}: unknown label {record.label!r}")
@@ -190,10 +301,16 @@ def validate_cnn_manifest(
             errors.append(f"missing image: {record.image_path}")
         if record.split in VALID_SPLITS:
             paths_by_split[record.split].add(record.image_path)
+            path_records.setdefault(record.image_path, []).append(record.record_id)
             if record.item_id:
                 ids_by_split[record.split].add(f"{record.source}:{record.item_id}")
             if record.image_sha256:
                 hashes_by_split[record.split].add(record.image_sha256)
+                hash_records.setdefault(record.image_sha256, []).append((record.source, record.split, record.record_id))
+                hash_labels.setdefault(record.image_sha256, set()).add(record.label)
+    for image_path, record_ids in path_records.items():
+        if len(record_ids) > 1:
+            errors.append(f"duplicate image path: {image_path}")
     for left, right in (("train", "val"), ("train", "test"), ("val", "test")):
         if paths_by_split[left] & paths_by_split[right]:
             errors.append(f"image path overlap: {left}/{right}")
@@ -201,6 +318,15 @@ def validate_cnn_manifest(
             errors.append(f"item ID overlap: {left}/{right}")
         if hashes_by_split[left] & hashes_by_split[right]:
             errors.append(f"image hash overlap: {left}/{right}")
+    for image_hash, records in hash_records.items():
+        sources = {source for source, _, _ in records}
+        splits = {split for _, split, _ in records}
+        if len(sources) > 1:
+            errors.append(f"cross-dataset image hash overlap: {image_hash}")
+        if len(splits) > 1:
+            errors.append(f"image hash crosses splits: {image_hash}")
+        if len(hash_labels[image_hash]) > 1:
+            errors.append(f"image hash has conflicting labels: {image_hash}")
     if require_all_five_classes:
         missing = [name for name in CLASS_NAMES if not any(r.label == name and r.split == "train" for r in manifest.records)]
         if missing:

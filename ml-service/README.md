@@ -204,3 +204,21 @@ python prepare_cnn_dataset.py --output data/cnn_manifest.json --hash-images
 The command preserves the manifest even when readiness fails, records
 validation errors and `five_class_ready`, prints actual split/class counts,
 and exits nonzero until all required checks pass. It does not train the CNN.
+
+### Re-PolyVore supplemental image dataset
+
+The extracted Re-PolyVore layout is supported through `REPOLYVORE_ROOT` or
+`--repolyvore-root`. The supported native folders normalize as follows:
+
+- `top` → `TOP`; `pants`, `skirt` → `BOTTOM`; `shoes` → `SHOES`;
+  `outwear` → `OUTERWEAR`.
+- `bag`, `bracelet`, `brooch`, `earrings`, `eyewear`, `gloves`, `hairwear`,
+  `hats`, `necklace`, `neckwear`, `rings`, `watches` → `ACCESSORIES`.
+- `dress`, `jumpsuit`, and `legwear` are excluded from the five-class CNN.
+
+Because Re-PolyVore has no split folders, supported images are SHA-256 grouped
+and assigned deterministically to train/validation/test (default 80/10/10,
+seed 42). Non-image files are ignored. Validation reports duplicate image
+paths, hash groups crossing splits, conflicting labels, and cross-dataset hash
+overlap with DeepFashion. A zero cross-dataset overlap is only reported after
+both datasets have actually been hashed; it is never assumed from paths.
