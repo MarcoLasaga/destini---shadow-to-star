@@ -1,19 +1,9 @@
 import { Link } from 'react-router-dom'
 
 const columns = [
-  {
-    title: 'Explore',
-    links: [['Home', '/'], ['Features', '/features'], ['How It Works', '/how-it-works'], ['About', '/about'], ['Download', '/download']],
-  },
-  {
-    title: 'Legal',
-    arrow: true,
-    links: [['Privacy Policy', '/privacy-policy'], ['Terms & Conditions', '/terms']],
-  },
-  {
-    title: 'Support',
-    links: [['Contact', 'mailto:hello@stylesense.app']],
-  },
+  { title: 'Product', links: [['Features', '/features'], ['How It Works', '/how-it-works'], ['Download', '/download']] },
+  { title: 'Company', links: [['About', '/about'], ['Contact', 'mailto:hello@stylesense.app']] },
+  { title: 'Legal', arrow: true, links: [['Privacy Policy', '/privacy-policy'], ['Terms & Conditions', '/terms']] },
 ]
 
 export default function Footer({ dark = false }) {
@@ -32,7 +22,7 @@ export default function Footer({ dark = false }) {
                     ) : (
                       <Link to={to}>
                         {label}
-                        {col.arrow && <span className="arr" aria-hidden="true"> →</span>}
+                        {col.arrow && <span className="arr" aria-hidden="true">→</span>}
                       </Link>
                     )}
                   </li>
@@ -50,12 +40,12 @@ export default function Footer({ dark = false }) {
           </div>
         </div>
 
-        <p className="footer-mark" aria-hidden="true">
+        <Link to="/" className="footer-mark" aria-label="StyleSense, back to home">
           Style<span>Sense</span>
-        </p>
+        </Link>
 
         <div className="footer-bottom">
-          <p>© 2026 StyleSense. An academic project on wardrobe recommendation.</p>
+          <p>© {new Date().getFullYear()} StyleSense. An academic project on wardrobe recommendation.</p>
           <a href="mailto:hello@stylesense.app">hello@stylesense.app</a>
         </div>
       </div>

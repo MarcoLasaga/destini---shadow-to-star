@@ -1517,3 +1517,57 @@ h3 { font-size: 1.35rem; }
   .mobile-menu { transform: none !important; }
   .btn:active { transform: none; }
 }
+
+/* ================= Design tokens ================= */
+:root {
+  --tint: #EFECF6;
+  --phone-edge: #222222;
+  --space-xs: 8px; --space-sm: 16px; --space-md: 24px; --space-lg: 48px;
+  --radius-sm: 12px;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-fast: 0.2s; --dur: 0.35s;
+}
+[data-theme='dark'] {
+  --tint: #23212B;
+  --primary-soft: #262320;
+  --phone-edge: #4A4756;
+}
+
+/* hero bands: lavender in light, purple-tinted charcoal in dark. Yellow stays on actions and accents */
+.feat-hero { background: var(--tint); }
+.showcase { background: var(--tint); }
+.phone { border-color: var(--phone-edge); }
+.showcase-phones .phone:nth-child(2) { transform: none; }
+
+/* ================= Navbar: no clipping ================= */
+.nav-wrap { top: 0; padding: 12px 0; }
+
+/* ================= Footer ================= */
+.footer { margin-top: clamp(64px, 9vw, 112px); }
+.footer-main .arr { margin-left: 6px; }
+.footer-mark {
+  display: block;
+  overflow: visible;
+  font-size: clamp(2.6rem, 15.5vw, 12rem);
+  line-height: 1.08;
+  padding: 8px 0 clamp(20px, 3vw, 36px);
+  transition: opacity var(--dur-fast) ease;
+}
+.footer-mark:hover { opacity: 0.85; }
+.site-footer.is-dark .footer { margin-top: 0; }
+
+/* ================= Auth ================= */
+.auth-card { min-height: 740px; }
+.auth-fields { justify-content: flex-start; padding-top: 12px; }
+.auth-form { margin-top: 16px; }
+@media (max-width: 900px) { .auth-panel { min-height: 700px; } }
+
+/* browser autofill follows the theme instead of pale blue */
+.auth-input:-webkit-autofill,
+.auth-input:-webkit-autofill:hover,
+.auth-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text);
+  caret-color: var(--text);
+  box-shadow: 0 0 0 1000px var(--background) inset;
+  transition: background-color 9999s ease-out;
+}
