@@ -6,23 +6,23 @@ export default function Hero() {
       <div className="hero2-copy">
         <p className="hero2-kicker">Wardrobe recommendation app</p>
         <h1>
-          Wear what <span>you own.</span>
+          Your wardrobe.
+          <br />
+          Your style.
+          <span>Smarter.</span>
         </h1>
         <p className="lead">
-          Better outfits from the clothes already in your closet, picked for your style, your plans and today’s weather.
+          Better outfits from the clothes already in your closet, picked for your plans and today’s weather.
         </p>
         <div className="hero-buttons">
-          <Button variant="primary" to="/download">Download the App</Button>
+          <Button variant="primary" to="/download">Get the App</Button>
           <Button variant="outline" to="/features">Explore StyleSense</Button>
         </div>
       </div>
 
       <figure className="hero2-figure">
         <div className="image-frame hero2-image">
-          <img
-            src="/images/closet.jpg"
-            alt="A woman choosing an outfit from her wardrobe in a sunlit bedroom"
-          />
+          <img src="/images/closet.jpg" alt="A woman choosing an outfit from her wardrobe in a sunlit bedroom" />
         </div>
         <figcaption>
           <strong>120+</strong>

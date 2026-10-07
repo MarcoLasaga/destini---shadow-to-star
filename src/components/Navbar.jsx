@@ -38,7 +38,7 @@ export default function Navbar({ theme, onToggleTheme }) {
         <div className="nav-actions">
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
           <Link to="/login" className="nav-signin">Sign In</Link>
-          <Button variant="primary" to="/signup" className="nav-cta">Create Account</Button>
+          <Button variant="primary" to="/signup" className="nav-cta">Get Started</Button>
 
           <button
             type="button"

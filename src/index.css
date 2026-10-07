@@ -1571,3 +1571,107 @@ h3 { font-size: 1.35rem; }
   box-shadow: 0 0 0 1000px var(--background) inset;
   transition: background-color 9999s ease-out;
 }
+
+/* ================= Hero: three-line headline ================= */
+.hero2 h1 { font-size: clamp(3rem, 7.2vw, 6.4rem); line-height: 0.95; }
+
+/* ================= Phones, large ================= */
+.phone-lg { width: clamp(210px, 26vw, 290px); }
+
+/* ================= Spotlight: phone + one idea ================= */
+.spot { padding: var(--space-section) 0; }
+.spot-tint { background: var(--tint); }
+.spot-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: clamp(28px, 6vw, 96px);
+  align-items: center;
+}
+.spot.rev .spot-copy { order: 2; }
+.spot.rev .spot-grid { grid-template-columns: 0.9fr 1.1fr; }
+.spot-phone { display: flex; justify-content: center; }
+.spot-copy h2 { font-size: clamp(1.9rem, 3.8vw, 3rem); margin-bottom: 16px; max-width: 14ch; }
+.spot-copy .lead { margin-bottom: 18px; }
+.spot-gap { height: clamp(24px, 4vw, 48px); }
+
+/* ================= Wear ledger ================= */
+.ledger { padding: var(--space-section) 0; border-block: 1px solid var(--line); }
+.ledger-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(28px, 6vw, 96px);
+  align-items: start;
+}
+.ledger h2 { font-size: clamp(1.8rem, 3.4vw, 2.6rem); max-width: 16ch; }
+.ledger-rows div {
+  display: grid;
+  grid-template-columns: 8.5rem 1fr;
+  align-items: baseline;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+}
+.ledger-rows div:last-child { border-bottom: 1px solid var(--line); }
+.ledger-rows dt { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--secondary-ink); }
+.ledger-rows dd { font-size: 1.1rem; font-weight: 600; }
+.ledger-rows dd.big { font-family: var(--font-display); font-size: clamp(1.8rem, 3.4vw, 2.6rem); line-height: 1; box-shadow: inset 0 -0.32em 0 rgba(255, 213, 134, 0.7); width: fit-content; }
+.ledger-note { margin-top: 14px; font-size: 0.85rem; color: var(--muted); }
+
+/* ================= How It Works: large numerals ================= */
+.story-num {
+  display: block;
+  font-family: var(--font-display);
+  font-size: clamp(3.4rem, 8vw, 6rem);
+  line-height: 0.9;
+  color: var(--secondary-ink);
+  margin-bottom: 14px;
+}
+
+/* ================= Features helpers ================= */
+.feat-h2 { font-size: clamp(1.3rem, 2.2vw, 1.5rem); line-height: 1.2; padding-top: 2px; }
+.pull .lead { margin-top: 20px; }
+.pull .eyebrow { margin-bottom: 18px; }
+
+/* ================= Quote ================= */
+.quote { margin: var(--space-section) 0 0; max-width: 780px; }
+.quote blockquote {
+  font-family: var(--font-display);
+  font-size: clamp(1.7rem, 3.6vw, 2.8rem);
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  margin-bottom: 16px;
+}
+.quote figcaption { font-weight: 600; color: var(--secondary-ink); }
+
+/* ================= Download hero ================= */
+.dl-hero { padding-bottom: 0; overflow: hidden; }
+.dl-hero-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: clamp(24px, 6vw, 80px);
+  align-items: end;
+}
+.dl-hero h1 { font-size: clamp(2.2rem, 5vw, 3.6rem); margin-bottom: 18px; }
+.dl-hero .hero-buttons { margin-bottom: 8px; }
+.dl-hero .dl-platform { margin-bottom: clamp(40px, 6vw, 72px); }
+.dl-hero-phone { display: flex; justify-content: center; margin-bottom: -60px; }
+
+/* ================= Theme transition ================= */
+.theme-anim, .theme-anim * {
+  transition-property: background-color, color, border-color, fill, stroke, box-shadow !important;
+  transition-duration: 0.35s !important;
+}
+
+/* ================= Responsive ================= */
+@media (max-width: 900px) {
+  .spot-grid, .spot.rev .spot-grid, .ledger-grid, .dl-hero-grid { grid-template-columns: 1fr; }
+  .spot.rev .spot-copy { order: 0; }
+  .spot-copy h2, .ledger h2 { max-width: none; }
+  .dl-hero-phone { margin-bottom: -60px; }
+}
+@media (max-width: 600px) {
+  .ledger-rows div { grid-template-columns: 6.5rem 1fr; }
+  .phone-lg { width: min(70vw, 260px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-anim, .theme-anim * { transition: none !important; }
+}

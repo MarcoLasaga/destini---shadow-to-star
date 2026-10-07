@@ -1,6 +1,6 @@
-export default function PhoneMock({ src, alt = '', label }) {
+export default function PhoneMock({ src, alt = '', label, className = '' }) {
   return (
-    <div className="phone">
+    <div className={`phone ${className}`.trim()}>
       {src ? (
         <img src={src} alt={alt} loading="lazy" />
       ) : (

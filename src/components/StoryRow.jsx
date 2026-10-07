@@ -1,9 +1,10 @@
 import Photo from './Photo.jsx'
 
-export default function StoryRow({ eyebrow, title, text, tags, reverse = false, photo }) {
+export default function StoryRow({ eyebrow, num, title, text, tags, reverse = false, photo }) {
   return (
     <div className={`story-row${reverse ? ' rev' : ''}`}>
       <div className="story-copy">
+        {num && <span className="story-num" aria-hidden="true">{num}</span>}
         {eyebrow && <p className="eyebrow">{eyebrow}</p>}
         <h2>{title}</h2>
         <p className="lead">{text}</p>

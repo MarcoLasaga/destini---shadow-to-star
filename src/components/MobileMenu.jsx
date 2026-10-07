@@ -13,7 +13,7 @@ export default function MobileMenu({ id, open, links, onClose }) {
       </ul>
       <div className="mobile-menu-actions">
         <Button variant="outline" to="/login" onClick={onClose}>Sign In</Button>
-        <Button variant="primary" to="/signup" onClick={onClose}>Create Account</Button>
+        <Button variant="primary" to="/signup" className="nav-cta" onClick={onClose}>Get Started</Button>
       </div>
     </div>
   )

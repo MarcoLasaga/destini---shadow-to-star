@@ -3,10 +3,10 @@ import Photo from '../components/Photo.jsx'
 import Button from '../components/Button.jsx'
 
 const steps = [
-  { title: 'Build your wardrobe', text: 'Upload photos of your clothes or add pieces manually. StyleSense picks up details like type, colour and style.', photo: { src: '/images/phone.jpg', alt: 'A phone camera capturing a lilac shirt', ratio: '5 / 4' } },
-  { title: 'Set your preferences', text: 'Share your style, the occasions you dress for, and anything you’d rather not be shown.', photo: { label: 'App screen: style preferences' } },
-  { title: 'Discover outfits', text: 'Generate combinations built entirely from clothes already in your wardrobe.', photo: { label: 'App screen: outfit suggestions' } },
-  { title: 'Make it yours', text: 'Rate, save, wear, skip or leave feedback so the app understands what you actually reach for.', photo: { label: 'App screen: rating an outfit' } },
+  { title: 'Add your clothes', text: 'Upload photos of your clothes or add pieces manually. StyleSense picks up details like type, colour and style.', photo: { src: '/images/phone.jpg', alt: 'A phone camera capturing a lilac shirt', ratio: '5 / 4' } },
+  { title: 'Build your style profile', text: 'Share your style, the occasions you dress for, and anything you’d rather not be shown.', photo: { label: 'App screen: style preferences' } },
+  { title: 'Generate outfits', text: 'Combinations built entirely from clothes already in your wardrobe.', photo: { label: 'App screen: outfit suggestions' } },
+  { title: 'Wear and rate', text: 'Rate, save, wear, skip or leave feedback so the app understands what you actually reach for.', photo: { label: 'App screen: rating an outfit' } },
   { title: 'StyleSense learns', text: 'Every interaction shapes what you see next, including which pieces need a rest.', photo: { label: 'App screen: wear history' } },
 ]
 
@@ -42,7 +42,7 @@ export default function HowItWorks() {
           {steps.map((s, i) => (
             <StoryRow
               key={s.title}
-              eyebrow={`Step ${String(i + 1).padStart(2, '0')}`}
+              num={String(i + 1).padStart(2, '0')}
               title={s.title}
               text={s.text}
               photo={s.photo}

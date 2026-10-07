@@ -3,27 +3,9 @@ import { useEffect, useState } from 'react'
 const KEY = 'stylesense-theme'
 
 export default function useTheme() {
-  const [theme, setTheme] = useState(() => {
-    if (typeof document === 'undefined') {
-      return 'light'
-    }
-
-    const rootTheme = document.documentElement.getAttribute('data-theme')
-    if (rootTheme === 'dark' || rootTheme === 'light') {
-      return rootTheme
-    }
-
-    try {
-      const savedTheme = localStorage.getItem(KEY)
-      if (savedTheme === 'dark' || savedTheme === 'light') {
-        return savedTheme
-      }
-    } catch {
-      /* storage unavailable, theme still works for this visit */
-    }
-
-    return 'light'
-  })
+  const [theme, setTheme] = useState(
+    () => document.documentElement.getAttribute('data-theme') || 'light'
+  )
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -34,6 +16,12 @@ export default function useTheme() {
     }
   }, [theme])
 
-  const toggle = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
+  const toggle = () => {
+    const root = document.documentElement
+    root.classList.add('theme-anim')
+    setTimeout(() => root.classList.remove('theme-anim'), 450)
+    setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
+  }
+
   return { theme, toggle }
 }
