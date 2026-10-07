@@ -161,14 +161,24 @@ Once real dataset roots are available, build a validated manifest with:
 python prepare_cnn_dataset.py --deepfashion-root C:/path/to/DeepFashion --polyvore-root C:/path/to/Polyvore --output data/cnn_manifest.json --hash-images
 ```
 
-The current repository has neither `DEEPFASHION_ROOT` nor `POLYVORE_ROOT`
-configured, so no real class counts or five-class training metrics are claimed.
-The trainer defaults to the final five-class taxonomy and supports an explicit
-`--class-set deepfashion-3` mode only for a clearly labelled DeepFashion
-baseline. It uses the existing ResNet-50, weighted sampling, staged fine-tuning,
-and early stopping. Checkpoints now store class order, architecture,
-preprocessing, training arguments, dataset mode, and validation macro-F1 so
-FastAPI can reject incompatible class-order metadata.
+The final unified manifest is available at
+`data/stylesense_cnn_manifest.json`. Train directly from it with:
+
+```powershell
+python train.py --manifest data/stylesense_cnn_manifest.json `
+  --output models/stylesense-resnet50-final.pt `
+  --results data/stylesense-resnet50-final-results.json
+```
+
+Manifest mode verifies the exact five-class split counts and image paths before
+training, uses the official train split for optimization, uses validation only
+for model selection, and evaluates test only after selection. It records the
+epoch history, actual test metrics, confusion matrix, inference timing, and
+checkpoint metadata in the results JSON. The trainer also retains the original
+ImageFolder mode and explicitly labelled `--class-set deepfashion-3` baseline.
+It uses ResNet-50, weighted sampling, staged fine-tuning, mixed precision when
+CUDA is available, and early stopping. No final CNN performance metrics are
+claimed until a complete run writes the checkpoint and results JSON.
 
 ### Goal 5 real-data readiness status
 
