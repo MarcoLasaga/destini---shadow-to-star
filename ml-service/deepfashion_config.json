@@ -1,0 +1,376 @@
+{
+  "dataset_name": "DeepFashion Category and Attribute Prediction Benchmark",
+  "benchmark_reference": "Liu et al., CVPR 2016",
+  "version": "1.0",
+  "stylesense_taxonomy": [
+    "TOP",
+    "BOTTOM",
+    "SHOES",
+    "OUTERWEAR",
+    "ACCESSORIES"
+  ],
+  "category_mapping": {
+    "Anorak": {
+      "type_id": 1,
+      "type_name": "upper-body",
+      "stylesense_category": "OUTERWEAR",
+      "status": "MAPPED",
+      "rationale": "Hooded weather-resistant pullover jacket designed for layering."
+    },
+    "Blazer": {
+      "type_id": 1,
+      "type_name": "upper-body",
+      "stylesense_category": "OUTERWEAR",
+      "status": "MAPPED",
+      "rationale": "Tailored jacket worn over shirts or tops for formal/smart-casual occasions."
+    },
+    "Blouse": {
+      "type_id": 1,
+      "type_name": "upper-body",
+      "stylesense_category": "TOP",
+      "status": "MAPPED",
+      "rationale": "Standard upper-body shirt garment."
+    },
+    "Bomber": {
+      "type_id": 1,
+      "type_name": "upper-body",
+      "stylesense_category": "OUTERWEAR",
+      "status": "MAPPED",
+      "rationale": "Short zippered or snap outerwear jacket with ribbed cuffs and hem."
+    },
+    "Button-Down": {
+      "type_id": 1,
+      "type_name": "upper-body",
+      "stylesense_category": "TOP",
+      "status": "MAPPED",
+      "rationale": "Collared buttoned shirt; core top garment."
+    },
+    "Cardigan": {
+      "type_id": 1,
+      "type_name": "upper-body",
+      "stylesense_category": "OUTERWEAR",
+      "status": "MAPPED",
+      "rationale": "Knitted open-front layering garment worn over a top."
+    },
+    "Flannel": {
+      "type_id": 1,
+      "type_name": "upper-body",
+      "stylesense_category": "TOP",
+      "status": "MAPPED",
+      "rationale": "Woven flannel shirt worn as upper-body piece."
+    },
+    "Halter": {
+      "type_id": 1,
+      "type_name": "upper-body",
+      "stylesense_category": "TOP",
+      "status": "MAPPED",
+      "rationale": "Sleeveless halter top."
+    },
+    "Henley": {
+      "type_id": 1,
+      "type_name": "upper-body",
+      "stylesense_category": "TOP",
+      "status": "MAPPED",
+      "rationale": "Collarless pullover top with buttoned placket."
+    },
+    "Hoodie": {
+      "type_id": 1,
+      "type_name": "upper-body",
+      "stylesense_category": "OUTERWEAR",
+      "status": "MAPPED",
+      "rationale": "Layering hooded sweatshirt/jacket."
+    },
+    "Jacket": {
+      "type_id": 1,
+      "type_name": "upper-body",
+      "stylesense_category": "OUTERWEAR",
+      "status": "MAPPED",
+      "rationale": "Core outerwear layer for warmth and styling."
+    },
+    "Jersey": {
+      "type_id": 1,
+      "type_name": "upper-body",
+      "stylesense_category": "TOP",
+      "status": "MAPPED",
+      "rationale": "Athletic knit shirt / pullover top."
+    },
+    "Parka": {
+      "type_id": 1,
+      "type_name": "upper-body",
+      "stylesense_category": "OUTERWEAR",
+      "status": "MAPPED",
+      "rationale": "Heavy cold-weather coat with hood."
+    },
+    "Peacoat": {
+      "type_id": 1,
+      "type_name": "upper-body",
+      "stylesense_category": "OUTERWEAR",
+      "status": "MAPPED",
+      "rationale": "Double-breasted short coat."
+    },
+    "Poncho": {
+      "type_id": 1,
+      "type_name": "upper-body",
+      "stylesense_category": "OUTERWEAR",
+      "status": "MAPPED",
+      "rationale": "Outer garment designed to keep the body warm."
+    },
+    "Sweater": {
+      "type_id": 1,
+      "type_name": "upper-body",
+      "stylesense_category": "TOP",
+      "status": "MAPPED",
+      "rationale": "Knitted top garment."
+    },
+    "Tank": {
+      "type_id": 1,
+      "type_name": "upper-body",
+      "stylesense_category": "TOP",
+      "status": "MAPPED",
+      "rationale": "Sleeveless top garment."
+    },
+    "Tee": {
+      "type_id": 1,
+      "type_name": "upper-body",
+      "stylesense_category": "TOP",
+      "status": "MAPPED",
+      "rationale": "T-shirt; staple casual top."
+    },
+    "Top": {
+      "type_id": 1,
+      "type_name": "upper-body",
+      "stylesense_category": "TOP",
+      "status": "MAPPED",
+      "rationale": "Generic upper-body shirt."
+    },
+    "Turtleneck": {
+      "type_id": 1,
+      "type_name": "upper-body",
+      "stylesense_category": "TOP",
+      "status": "MAPPED",
+      "rationale": "High close-fitting collar knit top."
+    },
+    "Capris": {
+      "type_id": 2,
+      "type_name": "lower-body",
+      "stylesense_category": "BOTTOM",
+      "status": "MAPPED",
+      "rationale": "Cropped pants extending between knee and ankle."
+    },
+    "Chinos": {
+      "type_id": 2,
+      "type_name": "lower-body",
+      "stylesense_category": "BOTTOM",
+      "status": "MAPPED",
+      "rationale": "Cotton twill trousers."
+    },
+    "Culottes": {
+      "type_id": 2,
+      "type_name": "lower-body",
+      "stylesense_category": "BOTTOM",
+      "status": "MAPPED",
+      "rationale": "Wide-legged knee or calf-length cropped pants."
+    },
+    "Cutoffs": {
+      "type_id": 2,
+      "type_name": "lower-body",
+      "stylesense_category": "BOTTOM",
+      "status": "MAPPED",
+      "rationale": "Frayed denim shorts."
+    },
+    "Gauchos": {
+      "type_id": 2,
+      "type_name": "lower-body",
+      "stylesense_category": "BOTTOM",
+      "status": "MAPPED",
+      "rationale": "Wide-legged mid-calf trousers."
+    },
+    "Jeans": {
+      "type_id": 2,
+      "type_name": "lower-body",
+      "stylesense_category": "BOTTOM",
+      "status": "MAPPED",
+      "rationale": "Denim pants."
+    },
+    "Jeggings": {
+      "type_id": 2,
+      "type_name": "lower-body",
+      "stylesense_category": "BOTTOM",
+      "status": "MAPPED",
+      "rationale": "Denim-styled stretch leggings."
+    },
+    "Jodhpurs": {
+      "type_id": 2,
+      "type_name": "lower-body",
+      "stylesense_category": "BOTTOM",
+      "status": "MAPPED",
+      "rationale": "Equestrian trousers."
+    },
+    "Joggers": {
+      "type_id": 2,
+      "type_name": "lower-body",
+      "stylesense_category": "BOTTOM",
+      "status": "MAPPED",
+      "rationale": "Athletic tapered pants with elastic ankles."
+    },
+    "Leggings": {
+      "type_id": 2,
+      "type_name": "lower-body",
+      "stylesense_category": "BOTTOM",
+      "status": "MAPPED",
+      "rationale": "Tight-fitting elastic lower-body garment."
+    },
+    "Sarong": {
+      "type_id": 2,
+      "type_name": "lower-body",
+      "stylesense_category": "BOTTOM",
+      "status": "MAPPED",
+      "rationale": "Wrap-around lower-body garment."
+    },
+    "Shorts": {
+      "type_id": 2,
+      "type_name": "lower-body",
+      "stylesense_category": "BOTTOM",
+      "status": "MAPPED",
+      "rationale": "Trousers ending above or at the knee."
+    },
+    "Skirt": {
+      "type_id": 2,
+      "type_name": "lower-body",
+      "stylesense_category": "BOTTOM",
+      "status": "MAPPED",
+      "rationale": "Single-piece garment hanging from waist downwards."
+    },
+    "Sweatpants": {
+      "type_id": 2,
+      "type_name": "lower-body",
+      "stylesense_category": "BOTTOM",
+      "status": "MAPPED",
+      "rationale": "Casual warm athletic trousers."
+    },
+    "Sweatshorts": {
+      "type_id": 2,
+      "type_name": "lower-body",
+      "stylesense_category": "BOTTOM",
+      "status": "MAPPED",
+      "rationale": "Athletic shorts made from sweatshirt fleece."
+    },
+    "Trunks": {
+      "type_id": 2,
+      "type_name": "lower-body",
+      "stylesense_category": "BOTTOM",
+      "status": "MAPPED",
+      "rationale": "Swim/athletic shorts."
+    },
+    "Coat": {
+      "type_id": 3,
+      "type_name": "full-body",
+      "stylesense_category": "OUTERWEAR",
+      "status": "MAPPED",
+      "rationale": "Full-length outer coat worn over outfits for weather protection."
+    },
+    "Cape": {
+      "type_id": 3,
+      "type_name": "full-body",
+      "stylesense_category": "OUTERWEAR",
+      "status": "MAPPED",
+      "rationale": "Sleeveless outer layering garment."
+    },
+    "Dress": {
+      "type_id": 3,
+      "type_name": "full-body",
+      "stylesense_category": null,
+      "status": "AMBIGUOUS_UNMAPPED",
+      "rationale": "One-piece garment spanning torso and legs. StyleSense candidate generation is built on Top x Bottom pairing; forcing into TOP or BOTTOM causes incompatible pairing."
+    },
+    "Jumpsuit": {
+      "type_id": 3,
+      "type_name": "full-body",
+      "stylesense_category": null,
+      "status": "AMBIGUOUS_UNMAPPED",
+      "rationale": "One-piece garment incorporating top and trousers. Excluded to avoid invalid Top x Bottom combinations."
+    },
+    "Romper": {
+      "type_id": 3,
+      "type_name": "full-body",
+      "stylesense_category": null,
+      "status": "AMBIGUOUS_UNMAPPED",
+      "rationale": "One-piece top-and-shorts garment. Excluded from 5-piece recommendation slots."
+    },
+    "Shirtdress": {
+      "type_id": 3,
+      "type_name": "full-body",
+      "stylesense_category": null,
+      "status": "AMBIGUOUS_UNMAPPED",
+      "rationale": "Full-body dress with shirt details. Ambiguous full-body piece."
+    },
+    "Sundress": {
+      "type_id": 3,
+      "type_name": "full-body",
+      "stylesense_category": null,
+      "status": "AMBIGUOUS_UNMAPPED",
+      "rationale": "Casual summer full-body dress. Ambiguous full-body piece."
+    },
+    "Caftan": {
+      "type_id": 3,
+      "type_name": "full-body",
+      "stylesense_category": null,
+      "status": "AMBIGUOUS_UNMAPPED",
+      "rationale": "Long loose full-body tunic/robe. Loungewear/full-body piece."
+    },
+    "Kaftan": {
+      "type_id": 3,
+      "type_name": "full-body",
+      "stylesense_category": null,
+      "status": "AMBIGUOUS_UNMAPPED",
+      "rationale": "Variant spelling of Caftan; full-body garment."
+    },
+    "Coverup": {
+      "type_id": 3,
+      "type_name": "full-body",
+      "stylesense_category": null,
+      "status": "AMBIGUOUS_UNMAPPED",
+      "rationale": "Beach/swimwear cover garment. Incompatible with standard street outfit taxonomy."
+    },
+    "Kimono": {
+      "type_id": 3,
+      "type_name": "full-body",
+      "stylesense_category": null,
+      "status": "AMBIGUOUS_UNMAPPED",
+      "rationale": "Full-length traditional/layering robe. Preserved as ambiguous full-body garment."
+    },
+    "Nightdress": {
+      "type_id": 3,
+      "type_name": "full-body",
+      "stylesense_category": null,
+      "status": "AMBIGUOUS_UNMAPPED",
+      "rationale": "Sleepwear; outside standard daytime wardrobe recommendation."
+    },
+    "Onesie": {
+      "type_id": 3,
+      "type_name": "full-body",
+      "stylesense_category": null,
+      "status": "AMBIGUOUS_UNMAPPED",
+      "rationale": "One-piece loungewear/sleepwear."
+    },
+    "Robe": {
+      "type_id": 3,
+      "type_name": "full-body",
+      "stylesense_category": null,
+      "status": "AMBIGUOUS_UNMAPPED",
+      "rationale": "Bathrobe/loungewear; not standard daytime street attire."
+    }
+  },
+  "unavailable_taxonomy_categories": {
+    "SHOES": {
+      "reason": "DeepFashion Category and Attribute Prediction benchmark contains only garments (types: upper, lower, full body). Footwear is not present in this benchmark.",
+      "resolution": "Must be supplemented via StyleSense user wardrobe export (ml-service/export_dataset.py) or specialized shoe datasets."
+    },
+    "ACCESSORIES": {
+      "reason": "DeepFashion Category and Attribute Prediction benchmark does not include bags, belts, hats, jewelry, or watches.",
+      "resolution": "Must be supplemented via StyleSense user wardrobe export or external accessories datasets."
+    }
+  },
+  "style_attribute_mapping": null,
+  "style_attribute_mapping_note": "No StyleSense style mapping is implemented because the repository does not parse DeepFashion attribute annotations into a documented style taxonomy."
+}
