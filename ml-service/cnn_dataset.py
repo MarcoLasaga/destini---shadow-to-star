@@ -240,6 +240,92 @@ def from_repolyvore(
     return records
 
 
+def audit_hash_conflicts(records: Sequence[CNNRecord]) -> list[dict[str, Any]]:
+    """Create a stable report for hash groups spanning native categories."""
+    groups: dict[str, list[CNNRecord]] = {}
+    for record in records:
+        if record.image_sha256:
+            groups.setdefault(record.image_sha256, []).append(record)
+
+    report: list[dict[str, Any]] = []
+    for image_hash, group in groups.items():
+        native_categories = sorted({record.original_label for record in group})
+        if len(native_categories) < 2:
+            continue
+        stylesense_categories = sorted({record.label for record in group})
+        conflict_type = (
+            "SAME_STYLE_SENSE_CLASS"
+            if len(stylesense_categories) == 1
+            else "CROSS_STYLE_SENSE_CLASS"
+        )
+        report.append({
+            "sha256": image_hash,
+            "image_paths": sorted(record.image_path for record in group),
+            "native_categories": native_categories,
+            "stylesense_categories": stylesense_categories,
+            "record_count": len(group),
+            "conflict_type": conflict_type,
+        })
+    return sorted(report, key=lambda entry: entry["sha256"])
+
+
+def canonicalize_hash_groups(
+    records: Sequence[CNNRecord],
+) -> tuple[list[CNNRecord], dict[str, Any]]:
+    """Resolve exact duplicate hashes without inventing or silently relabeling data."""
+    grouped: dict[str, list[CNNRecord]] = {}
+    unhashed: list[CNNRecord] = []
+    for record in records:
+        if record.image_sha256:
+            grouped.setdefault(record.image_sha256, []).append(record)
+        else:
+            unhashed.append(record)
+
+    audit = audit_hash_conflicts(records)
+    conflict_by_hash = {entry["sha256"]: entry for entry in audit}
+    kept: list[CNNRecord] = list(unhashed)
+    excluded_records = 0
+    canonicalized_records = 0
+    excluded_hashes: list[str] = []
+
+    for image_hash in sorted(grouped):
+        group = sorted(grouped[image_hash], key=lambda record: (record.source, record.image_path, record.record_id))
+        stylesense_categories = {record.label for record in group}
+        if len(stylesense_categories) > 1:
+            excluded_records += len(group)
+            excluded_hashes.append(image_hash)
+            if image_hash in conflict_by_hash:
+                conflict_by_hash[image_hash]["resolution"] = "EXCLUDED_ALL_RECORDS"
+            continue
+        kept.append(group[0])
+        canonicalized_records += len(group) - 1
+        if len(group) > 1 and image_hash in conflict_by_hash:
+            conflict_by_hash[image_hash]["resolution"] = "CANONICALIZED_ONE_RECORD"
+
+    resolved_report = sorted(conflict_by_hash.values(), key=lambda entry: entry["sha256"])
+    return sorted(kept, key=lambda record: (record.source, record.split, record.record_id)), {
+        "groups": resolved_report,
+        "group_count": len(resolved_report),
+        "same_stylesense_class_groups": sum(
+            entry["conflict_type"] == "SAME_STYLE_SENSE_CLASS" for entry in resolved_report
+        ),
+        "cross_stylesense_class_groups": sum(
+            entry["conflict_type"] == "CROSS_STYLE_SENSE_CLASS" for entry in resolved_report
+        ),
+        "canonicalized_records": canonicalized_records,
+        "excluded_records": excluded_records,
+        "excluded_hashes": excluded_hashes,
+    }
+
+
+def write_conflict_report(report: dict[str, Any], filepath: Union[str, Path]) -> None:
+    """Write a deterministic machine-readable exact-hash conflict report."""
+    path = Path(filepath)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2)
+
+
 def build_cnn_manifest(
     deepfashion: Optional[DeepFashionManifest] = None,
     polyvore: Optional[PolyvoreManifest] = None,
@@ -252,22 +338,27 @@ def build_cnn_manifest(
     repolyvore_seed: int = 42,
 ) -> CNNManifest:
     records: list[CNNRecord] = []
+    repolyvore_conflict_report: Optional[dict[str, Any]] = None
     if deepfashion is not None:
         records.extend(from_deepfashion(deepfashion, deepfashion_root, hash_images))
     if polyvore is not None:
         records.extend(from_polyvore(polyvore, polyvore_root, hash_images))
     if repolyvore_root is not None:
-        records.extend(from_repolyvore(
+        repolyvore_records = from_repolyvore(
             repolyvore_root,
             val_ratio=repolyvore_val_ratio,
             test_ratio=repolyvore_test_ratio,
             seed=repolyvore_seed,
-        ))
-    records.sort(key=lambda record: (record.source, record.split, record.record_id))
+        )
+        repolyvore_records, repolyvore_conflict_report = canonicalize_hash_groups(repolyvore_records)
+        records.extend(repolyvore_records)
+    records, conflict_report = canonicalize_hash_groups(records)
     manifest = CNNManifest(records=records, metadata={
         "taxonomy": list(CLASS_NAMES),
         "sources": sorted({record.source for record in records}),
         "record_count": len(records),
+        "conflict_resolution": conflict_report,
+        "repolyvore_conflict_resolution": repolyvore_conflict_report,
     })
     manifest.metadata["class_statistics"] = manifest.class_statistics()
     return manifest

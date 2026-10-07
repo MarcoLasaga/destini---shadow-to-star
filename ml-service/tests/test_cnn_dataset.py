@@ -4,8 +4,11 @@ from deepfashion_dataset import DatasetManifest, DeepFashionItem
 from polyvore_dataset import PolyvoreItem, PolyvoreManifest, PolyvoreOutfit, PolyvoreOutfitItem
 from cnn_dataset import (
     CLASS_NAMES,
+    CNNRecord,
     REPOLYVORE_CATEGORY_MAPPING,
     build_cnn_manifest,
+    audit_hash_conflicts,
+    canonicalize_hash_groups,
     discover_repolyvore_categories,
     from_repolyvore,
     validate_cnn_manifest,
@@ -126,3 +129,31 @@ def test_conflicting_duplicate_labels_are_reported():
         CNNRecord("pants.jpg", "BOTTOM", "re-polyvore", "pants", "train", "rp:pants", 1, "rp:pants", image_sha256=duplicate_hash),
     ])
     assert any("conflicting labels" in error for error in validate_cnn_manifest(manifest))
+
+
+def test_same_stylesense_conflict_is_canonicalized():
+    duplicate_hash = "c" * 64
+    records = [
+        CNNRecord("z-skirt.jpg", "BOTTOM", "re-polyvore", "skirt", "train", "z", 1, "z", image_sha256=duplicate_hash),
+        CNNRecord("a-pants.jpg", "BOTTOM", "re-polyvore", "pants", "train", "a", 1, "a", image_sha256=duplicate_hash),
+    ]
+    report = audit_hash_conflicts(records)
+    assert report[0]["conflict_type"] == "SAME_STYLE_SENSE_CLASS"
+    resolved, summary = canonicalize_hash_groups(records)
+    assert [record.record_id for record in resolved] == ["a"]
+    assert summary["canonicalized_records"] == 1
+    assert summary["excluded_records"] == 0
+
+
+def test_cross_stylesense_conflict_excludes_entire_group():
+    duplicate_hash = "d" * 64
+    records = [
+        CNNRecord("top.jpg", "TOP", "re-polyvore", "top", "train", "top", 0, "top", image_sha256=duplicate_hash),
+        CNNRecord("shoes.jpg", "SHOES", "re-polyvore", "shoes", "train", "shoes", 2, "shoes", image_sha256=duplicate_hash),
+    ]
+    report = audit_hash_conflicts(records)
+    assert report[0]["conflict_type"] == "CROSS_STYLE_SENSE_CLASS"
+    resolved, summary = canonicalize_hash_groups(records)
+    assert resolved == []
+    assert summary["excluded_records"] == 2
+    assert summary["excluded_hashes"] == [duplicate_hash]

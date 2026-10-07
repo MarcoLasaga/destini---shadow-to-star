@@ -222,3 +222,30 @@ seed 42). Non-image files are ignored. Validation reports duplicate image
 paths, hash groups crossing splits, conflicting labels, and cross-dataset hash
 overlap with DeepFashion. A zero cross-dataset overlap is only reported after
 both datasets have actually been hashed; it is never assumed from paths.
+
+### Re-PolyVore conflict resolution and final manifest
+
+The real Re-PolyVore audit found 221 native-category hash-conflict groups:
+123 collapsed to one StyleSense class and were canonicalized to one stable
+path; 98 mapped to different StyleSense classes and all 265 records in those
+groups were excluded. No labels were inferred or majority-voted. The complete
+machine-readable audit is written beside the manifest as
+`repolyvore_conflict_report.json`.
+
+The final exact-hash-validated manifest is generated at
+`ml-service/data/stylesense_cnn_manifest.json` and contains 294,604 records:
+
+| Class | Total | Train | Validation | Test |
+| --- | ---: | ---: | ---: | ---: |
+| TOP | 117,096 | 85,895 | 15,643 | 15,558 |
+| BOTTOM | 69,830 | 51,514 | 9,229 | 9,087 |
+| SHOES | 16,343 | 13,110 | 1,653 | 1,580 |
+| OUTERWEAR | 47,253 | 34,713 | 6,187 | 6,353 |
+| ACCESSORIES | 44,082 | 35,250 | 4,349 | 4,483 |
+| **Total** | **294,604** | **220,482** | **37,061** | **37,061** |
+
+Exact duplicate/hash validation passed: no duplicate image hashes cross
+splits, and no DeepFashion/Re-PolyVore hash overlap was found. The final
+manifest retains DeepFashion's official partitions and Re-PolyVore's seeded
+80/10/10 split. Near-duplicate visual leakage was not evaluated; this remains
+a limitation before CNN training.
