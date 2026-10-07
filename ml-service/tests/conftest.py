@@ -3,6 +3,10 @@ import os
 import pathlib
 import sys
 
+_ml_service_dir = pathlib.Path(__file__).resolve().parent.parent
+if str(_ml_service_dir) not in sys.path:
+    sys.path.insert(0, str(_ml_service_dir))
+
 if sys.platform == "win32":
     for _dll_candidate in [
         pathlib.Path(sys.executable).parent / "Library" / "bin",

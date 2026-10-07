@@ -259,3 +259,90 @@ splits, and no DeepFashion/Re-PolyVore hash overlap was found. The final
 manifest retains DeepFashion's official partitions and Re-PolyVore's seeded
 80/10/10 split. Near-duplicate visual leakage was not evaluated; this remains
 a limitation before CNN training.
+
+## K-Means Evaluation
+
+### Purpose & ML Pipeline Placement
+The StyleSense recommendation pipeline processes garment images through a two-stage computer vision workflow:
+1. **Garment Classification**: ResNet-50 CNN extracts high-level category taxonomy (`TOP`, `BOTTOM`, `SHOES`, `OUTERWEAR`, `ACCESSORIES`).
+2. **Color Extraction**: K-Means clustering in CIELAB color space (`kmeans_color.py`) extracts the dominant color, palette swatches, hex codes, and cluster proportions for garment color representation.
+3. **Recommendation**: Hybrid scoring matches wardrobe items by category compatibility, user style preferences, and color harmony.
+
+The purpose of this evaluation experiment is to assess the unsupervised clustering quality of the CIELAB K-Means algorithm using actual garment images, determining the optimal number of color clusters ($K$) based on authoritative clustering validation metrics: **Silhouette Score** and **Davies-Bouldin Index**.
+
+### Dataset Split Policy & Test Set Protection
+- **Authoritative Manifest**: Evaluation strictly loads records from `ml-service/data/stylesense_cnn_manifest.json`.
+- **Partition Used**: The validation split (`val`, containing 37,061 records across DeepFashion and Re-PolyVore) was used.
+- **Zero Leakage**: The CNN test split (`test`, 37,061 records) is strictly protected and was not touched, preserving independent evaluation integrity for subsequent CNN benchmarks. No new splits were created and the authoritative CNN manifest was not modified.
+
+### CIELAB Color Pipeline
+Garment color extraction must reflect perceptual human vision rather than raw non-linear display spaces:
+$$\text{Garment Image} \longrightarrow \text{Garment Pixel Extraction} \longrightarrow \text{sRGB} \longrightarrow \text{CIE XYZ (D65)} \longrightarrow \text{CIELAB } (L^*, a^*, b^*) \longrightarrow \text{K-Means++} \longrightarrow \text{Metrics}$$
+1. Studio and perimeter background pixels are filtered using border distribution estimation and Delta E CIE76 thresholding ($\Delta E > 18.0$, $L^* < 92.0$).
+2. RGB pixel coordinates are mapped through non-linear gamma expansion to linear sRGB, transformed to CIE XYZ with D65 standard reference white, and converted to perceptually uniform CIELAB coordinates.
+3. Clustering distances correspond to perceptual color difference ($\Delta E$ CIE76 Euclidean distance in $L^*, a^*, b^*$).
+
+### Deterministic Sampling Strategy
+To ensure computational feasibility without sacrificing diversity or statistical power:
+- **Number of Images**: 100 garment images sampled from the validation partition.
+- **Stratified Distribution**: Exactly balanced across all 5 StyleSense classes (20 `TOP`, 20 `BOTTOM`, 20 `OUTERWEAR`, 20 `SHOES`, 20 `ACCESSORIES`), spanning both DeepFashion (55 images) and Re-PolyVore (45 images).
+- **Pixel Sampling**: For each image, valid garment pixels are extracted and deterministically subsampled up to a maximum of 1,000 pixels using random seed `42` (totaling 99,590 evaluated pixels).
+- **Reproducibility**: Explicit random seed (`seed = 42`) governs record selection, per-image pixel subsampling, and K-Means++ initializations.
+
+### Evaluation Metrics & Interpretation
+Two complementary unsupervised clustering validation metrics were calculated:
+1. **Silhouette Score** ($S \in [-1, +1]$, **Higher is Better**):
+   $$s(i) = \frac{b(i) - a(i)}{\max(a(i), b(i))}$$
+   Measures how tightly grouped each pixel is within its assigned cluster compared to the nearest neighboring cluster. Values close to $+1.0$ indicate distinct, well-separated color clusters.
+2. **Davies-Bouldin Index** ($DBI \ge 0$, **Lower is Better**):
+   $$DBI = \frac{1}{K} \sum_{i=1}^K \max_{j \neq i} \left( \frac{s_i + s_j}{d(c_i, c_j)} \right)$$
+   Measures the maximum ratio of within-cluster dispersion ($s_i + s_j$) to between-cluster centroid distance ($d(c_i, c_j)$). Lower values indicate tight, compact clusters with wide separation between distinct hues.
+
+### How to Execute the Evaluation
+Execute the evaluation script via command line:
+
+```powershell
+python ml-service/evaluate_kmeans.py `
+  --manifest ml-service/data/stylesense_cnn_manifest.json `
+  --split val `
+  --num-images 100 `
+  --seed 42 `
+  --k-values 2 3 4 5 6 `
+  --max-pixels-per-image 1000 `
+  --output ml-service/data/kmeans_evaluation_results.json `
+  --output-dir ml-service/data/kmeans_evaluation
+```
+
+### Actual Experimental Results
+All reported metrics originate from actual execution on the 100 validation garments:
+
+| $K$ | Mean Silhouette Score (Higher is Better) | Std Dev ($S$) | Mean Davies-Bouldin Index (Lower is Better) | Std Dev ($DB$) | Pooled Silhouette | Pooled DBI | Evaluated Images |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **2** | **0.6439** | ±0.1422 | **0.5946** | ±0.2264 | 0.4737 | 0.7637 | 100 / 100 |
+| **3** | **0.5868** | ±0.1249 | **0.6651** | ±0.1538 | 0.4515 | 0.9560 | 100 / 100 |
+| **4** | **0.5490** | ±0.1162 | **0.6997** | ±0.1347 | 0.3970 | 0.9913 | 100 / 100 |
+| **5** | **0.5164** | ±0.1084 | **0.7274** | ±0.1361 | 0.4113 | 0.9450 | 100 / 100 |
+| **6** | **0.5002** | ±0.1076 | **0.7430** | ±0.1222 | 0.3896 | 0.9679 | 100 / 100 |
+
+### Per-Category Performance Breakdown
+Performance across individual fashion taxonomy categories at optimal $K=2$:
+- **Accessories** ($N=20$): Silhouette = `0.6825`, DBI = `0.5421`
+- **Shoes** ($N=20$): Silhouette = `0.6670`, DBI = `0.5565`
+- **Top** ($N=20$): Silhouette = `0.6394`, DBI = `0.6203`
+- **Outerwear** ($N=20$): Silhouette = `0.6248`, DBI = `0.6026`
+- **Bottom** ($N=20$): Silhouette = `0.6058`, DBI = `0.6513`
+
+### Best $K$ Selection & Decision Rationale
+- **Optimal $K$**: **$K = 2$**
+- **Unanimous Agreement**: Both Silhouette Score (`0.6439`, highest across all candidate $K$) and Davies-Bouldin Index (`0.5946`, lowest across all candidate $K$) unanimously agree that $K=2$ achieves the optimal color clustering configuration.
+- **Scientific Rationale**: Real clothing items are predominantly composed of a primary garment base color and a secondary trim/accent color (or model skin/shadow contrast). At $K=2$, cluster boundaries correspond to distinct perceptual color regions. As $K$ increases from 3 to 6, cohesive color regions are progressively partitioned into adjacent sub-shades, narrowing between-cluster centroid distances and lowering the Silhouette Score.
+- **Recommendation for Wardrobe Modeling**: While $K=2$ is the mathematically optimal configuration for core dominant color identification, $K=3$ serves as a viable secondary configuration (Silhouette = `0.5868`, DBI = `0.6651`) when detailed accent color extraction is required for complex patterned garments.
+
+### Output Artifacts
+- **Structured JSON Results**: `ml-service/data/kmeans_evaluation_results.json`
+- **Visualizations**:
+  - `ml-service/data/kmeans_evaluation/silhouette_vs_k.png`: Silhouette Score vs. $K$ curve.
+  - `ml-service/data/kmeans_evaluation/davies_bouldin_vs_k.png`: Davies-Bouldin Index vs. $K$ curve.
+  - `ml-service/data/kmeans_evaluation/kmeans_metrics_summary.png`: Dual-panel comparative trade-off figure.
+  - `ml-service/data/kmeans_evaluation/palette_extraction_examples.png`: Real garment photos paired with extracted color palettes, swatches, hex codes, and cluster weights.
+  - `ml-service/data/kmeans_evaluation/k_variation_comparison.png`: Palette granularity across $K \in [2, 6]$ on representative garments.
