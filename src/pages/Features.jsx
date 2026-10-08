@@ -89,11 +89,11 @@ export default function Features() {
       <WearLedger />
 
       <section className="pull">
-        <div className="wrap">
-          <p className="eyebrow">No New Clothes mode</p>
-          <p className="pull-text">
-            Wear more. <span>Buy less.</span>
-          </p>
+        <div className="wrap pull-grid">
+          <div>
+            <p className="eyebrow">No New Clothes mode</p>
+            <p className="pull-text">Wear more. <span>Buy less.</span></p>
+          </div>
           <p className="lead">Prioritises clothing you already own instead of nudging you toward new purchases.</p>
         </div>
       </section>
@@ -107,17 +107,12 @@ export default function Features() {
             text="Browse and react to outfits shared by other members. These interactions feed back into the recommendations."
             photo={{ src: '/images/friends.jpg', alt: 'Three friends in knitwear and scarves laughing on a street', ratio: '5 / 4' }}
           />
-        </div>
-      </section>
-
-      <section className="feat-list-section" aria-labelledby="size-title">
-        <div className="wrap">
-          <ul className="feat-rows">
-            <li className="feat-row">
-              <h2 id="size-title" className="feat-h2">Size adaptability</h2>
-              <p>Your sizes and fit feedback can be updated over time, so outdated clothing details stop shaping your recommendations.</p>
-            </li>
-          </ul>
+          <StoryRow
+            eyebrow="Size adaptability"
+            title="Fits the body you have now."
+            text="Your sizes and fit feedback can be updated over time, so outdated clothing details stop shaping your recommendations."
+            photo={{ label: 'App screen: size and fit' }}
+          />
         </div>
       </section>
 

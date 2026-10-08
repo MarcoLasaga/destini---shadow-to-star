@@ -1,4 +1,5 @@
 import Button from './Button.jsx'
+import SafeImg from './SafeImg.jsx'
 
 export default function Hero() {
   return (
@@ -22,7 +23,7 @@ export default function Hero() {
 
       <figure className="hero2-figure">
         <div className="image-frame hero2-image">
-          <img src="/images/closet.jpg" alt="A woman choosing an outfit from her wardrobe in a sunlit bedroom" />
+          <SafeImg src="/images/closet.jpg" alt="A woman choosing an outfit from her wardrobe in a sunlit bedroom" />
         </div>
         <figcaption>
           <strong>120+</strong>

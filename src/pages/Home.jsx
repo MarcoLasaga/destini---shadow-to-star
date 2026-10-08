@@ -5,6 +5,7 @@ import ImageGrid from '../components/ImageGrid.jsx'
 import Spotlight from '../components/Spotlight.jsx'
 import WearLedger from '../components/WearLedger.jsx'
 import Button from '../components/Button.jsx'
+import SafeImg from '../components/SafeImg.jsx'
 
 const outfits = [
   { title: 'School', text: 'Comfortable, practical looks for long days.', image: '/images/flatlay.jpg', alt: 'A yellow sweater, lilac shirt, jeans and white sneakers laid out flat' },
@@ -90,7 +91,7 @@ export default function Home() {
 
         <section className="cta">
           <div className="phone-frame">
-            <img src="/images/phone.jpg" alt="A phone camera capturing a lilac shirt for the StyleSense wardrobe" loading="lazy" />
+            <SafeImg src="/images/phone.jpg" alt="A phone camera capturing a lilac shirt for the StyleSense wardrobe" loading="lazy" />
           </div>
           <div className="cta-copy">
             <h2>Your wardrobe is already waiting.</h2>

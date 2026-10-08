@@ -1,6 +1,7 @@
 import Button from '../components/Button.jsx'
 import PhoneMock from '../components/PhoneMock.jsx'
 import Spotlight from '../components/Spotlight.jsx'
+import SafeImg from '../components/SafeImg.jsx'
 
 const steps = [
   'Install StyleSense on your phone.',
@@ -89,7 +90,7 @@ export default function Download() {
               </div>
             </div>
             <div className="image-frame dl-image">
-              <img src="/images/closet.jpg" alt="A woman choosing an outfit from her wardrobe in a sunlit bedroom" loading="lazy" />
+              <SafeImg src="/images/closet.jpg" alt="A woman choosing an outfit from her wardrobe in a sunlit bedroom" loading="lazy" />
             </div>
           </div>
         </div>
