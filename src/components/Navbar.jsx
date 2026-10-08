@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import AuthLinks from './AuthLinks.jsx'
 import ThemeToggle from './ThemeToggle.jsx'
 import MobileMenu from './MobileMenu.jsx'
-import Button from './Button.jsx'
 import NavItem, { navLinks } from './NavItem.jsx'
 
 export default function Navbar({ theme, onToggleTheme }) {
@@ -37,8 +37,7 @@ export default function Navbar({ theme, onToggleTheme }) {
 
         <div className="nav-actions">
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
-          <Link to="/login" className="nav-signin">Sign In</Link>
-          <Button variant="primary" to="/signup" className="nav-cta">Get Started</Button>
+          <AuthLinks layout="bar" />
 
           <button
             type="button"

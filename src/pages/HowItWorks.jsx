@@ -1,14 +1,7 @@
 import StoryRow from '../components/StoryRow.jsx'
+import Duo from '../components/Duo.jsx'
 import Photo from '../components/Photo.jsx'
 import Button from '../components/Button.jsx'
-
-const steps = [
-  { title: 'Add your clothes', text: 'Upload photos of your clothes or add pieces manually. StyleSense picks up details like type, colour and style.', photo: { src: '/images/phone.jpg', alt: 'A phone camera capturing a lilac shirt', ratio: '5 / 4' } },
-  { title: 'Build your style profile', text: 'Share your style, the occasions you dress for, and anything you’d rather not be shown.', photo: { label: 'App screen: style preferences' } },
-  { title: 'Generate outfits', text: 'Combinations built entirely from clothes already in your wardrobe.', photo: { label: 'App screen: outfit suggestions' } },
-  { title: 'Wear and rate', text: 'Rate, save, wear, skip or leave feedback so the app understands what you actually reach for.', photo: { label: 'App screen: rating an outfit' } },
-  { title: 'StyleSense learns', text: 'Every interaction shapes what you see next, including which pieces need a rest.', photo: { label: 'App screen: wear history' } },
-]
 
 const situations = [
   'Rainy morning? Weather-appropriate pieces move up the list.',
@@ -18,8 +11,8 @@ const situations = [
 ]
 
 const signals = [
-  'Clothing attributes', 'Personal style', 'Previous interactions', 'Outfit ratings', 'Feedback',
-  'Wear frequency', 'Occasion', 'Weather', 'Location', 'Preferences', 'Fashion trends', 'Fit and size',
+  'Clothing attributes', 'Personal preferences', 'Weather', 'Location', 'Occasion',
+  'Wear frequency', 'User feedback', 'Similar users', 'Fashion trends',
 ]
 
 export default function HowItWorks() {
@@ -37,18 +30,42 @@ export default function HowItWorks() {
         </div>
       </section>
 
-      <section className="story" aria-label="The five steps">
+      <section className="story">
         <div className="wrap">
-          {steps.map((s, i) => (
-            <StoryRow
-              key={s.title}
-              num={String(i + 1).padStart(2, '0')}
-              title={s.title}
-              text={s.text}
-              photo={s.photo}
-              reverse={i % 2 === 1}
-            />
-          ))}
+          <StoryRow
+            num="01"
+            title="Add your clothes"
+            text="Upload photos of your clothes or add pieces manually. StyleSense picks up details like type, colour and style."
+            photo={{ src: '/images/phone.jpg', alt: 'A phone camera capturing a lilac shirt', ratio: '5 / 4' }}
+          />
+        </div>
+      </section>
+
+      <Duo
+        label="Steps two and three"
+        items={[
+          { num: '02', title: 'Build your style profile', text: 'Share your style, the occasions you dress for, and anything you’d rather not be shown.', photo: { label: 'App screen: style preferences' } },
+          { num: '03', title: 'Generate outfits', text: 'Combinations built entirely from clothes already in your wardrobe.', photo: { label: 'App screen: outfit suggestions' } },
+        ]}
+      />
+
+      <section className="story">
+        <div className="wrap">
+          <StoryRow
+            reverse
+            num="04"
+            title="Wear and rate"
+            text="Rate, save, wear, skip or leave feedback so the app understands what you actually reach for."
+            photo={{ label: 'App screen: rating an outfit' }}
+          />
+        </div>
+      </section>
+
+      <section className="hiw-final">
+        <div className="wrap">
+          <span className="story-num" aria-hidden="true">05</span>
+          <h2>StyleSense learns.</h2>
+          <p className="lead">Every interaction shapes what you see next, including which pieces need a rest.</p>
         </div>
       </section>
 
@@ -71,12 +88,14 @@ export default function HowItWorks() {
         </div>
       </section>
 
-      <section className="hiw-signals-section" aria-labelledby="signals-title">
-        <div className="wrap">
-          <p className="eyebrow">What it considers</p>
-          <h2 id="signals-title">A lot of small signals, one simple answer.</h2>
-          <ul className="hiw-signals">
-            {signals.map((s) => <li key={s}>{s}</li>)}
+      <section className="consider" aria-labelledby="consider-title">
+        <div className="wrap consider-grid">
+          <div>
+            <p className="eyebrow">What it considers</p>
+            <h2 id="consider-title">A lot of small signals, one simple answer.</h2>
+          </div>
+          <ul className="consider-list">
+            {signals.map((signal) => <li key={signal}>{signal}</li>)}
           </ul>
         </div>
       </section>

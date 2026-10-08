@@ -1,4 +1,4 @@
-import Button from './Button.jsx'
+import AuthLinks from './AuthLinks.jsx'
 import NavItem from './NavItem.jsx'
 
 export default function MobileMenu({ id, open, links, onClose }) {
@@ -11,10 +11,7 @@ export default function MobileMenu({ id, open, links, onClose }) {
           </li>
         ))}
       </ul>
-      <div className="mobile-menu-actions">
-        <Button variant="outline" to="/login" onClick={onClose}>Sign In</Button>
-        <Button variant="primary" to="/signup" className="nav-cta" onClick={onClose}>Get Started</Button>
-      </div>
+      <AuthLinks layout="menu" onNavigate={onClose} />
     </div>
   )
 }

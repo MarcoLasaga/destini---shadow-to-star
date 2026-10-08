@@ -7,12 +7,14 @@ export default function WearLedger() {
           <h2 id="ledger-title">Worn it a lot? StyleSense makes room for something different.</h2>
         </div>
         <div>
-          <dl className="ledger-rows">
-            <div><dt>Piece</dt><dd>Black oversized tee</dd></div>
-            <div><dt>Worn</dt><dd className="big">8 times</dd></div>
-            <div><dt>Last worn</dt><dd>3 days ago</dd></div>
-            <div><dt>StyleSense</dt><dd>Suggests it less, for now</dd></div>
-          </dl>
+          <div className="ledger-item">
+            <p className="ledger-piece">Black oversized tee</p>
+            <p className="ledger-meta">
+              <span><b>Worn</b>8 times</span>
+              <span><b>Last worn</b>3 days ago</span>
+            </p>
+            <p className="ledger-result">StyleSense suggests it less, for now.</p>
+          </div>
           <p className="ledger-note">An example of how wear tracking works in the app.</p>
         </div>
       </div>

@@ -4,6 +4,7 @@ const TARGETS = [
   '.section-head', '.story-row', '.steps li', '.feat-row', '.hiw-step', '.hiw-context-grid',
   '.home-project-grid', '.about-project-grid', '.plan', '.cta', '.cta-band', '.image-tile',
   '.dl-grid', '.dl-step', '.pull-text', '.showcase-phones', '.spot-grid', '.ledger-grid', '.quote',
+  '.duo-item', '.consider-grid', '.statement-text', '.cf-grid',
 ].join(',')
 
 export default function useReveal(routeKey) {

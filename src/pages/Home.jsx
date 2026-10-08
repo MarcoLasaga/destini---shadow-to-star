@@ -40,17 +40,17 @@ export default function Home() {
         cta={{ to: '/features', label: 'See the features' }}
         phone={{ label: 'App screen: wardrobe' }}
       />
+
+      <WearLedger />
+
       <Spotlight
         reverse
-        tone="plain"
         eyebrow="Built around your day"
         title="Rain, school, a presentation. It knows."
         text="Weather, location and occasion shape what comes first, so the suggestion fits the day you’re actually having."
         cta={{ to: '/how-it-works', label: 'How it works' }}
         phone={{ label: 'App screen: today’s outfit and weather' }}
       />
-
-      <WearLedger />
 
       <div className="wrap">
         <Section id="how-it-works" title="From closet to outfit" linkText="Full walkthrough" linkHref="/how-it-works">

@@ -1,4 +1,5 @@
 import StoryRow from '../components/StoryRow.jsx'
+import Duo from '../components/Duo.jsx'
 import Button from '../components/Button.jsx'
 
 export default function About() {
@@ -16,11 +17,15 @@ export default function About() {
         </div>
       </section>
 
-      <section className="pull">
+      <section className="statement">
         <div className="wrap">
-          <p className="pull-text">
-            A full closet and <span>nothing to wear</span> is a design problem, not a shopping problem.
-          </p>
+          <blockquote className="statement-text">
+            <span className="qm" aria-hidden="true">“</span>
+            <span className="ln">A full closet and nothing to wear</span>
+            <span className="ln">is a design problem,</span>
+            <span className="ln accent">not a shopping problem.</span>
+            <span className="qm qm-end" aria-hidden="true">”</span>
+          </blockquote>
         </div>
       </section>
 
@@ -32,21 +37,26 @@ export default function About() {
             text="Most closets hold dozens of outfits nobody has tried. StyleSense finds them, so mornings take less thinking."
             photo={{ label: 'Photo: a full closet' }}
           />
-          <StoryRow
-            reverse
-            eyebrow="Buying less"
-            title="Made for people who shop carefully."
-            text="StyleSense was developed to help users maximise their existing wardrobe rather than encourage more buying."
-            photo={{ label: 'Photo: thrifted and hand-me-down pieces' }}
-          />
-          <StoryRow
-            eyebrow="Who it’s for"
-            title="Students, young professionals, and anyone shopping carefully."
-            text="If your closet is a mix of hand-me-downs, thrifted finds and a few favourites, StyleSense is built for exactly that."
-            photo={{ src: '/images/friends.jpg', alt: 'Three friends in knitwear and scarves laughing on a tree-lined street' }}
-          />
         </div>
       </section>
+
+      <Duo
+        label="Buying less and who it's for"
+        items={[
+          {
+            eyebrow: 'Buying less',
+            title: 'Made for people who shop carefully.',
+            text: 'StyleSense was developed to help users maximise their existing wardrobe rather than encourage more buying.',
+            photo: { label: 'Photo: thrifted and hand-me-down pieces' },
+          },
+          {
+            eyebrow: 'Who it’s for',
+            title: 'Students, young professionals, and anyone shopping carefully.',
+            text: 'If your closet is a mix of hand-me-downs, thrifted finds and a few favourites, StyleSense is built for exactly that.',
+            photo: { src: '/images/friends.jpg', alt: 'Three friends in knitwear and scarves laughing on a tree-lined street' },
+          },
+        ]}
+      />
 
       <section className="about-project" aria-labelledby="project-title">
         <div className="wrap about-project-grid">

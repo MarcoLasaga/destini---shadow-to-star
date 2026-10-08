@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 
 const columns = [
   { title: 'Product', links: [['Features', '/features'], ['How It Works', '/how-it-works'], ['Download', '/download']] },
-  { title: 'Company', links: [['About', '/about'], ['Contact', 'mailto:hello@stylesense.app']] },
+  { title: 'Company', links: [['About', '/about'], ['Contact', '/contact']] },
   { title: 'Legal', arrow: true, links: [['Privacy Policy', '/privacy-policy'], ['Terms & Conditions', '/terms']] },
 ]
 

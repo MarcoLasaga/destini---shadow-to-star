@@ -1,4 +1,5 @@
 import StoryRow from '../components/StoryRow.jsx'
+import Duo from '../components/Duo.jsx'
 import Spotlight from '../components/Spotlight.jsx'
 import WearLedger from '../components/WearLedger.jsx'
 import Button from '../components/Button.jsx'
@@ -23,25 +24,25 @@ export default function Features() {
         </div>
       </section>
 
-      <section className="story">
-        <div className="wrap">
-          <StoryRow
-            eyebrow="Digital wardrobe"
-            title="Your whole closet, in one place."
-            text="Capture or upload photos of your clothes and keep everything organised. Add or correct pieces by hand whenever you want."
-            tags={['Photo upload', 'Camera capture', 'Categories']}
-            photo={{ src: '/images/phone.jpg', alt: 'A phone camera capturing a lilac shirt for the wardrobe', ratio: '5 / 4' }}
-          />
-          <StoryRow
-            reverse
-            eyebrow="Clothing recognition"
-            title="It reads the details so you don’t have to."
-            text="StyleSense picks up clothing details from your photos, so there are no long forms to fill in."
-            tags={['Type', 'Colour', 'Style']}
-            photo={{ src: '/images/flatlay.jpg', alt: 'A yellow sweater, lilac shirt, jeans and sneakers laid out flat', ratio: '5 / 4' }}
-          />
-        </div>
-      </section>
+      <Duo
+        label="Wardrobe features"
+        items={[
+          {
+            eyebrow: 'Digital wardrobe',
+            title: 'Your whole closet, in one place.',
+            text: 'Capture or upload photos of your clothes and keep everything organised. Add or correct pieces by hand whenever you want.',
+            tags: ['Photo upload', 'Camera capture', 'Categories'],
+            photo: { src: '/images/phone.jpg', alt: 'A phone camera capturing a lilac shirt for the wardrobe' },
+          },
+          {
+            eyebrow: 'Clothing recognition',
+            title: 'It reads the details so you don’t have to.',
+            text: 'StyleSense picks up clothing details from your photos, so there are no long forms to fill in.',
+            tags: ['Type', 'Colour', 'Style'],
+            photo: { src: '/images/flatlay.jpg', alt: 'A yellow sweater, lilac shirt, jeans and sneakers laid out flat' },
+          },
+        ]}
+      />
 
       <Spotlight
         eyebrow="Outfit generator"
@@ -120,27 +121,8 @@ export default function Features() {
         </div>
       </section>
 
-      <section className="pricing" aria-labelledby="pricing-title">
+      <section className="about-closing">
         <div className="wrap">
-          <div className="pricing-copy">
-            <p className="eyebrow">Pricing</p>
-            <h2 id="pricing-title">Free to start. Plus is coming soon.</h2>
-            <p className="lead">
-              StyleSense is free for the core wardrobe and recommendation features. A StyleSense Plus tier is planned for future premium features, and pricing hasn’t been finalised yet.
-            </p>
-          </div>
-          <div className="plans">
-            <div className="plan plan-free">
-              <p className="eyebrow">Free</p>
-              <h3>Everyday StyleSense</h3>
-              <p>Digital wardrobe, outfit generation, recommendations and planning.</p>
-            </div>
-            <div className="plan plan-soon">
-              <p className="eyebrow">Coming soon</p>
-              <h3>StyleSense Plus</h3>
-              <p>For future premium features. No pricing announced yet.</p>
-            </div>
-          </div>
           <div className="cta-band">
             <h2>Your closet has more stories to tell.</h2>
             <p className="lead">Discover new ways to wear what you already own with StyleSense.</p>
