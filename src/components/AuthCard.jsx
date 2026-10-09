@@ -1,22 +1,37 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Button from './Button.jsx'
+import AsciiHanger from './AsciiHanger.jsx'
 
 const copy = {
-  login: { line1: 'Welcome', line2: 'back.', submit: 'Sign In', switchText: 'Don’t have an account?', switchLabel: 'Sign up', switchTo: '/signup' },
-  signup: { line1: 'Start with', line2: 'what you own.', submit: 'Create Your Account', switchText: 'Already have an account?', switchLabel: 'Log in', switchTo: '/login' },
+  login: {
+    title: 'Sign In',
+    sub: 'Continue to your StyleSense profile.',
+    submit: 'Sign In',
+    switchText: 'Don’t have an account?',
+    switchLabel: 'Create an Account',
+    switchTo: '/signup',
+  },
+  signup: {
+    title: 'Create Account',
+    sub: 'Start with what you already own.',
+    submit: 'Create Your Account',
+    switchText: 'Already have an account?',
+    switchLabel: 'Sign In',
+    switchTo: '/login',
+  },
 }
 
 const fields = {
   login: [
-    { name: 'email', label: 'Email', type: 'email', autoComplete: 'email' },
-    { name: 'password', label: 'Password', type: 'password', autoComplete: 'current-password' },
+    { name: 'email', label: 'Email', type: 'email', autoComplete: 'email', placeholder: 'Enter your email' },
+    { name: 'password', label: 'Password', type: 'password', autoComplete: 'current-password', placeholder: 'Enter your password' },
   ],
   signup: [
-    { name: 'name', label: 'Name', type: 'text', autoComplete: 'name' },
-    { name: 'email', label: 'Email', type: 'email', autoComplete: 'email' },
-    { name: 'password', label: 'Password', type: 'password', autoComplete: 'new-password' },
-    { name: 'confirm', label: 'Confirm password', type: 'password', autoComplete: 'new-password' },
+    { name: 'name', label: 'Name', type: 'text', autoComplete: 'name', placeholder: 'Your name' },
+    { name: 'email', label: 'Email', type: 'email', autoComplete: 'email', placeholder: 'Enter your email' },
+    { name: 'password', label: 'Password', type: 'password', autoComplete: 'new-password', placeholder: 'At least 8 characters' },
+    { name: 'confirm', label: 'Confirm password', type: 'password', autoComplete: 'new-password', placeholder: 'Repeat your password' },
   ],
 }
 
@@ -36,6 +51,7 @@ function validate(mode, v) {
   return e
 }
 
+// Preview only: remembers emails (never passwords) for this tab, so a repeat signup can show the failure page.
 const KEY = 'stylesense-preview-emails'
 const readEmails = () => {
   try { return JSON.parse(sessionStorage.getItem(KEY)) || [] } catch { return [] }
@@ -65,7 +81,7 @@ export default function AuthCard({ mode }) {
     setErrors(problems)
     const first = Object.keys(problems)[0]
     if (first) {
-      document.getElementById(`auth-${mode}-${first}`)?.focus()
+      document.getElementById(`ax-${mode}-${first}`)?.focus()
       return
     }
     if (isSignup) {
@@ -85,64 +101,68 @@ export default function AuthCard({ mode }) {
   }
 
   return (
-    <section className="auth" aria-label={isSignup ? 'Create account' : 'Sign in'}>
-      <div className="auth-card">
-        <div className="auth-aside">
-          <p className="eyebrow">Your style journey</p>
-          <h1>
-            {c.line1} <span>{c.line2}</span>
-          </h1>
-          <p className="auth-note">
-            Your web account keeps your profile ready. Your wardrobe and daily outfits live in the StyleSense mobile app.
-          </p>
+    <section className="ax-stage" aria-label={isSignup ? 'Create account' : 'Sign in'}>
+      <div className="ax-card">
+        <div className="ax-art">
+          <AsciiHanger />
+          <p className="ax-caption" aria-hidden="true">Wear what you own.</p>
         </div>
 
-        <div className="auth-panel">
-          <nav className="auth-tabs" aria-label="Account">
-            <Link to="/login" aria-current={isSignup ? undefined : 'page'}>Sign In</Link>
-            <Link to="/signup" aria-current={isSignup ? 'page' : undefined}>Create Account</Link>
-          </nav>
+        <div className="ax-main">
+          <Link to="/" className="logo ax-logo" aria-label="StyleSense, back to home">
+            Style<span>Sense</span>
+          </Link>
 
-          <Button variant="outline" className="auth-google" onClick={() => setNotice('Google sign-in isn’t connected yet.')}>
-            Continue with Google
-          </Button>
-          <p className="auth-or">or use your email</p>
+          <div className="ax-body">
+            <h1>{c.title}</h1>
+            <p className="ax-sub">{c.sub}</p>
 
-          <form className="auth-form" onSubmit={onSubmit} noValidate aria-label={isSignup ? 'Create account form' : 'Sign in form'}>
-            <div className="auth-fields">
+            <Button variant="outline" className="ax-google" onClick={() => setNotice('Google sign-in isn’t connected yet.')}>
+              Continue with Google
+            </Button>
+
+            <p className="ax-or"><span>or</span></p>
+
+            <form onSubmit={onSubmit} noValidate aria-label={isSignup ? 'Create account form' : 'Sign in form'}>
               {fields[mode].map((f) => {
-                const id = `auth-${mode}-${f.name}`
+                const id = `ax-${mode}-${f.name}`
                 const err = errors[f.name]
                 return (
-                  <div className="auth-field" key={f.name}>
+                  <div className="ax-field" key={f.name}>
                     <label htmlFor={id}>{f.label}</label>
                     <input
                       id={id}
-                      className="auth-input"
+                      className="ax-input"
                       name={f.name}
                       type={f.type}
+                      placeholder={f.placeholder}
                       autoComplete={f.autoComplete}
                       value={values[f.name]}
                       onChange={update}
                       aria-invalid={err ? 'true' : undefined}
                       aria-describedby={`${id}-err`}
                     />
-                    <p id={`${id}-err`} className="fld-err">{err}</p>
+                    <p id={`${id}-err`} className="ax-err">{err}</p>
                   </div>
                 )
               })}
-            </div>
 
-            <p id="auth-status" className="auth-status" role="status" aria-live="polite">{notice}</p>
+              <p className="ax-status" role="status" aria-live="polite">{notice}</p>
 
-            <Button variant="primary" type="submit" className="auth-submit">
-              {c.submit}
-            </Button>
+              <Button variant="primary" type="submit" className="ax-submit">{c.submit}</Button>
+            </form>
 
-            <p className="auth-switch">
-              {c.switchText} <Link to={c.switchTo}>{c.switchLabel}</Link>
+            <p className="ax-switch">
+              {c.switchText}<br />
+              <Link to={c.switchTo}>{c.switchLabel}</Link>
             </p>
-          </form>
+          </div>
+
+          <p className="ax-legal">
+            <Link to="/terms">Terms</Link>
+            <span aria-hidden="true">/</span>
+            <Link to="/privacy-policy">Privacy</Link>
+          </p>
         </div>
       </div>
     </section>

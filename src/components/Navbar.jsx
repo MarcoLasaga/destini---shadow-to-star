@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import AuthLinks from './AuthLinks.jsx'
 import ThemeToggle from './ThemeToggle.jsx'
 import MobileMenu from './MobileMenu.jsx'
-import NavItem, { navLinks } from './NavItem.jsx'
+import NavItem from './NavItem.jsx'
+import { navLinks } from './navLinks.js'
 
 export default function Navbar({ theme, onToggleTheme }) {
   const [open, setOpen] = useState(false)
