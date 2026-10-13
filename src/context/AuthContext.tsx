@@ -33,7 +33,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq('user_id', userId)
 
       const roles = rolesData?.map(r => r.role as string) || []
-      const role = roles.includes('admin') ? 'admin' as UserRole : 'user' as UserRole
+      const role = roles.includes('admin') && email.toLowerCase() === 'admin@stylesense.com'
+        ? 'admin' as UserRole
+        : 'user' as UserRole
 
       // 2. Fetch profile details
       const { data: profileData } = await supabase
