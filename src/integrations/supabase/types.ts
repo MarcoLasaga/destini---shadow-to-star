@@ -180,6 +180,8 @@ export type Database = {
         Row: {
           caption: string | null
           cover_image: string | null
+          creator_avatar_url: string | null
+          creator_name: string
           created_at: string
           id: string
           items: Json
@@ -195,6 +197,8 @@ export type Database = {
         Insert: {
           caption?: string | null
           cover_image?: string | null
+          creator_avatar_url?: string | null
+          creator_name?: string
           created_at?: string
           id?: string
           items: Json
@@ -210,6 +214,8 @@ export type Database = {
         Update: {
           caption?: string | null
           cover_image?: string | null
+          creator_avatar_url?: string | null
+          creator_name?: string
           created_at?: string
           id?: string
           items?: Json

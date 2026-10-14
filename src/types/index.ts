@@ -130,8 +130,11 @@ export type MainTabParamList = {
   Home: undefined;
   Wardrobe: undefined;
   Outfit: undefined;
+  Community: undefined;
   Profile: undefined;
 };
+
+export type CommunityFeedMode = 'recent' | 'trending';
 
 export type ClothingRole = 'Top' | 'Bottom' | 'Shoes' | 'Accessory' | 'Outerwear';
 

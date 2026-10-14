@@ -8,11 +8,15 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { useOutfit } from '../contexts/OutfitContext';
 import { GeneratedOutfit } from '../types';
 import StarRating from './StarRating';
+import ShareOutfitModal from './ShareOutfitModal';
+import { useCommunity } from '../contexts/CommunityContext';
 
 export default function OutfitPreviewCard({ outfit }: { outfit: GeneratedOutfit }) {
   const theme = useAppTheme();
   const navigation = useNavigation<any>();
   const { toggleFavorite, toggleSave, markAsWorn, remixCurrentOutfit } = useOutfit();
+  const { refresh } = useCommunity();
+  const [shareVisible, setShareVisible] = React.useState(false);
 
   return (
     <Animated.View entering={FadeInDown.duration(400)} style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -116,7 +120,7 @@ export default function OutfitPreviewCard({ outfit }: { outfit: GeneratedOutfit 
             <Ionicons name={outfit.favorited ? 'heart' : 'heart-outline'} size={15} color={outfit.favorited ? '#E5484D' : theme.text} />
             <Text style={[styles.actionLabel, { color: theme.text }]}>Like</Text>
           </Pressable>
-          <Pressable style={[styles.actionButton, { borderColor: theme.border, backgroundColor: theme.background }]}>
+          <Pressable onPress={() => setShareVisible(true)} style={[styles.actionButton, { borderColor: theme.border, backgroundColor: theme.background }]}>
             <Ionicons name="share-social-outline" size={15} color={theme.text} />
             <Text style={[styles.actionLabel, { color: theme.text }]}>Share</Text>
           </Pressable>
@@ -146,6 +150,7 @@ export default function OutfitPreviewCard({ outfit }: { outfit: GeneratedOutfit 
           </Pressable>
         </View>
       </View>
+      <ShareOutfitModal outfit={outfit} visible={shareVisible} onClose={() => setShareVisible(false)} onPublished={() => refresh()} />
     </Animated.View>
   );
 }

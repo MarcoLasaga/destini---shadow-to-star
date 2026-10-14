@@ -11,6 +11,7 @@ import { ProfileProvider } from './src/contexts/ProfileContext';
 import { SettingsProvider } from './src/contexts/SettingsContext';
 import { PackingProvider } from './src/contexts/PackingContext';
 import { OutfitProvider } from './src/contexts/OutfitContext';
+import { CommunityProvider } from './src/contexts/CommunityContext';
 
 const queryClient = new QueryClient();
 
@@ -23,12 +24,14 @@ export default function App() {
             <SettingsProvider>
               <WardrobeProvider>
                 <OutfitProvider>
-                  <PackingProvider>
-                    <ToastProvider>
-                      <StatusBar style="dark" />
-                      <RootNavigator />
-                    </ToastProvider>
-                  </PackingProvider>
+                  <CommunityProvider>
+                    <PackingProvider>
+                      <ToastProvider>
+                        <StatusBar style="dark" />
+                        <RootNavigator />
+                      </ToastProvider>
+                    </PackingProvider>
+                  </CommunityProvider>
                 </OutfitProvider>
               </WardrobeProvider>
             </SettingsProvider>

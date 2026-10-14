@@ -8,6 +8,8 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { useOutfit } from '../contexts/OutfitContext';
 import { RootStackParamList } from '../types';
 import StarRating from '../components/StarRating';
+import ShareOutfitModal from '../components/ShareOutfitModal';
+import { useCommunity } from '../contexts/CommunityContext';
 
 const { width } = Dimensions.get('window');
 
@@ -16,6 +18,8 @@ export default function OutfitDetailsScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RootStackParamList, 'OutfitDetails'>>();
   const { getOutfit, toggleFavorite, markAsWorn, submitWearFeedback, submitPreferenceEvent } = useOutfit();
+  const { refresh } = useCommunity();
+  const [shareVisible, setShareVisible] = useState(false);
 
   const outfit = getOutfit(route.params.outfitId);
   const [wearRating, setWearRating] = useState(outfit?.wearRating ?? 0);
@@ -151,7 +155,10 @@ export default function OutfitDetailsScreen() {
                 {outfit.worn ? 'Marked as Worn' : 'Mark as Worn'}
               </Text>
             </Pressable>
-            <Pressable style={[styles.shareButton, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+            <Pressable
+              onPress={() => setShareVisible(true)}
+              style={[styles.shareButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
+            >
               <Ionicons name="share-social-outline" size={16} color={theme.text} />
               <Text style={[styles.shareLabel, { color: theme.text }]}>Share</Text>
             </Pressable>
@@ -218,6 +225,7 @@ export default function OutfitDetailsScreen() {
           </View>
         </View>
       </ScrollView>
+      <ShareOutfitModal outfit={outfit} visible={shareVisible} onClose={() => setShareVisible(false)} onPublished={() => refresh()} />
     </View>
   );
 }
