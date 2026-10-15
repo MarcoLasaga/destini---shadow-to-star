@@ -70,14 +70,13 @@ LABEL_CATEGORY_HINTS: Dict[Category, Tuple[str, ...]] = {
         "backpack", "handbag", "purse", "wallet", "tie", "bow tie", "windsor tie", "bolo tie",
         "scarf", "stole", "feather boa", "belt", "buckle", "hat", "cap", "bonnet", "cowboy hat",
         "sombrero", "beret", "beanie", "crash helmet", "bathing cap", "mortarboard", "crown",
-        "watch", "digital watch", "analog clock", "stopwatch", "wall clock", "parking meter",
+        "watch", "digital watch", "analog clock", "stopwatch",
         "sunglass", "sunglasses", "shades", "loupe", "binoculars", "goggles", "mask",
         "necklace", "chain", "bracelet", "ring", "earring", "hair slide", "hairpin", "wig",
         "umbrella", "parasol", "mitten", "glove", "mailbag", "plastic bag", "shopping basket",
-        "pouch", "clutch", "briefcase", "chest", "pencil box", "cigarette case", "ipod",
-        "earphone", "headphone", "earbud", "headset", "microphone", "cellular telephone",
-        "hand-held computer", "modem", "mouse", "remote control", "whistle", "Perfume", "lotion",
-        "water bottle", "neck brace", "band aid", "handkerchief", "bib"
+        "pouch", "clutch", "briefcase", "cigarette case", "ipod",
+        "earphone", "headphone", "earbud", "headset", "microphone",
+        "whistle", "Perfume", "lotion", "neck brace", "handkerchief", "bib"
     ),
     "SHOES": (
         "shoe", "running shoe", "sandal", "loafer", "boot", "cowboy boot", "sneaker", "clog",
@@ -91,15 +90,21 @@ LABEL_CATEGORY_HINTS: Dict[Category, Tuple[str, ...]] = {
     ),
     "BOTTOM": (
         "jean", "blue jean", "denim", "miniskirt", "kilt", "sarong", "trouser", "pant",
-        "short", "swimming trunks", "diaper", "overskirt", "hoopskirt", "garter", "legging",
+        "short", "overskirt", "hoopskirt", "garter", "legging",
         "pajama", " pajama"
     ),
     "TOP": (
         "jersey", "t-shirt", "tee shirt", "shirt", "polo", "blouse", "tank", "halter",
-        "brassiere", "bra", "bikini", "maillot", "corset", "gown", "dress", "sweatshirt",
+        "bra", "maillot", "corset", "gown", "dress", "sweatshirt",
         "pullover", "sweater", "wool", "velvet", "corduroy", "flannel"
     ),
 }
+
+NON_GARMENT_BLOCKLIST: Tuple[str, ...] = (
+    "keyboard", "computer", "monitor", "laptop", "desk", "screen", "television", "toilet",
+    "seat", "dog", "cat", "food", "plate", "car", "syringe", "gun", "rifle", "knife",
+    "brassiere", "bikini", "diaper", "swimming trunks",
+)
  
 BLOCKED_TERMS_PATTERN = re.compile(
     r"\b(nigger|nigga|faggot|fuck|shit|bitch|cunt|whore|slut|retard|porn|nsfw|nude|naked|sex)\b",
@@ -303,12 +308,21 @@ def kmeans_plusplus_cielab(image: Image.Image, k: int = 2, max_iter: int = 100) 
     return clusters
  
  
-def estimate_skin_exposure_ratio(image: Image.Image) -> float:
-    """Detect potential NSFW / excessive skin-tone ratio in YCbCr space."""
+def estimate_skin_exposure_ratio(image: Image.Image) -> Tuple[float, float]:
+    """Detect potential NSFW / excessive skin-tone ratio in YCbCr space.
+
+    Returns:
+        (full_ratio, center_ratio):
+            full_ratio: skin exposure ratio across the entire image.
+            center_ratio: skin exposure ratio in the central 60% ROI (rows/cols 19:77 of 96x96).
+    """
     ycbcr = np.asarray(image.convert("YCbCr").resize((96, 96)), dtype=np.float32)
     y, cb, cr = ycbcr[:, :, 0], ycbcr[:, :, 1], ycbcr[:, :, 2]
     skin_mask = (y > 80) & (cb >= 77) & (cb <= 127) & (cr >= 133) & (cr <= 173)
-    return float(np.mean(skin_mask))
+    full_ratio = float(np.mean(skin_mask))
+    center_mask = skin_mask[19:77, 19:77]
+    center_ratio = float(np.mean(center_mask))
+    return full_ratio, center_ratio
  
  
 def check_text_moderation(text: str) -> Tuple[bool, str, Optional[str]]:
@@ -369,7 +383,7 @@ async def analyze(request: Request) -> Prediction:
     if MODEL is None:
         raise HTTPException(status_code=503, detail="CNN model is still loading.")
  
-    skin_ratio = estimate_skin_exposure_ratio(image)
+    full_skin_ratio, center_skin_ratio = estimate_skin_exposure_ratio(image)
     clusters = kmeans_plusplus_cielab(image, k=2)
     dom_color = clusters[0].color_name if clusters else "Black"
     sec_color = clusters[1].color_name if len(clusters) > 1 else None
@@ -383,6 +397,8 @@ async def analyze(request: Request) -> Prediction:
         conf = float(top_prob.item())
         pred_cat: Optional[Category] = CATEGORIES_LIST[int(top_idx.item())] if conf >= CONFIDENCE_THRESHOLD else None
         pred_style: Optional[Style] = "CASUAL" if pred_cat else None
+        total_matched = conf if pred_cat else 0.0
+        top3_matches_blocklist = False
     else:
         # Aggregate probabilities across top-15 ImageNet synsets into our 5 clothing categories
         top = torch.topk(probabilities, k=15)
@@ -404,6 +420,13 @@ async def analyze(request: Request) -> Prediction:
  
         best_cat = max(cat_mass, key=lambda k_cat: cat_mass[k_cat])
         total_matched = sum(cat_mass.values())
+
+        # Check if any top-3 ImageNet prediction matches NON_GARMENT_BLOCKLIST
+        top3_labels = [l.lower() for l in labels[:3]]
+        top3_matches_blocklist = any(
+            any(blk in lbl_l for blk in NON_GARMENT_BLOCKLIST)
+            for lbl_l in top3_labels
+        )
         if total_matched > 0.03:
             pred_cat = best_cat
             # Normalized confidence across matched fashion synsets
@@ -414,7 +437,17 @@ async def analyze(request: Request) -> Prediction:
             conf = float(scores[0])
             pred_style = None
  
-    if skin_ratio > 0.55 and (pred_cat is None or conf < CONFIDENCE_THRESHOLD):
+    # Enforce tightened garment verification & inappropriate image safety gate:
+    # a) Center-crop skin exposure ratio > 0.30 (catches hands/offensive gestures, bare bodies, and nudity even against a white or keyboard background),
+    # b) Any top-3 ImageNet prediction matches NON_GARMENT_BLOCKLIST and total matched clothing probability is < 0.35, OR
+    # c) Total matched clothing probability across the top-15 predictions is < 0.12 (no recognizable garment in photo).
+    is_unsafe = (
+        center_skin_ratio > 0.30
+        or (top3_matches_blocklist and total_matched < 0.35)
+        or (total_matched < 0.12)
+    )
+
+    if is_unsafe:
         return Prediction(
             category=None,
             color=dom_color,
@@ -423,7 +456,7 @@ async def analyze(request: Request) -> Prediction:
             style=None,
             confidence=round(conf, 4),
             is_safe_garment=False,
-            moderation_reason="Image rejected by AI Safety Gate: Potential NSFW or non-garment photo detected.",
+            moderation_reason="Inappropriate or non-clothing image detected. Please upload a clear photo of a clothing item or wearable accessory.",
         )
  
     return Prediction(
