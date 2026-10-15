@@ -1,6 +1,11 @@
-import { lightTheme, Theme } from '../constants/theme';
+import { Theme, lightTheme } from '../constants/theme';
+import { useSettings } from '../contexts/SettingsContext';
 
 export function useAppTheme(): Theme {
-  // Dark mode is not yet implemented; force light theme across all screens and components
-  return lightTheme;
+  try {
+    const settings = useSettings();
+    return settings.theme;
+  } catch {
+    return lightTheme;
+  }
 }

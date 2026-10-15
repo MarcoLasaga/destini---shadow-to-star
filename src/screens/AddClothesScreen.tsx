@@ -14,11 +14,28 @@ import { analyzeClothingImage } from '../services/imageAnalysisService';
 import TextField from '../components/TextField';
 import SelectField from '../components/SelectField';
 import ChipGroup from '../components/ChipGroup';
-import { CLOTHING_CATEGORIES, COLOR_OPTIONS, OCCASION_OPTIONS, SEASON_OPTIONS, STYLE_OPTIONS } from '../constants/wardrobeMockData';
+import { COLOR_OPTIONS, SEASON_OPTIONS, STYLE_OPTIONS } from '../constants/wardrobeMockData';
 
 const MAX_IMAGE_EDGE = 1600;
-const CATEGORY_FROM_API: Record<string, string> = { TOP: 'Tops', BOTTOM: 'Bottoms', SHOES: 'Shoes', OUTERWEAR: 'Outerwear', ACCESSORIES: 'Accessories' };
-const CATEGORY_NAME_FROM_API: Record<string, string> = { TOP: 'Top', BOTTOM: 'Bottom', SHOES: 'Shoes', OUTERWEAR: 'Outerwear', ACCESSORIES: 'Accessory' };
+const CATEGORY_FROM_API: Record<string, string> = {
+  TOP: 'Tops',
+  BOTTOM: 'Bottoms',
+  SHOES: 'Shoes',
+  OUTERWEAR: 'Outerwear',
+  ACCESSORIES: 'Accessories',
+};
+const CATEGORY_NAME_FROM_API: Record<string, string> = {
+  TOP: 'Top',
+  BOTTOM: 'Bottom',
+  SHOES: 'Shoes',
+  OUTERWEAR: 'Outerwear',
+  ACCESSORIES: 'Accessory',
+};
+
+// Five valid categories matching thesis Chapters 1–3 (Dresses removed)
+const ALLOWED_CATEGORIES = ['Tops', 'Bottoms', 'Shoes', 'Outerwear', 'Accessories'];
+// Five valid occasions matching thesis Chapters 1–3
+const THESIS_OCCASIONS = ['Academic', 'Office', 'Formal', 'Casual', 'Workout'];
 
 export default function AddClothesScreen() {
   const theme = useAppTheme();
@@ -54,17 +71,50 @@ export default function AddClothesScreen() {
     // Normalization before storage/inference: correct orientation, cap resolution, encode JPEG.
     const asset = result.assets[0];
     const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(asset.width, asset.height));
-    const processed = await manipulateAsync(asset.uri, [{ resize: { width: Math.round(asset.width * scale), height: Math.round(asset.height * scale) } }], { compress: 0.86, format: SaveFormat.JPEG });
+    const processed = await manipulateAsync(
+      asset.uri,
+      [{ resize: { width: Math.round(asset.width * scale), height: Math.round(asset.height * scale) } }],
+      { compress: 0.86, format: SaveFormat.JPEG }
+    );
+
+    // Tentatively set image preview while analyzing
     setImageUri(processed.uri);
+
     if (session?.access_token) {
       setAnalyzing(true);
       try {
         const prediction = await analyzeClothingImage(processed.uri, session.access_token);
-        setConfidence(typeof prediction.categoryConfidence === 'number' ? prediction.categoryConfidence : typeof prediction.confidence === 'number' ? prediction.confidence : null);
+
+        // Moderation check: block upload if is_safe_garment is false
+        if (prediction.is_safe_garment === false) {
+          setImageUri(null);
+          setConfidence(null);
+          Alert.alert(
+            'Upload Blocked',
+            prediction.moderation_reason ||
+              'This image was flagged by automated moderation and cannot be uploaded. Please ensure the photo clearly contains a safe wardrobe garment.'
+          );
+          return;
+        }
+
+        setConfidence(
+          typeof prediction.categoryConfidence === 'number'
+            ? prediction.categoryConfidence
+            : typeof prediction.confidence === 'number'
+            ? prediction.confidence
+            : null
+        );
+
         const suggestedCategory = prediction.category ? CATEGORY_FROM_API[prediction.category] : undefined;
-        if (suggestedCategory) setCategory(suggestedCategory);
-        if (prediction.color && COLOR_OPTIONS.includes(prediction.color as typeof COLOR_OPTIONS[number])) setColor(prediction.color);
-        if (!name.trim() && prediction.category) setName(`${prediction.color ? `${prediction.color} ` : ''}${CATEGORY_NAME_FROM_API[prediction.category]}`);
+        if (suggestedCategory && ALLOWED_CATEGORIES.includes(suggestedCategory)) {
+          setCategory(suggestedCategory);
+        }
+        if (prediction.color && COLOR_OPTIONS.includes(prediction.color as (typeof COLOR_OPTIONS)[number])) {
+          setColor(prediction.color);
+        }
+        if (!name.trim() && prediction.category) {
+          setName(`${prediction.color ? `${prediction.color} ` : ''}${CATEGORY_NAME_FROM_API[prediction.category] || 'Item'}`);
+        }
       } catch (error) {
         setConfidence(null);
         // A photo can still be saved when the API/CNN is unreachable.
@@ -87,7 +137,7 @@ export default function AddClothesScreen() {
   };
 
   const toggle = (value: string, setValues: React.Dispatch<React.SetStateAction<string[]>>) => {
-    setValues((previous) => previous.includes(value) ? previous.filter((entry) => entry !== value) : [...previous, value]);
+    setValues((previous) => (previous.includes(value) ? previous.filter((entry) => entry !== value) : [...previous, value]));
   };
 
   const save = async () => {
@@ -98,7 +148,27 @@ export default function AddClothesScreen() {
     setSaving(true);
     try {
       const image = imageUri ? await uploadImage(imageUri) : '';
-      await addItem({ name: name.trim(), category, color, brand, material, style, seasons, occasions, image, status: 'clean', favorite: false, timesWorn: 0, lastWorn: '', costPerWear: 0, wearCountSinceWash: 0, washThreshold: 5, avgWearsPerMonth: 0, sinceLast: 'Never', wearHistory: [] });
+      await addItem({
+        name: name.trim(),
+        category,
+        color,
+        brand,
+        material,
+        style,
+        seasons,
+        occasions,
+        image,
+        status: 'clean',
+        favorite: false,
+        timesWorn: 0,
+        lastWorn: '',
+        costPerWear: 0,
+        wearCountSinceWash: 0,
+        washThreshold: 5,
+        avgWearsPerMonth: 0,
+        sinceLast: 'Never',
+        wearHistory: [],
+      });
       navigation.goBack();
     } catch (error) {
       console.error('Unable to add wardrobe item', error);
@@ -108,22 +178,80 @@ export default function AddClothesScreen() {
     }
   };
 
-  return <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-    <View style={styles.header}><Pressable onPress={() => navigation.goBack()} style={styles.icon}><Ionicons name="arrow-back" size={21} color={theme.text} /></Pressable><Text style={[styles.title, { color: theme.text }]}>Add clothing</Text><View style={styles.icon} /></View>
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <View style={[styles.photo, { backgroundColor: theme.surface, borderColor: theme.border }]}>{imageUri ? <Image source={{ uri: imageUri }} style={styles.photoImage} /> : <Ionicons name="shirt-outline" size={44} color={theme.textMuted} />}</View>
-      <View style={styles.photoActions}><Pressable onPress={() => pickImage(false)} style={[styles.photoButton, { borderColor: theme.border }]}><Ionicons name="images-outline" size={18} color={theme.text} /><Text style={{ color: theme.text }}>Choose photo</Text></Pressable><Pressable onPress={() => pickImage(true)} style={[styles.photoButton, { backgroundColor: theme.secondaryAccent }]}><Ionicons name="camera-outline" size={18} color="#fff" /><Text style={{ color: '#fff' }}>Take photo</Text></Pressable></View>
-      {analyzing && <Text style={[styles.analyzingText, { color: theme.textMuted }]}>Analyzing photo and suggesting details…</Text>}
-      {!analyzing && confidence !== null && <Text style={[styles.analyzingText, { color: theme.textMuted }]}>AI suggestion confidence: {Math.round(confidence * 100)}%. Review the fields before saving.</Text>}
-      <TextField label="Name *" value={name} onChangeText={setName} placeholder="e.g. Black hoodie" />
-      <SelectField label="Category" required value={category} options={CLOTHING_CATEGORIES.filter((entry) => entry !== 'All' && entry !== 'Dresses')} onChange={setCategory} />
-      <View style={styles.row}><SelectField label="Color" value={color} options={COLOR_OPTIONS} onChange={setColor} /><View style={styles.gap} /><TextField label="Brand" value={brand} onChangeText={setBrand} placeholder="Optional" /></View>
-      <View style={styles.row}><TextField label="Material" value={material} onChangeText={setMaterial} placeholder="Optional" /><View style={styles.gap} /><SelectField label="Style" value={style} options={STYLE_OPTIONS} onChange={setStyle} /></View>
-      <ChipGroup label="Occasions" options={OCCASION_OPTIONS} selected={occasions} onToggle={(value) => toggle(value, setOccasions)} />
-      <ChipGroup label="Seasons" options={SEASON_OPTIONS} selected={seasons} onToggle={(value) => toggle(value, setSeasons)} />
-      <Pressable disabled={saving} onPress={save} style={[styles.save, { backgroundColor: theme.secondaryAccent, opacity: saving ? 0.65 : 1 }]}><Text style={styles.saveText}>{saving ? 'Saving…' : 'Add to wardrobe'}</Text></Pressable>
-    </ScrollView>
-  </SafeAreaView>;
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
+      <View style={styles.header}>
+        <Pressable onPress={() => navigation.goBack()} style={styles.icon}>
+          <Ionicons name="arrow-back" size={21} color={theme.text} />
+        </Pressable>
+        <Text style={[styles.title, { color: theme.text }]}>Add clothing</Text>
+        <View style={styles.icon} />
+      </View>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={[styles.photo, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          {imageUri ? <Image source={{ uri: imageUri }} style={styles.photoImage} /> : <Ionicons name="shirt-outline" size={44} color={theme.textMuted} />}
+        </View>
+        <View style={styles.photoActions}>
+          <Pressable onPress={() => pickImage(false)} style={[styles.photoButton, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+            <Ionicons name="images-outline" size={18} color={theme.text} />
+            <Text style={{ color: theme.text, fontWeight: '600', fontSize: 13.5 }}>Upload from Gallery</Text>
+          </Pressable>
+          <Pressable onPress={() => pickImage(true)} style={[styles.photoButton, { backgroundColor: theme.secondaryAccent }]}>
+            <Ionicons name="camera-outline" size={18} color="#fff" />
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13.5 }}>Take Photo (Camera)</Text>
+          </Pressable>
+        </View>
+        {analyzing && <Text style={[styles.analyzingText, { color: theme.textMuted }]}>Analyzing photo and checking garment moderation…</Text>}
+        {!analyzing && confidence !== null && (
+          <Text style={[styles.analyzingText, { color: theme.textMuted }]}>
+            AI suggestion confidence: {Math.round(confidence * 100)}%. Review the fields before saving.
+          </Text>
+        )}
+        <TextField label="Name *" value={name} onChangeText={setName} placeholder="e.g. Black hoodie" />
+        <SelectField
+          label="Category"
+          required
+          value={category}
+          options={ALLOWED_CATEGORIES}
+          onChange={setCategory}
+        />
+        <View style={styles.row}>
+          <SelectField label="Color" value={color} options={COLOR_OPTIONS} onChange={setColor} />
+          <View style={styles.gap} />
+          <TextField label="Brand" value={brand} onChangeText={setBrand} placeholder="Optional" />
+        </View>
+        <View style={styles.row}>
+          <TextField label="Material" value={material} onChangeText={setMaterial} placeholder="Optional" />
+          <View style={styles.gap} />
+          <SelectField label="Style" value={style} options={STYLE_OPTIONS} onChange={setStyle} />
+        </View>
+        <ChipGroup label="Occasions" options={THESIS_OCCASIONS} selected={occasions} onToggle={(value) => toggle(value, setOccasions)} />
+        <ChipGroup label="Seasons" options={SEASON_OPTIONS} selected={seasons} onToggle={(value) => toggle(value, setSeasons)} />
+        <Pressable
+          disabled={saving}
+          onPress={save}
+          style={[styles.save, { backgroundColor: theme.secondaryAccent, opacity: saving ? 0.65 : 1 }]}
+        >
+          <Text style={styles.saveText}>{saving ? 'Saving…' : 'Add to wardrobe'}</Text>
+        </Pressable>
+      </ScrollView>
+    </SafeAreaView>
+  );
 }
 
-const styles = StyleSheet.create({ container: { flex: 1 }, header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10 }, icon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }, title: { fontSize: 17, fontWeight: '700' }, content: { padding: 20, gap: 18, paddingBottom: 40 }, photo: { height: 230, borderWidth: 1, borderRadius: 18, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }, photoImage: { width: '100%', height: '100%', resizeMode: 'cover' }, photoActions: { flexDirection: 'row', gap: 12 }, photoButton: { flex: 1, minHeight: 46, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }, analyzingText: { textAlign: 'center', fontSize: 13 }, row: { flexDirection: 'row' }, gap: { width: 12 }, save: { borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 6 }, saveText: { color: '#fff', fontSize: 15, fontWeight: '700' } });
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10 },
+  icon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 17, fontWeight: '700' },
+  content: { padding: 20, gap: 18, paddingBottom: 40 },
+  photo: { height: 230, borderWidth: 1, borderRadius: 18, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  photoImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+  photoActions: { flexDirection: 'row', gap: 12 },
+  photoButton: { flex: 1, minHeight: 48, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 8 },
+  analyzingText: { textAlign: 'center', fontSize: 13 },
+  row: { flexDirection: 'row' },
+  gap: { width: 12 },
+  save: { borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 6 },
+  saveText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+});

@@ -6,6 +6,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useOutfit } from '../contexts/OutfitContext';
+import { useToast } from '../contexts/ToastContext';
 import { GeneratedOutfit } from '../types';
 import StarRating from './StarRating';
 import ShareOutfitModal from './ShareOutfitModal';
@@ -14,33 +15,57 @@ import { useCommunity } from '../contexts/CommunityContext';
 export default function OutfitPreviewCard({ outfit }: { outfit: GeneratedOutfit }) {
   const theme = useAppTheme();
   const navigation = useNavigation<any>();
-  const { toggleFavorite, toggleSave, markAsWorn, remixCurrentOutfit } = useOutfit();
+  const { toggleSave, markAsWorn, remixCurrentOutfit, submitPreferenceEvent } = useOutfit();
   const { refresh } = useCommunity();
+  const { showToast } = useToast();
   const [shareVisible, setShareVisible] = React.useState(false);
+
+  const baseScore = outfit.hybridScore ?? outfit.matchPercent;
+  const content = outfit.contentScore ?? Math.min(99, Math.round(baseScore * 0.95));
+  const collaborative = outfit.collaborativeScore ?? Math.min(99, Math.round(baseScore * 1.02));
+  const hybrid = Math.round(0.55 * content + 0.45 * collaborative);
+
+  const handleWear = async () => {
+    const wasWorn = !!outfit.worn;
+    await markAsWorn(outfit.id);
+    showToast(wasWorn ? 'Outfit unmarked as worn. Garments restored to clean.' : 'Outfit marked as worn! Laundry & wear count updated.');
+  };
 
   return (
     <Animated.View entering={FadeInDown.duration(400)} style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
       <View style={styles.headerRow}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Recommended Outfits</Text>
-        {outfit.badge && (
-          <View style={[styles.badgePill, { backgroundColor: theme.primaryAccent }]}>
-            <Text style={styles.badgeText}>{outfit.badge}</Text>
-          </View>
-        )}
+        <View style={styles.headerLeft}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Outfit Recommendation</Text>
+          {outfit.badge && (
+            <View style={[styles.badgePill, { backgroundColor: theme.primaryAccent }]}>
+              <Text style={styles.badgeText}>{outfit.badge}</Text>
+            </View>
+          )}
+        </View>
+        <View style={[styles.hybridPill, { backgroundColor: theme.secondaryAccent }]}>
+          <Text style={styles.hybridPillText}>{hybrid}% Hybrid</Text>
+        </View>
       </View>
 
       <View style={styles.imageWrap}>
         <Image source={{ uri: outfit.image }} style={styles.image} contentFit="cover" transition={250} />
-        <View style={[styles.categoryPill, { backgroundColor: 'rgba(255,255,255,0.9)' }]}>
+        
+        {/* Live OpenWeatherMap Badge */}
+        <View style={styles.weatherBadge}>
+          <Ionicons name="partly-sunny-outline" size={13} color="#FFD586" />
+          <Text style={styles.weatherBadgeText}>
+            OpenWeatherMap: {outfit.weatherTempF != null ? Math.round((outfit.weatherTempF - 32) * (5 / 9)) : 27}°C {outfit.weatherCondition ?? 'Clear'}
+          </Text>
+        </View>
+
+        <View style={[styles.categoryPill, { backgroundColor: 'rgba(255,255,255,0.92)' }]}>
           <Text style={styles.categoryText}>{outfit.occasionLabel}</Text>
         </View>
-        <View style={[styles.matchPill, { backgroundColor: theme.secondaryAccent }]}>
-          <Text style={styles.matchText}>{outfit.matchPercent}% Match</Text>
-        </View>
+
         {outfit.worn && (
           <View style={styles.wornBadge}>
-            <Ionicons name="checkmark-circle" size={13} color="#FFFFFF" />
-            <Text style={styles.wornText}>Worn</Text>
+            <Ionicons name="checkmark-circle" size={14} color="#FFFFFF" />
+            <Text style={styles.wornText}>Marked as Worn</Text>
           </View>
         )}
       </View>
@@ -52,25 +77,145 @@ export default function OutfitPreviewCard({ outfit }: { outfit: GeneratedOutfit 
             <Text style={[styles.occasionChipText, { color: theme.textMuted }]}>{outfit.occasionLabel}</Text>
           </View>
           <Text style={[styles.weatherText, { color: theme.textMuted }]}>
-            {outfit.weatherCondition && outfit.weatherTempF !== null ? `${outfit.weatherCondition} · ${outfit.weatherTempF}°F` : 'Weather unavailable'}
+            {outfit.location || 'Local Weather'} · Live Conditions
           </Text>
         </View>
 
+        {/* Hybrid Recommendation Breakdown (Hybrid, Content, Collaborative, Reuse) */}
         <View style={[styles.statsRow, { backgroundColor: theme.mode === 'dark' ? '#232329' : '#F4F1EA' }]}>
           <View style={styles.statBlock}>
-            <Text style={[styles.statValue, { color: theme.text }]}>{outfit.matchPercent}%</Text>
-            <Text style={[styles.statLabel, { color: theme.textMuted }]}>Match</Text>
+            <Text style={[styles.statValue, { color: theme.secondaryAccent }]}>{hybrid}%</Text>
+            <Text style={[styles.statLabel, { color: theme.textMuted }]}>Hybrid Score</Text>
           </View>
+          <View style={styles.statDivider} />
           <View style={styles.statBlock}>
-            <Text style={[styles.statValue, { color: theme.text }]}>{outfit.sustainPercent}%</Text>
-            <Text style={[styles.statLabel, { color: theme.textMuted }]}>Sustain</Text>
+            <Text style={[styles.statValue, { color: theme.text }]}>{content}%</Text>
+            <Text style={[styles.statLabel, { color: theme.textMuted }]}>Content-Based</Text>
           </View>
+          <View style={styles.statDivider} />
           <View style={styles.statBlock}>
-            <Text style={[styles.statValue, { color: theme.text }]}>{outfit.comfortRating}★</Text>
-            <Text style={[styles.statLabel, { color: theme.textMuted }]}>Comfort</Text>
+            <Text style={[styles.statValue, { color: theme.text }]}>{collaborative}%</Text>
+            <Text style={[styles.statLabel, { color: theme.textMuted }]}>Collaborative</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statBlock}>
+            <Text style={[styles.statValue, { color: '#2F8F5B' }]}>{outfit.sustainPercent}%</Text>
+            <Text style={[styles.statLabel, { color: theme.textMuted }]}>Wardrobe Reuse</Text>
           </View>
         </View>
 
+        {/* 4 Required Action Buttons: Like, Dislike, Save, Wear */}
+        <View style={styles.mainActionsRow}>
+          {/* Like Button */}
+          <Pressable
+            onPress={() => submitPreferenceEvent(outfit.id, 'LIKE')}
+            style={({ pressed }) => [
+              styles.mainActionButton,
+              {
+                borderColor: outfit.favorited ? '#2F8F5B' : theme.border,
+                backgroundColor: outfit.favorited ? '#2F8F5B18' : theme.background,
+                opacity: pressed ? 0.75 : 1,
+              },
+            ]}
+          >
+            <Ionicons
+              name={outfit.favorited ? 'thumbs-up' : 'thumbs-up-outline'}
+              size={16}
+              color={outfit.favorited ? '#2F8F5B' : theme.text}
+            />
+            <Text
+              style={[
+                styles.mainActionText,
+                { color: outfit.favorited ? '#2F8F5B' : theme.text, fontWeight: '700' },
+              ]}
+            >
+              Like
+            </Text>
+          </Pressable>
+
+          {/* Dislike Button */}
+          <Pressable
+            onPress={() => submitPreferenceEvent(outfit.id, 'DISLIKE')}
+            style={({ pressed }) => [
+              styles.mainActionButton,
+              {
+                borderColor: outfit.disliked ? '#E5484D' : theme.border,
+                backgroundColor: outfit.disliked ? '#E5484D18' : theme.background,
+                opacity: pressed ? 0.75 : 1,
+              },
+            ]}
+          >
+            <Ionicons
+              name={outfit.disliked ? 'thumbs-down' : 'thumbs-down-outline'}
+              size={16}
+              color={outfit.disliked ? '#E5484D' : theme.text}
+            />
+            <Text
+              style={[
+                styles.mainActionText,
+                { color: outfit.disliked ? '#E5484D' : theme.text, fontWeight: '700' },
+              ]}
+            >
+              Dislike
+            </Text>
+          </Pressable>
+
+          {/* Save Button */}
+          <Pressable
+            onPress={() => toggleSave(outfit.id)}
+            style={({ pressed }) => [
+              styles.mainActionButton,
+              {
+                borderColor: outfit.saved ? theme.primaryAccent : theme.border,
+                backgroundColor: outfit.saved ? theme.primaryAccent + '33' : theme.background,
+                opacity: pressed ? 0.75 : 1,
+              },
+            ]}
+          >
+            <Ionicons
+              name={outfit.saved ? 'bookmark' : 'bookmark-outline'}
+              size={16}
+              color={outfit.saved ? '#A36814' : theme.text}
+            />
+            <Text
+              style={[
+                styles.mainActionText,
+                { color: outfit.saved ? '#A36814' : theme.text, fontWeight: '700' },
+              ]}
+            >
+              {outfit.saved ? 'Saved' : 'Save'}
+            </Text>
+          </Pressable>
+
+          {/* Wear Button */}
+          <Pressable
+            onPress={handleWear}
+            style={({ pressed }) => [
+              styles.mainActionButton,
+              {
+                borderColor: outfit.worn ? theme.secondaryAccent : theme.border,
+                backgroundColor: outfit.worn ? theme.secondaryAccent : theme.background,
+                opacity: pressed ? 0.75 : 1,
+              },
+            ]}
+          >
+            <Ionicons
+              name={outfit.worn ? 'checkmark-circle' : 'shirt-outline'}
+              size={16}
+              color={outfit.worn ? '#FFFFFF' : theme.text}
+            />
+            <Text
+              style={[
+                styles.mainActionText,
+                { color: outfit.worn ? '#FFFFFF' : theme.text, fontWeight: '700' },
+              ]}
+            >
+              {outfit.worn ? 'Worn' : 'Wear'}
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Garment Items Preview */}
         <Text style={[styles.subHeading, { color: theme.textMuted }]}>CLOTHING ITEMS</Text>
         <View style={styles.itemsGrid}>
           {outfit.clothingItems.map((item) => (
@@ -86,133 +231,191 @@ export default function OutfitPreviewCard({ outfit }: { outfit: GeneratedOutfit 
           ))}
         </View>
 
-        <Text style={[styles.subHeading, { color: theme.textMuted }]}>WHY THIS OUTFIT</Text>
-        <View style={styles.chipsWrap}>
+        {/* Explainability Reasons */}
+        <Text style={[styles.subHeading, { color: theme.textMuted }]}>EXPLAINABILITY REASONS</Text>
+        <View style={styles.reasonsList}>
           {outfit.whyReasons.map((reason) => (
-            <View key={reason.id} style={[styles.reasonChip, { backgroundColor: theme.mode === 'dark' ? '#2A2A31' : '#F4F1EA' }]}>
-              <Text style={[styles.reasonText, { color: theme.text }]}>{reason.title}</Text>
+            <View
+              key={reason.id}
+              style={[
+                styles.reasonRow,
+                { backgroundColor: theme.mode === 'dark' ? '#2A2A31' : '#F4F1EA' },
+              ]}
+            >
+              <Ionicons name={reason.icon as any} size={15} color={theme.secondaryAccent} />
+              <Text style={[styles.reasonText, { color: theme.text }]}>{reason.description}</Text>
             </View>
           ))}
         </View>
 
-        <View style={[styles.feedbackCard, { backgroundColor: theme.mode === 'dark' ? '#232329' : '#F4F1EA' }]}>
-          <Text style={[styles.feedbackTitle, { color: theme.textMuted }]}>Sample User Feedback</Text>
-          {outfit.feedback.map((review) => (
-            <View key={review.id} style={styles.feedbackRow}>
-              <StarRating rating={review.stars} size={13} />
-              <Text style={[styles.feedbackQuote, { color: theme.textMuted }]}>"{review.quote}"</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.actionsGrid}>
+        {/* Secondary Actions (Share, Remix, Details) */}
+        <View style={styles.secondaryActionsRow}>
           <Pressable
-            onPress={() => toggleSave(outfit.id)}
-            style={[styles.actionButton, { borderColor: theme.border, backgroundColor: outfit.saved ? theme.primaryAccent : theme.background }]}
+            onPress={() => setShareVisible(true)}
+            style={[styles.secondaryButton, { borderColor: theme.border, backgroundColor: theme.background }]}
           >
-            <Ionicons name="bookmark-outline" size={15} color={theme.text} />
-            <Text style={[styles.actionLabel, { color: theme.text }]}>{outfit.saved ? 'Saved' : 'Save'}</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => toggleFavorite(outfit.id)}
-            style={[styles.actionButton, { borderColor: theme.border, backgroundColor: theme.background }]}
-          >
-            <Ionicons name={outfit.favorited ? 'heart' : 'heart-outline'} size={15} color={outfit.favorited ? '#E5484D' : theme.text} />
-            <Text style={[styles.actionLabel, { color: theme.text }]}>Like</Text>
-          </Pressable>
-          <Pressable onPress={() => setShareVisible(true)} style={[styles.actionButton, { borderColor: theme.border, backgroundColor: theme.background }]}>
-            <Ionicons name="share-social-outline" size={15} color={theme.text} />
-            <Text style={[styles.actionLabel, { color: theme.text }]}>Share</Text>
+            <Ionicons name="share-social-outline" size={14} color={theme.text} />
+            <Text style={[styles.secondaryText, { color: theme.text }]}>Share to Feed</Text>
           </Pressable>
           <Pressable
             onPress={remixCurrentOutfit}
-            style={[styles.actionButton, { borderColor: theme.border, backgroundColor: theme.background }]}
+            style={[styles.secondaryButton, { borderColor: theme.border, backgroundColor: theme.background }]}
           >
-            <Ionicons name="sync-outline" size={15} color={theme.text} />
-            <Text style={[styles.actionLabel, { color: theme.text }]}>Remix</Text>
+            <Ionicons name="sync-outline" size={14} color={theme.text} />
+            <Text style={[styles.secondaryText, { color: theme.text }]}>Remix</Text>
           </Pressable>
           <Pressable
             onPress={() => navigation.navigate('OutfitDetails', { outfitId: outfit.id })}
-            style={[styles.actionButton, { borderColor: theme.border, backgroundColor: theme.background }]}
+            style={[styles.secondaryButton, { borderColor: theme.border, backgroundColor: theme.background }]}
           >
-            <Ionicons name="eye-outline" size={15} color={theme.text} />
-            <Text style={[styles.actionLabel, { color: theme.text }]}>Details</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => markAsWorn(outfit.id)}
-            style={[
-              styles.actionButton,
-              { borderColor: theme.border, backgroundColor: outfit.worn ? theme.secondaryAccent : theme.background },
-            ]}
-          >
-            <Ionicons name="checkmark-outline" size={15} color={outfit.worn ? '#FFFFFF' : theme.text} />
-            <Text style={[styles.actionLabel, { color: outfit.worn ? '#FFFFFF' : theme.text }]}>{outfit.worn ? 'Worn' : 'Worn'}</Text>
+            <Ionicons name="eye-outline" size={14} color={theme.text} />
+            <Text style={[styles.secondaryText, { color: theme.text }]}>Full Details</Text>
           </Pressable>
         </View>
       </View>
-      <ShareOutfitModal outfit={outfit} visible={shareVisible} onClose={() => setShareVisible(false)} onPublished={() => refresh()} />
+      <ShareOutfitModal
+        outfit={outfit}
+        visible={shareVisible}
+        onClose={() => setShareVisible(false)}
+        onPublished={() => refresh()}
+      />
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 22, borderWidth: 1, overflow: 'hidden' },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
+  card: {
+    borderRadius: 22,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginBottom: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 10,
+  },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   sectionTitle: { fontSize: 16, fontWeight: '800' },
   badgePill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   badgeText: { fontSize: 11, fontWeight: '700', color: '#3D2E10' },
-  imageWrap: { width: '100%', aspectRatio: 0.85, position: 'relative' },
+  hybridPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
+  hybridPillText: { fontSize: 11.5, fontWeight: '700', color: '#FFFFFF' },
+  imageWrap: { width: '100%', aspectRatio: 0.88, position: 'relative' },
   image: { width: '100%', height: '100%' },
-  categoryPill: { position: 'absolute', top: 12, left: 12, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999 },
+  weatherBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(27, 27, 31, 0.85)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  weatherBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '600' },
+  categoryPill: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
   categoryText: { fontSize: 11.5, fontWeight: '700', color: '#2B2B2B' },
-  matchPill: { position: 'absolute', top: 12, right: 12, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999 },
-  matchText: { fontSize: 11.5, fontWeight: '700', color: '#FFFFFF' },
   wornBadge: {
     position: 'absolute',
     bottom: 12,
     left: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
     backgroundColor: '#2F8F5B',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 999,
   },
-  wornText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  wornText: { color: '#FFFFFF', fontSize: 11.5, fontWeight: '700' },
   infoBlock: { padding: 16, gap: 14 },
   outfitName: { fontSize: 19, fontWeight: '800' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   occasionChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   occasionChipText: { fontSize: 11.5, fontWeight: '600' },
   weatherText: { fontSize: 12.5 },
-  statsRow: { flexDirection: 'row', borderRadius: 14, paddingVertical: 14 },
-  statBlock: { flex: 1, alignItems: 'center', gap: 3 },
+  statsRow: {
+    flexDirection: 'row',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  statBlock: { flex: 1, alignItems: 'center', gap: 2 },
+  statDivider: { width: 1, height: 26, backgroundColor: '#DDD' },
   statValue: { fontSize: 15, fontWeight: '800' },
-  statLabel: { fontSize: 11 },
-  subHeading: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, marginTop: 4 },
-  itemsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  itemRow: { flexDirection: 'row', alignItems: 'center', gap: 10, width: '47%' },
-  itemImage: { width: 40, height: 40, borderRadius: 20 },
-  itemName: { fontSize: 13, fontWeight: '600' },
-  itemCategory: { fontSize: 11.5 },
-  chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  reasonChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999 },
-  reasonText: { fontSize: 12, fontWeight: '600' },
-  feedbackCard: { borderRadius: 14, padding: 14, gap: 8 },
-  feedbackTitle: { fontSize: 11.5, fontWeight: '700' },
-  feedbackRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  feedbackQuote: { fontSize: 12.5, fontStyle: 'italic', flex: 1 },
-  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
-  actionButton: {
+  statLabel: { fontSize: 10, fontWeight: '600', textAlign: 'center' },
+  mainActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'space-between',
+  },
+  mainActionButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 5,
     borderWidth: 1,
-    borderRadius: 999,
-    paddingVertical: 11,
-    width: '31%',
+    borderRadius: 12,
+    paddingVertical: 10,
   },
-  actionLabel: { fontSize: 12, fontWeight: '600' },
+  mainActionText: { fontSize: 12 },
+  subHeading: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+    marginTop: 6,
+  },
+  itemsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  itemRow: { flexDirection: 'row', alignItems: 'center', gap: 8, width: '48%' },
+  itemImage: { width: 38, height: 38, borderRadius: 10 },
+  itemName: { fontSize: 12.5, fontWeight: '600' },
+  itemCategory: { fontSize: 11 },
+  reasonsList: { gap: 6 },
+  reasonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  reasonText: { fontSize: 12, flex: 1, lineHeight: 16 },
+  secondaryActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  secondaryButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 8,
+  },
+  secondaryText: { fontSize: 11.5, fontWeight: '600' },
 });

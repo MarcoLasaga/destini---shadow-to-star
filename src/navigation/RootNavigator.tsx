@@ -18,6 +18,7 @@ import SettingsScreen from '../screens/SettingsScreen';
 import HelpScreen from '../screens/HelpScreen';
 import OutfitDetailsScreen from '../screens/OutfitDetailsScreen';
 import OutfitScreen from '../screens/OutfitScreen';
+import PlanDayScreen from '../screens/PlanDayScreen';
 import LoginScreen from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
@@ -28,7 +29,8 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const screenOptions: NativeStackNavigationOptions = {
   headerShown: true,
-  headerTitleStyle: { fontWeight: '700' },
+  headerBackTitle: 'Back',
+  headerShadowVisible: false,
 };
 
 export default function RootNavigator() {
@@ -36,12 +38,14 @@ export default function RootNavigator() {
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
 
   useEffect(() => {
-    AsyncStorage.getItem('stylesense_onboarding_complete').then(value => setOnboardingComplete(value === 'true'));
+    AsyncStorage.getItem('@stylesense_onboarding_complete').then((value) => {
+      setOnboardingComplete(value === 'true');
+    });
   }, []);
 
   if (loading || onboardingComplete === null) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FAF7F2' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#756E9E" />
       </View>
     );
@@ -55,34 +59,31 @@ export default function RootNavigator() {
             <Stack.Screen name="Onboarding" options={{ headerShown: false }}>
               {() => <OnboardingScreen onComplete={() => setOnboardingComplete(true)} />}
             </Stack.Screen>
-            <Stack.Screen name="MainTabs" component={BottomTabNavigator} options={{ headerShown: false }} />
             <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Signup" component={SignupScreen} options={{ headerShown: false }} />
           </>
         ) : isLoggedIn ? (
           <>
             <Stack.Screen name="MainTabs" component={BottomTabNavigator} options={{ headerShown: false }} />
-        <Stack.Screen name="Notifications" options={{ title: 'Notifications' }}>
-          {() => <PlaceholderScreen title="Notifications" />}
-        </Stack.Screen>
-        <Stack.Screen name="AddClothes" component={AddClothesScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="GenerateOutfit" options={{ title: 'Generate Outfit' }}>
-          {() => <OutfitScreen />}
-        </Stack.Screen>
-        <Stack.Screen name="PlanDay" options={{ title: 'Plan Day' }}>
-          {() => <PlaceholderScreen title="Plan Day" />}
-        </Stack.Screen>
-        <Stack.Screen name="ClothingDetails" component={ClothingDetailsScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="EditClothing" component={EditClothingScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="SavedOutfits" component={SavedOutfitsScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="Analytics" component={AnalyticsScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="Cookbook" component={CookbookScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="Packing" component={PackingScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="PackingTripDetail" component={PackingTripDetailScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="Help" component={HelpScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="OutfitDetails" component={OutfitDetailsScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="Notifications" options={{ title: 'Notifications' }}>
+              {() => <PlaceholderScreen title="Notifications" />}
+            </Stack.Screen>
+            <Stack.Screen name="AddClothes" component={AddClothesScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="GenerateOutfit" options={{ title: 'Generate Outfit' }}>
+              {() => <OutfitScreen />}
+            </Stack.Screen>
+            <Stack.Screen name="PlanDay" component={PlanDayScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="ClothingDetails" component={ClothingDetailsScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="EditClothing" component={EditClothingScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="SavedOutfits" component={SavedOutfitsScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="Analytics" component={AnalyticsScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="Cookbook" component={CookbookScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="Packing" component={PackingScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="PackingTripDetail" component={PackingTripDetailScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="Help" component={HelpScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="OutfitDetails" component={OutfitDetailsScreen} options={{ headerShown: false }} />
           </>
         ) : (
           <>

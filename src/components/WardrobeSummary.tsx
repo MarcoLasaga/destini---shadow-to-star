@@ -43,13 +43,24 @@ export default function WardrobeSummary({ stats }: { stats: WardrobeStats }) {
 }
 
 const styles = StyleSheet.create({
-  card: { marginHorizontal: 20, marginTop: 22, borderRadius: 20, borderWidth: 1, padding: 16 },
+  card: {
+    marginHorizontal: 20,
+    marginTop: 22,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  title: { fontSize: 17, fontWeight: '700' },
+  title: { fontSize: 16, fontWeight: '700', letterSpacing: -0.2 },
   viewAll: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   viewAllText: { fontSize: 13, fontWeight: '600' },
   statsRow: { flexDirection: 'row', borderRadius: 14, paddingVertical: 14 },
   statBlock: { flex: 1, alignItems: 'center', gap: 4 },
   statValue: { fontSize: 18, fontWeight: '700' },
-  statLabel: { fontSize: 12 },
+  statLabel: { fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' },
 });

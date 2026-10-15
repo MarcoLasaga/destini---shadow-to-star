@@ -26,6 +26,8 @@ export interface ClothingPrediction {
   style?: 'CASUAL' | 'FORMAL' | 'SPORTY' | 'STREETWEAR' | 'MINIMALIST' | 'BOHEMIAN' | 'VINTAGE' | 'CLASSIC';
   confidence?: number;
   palette?: ClothingPalette;
+  is_safe_garment?: boolean;
+  moderation_reason?: string | null;
   attributes?: Record<string, unknown> | null;
 }
 
@@ -48,6 +50,8 @@ export async function analyzeClothingImage(uri: string, accessToken: string): Pr
       categoryConfidence: prediction?.categoryConfidence ?? prediction?.confidence ?? null,
       color: prediction?.color ?? null,
       paletteClusters: prediction?.palette?.palette?.length ?? 0,
+      is_safe_garment: prediction?.is_safe_garment,
+      moderation_reason: prediction?.moderation_reason,
       attributes: prediction?.attributes ?? null,
       style: prediction?.style ?? null,
     });

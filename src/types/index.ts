@@ -1,12 +1,16 @@
 export interface WeatherData {
   tempF: number;
   feelsLikeF: number;
+  tempC?: number;
+  feelsLikeC?: number;
   condition: string;
   humidity: number;
   windMph: number;
+  windKmh?: number;
   location: string;
   tip: string;
   icon: 'sunny' | 'partly-cloudy' | 'cloudy' | 'rainy' | 'stormy' | 'snowy';
+  provider?: string;
 }
 
 export interface WardrobeStats {
@@ -78,6 +82,8 @@ export interface PackingItem {
   label: string;
   category: 'Clothing' | 'Footwear' | 'Accessories' | 'Toiletries' | 'Essentials';
   checked: boolean;
+  wardrobeItemId?: string;
+  colorTag?: string;
 }
 
 export interface PackingTrip {
@@ -87,6 +93,9 @@ export interface PackingTrip {
   lon: number;
   startDate: string;
   endDate: string;
+  tripDays?: number;
+  occasion?: string;
+  packingMode?: 'light' | 'heavy';
   checklist: PackingItem[];
 }
 
@@ -169,7 +178,10 @@ export interface GeneratedOutfit {
   occasionLabel: string;
   badge?: string;
   image: string;
-  matchPercent: number;
+  matchPercent: number; // Hybrid Score (0-100)
+  hybridScore?: number;
+  contentScore?: number;
+  collaborativeScore?: number;
   sustainPercent: number;
   comfortRating: number;
   weatherCondition: string | null;
@@ -182,8 +194,17 @@ export interface GeneratedOutfit {
   favorited: boolean;
   saved: boolean;
   worn: boolean;
+  disliked?: boolean;
   wearNotes?: string;
   wearRating?: number;
+}
+
+export interface PlannedDayOutfit {
+  date: string; // YYYY-MM-DD
+  outfit: GeneratedOutfit;
+  occasion: string;
+  notes?: string;
+  plannedAt: string;
 }
 
 export interface RecommendationStats {

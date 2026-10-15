@@ -18,7 +18,13 @@ export default function ScreenHeader({
   return (
     <SafeAreaView edges={['top']} style={{ backgroundColor: theme.background }}>
       <View style={styles.row}>
-        <Pressable onPress={() => navigation.goBack()} style={[styles.backButton, { backgroundColor: theme.surface }]}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={({ pressed }) => [
+            styles.backButton,
+            { backgroundColor: theme.surface, borderColor: theme.border, opacity: pressed ? 0.75 : 1 },
+          ]}
+        >
           <Ionicons name="arrow-back" size={19} color={theme.text} />
         </Pressable>
         <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
@@ -29,8 +35,27 @@ export default function ScreenHeader({
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12, gap: 12 },
-  backButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  title: { flex: 1, fontSize: 22, fontWeight: '800' },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
+    gap: 12,
+  },
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  title: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
   rightSlot: { minWidth: 0 },
 });

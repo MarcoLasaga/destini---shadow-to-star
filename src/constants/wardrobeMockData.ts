@@ -4,7 +4,6 @@ export const CLOTHING_CATEGORIES = [
   'All',
   'Tops',
   'Bottoms',
-  'Dresses',
   'Outerwear',
   'Shoes',
   'Accessories',
@@ -31,7 +30,8 @@ export const STYLE_OPTIONS = ['Casual', 'Formal', 'Business', 'Streetwear', 'Ath
 
 export const SEASON_OPTIONS = ['Spring', 'Summer', 'Fall', 'Winter', 'All'];
 
-export const OCCASION_OPTIONS = ['Casual', 'Work', 'Formal', 'Sport', 'Date', 'Party', 'Travel', 'Lounge'];
+export const OCCASION_OPTIONS = ['Academic', 'Office', 'Formal', 'Casual', 'Workout'];
+
 
 export const initialClothingItems: ClothingItem[] = [
   {
@@ -183,8 +183,8 @@ export const initialClothingItems: ClothingItem[] = [
   },
   {
     id: '7',
-    name: 'Floral Summer Dress',
-    category: 'Dresses',
+    name: 'Floral Linen Blouse',
+    category: 'Tops',
     color: 'Pink',
     brand: 'Zara',
     material: 'Cotton Blend',

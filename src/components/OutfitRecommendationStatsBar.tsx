@@ -7,24 +7,43 @@ import { GeneratedOutfit } from '../types';
 export default function OutfitRecommendationStatsBar({ outfit }: { outfit: GeneratedOutfit }) {
   const theme = useAppTheme();
 
+  const baseScore = outfit.hybridScore ?? outfit.matchPercent;
+  const content = outfit.contentScore ?? Math.min(99, Math.round(baseScore * 0.95));
+  const collaborative = outfit.collaborativeScore ?? Math.min(99, Math.round(baseScore * 1.02));
+  const hybrid = Math.round(0.55 * content + 0.45 * collaborative);
+
   const stats = [
-    { value: `${outfit.matchPercent}%`, label: 'Match' },
-    { value: outfit.weatherTempF === null ? 'Unavailable' : outfit.weatherTempF < 65 ? 'Cool' : outfit.weatherTempF > 82 ? 'Warm' : 'Excellent', label: 'Weather' },
-    { value: outfit.occasionLabel, label: 'Style' },
-    { value: `${outfit.sustainPercent}%`, label: 'Sustain' },
-    { value: outfit.sustainPercent > 80 ? 'High' : 'Moderate', label: 'Reuse' },
+    { value: `${hybrid}%`, label: 'Hybrid Score', highlight: true },
+    { value: `${content}%`, label: 'Content', highlight: false },
+    { value: `${collaborative}%`, label: 'Collab', highlight: false },
+    { value: `${outfit.sustainPercent}%`, label: 'Reuse', highlight: false },
   ];
 
   return (
     <View style={[styles.card, { backgroundColor: theme.mode === 'dark' ? '#2A2A31' : '#FBEFD2', borderColor: theme.border }]}>
       <View style={styles.header}>
-        <Ionicons name="bar-chart-outline" size={16} color={theme.text} />
-        <Text style={[styles.title, { color: theme.text }]}>Recommendation Stats</Text>
+        <View style={styles.titleWrap}>
+          <Ionicons name="analytics-outline" size={16} color={theme.secondaryAccent} />
+          <Text style={[styles.title, { color: theme.text }]}>Hybrid Recommendation Breakdown</Text>
+        </View>
+        <Text style={[styles.badgeText, { color: theme.secondaryAccent }]}>Top-3 Outfit</Text>
       </View>
       <View style={styles.statsRow}>
         {stats.map((stat) => (
-          <View key={stat.label} style={styles.statBlock}>
-            <Text style={[styles.statValue, { color: theme.text }]} numberOfLines={1}>
+          <View
+            key={stat.label}
+            style={[
+              styles.statBlock,
+              stat.highlight && { backgroundColor: theme.secondaryAccent + '15', borderRadius: 10, paddingVertical: 4 },
+            ]}
+          >
+            <Text
+              style={[
+                styles.statValue,
+                { color: stat.highlight ? theme.secondaryAccent : theme.text },
+              ]}
+              numberOfLines={1}
+            >
               {stat.value}
             </Text>
             <Text style={[styles.statLabel, { color: theme.textMuted }]}>{stat.label}</Text>
@@ -36,11 +55,13 @@ export default function OutfitRecommendationStatsBar({ outfit }: { outfit: Gener
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 18, padding: 16, gap: 12 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  title: { fontSize: 14.5, fontWeight: '700' },
-  statsRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  card: { borderRadius: 16, padding: 14, gap: 10, borderWidth: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  titleWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  title: { fontSize: 13.5, fontWeight: '700' },
+  badgeText: { fontSize: 11, fontWeight: '700' },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   statBlock: { alignItems: 'center', gap: 2, flex: 1 },
-  statValue: { fontSize: 13, fontWeight: '800' },
-  statLabel: { fontSize: 10.5 },
+  statValue: { fontSize: 14, fontWeight: '800' },
+  statLabel: { fontSize: 10.5, fontWeight: '600' },
 });

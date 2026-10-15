@@ -54,7 +54,7 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        <Animated.View entering={FadeInDown.duration(400)} style={[styles.profileCard, { backgroundColor: theme.surface }]}>
+        <Animated.View entering={FadeInDown.duration(400)} style={[styles.profileCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.avatarWrap}>
             {profile.avatarUri ? (
               <Image source={{ uri: profile.avatarUri }} style={styles.avatarImage} />
@@ -121,7 +121,18 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 24, paddingTop: 8 },
-  profileCard: { borderRadius: 22, padding: 20, alignItems: 'center', gap: 4 },
+  profileCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 20,
+    alignItems: 'center',
+    gap: 4,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
   avatarWrap: { marginBottom: 8 },
   avatarPlaceholder: { width: 88, height: 88, borderRadius: 44, alignItems: 'center', justifyContent: 'center' },
   avatarImage: { width: 88, height: 88, borderRadius: 44 },
@@ -147,7 +158,17 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 11.5 },
   editButton: { borderWidth: 1, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 16 },
   editLabel: { fontSize: 14.5, fontWeight: '700' },
-  menuCard: { borderRadius: 18, borderWidth: 1, marginTop: 16, overflow: 'hidden' },
+  menuCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    marginTop: 16,
+    overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
+  },
   menuRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 15, paddingHorizontal: 16 },
   menuLabel: { flex: 1, fontSize: 14.5, fontWeight: '600' },
   logoutButton: {
@@ -156,7 +177,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     borderWidth: 1,
-    borderColor: '#F4C7C7',
+    borderColor: '#E5484D33',
     borderRadius: 14,
     paddingVertical: 14,
     marginTop: 20,

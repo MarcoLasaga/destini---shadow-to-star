@@ -29,7 +29,7 @@ export default function WeatherCard({ weather }: { weather: WeatherData }) {
               <Ionicons name={ICONS[weather.icon]} size={26} color="#4A4A4A" />
             </View>
             <View style={styles.tempBlock}>
-              <Text style={styles.temp}>{weather.tempF}°F</Text>
+              <Text style={styles.temp}>{weather.tempC ?? Math.round((weather.tempF - 32) * (5 / 9))}°C</Text>
               <Text style={styles.condition}>{weather.condition}</Text>
             </View>
           </View>
@@ -39,10 +39,10 @@ export default function WeatherCard({ weather }: { weather: WeatherData }) {
               <Ionicons name="location-outline" size={13} color="#5A5A5A" />
               <Text style={styles.locationText}>{weather.location}</Text>
             </View>
-            <Text style={styles.detailText}>Feels {weather.feelsLikeF}°F</Text>
+            <Text style={styles.detailText}>Feels {weather.feelsLikeC ?? Math.round((weather.feelsLikeF - 32) * (5 / 9))}°C</Text>
             <View style={styles.detailRow}>
               <Ionicons name="water" size={12} color="#5A7FC1" />
-              <Text style={styles.detailText}> {weather.humidity}% · 💨 {weather.windMph}mph</Text>
+              <Text style={styles.detailText}> {weather.humidity}% · 💨 {weather.windKmh ?? Math.round(weather.windMph * 1.60934)} km/h</Text>
             </View>
           </View>
         </View>
@@ -58,7 +58,15 @@ export default function WeatherCard({ weather }: { weather: WeatherData }) {
 
 const styles = StyleSheet.create({
   wrapper: { paddingHorizontal: 20, marginTop: 20 },
-  card: { borderRadius: 24, padding: 18 },
+  card: {
+    borderRadius: 24,
+    padding: 18,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
+  },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   leftBlock: { flexDirection: 'row', alignItems: 'center' },
   iconCircle: {

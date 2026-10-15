@@ -2,14 +2,11 @@ import { GeneratedOutfit, OutfitClothingItem, ColorSwatch, WhyReasonDetail, Feed
 
 export const OCCASION_OPTIONS = [
   'Any occasion',
-  'Casual',
-  'Work',
+  'Academic',
+  'Office',
   'Formal',
-  'Sport',
-  'Date',
-  'Party',
-  'Travel',
-  'Lounge',
+  'Casual',
+  'Workout',
 ] as const;
 
 export const SURPRISE_BADGES = ['Trending', "Editor's Pick", 'Staff Favorite', 'Smart Match', 'Weekend Choice'];
@@ -98,130 +95,114 @@ const templates: OutfitTemplate[] = [
     ],
     colorPalette: [
       { name: 'White', hex: '#F5F5F0' },
-      { name: 'Blue', hex: '#4A78A8' },
-      { name: 'Silver', hex: '#C7C7C7' },
+      { name: 'Denim Blue', hex: '#4A6B82' },
+      { name: 'Canvas Tan', hex: '#C4A482' },
     ],
   },
   {
-    occasion: 'Work',
-    name: 'Smart Office Day',
-    image: 'https://picsum.photos/seed/smart-office-day/800/900',
+    occasion: 'Office',
+    name: 'Office Smart Casual',
+    image: 'https://picsum.photos/seed/smart-casual-look/800/900',
     weatherCondition: 'Clear Sky',
     weatherTempF: 75,
-    location: 'Quezon City, PH',
-    clothingItems: [swapPool.Top[1], swapPool.Bottom[1], swapPool.Shoes[2], swapPool.Accessory[0]],
+    location: 'Makati, PH',
+    clothingItems: [
+      swapPool.Top[1],
+      swapPool.Bottom[1],
+      swapPool.Shoes[2],
+      swapPool.Accessory[0],
+    ],
     colorPalette: [
-      { name: 'Blue', hex: '#5A7FC1' },
-      { name: 'Khaki', hex: '#C3A76B' },
-      { name: 'Brown', hex: '#7A5C42' },
+      { name: 'Sky Blue', hex: '#87CEEB' },
+      { name: 'Khaki', hex: '#C3B091' },
+      { name: 'Brown Leather', hex: '#8B4513' },
+    ],
+  },
+  {
+    occasion: 'Academic',
+    name: 'Academic Lecture Ensemble',
+    image: 'https://picsum.photos/seed/academic-lecture-ensemble/800/900',
+    weatherCondition: 'Clear Sky',
+    weatherTempF: 70,
+    location: 'Quezon City, PH',
+    clothingItems: [
+      swapPool.Top[1],
+      swapPool.Outerwear[0],
+      swapPool.Bottom[3],
+      swapPool.Shoes[2],
+      swapPool.Accessory[0],
+    ],
+    colorPalette: [
+      { name: 'Navy', hex: '#1B2A4A' },
+      { name: 'Black', hex: '#1C1C1C' },
+      { name: 'White', hex: '#FFFFFF' },
     ],
   },
   {
     occasion: 'Formal',
-    name: 'Evening Formal Look',
-    image: 'https://picsum.photos/seed/evening-formal-look/800/900',
+    name: 'Formal Evening',
+    image: 'https://picsum.photos/seed/formal-suit-wear/800/900',
     weatherCondition: 'Clear Sky',
     weatherTempF: 70,
-    location: 'Quezon City, PH',
-    clothingItems: [swapPool.Outerwear[0], swapPool.Bottom[3], swapPool.Shoes[2], swapPool.Accessory[0]],
+    location: 'BGC Taguig, PH',
+    clothingItems: [
+      swapPool.Outerwear[0],
+      swapPool.Bottom[3],
+      swapPool.Shoes[2],
+      swapPool.Accessory[0],
+    ],
     colorPalette: [
-      { name: 'Navy', hex: '#2E3B5C' },
-      { name: 'Black', hex: '#1B1B1F' },
-      { name: 'Silver', hex: '#C7C7C7' },
+      { name: 'Navy', hex: '#1B2A4A' },
+      { name: 'Charcoal', hex: '#333333' },
+      { name: 'Silver', hex: '#C0C0C0' },
     ],
   },
   {
-    occasion: 'Sport',
-    name: 'Active Training Fit',
-    image: 'https://picsum.photos/seed/active-training-fit/800/900',
+    occasion: 'Workout',
+    name: 'Workout Activewear',
+    image: 'https://picsum.photos/seed/athleisure-comfort-style/800/900',
     weatherCondition: 'Sunny',
     weatherTempF: 84,
-    location: 'Quezon City, PH',
-    clothingItems: [swapPool.Top[2], swapPool.Bottom[0], swapPool.Shoes[1]],
-    colorPalette: [
-      { name: 'Gray', hex: '#8B8B93' },
-      { name: 'Blue', hex: '#4A78A8' },
-      { name: 'Black', hex: '#1B1B1F' },
+    location: 'Pasig, PH',
+    clothingItems: [
+      swapPool.Top[2],
+      swapPool.Bottom[0],
+      swapPool.Shoes[1],
+      swapPool.Accessory[1],
     ],
-  },
-  {
-    occasion: 'Date',
-    name: 'Golden Hour Date Night',
-    image: 'https://picsum.photos/seed/golden-hour-date/800/900',
-    weatherCondition: 'Clear Sky',
-    weatherTempF: 74,
-    location: 'Quezon City, PH',
-    clothingItems: [swapPool.Top[3], swapPool.Bottom[3], swapPool.Shoes[2], swapPool.Accessory[0]],
     colorPalette: [
-      { name: 'Black', hex: '#1B1B1F' },
-      { name: 'Silver', hex: '#C7C7C7' },
-      { name: 'White', hex: '#F5F5F0' },
-    ],
-  },
-  {
-    occasion: 'Party',
-    name: 'Weekend Party Style',
-    image: 'https://picsum.photos/seed/weekend-party-style/800/900',
-    weatherCondition: 'Partly Cloudy',
-    weatherTempF: 76,
-    location: 'Quezon City, PH',
-    clothingItems: [swapPool.Top[1], swapPool.Bottom[2], swapPool.Shoes[1], swapPool.Accessory[2]],
-    colorPalette: [
-      { name: 'Red', hex: '#C0453F' },
-      { name: 'Navy', hex: '#2E3B5C' },
-      { name: 'White', hex: '#F5F5F0' },
-    ],
-  },
-  {
-    occasion: 'Travel',
-    name: 'Milan Street Explorer',
-    image: 'https://picsum.photos/seed/milan-street-explorer/800/900',
-    weatherCondition: 'Cool Breeze',
-    weatherTempF: 65,
-    location: 'Milan, IT',
-    clothingItems: [swapPool.Outerwear[1], swapPool.Bottom[1], swapPool.Shoes[0], swapPool.Accessory[1]],
-    colorPalette: [
-      { name: 'Light Blue', hex: '#A9C6DE' },
-      { name: 'Pink', hex: '#E3B7C4' },
-      { name: 'Khaki', hex: '#C3A76B' },
-    ],
-  },
-  {
-    occasion: 'Lounge',
-    name: 'Cozy Weekend Lounge',
-    image: 'https://picsum.photos/seed/cozy-weekend-lounge/800/900',
-    weatherCondition: 'Overcast',
-    weatherTempF: 68,
-    location: 'Quezon City, PH',
-    clothingItems: [swapPool.Top[2], swapPool.Bottom[0], swapPool.Shoes[0]],
-    colorPalette: [
-      { name: 'Gray', hex: '#8B8B93' },
-      { name: 'Blue', hex: '#4A78A8' },
+      { name: 'Heather Gray', hex: '#9E9E9E' },
+      { name: 'Black', hex: '#212121' },
+      { name: 'Red Accent', hex: '#E53935' },
     ],
   },
 ];
 
-export function generateOutfitId(): string {
-  return `outfit-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-}
+export function getMockOutfitForOccasion(occasion: string, noNewClothesMode?: boolean): GeneratedOutfit {
+  const match = templates.find((t) => t.occasion.toLowerCase() === occasion.toLowerCase()) ?? templates[0];
+  const template = match;
 
-export function buildOutfitFromTemplate(occasion: string): GeneratedOutfit {
-  const pool = occasion === 'Any occasion' ? templates : templates.filter((t) => t.occasion === occasion);
-  const template = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : templates[0];
+  const hybridScore = 92;
+  const contentScore = 90;
+  const collaborativeScore = 94;
 
   return {
-    id: generateOutfitId(),
+    id: `mock-${Date.now()}`,
     name: template.name,
+    badge: 'Top Pick · Best Hybrid Match',
     occasionLabel: template.occasion,
     image: template.image,
-    matchPercent: 82 + Math.floor(Math.random() * 15),
-    sustainPercent: 70 + Math.floor(Math.random() * 25),
-    comfortRating: parseFloat((4 + Math.random()).toFixed(1)),
+    matchPercent: hybridScore,
+    hybridScore,
+    contentScore,
+    collaborativeScore,
+    sustainPercent: noNewClothesMode ? 100 : 88,
+    comfortRating: 5,
     weatherCondition: template.weatherCondition,
     weatherTempF: template.weatherTempF,
     location: template.location,
-    clothingItems: template.clothingItems,
-    colorPalette: template.colorPalette,
+    clothingItems: [...template.clothingItems],
+    colorPalette: [...template.colorPalette],
     whyReasons: pickWhyReasons(),
     feedback: pickFeedback(),
     favorited: false,
@@ -229,36 +210,3 @@ export function buildOutfitFromTemplate(occasion: string): GeneratedOutfit {
     worn: false,
   };
 }
-
-export function buildSurpriseOutfit(): GeneratedOutfit {
-  const template = templates[Math.floor(Math.random() * templates.length)];
-  const outfit = buildOutfitFromTemplate(template.occasion);
-  outfit.badge = SURPRISE_BADGES[Math.floor(Math.random() * SURPRISE_BADGES.length)];
-  return outfit;
-}
-
-export function remixOutfit(current: GeneratedOutfit): GeneratedOutfit {
-  const categories: OutfitClothingItem['category'][] = ['Top', 'Bottom', 'Shoes', 'Accessory', 'Outerwear'];
-  const remixedItems = current.clothingItems.map((item) => {
-    const shouldSwap = Math.random() < 0.5;
-    if (!shouldSwap) return item;
-    const options = swapPool[item.category].filter((option) => option.id !== item.id);
-    if (options.length === 0) return item;
-    return options[Math.floor(Math.random() * options.length)];
-  });
-
-  return {
-    ...current,
-    id: generateOutfitId(),
-    clothingItems: remixedItems,
-    matchPercent: Math.max(75, Math.min(99, current.matchPercent + Math.floor(Math.random() * 11) - 5)),
-    feedback: pickFeedback(),
-    whyReasons: pickWhyReasons(),
-    favorited: false,
-    saved: false,
-    worn: false,
-    badge: undefined,
-  };
-}
-
-const _unusedCategories: OutfitClothingItem['category'][] = ['Top', 'Bottom', 'Shoes', 'Accessory', 'Outerwear'];

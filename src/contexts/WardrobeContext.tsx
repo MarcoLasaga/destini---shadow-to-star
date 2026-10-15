@@ -21,7 +21,7 @@ const CATEGORY_TO_DATABASE: Record<string, string> = {
 
 const STYLE_TO_DATABASE: Record<string, string> = { Casual: 'CASUAL', Formal: 'FORMAL', Business: 'FORMAL', Streetwear: 'STREETWEAR', Athletic: 'SPORTY', Bohemian: 'BOHEMIAN' };
 const SEASON_TO_DATABASE: Record<string, string> = { Spring: 'SPRING', Summer: 'SUMMER', Fall: 'AUTUMN', Winter: 'WINTER', All: 'ALL_SEASONS' };
-const OCCASION_TO_DATABASE: Record<string, string> = { Casual: 'EVERYDAY', Work: 'WORK', Formal: 'PARTY', Sport: 'GYM', Date: 'DATE', Party: 'PARTY', Travel: 'OUTDOOR', Lounge: 'EVERYDAY' };
+const OCCASION_TO_DATABASE: Record<string, string> = { Academic: 'ACADEMIC', Office: 'WORK', Work: 'WORK', Formal: 'FORMAL', Casual: 'CASUAL', Workout: 'SPORT', Sport: 'SPORT' };
 
 function mapSupabaseToMobile(row: any): ClothingItem {
   const timesWorn = row.wear_count || 0;
@@ -91,7 +91,10 @@ interface WardrobeContextValue {
   addItem: (item: Omit<ClothingItem, 'id' | 'addedDate'>) => Promise<ClothingItem>;
   toggleFavorite: (id: string) => void;
   deleteItem: (id: string) => void;
+  deleteItems: (ids: string[]) => Promise<void>;
   updateItem: (id: string, updates: Partial<ClothingItem>) => void;
+  recordWear: (itemIds: string[]) => Promise<void>;
+  unrecordWear: (itemIds: string[]) => Promise<void>;
   getItem: (id: string) => ClothingItem | undefined;
 }
 
@@ -209,6 +212,27 @@ export function WardrobeProvider({ children }: { children: React.ReactNode }) {
     }
   }, [fetchItems]);
 
+  const deleteItems = useCallback(async (ids: string[]) => {
+    if (!ids || ids.length === 0) return;
+    const idSet = new Set(ids);
+    setItems((prev) => prev.filter((i) => !idSet.has(i.id)));
+
+    try {
+      const { error } = await supabase
+        .from('wardrobe_items')
+        .delete()
+        .in('id', ids);
+
+      if (error) {
+        console.error('Error batch deleting items in Supabase:', error);
+        fetchItems();
+      }
+    } catch (err) {
+      console.error('Unexpected error batch deleting items:', err);
+      fetchItems();
+    }
+  }, [fetchItems]);
+
   const updateItem = useCallback(async (id: string, updates: Partial<ClothingItem>) => {
     // Optimistic update
     setItems((prev) =>
@@ -232,10 +256,110 @@ export function WardrobeProvider({ children }: { children: React.ReactNode }) {
     }
   }, [fetchItems]);
 
+  const recordWear = useCallback(async (itemIds: string[]) => {
+    if (!itemIds || !itemIds.length) return;
+    const nowISO = new Date().toISOString();
+    const todayStr = nowISO.split('T')[0];
+
+    // Optimistically increment wear count and update laundry status if wash threshold reached
+    setItems((prev) =>
+      prev.map((item) => {
+        if (!itemIds.includes(item.id)) return item;
+        const nextTimesWorn = item.timesWorn + 1;
+        const nextWearSinceWash = item.wearCountSinceWash + 1;
+        const threshold = item.washThreshold || 3;
+        const nextStatus: LaundryStatus =
+          nextWearSinceWash >= threshold || nextTimesWorn % 3 === 0
+            ? 'needs-washing'
+            : item.status;
+
+        return {
+          ...item,
+          timesWorn: nextTimesWorn,
+          wearCountSinceWash: nextWearSinceWash,
+          status: nextStatus,
+          lastWorn: todayStr,
+          sinceLast: 'Today',
+        };
+      })
+    );
+
+    try {
+      await Promise.all(
+        itemIds.map(async (id) => {
+          const current = items.find((i) => i.id === id);
+          const nextTimesWorn = (current?.timesWorn || 0) + 1;
+          const nextWearSinceWash = (current?.wearCountSinceWash || 0) + 1;
+          const threshold = current?.washThreshold || 3;
+          const laundryStatus =
+            nextWearSinceWash >= threshold || nextTimesWorn % 3 === 0
+              ? 'NEEDS_WASHING'
+              : 'CLEAN';
+
+          return supabase
+            .from('wardrobe_items')
+            .update({
+              wear_count: nextTimesWorn,
+              last_worn_at: nowISO,
+              laundry_status: laundryStatus,
+              updated_at: nowISO,
+            })
+            .eq('id', id);
+        })
+      );
+    } catch (err) {
+      console.warn('Error recording wear in Supabase:', err);
+    }
+  }, [items]);
+
+  const unrecordWear = useCallback(
+    async (itemIds: string[]) => {
+      if (!itemIds.length) return;
+      const nowISO = new Date().toISOString();
+
+      // Optimistically decrement wear count and revert laundry status to CLEAN
+      setItems((prev) =>
+        prev.map((item) => {
+          if (!itemIds.includes(item.id)) return item;
+          const nextTimesWorn = Math.max(0, item.timesWorn - 1);
+          const nextWearSinceWash = Math.max(0, item.wearCountSinceWash - 1);
+
+          return {
+            ...item,
+            timesWorn: nextTimesWorn,
+            wearCountSinceWash: nextWearSinceWash,
+            status: 'clean' as LaundryStatus,
+          };
+        })
+      );
+
+      try {
+        await Promise.all(
+          itemIds.map(async (id) => {
+            const current = items.find((i) => i.id === id);
+            const nextTimesWorn = Math.max(0, (current?.timesWorn || 1) - 1);
+
+            return supabase
+              .from('wardrobe_items')
+              .update({
+                wear_count: nextTimesWorn,
+                laundry_status: 'CLEAN',
+                updated_at: nowISO,
+              })
+              .eq('id', id);
+          })
+        );
+      } catch (err) {
+        console.warn('Error reverting wear in Supabase:', err);
+      }
+    },
+    [items]
+  );
+
   const getItem = useCallback((id: string) => items.find((item) => item.id === id), [items]);
 
   return (
-    <WardrobeContext.Provider value={{ items, addItem, toggleFavorite, deleteItem, updateItem, getItem }}>
+    <WardrobeContext.Provider value={{ items, addItem, toggleFavorite, deleteItem, deleteItems, updateItem, recordWear, unrecordWear, getItem }}>
       {children}
     </WardrobeContext.Provider>
   );
