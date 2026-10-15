@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GeneratedOutfit, PlannedDayOutfit } from '../types';
 import { useWardrobe } from './WardrobeContext';
+import { triggerSmartAlert, scheduleDailyOutfitReminder } from '../services/notificationService';
 
 const STORAGE_KEY_PLANS = '@stylesense_planned_calendar_outfits';
 
@@ -76,6 +77,17 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       };
 
       await persistPlans(updated);
+
+      // Trigger immediate confirmation banner and schedule 7:30 AM daily reminder
+      triggerSmartAlert({
+        type: 'Outfit',
+        title: `Styling Reminder: Outfit Scheduled for ${date}`,
+        body: `Your ${outfit.occasionLabel || 'daily'} look is locked in for ${date}!`,
+        targetRoute: 'Planner',
+      }).catch(console.error);
+
+      scheduleDailyOutfitReminder().catch(console.error);
+
       return { success: true, conflict: false };
     },
     [plans]

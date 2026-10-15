@@ -43,7 +43,7 @@ export default function OutfitPreviewCard({ outfit }: { outfit: GeneratedOutfit 
           )}
         </View>
         <View style={[styles.hybridPill, { backgroundColor: theme.secondaryAccent }]}>
-          <Text style={styles.hybridPillText}>{hybrid}% Hybrid</Text>
+          <Text style={[styles.hybridPillText, { color: theme.onAccent }]}>{hybrid}% Hybrid</Text>
         </View>
       </View>
 
@@ -64,7 +64,7 @@ export default function OutfitPreviewCard({ outfit }: { outfit: GeneratedOutfit 
 
         {outfit.worn && (
           <View style={styles.wornBadge}>
-            <Ionicons name="checkmark-circle" size={14} color="#FFFFFF" />
+            <Ionicons name="checkmark-circle" size={14} color={theme.onAccent} />
             <Text style={styles.wornText}>Marked as Worn</Text>
           </View>
         )}
@@ -202,12 +202,12 @@ export default function OutfitPreviewCard({ outfit }: { outfit: GeneratedOutfit 
             <Ionicons
               name={outfit.worn ? 'checkmark-circle' : 'shirt-outline'}
               size={16}
-              color={outfit.worn ? '#FFFFFF' : theme.text}
+              color={outfit.worn ? theme.onAccent : theme.text}
             />
             <Text
               style={[
                 styles.mainActionText,
-                { color: outfit.worn ? '#FFFFFF' : theme.text, fontWeight: '700' },
+                { color: outfit.worn ? theme.onAccent : theme.text, fontWeight: '700' },
               ]}
             >
               {outfit.worn ? 'Worn' : 'Wear'}

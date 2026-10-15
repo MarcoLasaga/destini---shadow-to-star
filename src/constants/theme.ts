@@ -1,35 +1,52 @@
+// Official StyleSense brand palette
+export const brand = {
+  darkPlum: '#24152C',
+  mediumPlum: '#4B1D6F',
+  softLilac: '#DECFE8',
+  paleYellow: '#FBF5A7',
+  peachGold: '#FDD78B',
+  softCream: '#FDF3D2',
+  alabaster: '#FAF7F0',
+  darkCard: '#2E1B38',
+};
+
 export const lightTheme = {
   mode: 'light' as const,
-  background: '#FAF8F5',
+  background: brand.alabaster,
   surface: '#FFFFFF',
-  primaryAccent: '#CBB499',
-  secondaryAccent: '#4A4458',
-  buttonBg: '#4A4458',
-  buttonText: '#FFFFFF',
+  primaryAccent: brand.peachGold,
+  secondaryAccent: brand.darkPlum, // primary CTA fill
+  onAccent: brand.paleYellow, // text/icons on CTA fill
+  badgeBg: brand.softLilac,
+  badgeAlt: brand.peachGold,
+  buttonBg: brand.darkPlum,
+  buttonText: brand.paleYellow,
   buttonBorder: 'transparent',
-  activePillBg: '#4A4458',
-  activePillText: '#FFFFFF',
-  text: '#18181B',
-  textMuted: '#6E6879',
-  border: '#E5E0D8',
+  activePillBg: brand.darkPlum,
+  activePillText: brand.paleYellow,
+  text: brand.darkPlum,
+  textMuted: brand.mediumPlum,
+  border: brand.softLilac,
 };
 
 export const darkTheme = {
   mode: 'dark' as const,
-  background: '#0F1115',
-  surface: '#17191E',
-  primaryAccent: '#D4AF37',
-  secondaryAccent: '#6366F1',
-  buttonBg: '#2D2A3E',
-  buttonText: '#F4F4F5',
-  buttonBorder: '#6366F1',
-  activePillBg: '#D4AF37',
-  activePillText: '#0F1115',
-  text: '#F4F4F5',
-  textMuted: '#9B96A6',
-  border: '#24262E',
+  background: brand.darkPlum,
+  surface: brand.darkCard,
+  primaryAccent: brand.peachGold,
+  secondaryAccent: brand.paleYellow, // primary CTA fill
+  onAccent: brand.darkPlum,
+  badgeBg: brand.mediumPlum,
+  badgeAlt: brand.peachGold,
+  buttonBg: brand.paleYellow,
+  buttonText: brand.darkPlum,
+  buttonBorder: 'transparent',
+  activePillBg: brand.paleYellow,
+  activePillText: brand.darkPlum,
+  text: brand.softCream,
+  textMuted: brand.softLilac,
+  border: brand.mediumPlum,
 };
-
 export type Theme = typeof lightTheme | typeof darkTheme;
 
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32 };

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { ClothingItem, LaundryStatus } from '../types';
 import { useAuth } from './AuthContext';
 import { supabase } from '../integrations/supabase/client';
+import { triggerSmartAlert } from '../services/notificationService';
 
 const CATEGORY_TO_DISPLAY: Record<string, string> = {
   TOP: 'Tops',
@@ -283,6 +284,25 @@ export function WardrobeProvider({ children }: { children: React.ReactNode }) {
         };
       })
     );
+
+    // Trigger smart alert for items transitioning to needs-washing
+    const newlyNeedingWash = items.filter((item) => {
+      if (!itemIds.includes(item.id)) return false;
+      if (item.status === 'needs-washing') return false;
+      const nextTimesWorn = item.timesWorn + 1;
+      const nextWearSinceWash = item.wearCountSinceWash + 1;
+      const threshold = item.washThreshold || 3;
+      return nextWearSinceWash >= threshold || nextTimesWorn % 3 === 0;
+    });
+
+    newlyNeedingWash.forEach((garment) => {
+      triggerSmartAlert({
+        type: 'Laundry',
+        title: `🧺 Laundry Alert: ${garment.name} needs washing`,
+        body: 'Logged wear! Marked as Needs Washing to keep your rotation fresh.',
+        targetRoute: 'Wardrobe',
+      });
+    });
 
     try {
       await Promise.all(

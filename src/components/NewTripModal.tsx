@@ -258,7 +258,7 @@ export default function NewTripModal({ visible, onClose }: { visible: boolean; o
                         },
                       ]}
                     >
-                      <Text style={[styles.optionPillText, { color: isSelected ? '#FFFFFF' : theme.text }]}>
+                      <Text style={[styles.optionPillText, { color: isSelected ? theme.onAccent : theme.text }]}>
                         {occ}
                       </Text>
                     </Pressable>
@@ -348,8 +348,8 @@ export default function NewTripModal({ visible, onClose }: { visible: boolean; o
               onPress={handleCreate}
               style={[styles.createButton, { backgroundColor: theme.secondaryAccent, opacity: loading ? 0.65 : 1 }]}
             >
-              <Ionicons name="checkmark-done" size={18} color="#FFFFFF" />
-              <Text style={styles.createLabel}>
+              <Ionicons name="checkmark-done" size={18} color={theme.onAccent} />
+              <Text style={[styles.createLabel, { color: theme.onAccent }]}>
                 {loading ? 'Generating Checklist…' : 'Generate Clean Wardrobe Checklist'}
               </Text>
             </Pressable>

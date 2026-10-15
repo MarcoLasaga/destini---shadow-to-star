@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -39,6 +39,20 @@ export default function OnboardingScreen({ onComplete }: { onComplete: () => voi
   const [stylePrefs, setStylePrefs] = useState<string[]>([]);
   const [colors, setColors] = useState<string[]>([]);
   const [occasion, setOccasion] = useState('');
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      setIsKeyboardVisible(false);
+      scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const firstName = name.trim() || 'friend';
   const lastStep = 5;
@@ -70,7 +84,7 @@ export default function OnboardingScreen({ onComplete }: { onComplete: () => voi
 
   const intro = (eyebrow: string, title: string, body: string, icon: keyof typeof Ionicons.glyphMap) => (
     <View style={styles.intro}>
-      <View style={[styles.iconBubble, { backgroundColor: theme.primaryAccent }]}><Ionicons name={icon} size={22} color={theme.secondaryAccent} /></View>
+      <View style={[styles.iconBubble, { backgroundColor: theme.primaryAccent }]}><Ionicons name={icon} size={22} color={'#24152C'} /></View>
       <Text style={[styles.eyebrow, { color: theme.secondaryAccent }]}>{eyebrow}</Text>
       <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
       <Text style={[styles.body, { color: theme.textMuted }]}>{body}</Text>
@@ -80,8 +94,8 @@ export default function OnboardingScreen({ onComplete }: { onComplete: () => voi
   const choices = (items: Choice[], selected: string[], setSelected: React.Dispatch<React.SetStateAction<string[]>>) => (
     <View style={styles.choiceGrid}>{items.map(item => {
       const active = selected.includes(item.id);
-      return <Pressable key={item.id} onPress={() => toggle(item.id, setSelected)} style={[styles.choice, { backgroundColor: active ? '#F0EDF8' : theme.surface, borderColor: active ? theme.secondaryAccent : theme.border }]}>
-        <View style={[styles.check, { borderColor: active ? theme.secondaryAccent : theme.border, backgroundColor: active ? theme.secondaryAccent : 'transparent' }]}>{active && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}</View>
+      return <Pressable key={item.id} onPress={() => toggle(item.id, setSelected)} style={[styles.choice, { backgroundColor: active ? theme.badgeBg : theme.surface, borderColor: active ? theme.secondaryAccent : theme.border }]}>
+        <View style={[styles.check, { borderColor: active ? theme.secondaryAccent : theme.border, backgroundColor: active ? theme.secondaryAccent : 'transparent' }]}>{active && <Ionicons name="checkmark" size={14} color={theme.onAccent} />}</View>
         <View style={styles.choiceCopy}><Text style={[styles.choiceLabel, { color: theme.text }]}>{item.label}</Text><Text style={[styles.choiceNote, { color: theme.textMuted }]}>{item.note}</Text></View>
       </Pressable>;
     })}</View>
@@ -89,7 +103,7 @@ export default function OnboardingScreen({ onComplete }: { onComplete: () => voi
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={[{ flex: 1, backgroundColor: theme.background }]}
     >
       <View style={styles.header}>
@@ -116,21 +130,22 @@ export default function OnboardingScreen({ onComplete }: { onComplete: () => voi
         />
       </View>
       <ScrollView
+        ref={scrollRef}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 20, paddingBottom: 140 }}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 20, paddingBottom: isKeyboardVisible ? 140 : 0 }}
         showsVerticalScrollIndicator={false}
       >
         {step === 0 && (
           <>
             <LinearGradient
-              colors={['#E7DEF4', '#FFF4D7']}
+              colors={['#DECFE8', '#FDF3D2']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.welcomeVisual}
             >
-              <Ionicons name="shirt-outline" size={54} color={theme.secondaryAccent} />
+              <Ionicons name="shirt-outline" size={54} color={'#24152C'} />
               <View style={styles.sparkle}>
-                <Ionicons name="sparkles" size={18} color={theme.secondaryAccent} />
+                <Ionicons name="sparkles" size={18} color={'#24152C'} />
               </View>
             </LinearGradient>
             {intro(
@@ -205,7 +220,7 @@ export default function OnboardingScreen({ onComplete }: { onComplete: () => voi
                     style={[
                       styles.choice,
                       {
-                        backgroundColor: active ? '#F0EDF8' : theme.surface,
+                        backgroundColor: active ? theme.badgeBg : theme.surface,
                         borderColor: active ? theme.secondaryAccent : theme.border,
                       },
                     ]}
@@ -219,7 +234,7 @@ export default function OnboardingScreen({ onComplete }: { onComplete: () => voi
                         },
                       ]}
                     >
-                      {active && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+                      {active && <Ionicons name="checkmark" size={14} color={theme.onAccent} />}
                     </View>
                     <View style={styles.choiceCopy}>
                       <Text style={[styles.choiceLabel, { color: theme.text }]}>{item.label}</Text>
@@ -234,8 +249,8 @@ export default function OnboardingScreen({ onComplete }: { onComplete: () => voi
         {step === 5 && (
           <>
             <View style={[styles.demoPill, { backgroundColor: theme.primaryAccent }]}>
-              <Ionicons name="sparkles" size={15} color={theme.secondaryAccent} />
-              <Text style={[styles.demoPillText, { color: theme.secondaryAccent }]}>
+              <Ionicons name="sparkles" size={15} color={'#24152C'} />
+              <Text style={[styles.demoPillText, { color: '#24152C' }]}>
                 Your first StyleSense moment
               </Text>
             </View>
@@ -283,10 +298,10 @@ export default function OnboardingScreen({ onComplete }: { onComplete: () => voi
             { backgroundColor: theme.secondaryAccent, opacity: canContinue ? 1 : 0.45 },
           ]}
         >
-          <Text style={styles.nextText}>
+          <Text style={[styles.nextText, { color: theme.onAccent }]}>
             {step === 0 ? 'Let’s get started' : step === lastStep ? 'Enter StyleSense' : 'Continue'}
           </Text>
-          <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+          <Ionicons name="arrow-forward" size={18} color={theme.onAccent} />
         </Pressable>
       </View>
     </KeyboardAvoidingView>

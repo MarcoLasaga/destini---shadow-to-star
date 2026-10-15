@@ -180,9 +180,9 @@ export default function OutfitDetailsScreen() {
               <Ionicons
                 name={outfit.worn ? 'checkmark-circle' : 'shirt-outline'}
                 size={16}
-                color={outfit.worn ? '#FFFFFF' : theme.text}
+                color={outfit.worn ? theme.onAccent : theme.text}
               />
-              <Text style={[styles.mainActionBtnText, { color: outfit.worn ? '#FFFFFF' : theme.text }]}>
+              <Text style={[styles.mainActionBtnText, { color: outfit.worn ? theme.onAccent : theme.text }]}>
                 {outfit.worn ? 'Worn' : 'Wear'}
               </Text>
             </Pressable>
@@ -281,8 +281,8 @@ export default function OutfitDetailsScreen() {
             />
 
             <Pressable onPress={handleSaveFeedback} style={[styles.saveFeedbackButton, { backgroundColor: theme.secondaryAccent }]}>
-              <Ionicons name="save-outline" size={16} color="#FFFFFF" />
-              <Text style={styles.saveFeedbackLabel}>Save Feedback</Text>
+              <Ionicons name="save-outline" size={16} color={theme.onAccent} />
+              <Text style={[styles.saveFeedbackLabel, { color: theme.onAccent }]}>Save Feedback</Text>
             </Pressable>
           </View>
         </View>

@@ -108,7 +108,7 @@ export default function ShareOutfitModal({
     }
   };
 
-  const activeAccent = theme.mode === 'dark' ? '#6366F1' : theme.secondaryAccent;
+  const activeAccent = theme.secondaryAccent;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -168,7 +168,7 @@ export default function ShareOutfitModal({
                     {/* Selected Badge */}
                     {isSelected && (
                       <View style={[styles.checkBadge, { backgroundColor: activeAccent }]}>
-                        <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                        <Ionicons name="checkmark" size={12} color={theme.onAccent} />
                       </View>
                     )}
 
@@ -236,7 +236,7 @@ export default function ShareOutfitModal({
                 onPress={() => setModerationError(null)}
                 style={styles.reviseButton}
               >
-                <Ionicons name="pencil" size={14} color="#FFFFFF" />
+                <Ionicons name="pencil" size={14} color={theme.onAccent} />
                 <Text style={styles.reviseButtonText}>Revise Caption</Text>
               </Pressable>
             </View>
@@ -284,14 +284,14 @@ export default function ShareOutfitModal({
               style={[
                 styles.button,
                 {
-                  backgroundColor: theme.mode === 'dark' ? '#2D2A3E' : theme.secondaryAccent,
-                  borderColor: theme.mode === 'dark' ? '#6366F1' : 'transparent',
+                  backgroundColor: theme.secondaryAccent,
+                  borderColor: 'transparent',
                   borderWidth: theme.mode === 'dark' ? 1 : 0,
                   opacity: saving || !selectedOutfit ? 0.6 : 1,
                 },
               ]}
             >
-              <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
+              <Text style={{ color: theme.onAccent, fontWeight: '700' }}>
                 {saving ? 'Publishing…' : 'Publish Look'}
               </Text>
             </Pressable>

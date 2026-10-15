@@ -53,8 +53,8 @@ export default function HelpScreen() {
             style={[styles.feedbackInput, { borderColor: theme.border, backgroundColor: theme.background, color: theme.text }]}
           />
           <Pressable onPress={handleSubmitFeedback} style={[styles.submitButton, { backgroundColor: theme.secondaryAccent }]}>
-            <Ionicons name="chatbubble-outline" size={15} color="#FFFFFF" />
-            <Text style={styles.submitLabel}>Submit Feedback</Text>
+            <Ionicons name="chatbubble-outline" size={15} color={theme.onAccent} />
+            <Text style={[styles.submitLabel, { color: theme.onAccent }]}>Submit Feedback</Text>
           </Pressable>
         </View>
 

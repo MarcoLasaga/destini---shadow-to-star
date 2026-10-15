@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="375" height="812" viewBox="0 0 375 812" fill="none">
+<title>Screen_07_Community_Feed_Dark</title>
+<defs>
+<filter id="Card_Shadow" x="-10%" y="-10%" width="120%" height="135%" color-interpolation-filters="sRGB">
+<feDropShadow dx="0" dy="4" stdDeviation="7" flood-color="#24152C" flood-opacity="0.4"/>
+</filter>
+<clipPath id="Screen_Clip"><rect width="375" height="812"/></clipPath>
+</defs>
+<g id="Screen_07_Community_Feed_Dark" clip-path="url(#Screen_Clip)">
+<rect id="Background" x="0" y="0" width="375" height="812" fill="#24152C"/>
+<g id="Status_Bar">
+<text id="Time" x="32" y="31" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="15" font-weight="600" fill="#FDF3D2">9:41</text>
+<g id="Cellular_Signal">
+<rect id="Signal_Bar_1" x="289" y="26" width="3" height="4" rx="1" fill="#FDF3D2"/>
+<rect id="Signal_Bar_2" x="294" y="24" width="3" height="6" rx="1" fill="#FDF3D2"/>
+<rect id="Signal_Bar_3" x="299" y="22" width="3" height="8" rx="1" fill="#FDF3D2"/>
+<rect id="Signal_Bar_4" x="304" y="20" width="3" height="10" rx="1" fill="#FDF3D2"/>
+</g>
+<g id="WiFi">
+<path id="Wifi_Arc_Outer" d="M311.5 22a10.5 10.5 0 0 1 14 0" fill="none" stroke="#FDF3D2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Wifi_Arc_Inner" d="M314.7 25.4a5.5 5.5 0 0 1 7.6 0" fill="none" stroke="#FDF3D2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<circle id="Wifi_Dot" cx="318.5" cy="28.8" r="1.6" fill="#FDF3D2"/>
+</g>
+<g id="Battery">
+<rect id="Battery_Body" x="332" y="20" width="25" height="12" rx="3.5" fill="none" stroke="#FDF3D2" stroke-width="1" opacity="0.5"/>
+<rect id="Battery_Level" x="334" y="22" width="19" height="8" rx="2" fill="#FDF3D2"/>
+<rect id="Battery_Cap" x="358.5" y="24" width="1.8" height="4" rx="0.9" fill="#FDF3D2" opacity="0.5"/>
+</g>
+</g>
+<g id="Header_Bar">
+<text id="Screen_Title" x="20" y="92" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="28" font-weight="900" fill="#FDF3D2" letter-spacing="-0.6">Community</text>
+<text id="Subtitle" x="20" y="114" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="400" fill="#DECFE8">Find and share your favorite looks</text>
+<g id="Post_Look_Button">
+<rect id="Button_Surface" x="245" y="74" width="110" height="36" rx="18" fill="#FBF5A7"/>
+<g id="Icon_Plus" transform="translate(254.4 84.5) scale(0.6250)">
+<path id="Vector" d="M12 5v14 M5 12h14" fill="none" stroke="#24152C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Button_Label" x="275.4" y="96.68" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="800" fill="#24152C">Post Look</text>
+</g>
+</g>
+<g id="Feed_Mode_Pills">
+<g id="Mode_Recent">
+<rect id="Pill_Surface" x="20" y="130" width="75" height="32" rx="16" fill="#FBF5A7" stroke="#FBF5A7" stroke-width="1"/>
+<text id="Pill_Label" x="57.5" y="150.68" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="700" fill="#24152C" text-anchor="middle">Recent</text>
+</g>
+<g id="Mode_Trending">
+<rect id="Pill_Surface_2" x="103" y="130" width="90" height="32" rx="16" fill="#2E1B38" stroke="#4B1D6F" stroke-width="1"/>
+<text id="Pill_Label_2" x="148" y="150.68" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="700" fill="#FDF3D2" text-anchor="middle">Trending</text>
+</g>
+</g>
+<g id="Shared_Outfit_Card_1">
+<rect id="Card_Surface" x="20" y="174" width="335" height="330" rx="18" fill="#2E1B38" stroke="#4B1D6F" stroke-width="1" filter="url(#Card_Shadow)"/>
+<g id="Author_Row">
+<circle id="Avatar" cx="48" cy="204" r="16" fill="#FDD78B"/>
+<text id="Avatar_Initials" x="48" y="209" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="800" fill="#24152C" text-anchor="middle">MS</text>
+<text id="Author_Name" x="72" y="200" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="800" fill="#FDF3D2">Mika Santos</text>
+<text id="Author_Meta" x="72" y="216" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="400" fill="#DECFE8">@mika.styles · 2h · Academic</text>
+</g>
+<g id="AI_Moderation_Shield_Badge">
+<rect id="Badge_Surface" x="231" y="190" width="108" height="24" rx="12" fill="#4B1D6F" stroke="#FBF5A7" stroke-width="1"/>
+<g id="Icon_Shield" transform="translate(239 195) scale(0.5833)">
+<path id="Vector_2" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z M8.8 12l2.2 2.2 4.2-4.4" fill="none" stroke="#FBF5A7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Badge_Label" x="258" y="206" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10.5" font-weight="800" fill="#FBF5A7">AI Moderated</text>
+</g>
+<g id="Outfit_Image_Area">
+<rect id="Image_Surface" x="36" y="232" width="303" height="148" rx="14" fill="#3A2447"/>
+<g id="Garment_Top" transform="translate(50 244) scale(1.1200)">
+<path id="Silhouette" d="M32 14 L14 26 L22 42 L31 38 L31 88 L69 88 L69 38 L78 42 L86 26 L68 14 L58 14 L50 24 L42 14 Z" fill="#DECFE8" stroke="#24152C" stroke-width="1.16" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail" d="M42 14 L50 24 L58 14 M50 24 V36 M31 80 H69" fill="none" stroke="#24152C" stroke-width="1.16" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+<g id="Garment_Bottom" transform="translate(160 248) scale(1.0400)">
+<path id="Silhouette_2" d="M30 10 H70 L75 90 H56 L50 38 L44 90 H25 Z" fill="#FDF3D2" stroke="#24152C" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail_2" d="M30 18 H70 M50 18 V38" fill="none" stroke="#24152C" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+<g id="Garment_Shoes" transform="translate(252 292) scale(0.7800)">
+<path id="Silhouette_3" d="M10 64 Q12 50 28 52 L46 56 Q60 42 72 54 L90 62 Q94 72 86 76 H14 Q8 72 10 64 Z" fill="#FBF5A7" stroke="#24152C" stroke-width="1.67" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail_3" d="M12 70 H88 M40 56 L44 62 M48 54 L52 60" fill="none" stroke="#24152C" stroke-width="1.67" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+<g id="Hybrid_Badge">
+<rect id="Badge_Surface_2" x="48" y="348" width="90" height="22" rx="11" fill="#FBF5A7"/>
+<text id="Badge_Label_2" x="93" y="363" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10.5" font-weight="800" fill="#24152C" text-anchor="middle">Hybrid 89%</text>
+</g>
+</g>
+<text id="Caption" x="36" y="402" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="400" fill="#FDF3D2"><tspan x="36">Perfect breathable combo for a humid</tspan><tspan x="36" dy="17">campus day in Makati. #OOTD #ReWear</tspan></text>
+<rect id="Divider" x="36" y="430" width="303" height="1" fill="#4B1D6F"/>
+<g id="Rating_Row">
+<text id="Rate_Label" x="36" y="455" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#DECFE8">Rate</text>
+<g id="Star_Rating_1_to_5">
+<g id="Icon_Star_1" transform="translate(68 442) scale(0.6667)">
+<path id="Vector_3" d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z" fill="#FBF5A7" stroke="#FBF5A7" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<g id="Icon_Star_2" transform="translate(88 442) scale(0.6667)">
+<path id="Vector_4" d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z" fill="#FBF5A7" stroke="#FBF5A7" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<g id="Icon_Star_3" transform="translate(108 442) scale(0.6667)">
+<path id="Vector_5" d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z" fill="#FBF5A7" stroke="#FBF5A7" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<g id="Icon_Star_4" transform="translate(128 442) scale(0.6667)">
+<path id="Vector_6" d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z" fill="#FBF5A7" stroke="#FBF5A7" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<g id="Icon_Star_5" transform="translate(148 442) scale(0.6667)">
+<path id="Vector_7" d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z" fill="none" stroke="#DECFE8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+<text id="Rating_Summary" x="172" y="455" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="600" fill="#DECFE8">4.6 · 38 ratings</text>
+</g>
+<g id="Engagement_Actions">
+<g id="Like_Button">
+<g id="Icon_Heart" transform="translate(36 470) scale(0.7500)">
+<path id="Vector_8" d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" fill="#FDD78B" stroke="#FDD78B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Like_Count" x="60" y="484" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="700" fill="#FDF3D2">124</text>
+</g>
+<g id="Save_Button">
+<g id="Icon_Bookmark" transform="translate(104 470) scale(0.7500)">
+<path id="Vector_9" d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" fill="none" stroke="#FDF3D2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Save_Count" x="128" y="484" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="700" fill="#FDF3D2">31</text>
+</g>
+<g id="Share_Button">
+<g id="Icon_Share" transform="translate(168 470) scale(0.7500)">
+<path id="Vector_10" d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7 M16 6l-4-4-4 4 M12 2v13" fill="none" stroke="#FDF3D2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+<text id="Your_Rating" x="339" y="484" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="800" fill="#FBF5A7" text-anchor="end">You rated 4 / 5</text>
+</g>
+</g>
+<g id="Shared_Outfit_Card_2">
+<rect id="Card_Surface_2" x="20" y="516" width="335" height="330" rx="18" fill="#2E1B38" stroke="#4B1D6F" stroke-width="1" filter="url(#Card_Shadow)"/>
+<g id="Author_Row_2">
+<circle id="Avatar_2" cx="48" cy="546" r="16" fill="#DECFE8"/>
+<text id="Avatar_Initials_2" x="48" y="551" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="800" fill="#24152C" text-anchor="middle">JR</text>
+<text id="Author_Name_2" x="72" y="542" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="800" fill="#FDF3D2">Jonas Reyes</text>
+<text id="Author_Meta_2" x="72" y="558" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="400" fill="#DECFE8">@jonas.fits · 5h · Office</text>
+</g>
+<g id="AI_Moderation_Shield_Badge_2">
+<rect id="Badge_Surface_3" x="231" y="532" width="108" height="24" rx="12" fill="#4B1D6F" stroke="#FBF5A7" stroke-width="1"/>
+<g id="Icon_Shield_2" transform="translate(239 537) scale(0.5833)">
+<path id="Vector_11" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z M8.8 12l2.2 2.2 4.2-4.4" fill="none" stroke="#FBF5A7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Badge_Label_3" x="258" y="548" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10.5" font-weight="800" fill="#FBF5A7">AI Moderated</text>
+</g>
+<g id="Outfit_Image_Area_2">
+<rect id="Image_Surface_2" x="36" y="574" width="303" height="148" rx="14" fill="#3A2447"/>
+<g id="Garment_Top_2" transform="translate(50 586) scale(1.1200)">
+<path id="Silhouette_4" d="M30 14 L12 26 L16 90 H45 V32 L50 24 L55 32 V90 H84 L88 26 L70 14 L60 12 L50 24 L40 12 Z" fill="#FDD78B" stroke="#24152C" stroke-width="1.16" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail_4" d="M50 24 V90 M22 62 H38 M62 62 H78" fill="none" stroke="#24152C" stroke-width="1.16" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+<g id="Garment_Bottom_2" transform="translate(160 590) scale(1.0400)">
+<path id="Silhouette_5" d="M30 10 H70 L75 90 H56 L50 38 L44 90 H25 Z" fill="#DECFE8" stroke="#24152C" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail_5" d="M30 18 H70 M50 18 V38" fill="none" stroke="#24152C" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+<g id="Garment_Shoes_2" transform="translate(252 634) scale(0.7800)">
+<path id="Silhouette_6" d="M10 64 Q12 50 28 52 L46 56 Q60 42 72 54 L90 62 Q94 72 86 76 H14 Q8 72 10 64 Z" fill="#FBF5A7" stroke="#24152C" stroke-width="1.67" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail_6" d="M12 70 H88 M40 56 L44 62 M48 54 L52 60" fill="none" stroke="#24152C" stroke-width="1.67" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+<g id="Hybrid_Badge_2">
+<rect id="Badge_Surface_4" x="48" y="690" width="90" height="22" rx="11" fill="#FBF5A7"/>
+<text id="Badge_Label_4" x="93" y="705" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10.5" font-weight="800" fill="#24152C" text-anchor="middle">Hybrid 86%</text>
+</g>
+</g>
+<text id="Caption_2" x="36" y="744" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="400" fill="#FDF3D2"><tspan x="36">Peach overshirt for Friday meetings —</tspan><tspan x="36" dy="17">zero new purchases this month!</tspan></text>
+<rect id="Divider_2" x="36" y="772" width="303" height="1" fill="#4B1D6F"/>
+<g id="Rating_Row_2">
+<text id="Rate_Label_2" x="36" y="797" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#DECFE8">Rate</text>
+<g id="Star_Rating_1_to_5_2">
+<g id="Icon_Star_1_2" transform="translate(68 784) scale(0.6667)">
+<path id="Vector_12" d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z" fill="#FBF5A7" stroke="#FBF5A7" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<g id="Icon_Star_2_2" transform="translate(88 784) scale(0.6667)">
+<path id="Vector_13" d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z" fill="#FBF5A7" stroke="#FBF5A7" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<g id="Icon_Star_3_2" transform="translate(108 784) scale(0.6667)">
+<path id="Vector_14" d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z" fill="#FBF5A7" stroke="#FBF5A7" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<g id="Icon_Star_4_2" transform="translate(128 784) scale(0.6667)">
+<path id="Vector_15" d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z" fill="#FBF5A7" stroke="#FBF5A7" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<g id="Icon_Star_5_2" transform="translate(148 784) scale(0.6667)">
+<path id="Vector_16" d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z" fill="#FBF5A7" stroke="#FBF5A7" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+<text id="Rating_Summary_2" x="172" y="797" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="600" fill="#DECFE8">4.6 · 38 ratings</text>
+</g>
+<g id="Engagement_Actions_2">
+<g id="Like_Button_2">
+<g id="Icon_Heart_2" transform="translate(36 812) scale(0.7500)">
+<path id="Vector_17" d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" fill="#FDD78B" stroke="#FDD78B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Like_Count_2" x="60" y="826" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="700" fill="#FDF3D2">98</text>
+</g>
+<g id="Save_Button_2">
+<g id="Icon_Bookmark_2" transform="translate(104 812) scale(0.7500)">
+<path id="Vector_18" d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" fill="none" stroke="#FDF3D2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Save_Count_2" x="128" y="826" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="700" fill="#FDF3D2">22</text>
+</g>
+<g id="Share_Button_2">
+<g id="Icon_Share_2" transform="translate(168 812) scale(0.7500)">
+<path id="Vector_19" d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7 M16 6l-4-4-4 4 M12 2v13" fill="none" stroke="#FDF3D2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+<text id="Your_Rating_2" x="339" y="826" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="800" fill="#FBF5A7" text-anchor="end">You rated 5 / 5</text>
+</g>
+</g>
+<g id="Bottom_Navigation_Bar">
+<rect id="Nav_Surface" x="0" y="728" width="375" height="84" fill="#2E1B38"/>
+<rect id="Nav_Top_Hairline" x="0" y="728" width="375" height="1" fill="#4B1D6F"/>
+<g id="Tab_Home">
+<g id="Icon_Home" transform="translate(26.5 744) scale(0.9167)">
+<path id="Vector_20" d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" fill="none" stroke="#DECFE8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label" x="37.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="600" fill="#DECFE8" text-anchor="middle" opacity="0.75">Home</text>
+</g>
+<g id="Tab_Wardrobe">
+<g id="Icon_Shirt" transform="translate(101.5 744) scale(0.9167)">
+<path id="Vector_21" d="M8 3L3 6l2 4.5 2-1V21h10V9.5l2 1L21 6l-5-3a4 4 0 0 1-8 0z" fill="none" stroke="#DECFE8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_2" x="112.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="600" fill="#DECFE8" text-anchor="middle" opacity="0.75">Wardrobe</text>
+</g>
+<g id="Tab_Outfit_AI_Center_Badge">
+<circle id="Badge_Glow" cx="187.5" cy="740" r="31" fill="#FBF5A7" opacity="0.12"/>
+<circle id="Badge_Circle" cx="187.5" cy="740" r="24" fill="#FBF5A7" stroke="#4B1D6F" stroke-width="1.5"/>
+<g id="Icon_Sparkles" transform="translate(176.5 729) scale(0.9167)">
+<path id="Vector_22" d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z M18.5 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="none" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_3" x="187.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="800" fill="#DECFE8" text-anchor="middle" opacity="0.75">Outfit</text>
+</g>
+<g id="Tab_Community">
+<rect id="Active_Indicator_Pill" x="252.5" y="729" width="20" height="3" rx="1.5" fill="#FBF5A7"/>
+<g id="Icon_People" transform="translate(251.5 744) scale(0.9167)">
+<path id="Vector_23" d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M2 21v-1a7 7 0 0 1 14 0v1 M16 3.2a4 4 0 0 1 0 7.6 M22 21v-1a7 7 0 0 0-4-6.3" fill="#FBF5A7" fill-opacity="0.2" stroke="#FBF5A7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_4" x="262.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="800" fill="#FBF5A7" text-anchor="middle" opacity="1">Community</text>
+</g>
+<g id="Tab_Account">
+<g id="Icon_Person" transform="translate(326.5 744) scale(0.9167)">
+<path id="Vector_24" d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z M4 21v-.5a8 8 0 0 1 16 0v.5" fill="none" stroke="#DECFE8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_5" x="337.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="600" fill="#DECFE8" text-anchor="middle" opacity="0.75">Account</text>
+</g>
+</g>
+<rect id="Home_Indicator" x="120.5" y="799" width="134" height="5" rx="2.5" fill="#FDF3D2"/>
+</g>
+</svg>

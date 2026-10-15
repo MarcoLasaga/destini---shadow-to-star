@@ -80,7 +80,7 @@ export default function SavedOutfitsScreen() {
             onPress={() => navigation.navigate('Outfit')}
             style={[styles.generateButton, { backgroundColor: theme.secondaryAccent }]}
           >
-            <Text style={styles.generateLabel}>Generate Outfit</Text>
+            <Text style={[styles.generateLabel, { color: theme.onAccent }]}>Generate Outfit</Text>
           </Pressable>
         </Animated.View>
       ) : (
@@ -260,7 +260,7 @@ export default function SavedOutfitsScreen() {
                 onPress={handleSaveRename}
                 style={[styles.modalBtn, { backgroundColor: theme.secondaryAccent }]}
               >
-                <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>Save</Text>
+                <Text style={{ color: theme.onAccent, fontWeight: '700', fontSize: 14 }}>Save</Text>
               </Pressable>
             </View>
           </View>

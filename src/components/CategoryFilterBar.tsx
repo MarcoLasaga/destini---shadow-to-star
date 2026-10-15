@@ -32,7 +32,7 @@ export default function CategoryFilterBar({
               },
             ]}
           >
-            <Text style={[styles.label, { color: isActive ? '#FFFFFF' : theme.textMuted }]}>{category}</Text>
+            <Text style={[styles.label, { color: isActive ? theme.onAccent : theme.textMuted }]}>{category}</Text>
           </Pressable>
         );
       })}

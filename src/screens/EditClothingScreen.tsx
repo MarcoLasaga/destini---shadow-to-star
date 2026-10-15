@@ -105,7 +105,7 @@ export default function EditClothingScreen() {
           <ChipGroup label="Seasons" options={SEASON_OPTIONS} selected={seasons} onToggle={toggleSeason} />
 
           <Pressable onPress={handleSave} style={[styles.saveButton, { backgroundColor: theme.secondaryAccent }]}>
-            <Text style={styles.saveLabel}>Update Item</Text>
+            <Text style={[styles.saveLabel, { color: theme.onAccent }]}>Update Item</Text>
           </Pressable>
         </View>
       </ScrollView>

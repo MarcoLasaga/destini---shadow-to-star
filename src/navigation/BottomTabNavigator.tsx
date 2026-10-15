@@ -43,8 +43,8 @@ export default function BottomTabNavigator() {
   const theme = useAppTheme();
   const isDark = theme.mode === 'dark';
 
-  const activeColor = isDark ? '#D4AF37' : theme.secondaryAccent;
-  const inactiveColor = isDark ? '#7A7686' : '#9A94AE';
+  const activeColor = theme.secondaryAccent;
+  const inactiveColor = theme.textMuted;
 
   return (
     <Tab.Navigator
@@ -128,16 +128,16 @@ export default function BottomTabNavigator() {
                   style={[
                     styles.centerBadge,
                     {
-                      backgroundColor: isDark ? (isFocused ? '#2D2A3E' : '#1C1E26') : (isFocused ? '#4A4458' : '#2A2634'),
-                      borderColor: isFocused ? (isDark ? '#D4AF37' : '#D4AF37') : (isDark ? '#6366F1' : '#E5E0D8'),
-                      shadowColor: isDark ? '#6366F1' : '#000000',
+                      backgroundColor: isDark ? '#FBF5A7' : '#24152C',
+                      borderColor: isFocused ? '#FDD78B' : theme.border,
+                      shadowColor: '#24152C',
                     },
                   ]}
                 >
                   <Ionicons
                     name={isFocused ? 'sparkles' : 'sparkles-outline'}
                     size={22}
-                    color={isFocused ? '#D4AF37' : '#FFFFFF'}
+                    color={isDark ? '#24152C' : '#FBF5A7'}
                   />
                 </View>
                 <Text

@@ -111,7 +111,7 @@ function mapOutfit(outfit: ApiOutfit, index: number, weather?: WeatherData | nul
       image: item.image_url || '',
     })),
     colorPalette: [
-      { name: outfit.items[0]?.color || 'Neutral', hex: '#6366F1' },
+      { name: outfit.items[0]?.color || 'Neutral', hex: '#4B1D6F' },
       { name: outfit.items[1]?.color || 'Slate', hex: '#64748B' },
       { name: 'Accent', hex: '#F59E0B' },
     ],

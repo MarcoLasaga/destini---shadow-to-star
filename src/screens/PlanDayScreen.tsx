@@ -184,10 +184,10 @@ export default function PlanDayScreen() {
                 },
               ]}
             >
-              <Text style={[styles.dayPillName, { color: isSelected ? '#FFFFFF' : theme.textMuted }]}>
+              <Text style={[styles.dayPillName, { color: isSelected ? theme.onAccent : theme.textMuted }]}>
                 {d.dayName}
               </Text>
-              <Text style={[styles.dayPillNumber, { color: isSelected ? '#FFFFFF' : theme.text }]}>
+              <Text style={[styles.dayPillNumber, { color: isSelected ? theme.onAccent : theme.text }]}>
                 {d.dayNumber}
               </Text>
               {hasPlan && (
@@ -232,7 +232,7 @@ export default function PlanDayScreen() {
               </View>
               {activePlan.outfit.worn ? (
                 <View style={styles.wornTag}>
-                  <Ionicons name="checkmark-circle" size={14} color="#FFFFFF" />
+                  <Ionicons name="checkmark-circle" size={14} color={theme.onAccent} />
                   <Text style={styles.wornTagText}>Worn</Text>
                 </View>
               ) : (
@@ -268,8 +268,8 @@ export default function PlanDayScreen() {
             <View style={styles.actionsRow}>
               {!activePlan.outfit.worn && (
                 <Pressable onPress={handleMarkWorn} style={[styles.actionBtn, { backgroundColor: theme.secondaryAccent }]}>
-                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                  <Text style={styles.actionBtnText}>Mark as Worn</Text>
+                  <Ionicons name="checkmark" size={16} color={theme.onAccent} />
+                  <Text style={[styles.actionBtnText, { color: theme.onAccent }]}>Mark as Worn</Text>
                 </Pressable>
               )}
               <Pressable
@@ -301,8 +301,8 @@ export default function PlanDayScreen() {
               onPress={() => setPickerModalVisible(true)}
               style={[styles.planButton, { backgroundColor: theme.secondaryAccent }]}
             >
-              <Ionicons name="add" size={16} color="#FFFFFF" />
-              <Text style={styles.planButtonText}>Plan Outfit for this Date</Text>
+              <Ionicons name="add" size={16} color={theme.onAccent} />
+              <Text style={[styles.planButtonText, { color: theme.onAccent }]}>Plan Outfit for this Date</Text>
             </Pressable>
           </View>
         )}

@@ -33,7 +33,7 @@ export default function ChipGroup({
                 },
               ]}
             >
-              <Text style={[styles.chipText, { color: isActive ? '#FFFFFF' : theme.textMuted }]}>{option}</Text>
+              <Text style={[styles.chipText, { color: isActive ? theme.onAccent : theme.textMuted }]}>{option}</Text>
             </Pressable>
           );
         })}

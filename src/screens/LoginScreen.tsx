@@ -150,7 +150,7 @@ export default function LoginScreen() {
               {loading ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={styles.submitButtonText}>Sign In</Text>
+                <Text style={[styles.submitButtonText, { color: theme.onAccent }]}>Sign In</Text>
               )}
             </Pressable>
           </View>

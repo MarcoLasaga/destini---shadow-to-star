@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="375" height="812" viewBox="0 0 375 812" fill="none">
+<title>Screen_01_Onboarding_Name_and_Style</title>
+<defs>
+<filter id="Card_Shadow" x="-10%" y="-10%" width="120%" height="135%" color-interpolation-filters="sRGB">
+<feDropShadow dx="0" dy="4" stdDeviation="7" flood-color="#24152C" flood-opacity="0.07"/>
+</filter>
+<clipPath id="Screen_Clip"><rect width="375" height="812"/></clipPath>
+</defs>
+<g id="Screen_01_Onboarding_Name_and_Style" clip-path="url(#Screen_Clip)">
+<rect id="Background" x="0" y="0" width="375" height="812" fill="#FAF7F0"/>
+<g id="Status_Bar">
+<text id="Time" x="32" y="31" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="15" font-weight="600" fill="#24152C">9:41</text>
+<g id="Cellular_Signal">
+<rect id="Signal_Bar_1" x="289" y="26" width="3" height="4" rx="1" fill="#24152C"/>
+<rect id="Signal_Bar_2" x="294" y="24" width="3" height="6" rx="1" fill="#24152C"/>
+<rect id="Signal_Bar_3" x="299" y="22" width="3" height="8" rx="1" fill="#24152C"/>
+<rect id="Signal_Bar_4" x="304" y="20" width="3" height="10" rx="1" fill="#24152C"/>
+</g>
+<g id="WiFi">
+<path id="Wifi_Arc_Outer" d="M311.5 22a10.5 10.5 0 0 1 14 0" fill="none" stroke="#24152C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Wifi_Arc_Inner" d="M314.7 25.4a5.5 5.5 0 0 1 7.6 0" fill="none" stroke="#24152C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<circle id="Wifi_Dot" cx="318.5" cy="28.8" r="1.6" fill="#24152C"/>
+</g>
+<g id="Battery">
+<rect id="Battery_Body" x="332" y="20" width="25" height="12" rx="3.5" fill="none" stroke="#24152C" stroke-width="1" opacity="0.5"/>
+<rect id="Battery_Level" x="334" y="22" width="19" height="8" rx="2" fill="#24152C"/>
+<rect id="Battery_Cap" x="358.5" y="24" width="1.8" height="4" rx="0.9" fill="#24152C" opacity="0.5"/>
+</g>
+</g>
+<g id="Header_Bar">
+<g id="Brand_Logo">
+<rect id="Brand_Mark" x="20" y="58" width="34" height="34" rx="11" fill="#FDD78B"/>
+<text id="Brand_Mark_Letter" x="37" y="81" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="18" font-weight="900" fill="#24152C" text-anchor="middle">S</text>
+<text id="Brand_Wordmark" x="63" y="81" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="20" font-weight="800" fill="#24152C"><tspan fill="#24152C">Style</tspan><tspan fill="#4B1D6F">Sense</tspan></text>
+</g>
+<g id="Skip_Link">
+<text id="Skip_Label" x="355" y="80" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="400" fill="#4B1D6F" text-anchor="end">Skip for now</text>
+<rect id="Skip_Underline" x="273" y="84" width="82" height="1" fill="#4B1D6F"/>
+</g>
+</g>
+<g id="Progress_Bar">
+<rect id="Progress_Track" x="20" y="104" width="335" height="4" rx="2" fill="#DECFE8"/>
+<rect id="Progress_Fill" x="20" y="104" width="111.67" height="4" rx="2" fill="#24152C"/>
+</g>
+<g id="Intro_Block">
+<g id="Icon_Bubble">
+<rect id="Bubble" x="163.5" y="128" width="48" height="48" rx="15" fill="#FDD78B"/>
+<g id="Icon_Person" transform="translate(175.5 140) scale(1.0000)">
+<path id="Vector" d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z M4 21v-.5a8 8 0 0 1 16 0v.5" fill="none" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+<text id="Eyebrow" x="187.5" y="202" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="800" fill="#4B1D6F" text-anchor="middle" letter-spacing="1.4">FIRST THINGS FIRST</text>
+<text id="Title" x="187.5" y="236" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="24" font-weight="900" fill="#24152C" text-anchor="middle" letter-spacing="-0.5">What should we call you?</text>
+<text id="Body" x="187.5" y="262" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="400" fill="#4B1D6F" text-anchor="middle"><tspan x="187.5">Your StyleSense space should feel</tspan><tspan x="187.5" dy="19">personal from the very beginning.</tspan></text>
+</g>
+<g id="Name_Input_Field">
+<text id="Field_Label" x="22" y="318" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="700" fill="#24152C">Your name</text>
+<rect id="Input_Surface" x="20" y="328" width="335" height="52" rx="14" fill="#FFFFFF" stroke="#24152C" stroke-width="1.5"/>
+<text id="Input_Value" x="36" y="360" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="17" font-weight="500" fill="#24152C">Alex</text>
+<rect id="Text_Caret" x="74" y="343" width="1.5" height="22" fill="#4B1D6F"/>
+<g id="Valid_Check">
+<circle id="Check_Circle" cx="331" cy="354" r="11" fill="#FDD78B"/>
+<g id="Icon_Check" transform="translate(324 347) scale(0.5833)">
+<path id="Vector_2" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#24152C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+</g>
+<g id="Style_Preference_Section">
+<text id="Section_Title" x="20" y="420" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="17" font-weight="800" fill="#24152C">What feels most like you, Alex?</text>
+<text id="Section_Hint" x="20" y="440" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="400" fill="#4B1D6F">Pick as many as you like — no wrong answers.</text>
+<g id="Style_Choice_Grid">
+<g id="Style_Choice_Easy_casual">
+<rect id="Choice_Surface" x="20" y="454" width="163.5" height="60" rx="14" fill="#DECFE8" stroke="#24152C" stroke-width="1.5"/>
+<rect id="Checkbox" x="32" y="473" width="22" height="22" rx="7" fill="#24152C" stroke="#24152C" stroke-width="1.5"/>
+<g id="Icon_Check_2" transform="translate(36 477) scale(0.5833)">
+<path id="Vector_3" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#FBF5A7" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Choice_Label" x="64" y="481" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="800" fill="#24152C">Easy &amp; casual</text>
+<text id="Choice_Note" x="64" y="498" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">Relaxed everyday</text>
+</g>
+<g id="Style_Choice_Clean_minimal">
+<rect id="Choice_Surface_2" x="191.5" y="454" width="163.5" height="60" rx="14" fill="#DECFE8" stroke="#24152C" stroke-width="1.5"/>
+<rect id="Checkbox_2" x="203.5" y="473" width="22" height="22" rx="7" fill="#24152C" stroke="#24152C" stroke-width="1.5"/>
+<g id="Icon_Check_3" transform="translate(207.5 477) scale(0.5833)">
+<path id="Vector_4" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#FBF5A7" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Choice_Label_2" x="235.5" y="481" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="800" fill="#24152C">Clean &amp; minimal</text>
+<text id="Choice_Note_2" x="235.5" y="498" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">Simple, considered</text>
+</g>
+<g id="Style_Choice_Streetwear">
+<rect id="Choice_Surface_3" x="20" y="522" width="163.5" height="60" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1.5"/>
+<rect id="Checkbox_3" x="32" y="541" width="22" height="22" rx="7" fill="none" stroke="#DECFE8" stroke-width="1.5"/>
+<text id="Choice_Label_3" x="64" y="549" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="800" fill="#24152C">Streetwear</text>
+<text id="Choice_Note_3" x="64" y="566" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">Statement layers</text>
+</g>
+<g id="Style_Choice_Classic">
+<rect id="Choice_Surface_4" x="191.5" y="522" width="163.5" height="60" rx="14" fill="#DECFE8" stroke="#24152C" stroke-width="1.5"/>
+<rect id="Checkbox_4" x="203.5" y="541" width="22" height="22" rx="7" fill="#24152C" stroke="#24152C" stroke-width="1.5"/>
+<g id="Icon_Check_4" transform="translate(207.5 545) scale(0.5833)">
+<path id="Vector_5" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#FBF5A7" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Choice_Label_4" x="235.5" y="549" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="800" fill="#24152C">Classic</text>
+<text id="Choice_Note_4" x="235.5" y="566" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">Timeless polish</text>
+</g>
+<g id="Style_Choice_Creative">
+<rect id="Choice_Surface_5" x="20" y="590" width="163.5" height="60" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1.5"/>
+<rect id="Checkbox_5" x="32" y="609" width="22" height="22" rx="7" fill="none" stroke="#DECFE8" stroke-width="1.5"/>
+<text id="Choice_Label_5" x="64" y="617" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="800" fill="#24152C">Creative</text>
+<text id="Choice_Note_5" x="64" y="634" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">Colour &amp; texture</text>
+</g>
+<g id="Style_Choice_Soft_romantic">
+<rect id="Choice_Surface_6" x="191.5" y="590" width="163.5" height="60" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1.5"/>
+<rect id="Checkbox_6" x="203.5" y="609" width="22" height="22" rx="7" fill="none" stroke="#DECFE8" stroke-width="1.5"/>
+<text id="Choice_Label_6" x="235.5" y="617" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="800" fill="#24152C">Soft &amp; romantic</text>
+<text id="Choice_Note_6" x="235.5" y="634" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">Flowy details</text>
+</g>
+</g>
+</g>
+<g id="Footer_Navigation">
+<rect id="Footer_Hairline" x="20" y="712" width="335" height="1" fill="#DECFE8"/>
+<g id="Back_Button">
+<g id="Icon_ArrowLeft" transform="translate(20 743) scale(0.7500)">
+<path id="Vector_6" d="M19 12H5 M12 19l-7-7 7-7" fill="none" stroke="#4B1D6F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Back_Label" x="44" y="757" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="700" fill="#4B1D6F">Back</text>
+</g>
+<text id="Step_Counter" x="168" y="757" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="400" fill="#4B1D6F" text-anchor="middle">2 of 4</text>
+<g id="Continue_Button">
+<rect id="Button_Surface" x="225" y="730" width="130" height="44" rx="22" fill="#24152C"/>
+<g id="Icon_ArrowRight" transform="translate(244.9 743.5) scale(0.7083)">
+<path id="Vector_7" d="M5 12h14 M12 5l7 7-7 7" fill="none" stroke="#FBF5A7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Button_Label" x="267.9" y="757.04" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="800" fill="#FBF5A7">Continue</text>
+</g>
+</g>
+<rect id="Home_Indicator" x="120.5" y="799" width="134" height="5" rx="2.5" fill="#24152C"/>
+</g>
+</svg>

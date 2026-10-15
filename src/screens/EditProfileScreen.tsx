@@ -48,7 +48,7 @@ export default function EditProfileScreen() {
             <Text style={[styles.cancelLabel, { color: theme.text }]}>Cancel</Text>
           </Pressable>
           <Pressable onPress={handleSave} style={[styles.saveButton, { backgroundColor: theme.secondaryAccent }]}>
-            <Text style={styles.saveLabel}>Save</Text>
+            <Text style={[styles.saveLabel, { color: theme.onAccent }]}>Save</Text>
           </Pressable>
         </View>
       </ScrollView>

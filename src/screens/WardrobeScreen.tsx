@@ -168,9 +168,7 @@ export default function WardrobeScreen() {
               styles.itemCount,
               {
                 color: selectionMode
-                  ? theme.mode === 'dark'
-                    ? '#6366F1'
-                    : theme.secondaryAccent
+                  ? theme.text
                   : theme.textMuted,
                 fontWeight: selectionMode ? '700' : '500',
               },
@@ -197,8 +195,8 @@ export default function WardrobeScreen() {
               onPress={() => navigation.navigate('AddClothes')}
               style={[styles.addButton, { backgroundColor: theme.secondaryAccent }]}
             >
-              <Ionicons name="add" size={16} color="#FFFFFF" />
-              <Text style={styles.addLabel}>Add Clothes</Text>
+              <Ionicons name="add" size={16} color={theme.onAccent} />
+              <Text style={[styles.addLabel, { color: theme.onAccent }]}>Add Clothes</Text>
             </Pressable>
           )}
         </View>
@@ -219,12 +217,12 @@ export default function WardrobeScreen() {
           <Ionicons
             name="options-outline"
             size={16}
-            color={activeFilterCount > 0 ? '#FFFFFF' : theme.text}
+            color={activeFilterCount > 0 ? theme.onAccent : theme.text}
           />
           <Text
             style={[
               styles.filterByButtonText,
-              { color: activeFilterCount > 0 ? '#FFFFFF' : theme.text },
+              { color: activeFilterCount > 0 ? theme.onAccent : theme.text },
             ]}
           >
             Filter By {activeFilterCount > 0 ? `(${activeFilterCount})` : ''}
@@ -232,7 +230,7 @@ export default function WardrobeScreen() {
           <Ionicons
             name="chevron-down"
             size={14}
-            color={activeFilterCount > 0 ? '#FFFFFF' : theme.textMuted}
+            color={activeFilterCount > 0 ? theme.onAccent : theme.textMuted}
           />
         </Pressable>
 
@@ -335,7 +333,7 @@ export default function WardrobeScreen() {
                 onPress={resetFilters}
                 style={[styles.resetButton, { backgroundColor: theme.secondaryAccent }]}
               >
-                <Text style={styles.resetButtonText}>Reset All Filters</Text>
+                <Text style={[styles.resetButtonText, { color: theme.onAccent }]}>Reset All Filters</Text>
               </Pressable>
             )}
           </View>
@@ -428,7 +426,7 @@ export default function WardrobeScreen() {
                           },
                         ]}
                       >
-                        <Text style={[styles.optionPillText, { color: isSelected ? '#FFFFFF' : theme.text }]}>
+                        <Text style={[styles.optionPillText, { color: isSelected ? theme.onAccent : theme.text }]}>
                           {label}
                         </Text>
                       </Pressable>
@@ -456,7 +454,7 @@ export default function WardrobeScreen() {
                           },
                         ]}
                       >
-                        <Text style={[styles.optionPillText, { color: isSelected ? '#FFFFFF' : theme.text }]}>
+                        <Text style={[styles.optionPillText, { color: isSelected ? theme.onAccent : theme.text }]}>
                           {label}
                         </Text>
                       </Pressable>
@@ -485,7 +483,7 @@ export default function WardrobeScreen() {
                           },
                         ]}
                       >
-                        <Text style={[styles.optionPillText, { color: isSelected ? '#FFFFFF' : theme.text }]}>
+                        <Text style={[styles.optionPillText, { color: isSelected ? theme.onAccent : theme.text }]}>
                           {label}
                         </Text>
                       </Pressable>
@@ -526,7 +524,7 @@ export default function WardrobeScreen() {
                 onPress={() => setFilterModalVisible(false)}
                 style={[styles.modalApplyButton, { backgroundColor: theme.secondaryAccent }]}
               >
-                <Text style={styles.modalApplyText}>
+                <Text style={[styles.modalApplyText, { color: theme.onAccent }]}>
                   Show {filtered.length} {filtered.length === 1 ? 'Item' : 'Items'}
                 </Text>
               </Pressable>

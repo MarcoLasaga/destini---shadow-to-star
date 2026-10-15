@@ -3,8 +3,9 @@ import { View, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackNavigationOptions } from '@react-navigation/native-stack';
+import { navigationRef } from './navigationRef';
 import BottomTabNavigator from './BottomTabNavigator';
-import PlaceholderScreen from '../screens/PlaceholderScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 import ClothingDetailsScreen from '../screens/ClothingDetailsScreen';
 import EditClothingScreen from '../screens/EditClothingScreen';
 import AddClothesScreen from '../screens/AddClothesScreen';
@@ -28,7 +29,7 @@ import { useAuth } from '../contexts/AuthContext';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const screenOptions: NativeStackNavigationOptions = {
-  headerShown: true,
+  headerShown: false,
   headerBackTitle: 'Back',
   headerShadowVisible: false,
 };
@@ -52,7 +53,7 @@ export default function RootNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator screenOptions={screenOptions}>
         {!onboardingComplete ? (
           <>
@@ -65,11 +66,9 @@ export default function RootNavigator() {
         ) : isLoggedIn ? (
           <>
             <Stack.Screen name="MainTabs" component={BottomTabNavigator} options={{ headerShown: false }} />
-            <Stack.Screen name="Notifications" options={{ title: 'Notifications' }}>
-              {() => <PlaceholderScreen title="Notifications" />}
-            </Stack.Screen>
+            <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
             <Stack.Screen name="AddClothes" component={AddClothesScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="GenerateOutfit" options={{ title: 'Generate Outfit' }}>
+            <Stack.Screen name="GenerateOutfit" options={{ headerShown: false }}>
               {() => <OutfitScreen />}
             </Stack.Screen>
             <Stack.Screen name="PlanDay" component={PlanDayScreen} options={{ headerShown: false }} />

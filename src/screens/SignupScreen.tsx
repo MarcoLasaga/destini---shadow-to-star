@@ -191,7 +191,7 @@ export default function SignupScreen() {
               {loading ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={styles.submitButtonText}>Create Account</Text>
+                <Text style={[styles.submitButtonText, { color: theme.onAccent }]}>Create Account</Text>
               )}
             </Pressable>
           </View>

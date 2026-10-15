@@ -1,9 +1,10 @@
 import 'react-native-gesture-handler';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { LogBox } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { initNotifications } from './src/services/notificationService';
 
 LogBox.ignoreLogs([
   "The action 'RESET' with payload",
@@ -25,6 +26,11 @@ const queryClient = new QueryClient();
 
 function AppContent() {
   const theme = useAppTheme();
+
+  useEffect(() => {
+    initNotifications();
+  }, []);
+
   return (
     <>
       <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />

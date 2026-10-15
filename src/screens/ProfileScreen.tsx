@@ -64,7 +64,7 @@ export default function ProfileScreen() {
               </View>
             )}
             <Pressable onPress={handleAvatarPress} style={[styles.cameraBadge, { backgroundColor: theme.secondaryAccent }]}>
-              <Ionicons name="camera" size={14} color="#FFFFFF" />
+              <Ionicons name="camera" size={14} color={theme.onAccent} />
             </Pressable>
           </View>
 

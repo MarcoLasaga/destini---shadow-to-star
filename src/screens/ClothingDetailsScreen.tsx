@@ -51,7 +51,7 @@ export default function ClothingDetailsScreen() {
               onPress={() => navigation.navigate('EditClothing', { id: item.id })}
               style={[styles.editButton, { backgroundColor: theme.secondaryAccent }]}
             >
-              <Ionicons name="create-outline" size={16} color="#FFFFFF" />
+              <Ionicons name="create-outline" size={16} color={theme.onAccent} />
             </Pressable>
           </View>
 

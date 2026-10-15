@@ -12,6 +12,7 @@ import OccasionDropdown from '../components/OccasionDropdown';
 import OutfitRecommendationStatsBar from '../components/OutfitRecommendationStatsBar';
 import OutfitPreviewCard from '../components/OutfitPreviewCard';
 import OutfitLoadingView from '../components/OutfitLoadingView';
+import { triggerWeatherAlertOncePerSession } from '../services/notificationService';
 
 const MIN_CLEAN_ITEMS = 2;
 
@@ -41,6 +42,17 @@ export default function OutfitScreen() {
     }
   }, [hasEnoughClothes]);
 
+  useEffect(() => {
+    if (weather) {
+      const tempC = weather.tempC ?? Math.round((weather.tempF - 32) * (5 / 9));
+      triggerWeatherAlertOncePerSession(
+        tempC,
+        weather.condition || 'Clear',
+        weather.location || 'Makati'
+      );
+    }
+  }, [weather]);
+
   if (!hasEnoughClothes) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
@@ -59,7 +71,7 @@ export default function OutfitScreen() {
             onPress={() => navigation.navigate('AddClothes')}
             style={[styles.addButton, { backgroundColor: theme.secondaryAccent }]}
           >
-            <Text style={styles.addButtonLabel}>Add Clothes to Wardrobe</Text>
+            <Text style={[styles.addButtonLabel, { color: theme.onAccent }]}>Add Clothes to Wardrobe</Text>
           </Pressable>
         </Animated.View>
       </SafeAreaView>
@@ -128,7 +140,7 @@ export default function OutfitScreen() {
               <Ionicons
                 name="leaf-outline"
                 size={18}
-                color={noNewClothesMode ? '#FFFFFF' : theme.secondaryAccent}
+                color={noNewClothesMode ? theme.onAccent : theme.secondaryAccent}
               />
             </View>
             <View style={{ flex: 1 }}>
@@ -136,7 +148,7 @@ export default function OutfitScreen() {
                 <Text style={[styles.modeTitle, { color: theme.text }]}>No New Clothes Mode</Text>
                 {noNewClothesMode && (
                   <View style={styles.activePill}>
-                    <Text style={styles.activePillText}>100% Reuse</Text>
+                    <Text style={[styles.activePillText, { color: theme.onAccent }]}>100% Reuse</Text>
                   </View>
                 )}
               </View>
@@ -169,8 +181,8 @@ export default function OutfitScreen() {
               { backgroundColor: theme.secondaryAccent, opacity: isLoading ? 0.6 : 1 },
             ]}
           >
-            <Ionicons name="sparkles" size={16} color="#FFFFFF" />
-            <Text style={styles.generateLabel}>Generate Top-3 Outfits</Text>
+            <Ionicons name="sparkles" size={16} color={theme.onAccent} />
+            <Text style={[styles.generateLabel, { color: theme.onAccent }]}>Generate Top-3 Outfits</Text>
           </Pressable>
           <Pressable
             onPress={surpriseMe}
@@ -209,7 +221,7 @@ export default function OutfitScreen() {
                     <Text
                       style={[
                         styles.rankBadgeText,
-                        { color: index === 0 ? '#FFFFFF' : theme.text },
+                        { color: index === 0 ? theme.onAccent : theme.text },
                       ]}
                     >
                       Choice #{index + 1}

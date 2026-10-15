@@ -8,6 +8,7 @@ import {
   getRecommendationHistory,
   updateRecommendation,
 } from '../services/outfitRecommendationService';
+import { triggerSmartAlert } from '../services/notificationService';
 
 interface OutfitContextValue {
   occasion: string;
@@ -97,6 +98,14 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
     setNoNewClothesMode((prev) => {
       const next = !prev;
       runWithLoading(occasion, next);
+      if (next) {
+        triggerSmartAlert({
+          type: 'Sustainability',
+          title: '♻ No New Clothes Mode Active',
+          body: 'Prioritizing unworn clothes in your closet (-18 recency filter enabled).',
+          targetRoute: 'Wardrobe',
+        }).catch(console.error);
+      }
       return next;
     });
   }, [occasion, runWithLoading]);

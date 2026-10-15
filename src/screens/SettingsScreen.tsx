@@ -112,8 +112,8 @@ export default function SettingsScreen() {
                 onPress={() => setThemePreference('light')}
                 style={[styles.themeOption, themePreference === 'light' && { backgroundColor: theme.secondaryAccent }]}
               >
-                <Ionicons name="sunny" size={13} color={themePreference === 'light' ? '#FFFFFF' : theme.textMuted} />
-                <Text style={[styles.themeOptionText, { color: themePreference === 'light' ? '#FFFFFF' : theme.textMuted }]}>
+                <Ionicons name="sunny" size={13} color={themePreference === 'light' ? theme.onAccent : theme.textMuted} />
+                <Text style={[styles.themeOptionText, { color: themePreference === 'light' ? theme.onAccent : theme.textMuted }]}>
                   Light
                 </Text>
               </Pressable>
@@ -121,8 +121,8 @@ export default function SettingsScreen() {
                 onPress={() => setThemePreference('dark')}
                 style={[styles.themeOption, themePreference === 'dark' && { backgroundColor: theme.secondaryAccent }]}
               >
-                <Ionicons name="moon" size={13} color={themePreference === 'dark' ? '#FFFFFF' : theme.textMuted} />
-                <Text style={[styles.themeOptionText, { color: themePreference === 'dark' ? '#FFFFFF' : theme.textMuted }]}>
+                <Ionicons name="moon" size={13} color={themePreference === 'dark' ? theme.onAccent : theme.textMuted} />
+                <Text style={[styles.themeOptionText, { color: themePreference === 'dark' ? theme.onAccent : theme.textMuted }]}>
                   Dark
                 </Text>
               </Pressable>

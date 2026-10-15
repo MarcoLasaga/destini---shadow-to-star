@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="375" height="812" viewBox="0 0 375 812" fill="none">
+<title>Screen_03_Wardrobe</title>
+<defs>
+<filter id="Card_Shadow" x="-10%" y="-10%" width="120%" height="135%" color-interpolation-filters="sRGB">
+<feDropShadow dx="0" dy="4" stdDeviation="7" flood-color="#24152C" flood-opacity="0.07"/>
+</filter>
+<clipPath id="Screen_Clip"><rect width="375" height="812"/></clipPath>
+</defs>
+<g id="Screen_03_Wardrobe" clip-path="url(#Screen_Clip)">
+<rect id="Background" x="0" y="0" width="375" height="812" fill="#FAF7F0"/>
+<g id="Status_Bar">
+<text id="Time" x="32" y="31" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="15" font-weight="600" fill="#24152C">9:41</text>
+<g id="Cellular_Signal">
+<rect id="Signal_Bar_1" x="289" y="26" width="3" height="4" rx="1" fill="#24152C"/>
+<rect id="Signal_Bar_2" x="294" y="24" width="3" height="6" rx="1" fill="#24152C"/>
+<rect id="Signal_Bar_3" x="299" y="22" width="3" height="8" rx="1" fill="#24152C"/>
+<rect id="Signal_Bar_4" x="304" y="20" width="3" height="10" rx="1" fill="#24152C"/>
+</g>
+<g id="WiFi">
+<path id="Wifi_Arc_Outer" d="M311.5 22a10.5 10.5 0 0 1 14 0" fill="none" stroke="#24152C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Wifi_Arc_Inner" d="M314.7 25.4a5.5 5.5 0 0 1 7.6 0" fill="none" stroke="#24152C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<circle id="Wifi_Dot" cx="318.5" cy="28.8" r="1.6" fill="#24152C"/>
+</g>
+<g id="Battery">
+<rect id="Battery_Body" x="332" y="20" width="25" height="12" rx="3.5" fill="none" stroke="#24152C" stroke-width="1" opacity="0.5"/>
+<rect id="Battery_Level" x="334" y="22" width="19" height="8" rx="2" fill="#24152C"/>
+<rect id="Battery_Cap" x="358.5" y="24" width="1.8" height="4" rx="0.9" fill="#24152C" opacity="0.5"/>
+</g>
+</g>
+<g id="Header_Bar">
+<text id="Screen_Title" x="20" y="92" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="28" font-weight="900" fill="#24152C" letter-spacing="-0.6">Wardrobe</text>
+<text id="Item_Count" x="20" y="114" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="400" fill="#4B1D6F">48 items · 36 clean</text>
+<g id="Search_Button">
+<circle id="Button_Circle" cx="335" cy="86" r="20" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<g id="Icon_Search" transform="translate(326 77) scale(0.7500)">
+<path id="Vector_2" d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z M21 21l-4.3-4.3" fill="none" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+</g>
+<g id="Capture_Actions">
+<g id="Take_Photo_Camera_Button">
+<rect id="Button_Surface" x="20" y="130" width="164" height="46" rx="14" fill="#24152C"/>
+<g id="Icon_Camera" transform="translate(23.1 145.5) scale(0.6250)">
+<path id="Vector_3" d="M22 18a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.5a2 2 0 0 1 2-2h3.5L9.5 4h5l2 2.5H20a2 2 0 0 1 2 2z M12 16.5a3.8 3.8 0 1 0 0-7.6 3.8 3.8 0 0 0 0 7.6z" fill="none" stroke="#FBF5A7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Button_Label" x="44.1" y="157.32" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="800" fill="#FBF5A7">Take Photo (Camera)</text>
+</g>
+<g id="Upload_From_Gallery_Button">
+<rect id="Button_Surface_2" x="191" y="130" width="164" height="46" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<g id="Icon_Image" transform="translate(194.1 145.5) scale(0.6250)">
+<path id="Vector_4" d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M8.5 10.5a1.8 1.8 0 1 0 0-3.6 1.8 1.8 0 0 0 0 3.6z M21 15.5l-5-5L5 20" fill="none" stroke="#24152C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Button_Label_2" x="215.1" y="157.32" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="800" fill="#24152C">Upload from Gallery</text>
+</g>
+</g>
+<g id="Filter_Bar">
+<g id="Filter_By_Dropdown_Button">
+<rect id="Button_Surface_3" x="20" y="188" width="150" height="38" rx="19" fill="#24152C"/>
+<g id="Icon_Options" transform="translate(34 199) scale(0.6667)">
+<path id="Vector_5" d="M4 6h16 M7 12h10 M10 18h4" fill="none" stroke="#FBF5A7" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Button_Label_3" x="56" y="212" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="800" fill="#FBF5A7">Filter By (2)</text>
+<g id="Icon_ChevronUp" transform="translate(146 199) scale(0.6667)">
+<path id="Vector_6" d="M18 15l-6-6-6 6" fill="none" stroke="#FBF5A7" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+<text id="Reset_Link" x="184" y="212" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#4B1D6F">Reset</text>
+<text id="Sort_Label" x="355" y="212" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#24152C" text-anchor="end">Sort: Recent</text>
+</g>
+<g id="Filter_By_Dropdown_Panel">
+<rect id="Card_Surface" x="20" y="236" width="335" height="314" rx="18" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1" filter="url(#Card_Shadow)"/>
+<text id="Category_Label" x="36" y="261" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="800" fill="#4B1D6F" letter-spacing="1.3">CATEGORY</text>
+<g id="Category_Options">
+<g id="Pill_TOP">
+<rect id="Pill_Surface" x="36" y="270" width="46" height="28" rx="14" fill="#24152C" stroke="#24152C" stroke-width="1"/>
+<text id="Pill_Label" x="59" y="287.96" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#FBF5A7" text-anchor="middle">TOP</text>
+</g>
+<g id="Pill_BOTTOM">
+<rect id="Pill_Surface_2" x="88" y="270" width="69" height="28" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Pill_Label_2" x="122.5" y="287.96" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#24152C" text-anchor="middle">BOTTOM</text>
+</g>
+<g id="Pill_SHOES">
+<rect id="Pill_Surface_3" x="163" y="270" width="61" height="28" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Pill_Label_3" x="193.5" y="287.96" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#24152C" text-anchor="middle">SHOES</text>
+</g>
+<g id="Pill_OUTERWEAR">
+<rect id="Pill_Surface_4" x="230" y="270" width="91" height="28" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Pill_Label_4" x="275.5" y="287.96" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#24152C" text-anchor="middle">OUTERWEAR</text>
+</g>
+<g id="Pill_ACCESSORIES">
+<rect id="Pill_Surface_5" x="36" y="304" width="106" height="28" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Pill_Label_5" x="89" y="321.96" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#24152C" text-anchor="middle">ACCESSORIES</text>
+</g>
+</g>
+<text id="Occasion_Label" x="36" y="357" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="800" fill="#4B1D6F" letter-spacing="1.3">OCCASION</text>
+<g id="Occasion_Options">
+<g id="Pill_Academic">
+<rect id="Pill_Surface_6" x="36" y="366" width="77" height="28" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Pill_Label_6" x="74.5" y="383.96" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#24152C" text-anchor="middle">Academic</text>
+</g>
+<g id="Pill_Office">
+<rect id="Pill_Surface_7" x="119" y="366" width="64" height="28" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Pill_Label_7" x="151" y="383.96" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#24152C" text-anchor="middle">Office</text>
+</g>
+<g id="Pill_Formal">
+<rect id="Pill_Surface_8" x="189" y="366" width="64" height="28" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Pill_Label_8" x="221" y="383.96" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#24152C" text-anchor="middle">Formal</text>
+</g>
+<g id="Pill_Casual">
+<rect id="Pill_Surface_9" x="259" y="366" width="64" height="28" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Pill_Label_9" x="291" y="383.96" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#24152C" text-anchor="middle">Casual</text>
+</g>
+<g id="Pill_Workout">
+<rect id="Pill_Surface_10" x="36" y="400" width="70" height="28" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Pill_Label_10" x="71" y="417.96" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#24152C" text-anchor="middle">Workout</text>
+</g>
+</g>
+<text id="Laundry_Status_Label" x="36" y="453" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="800" fill="#4B1D6F" letter-spacing="1.3">LAUNDRY STATUS</text>
+<g id="Laundry_Status_Options">
+<g id="Pill_CLEAN">
+<rect id="Pill_Surface_11" x="36" y="462" width="61" height="28" rx="14" fill="#24152C" stroke="#24152C" stroke-width="1"/>
+<text id="Pill_Label_11" x="66.5" y="479.96" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#FBF5A7" text-anchor="middle">CLEAN</text>
+</g>
+<g id="Pill_NEEDS_WASHING">
+<rect id="Pill_Surface_12" x="103" y="462" width="121" height="28" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Pill_Label_12" x="163.5" y="479.96" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#24152C" text-anchor="middle">NEEDS_WASHING</text>
+</g>
+</g>
+<g id="Favorites_Only_Row">
+<rect id="Row_Divider" x="36" y="500" width="303" height="1" fill="#DECFE8"/>
+<g id="Icon_Heart" transform="translate(36 512) scale(0.6667)">
+<path id="Vector" d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" fill="none" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Row_Label" x="60" y="525" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="700" fill="#24152C">Favorites Only</text>
+<g id="Favorites_Switch">
+<rect id="Switch_Track" x="293" y="506" width="46" height="28" rx="14" fill="#DECFE8"/>
+<circle id="Switch_Thumb" cx="307" cy="520" r="11" fill="#FFFFFF"/>
+</g>
+</g>
+</g>
+<g id="Garment_Grid">
+<g id="Garment_Card_1">
+<rect id="Card_Surface_2" x="20" y="564" width="163.5" height="152" rx="18" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1" filter="url(#Card_Shadow)"/>
+<g id="Garment_Image">
+<rect id="Tile_Background" x="28" y="572" width="147.5" height="98" rx="12" fill="#FDF3D2"/>
+<g id="Garment_Vector" transform="translate(59.61 578.86) scale(0.8428)">
+<path id="Silhouette" d="M32 14 L14 26 L22 42 L31 38 L31 88 L69 88 L69 38 L78 42 L86 26 L68 14 Q50 26 32 14 Z" fill="#FFFFFF" stroke="#24152C" stroke-width="1.54" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail" d="M42 16 Q50 22 58 16" fill="none" stroke="#24152C" stroke-width="1.54" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+</g>
+<g id="Favorite_Button">
+<circle id="Button_Circle_2" cx="161.5" cy="586" r="12" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<g id="Icon_Heart_2" transform="translate(154.5 579) scale(0.5833)">
+<path id="Vector_7" d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" fill="#24152C" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+<g id="Laundry_Badge_Clean">
+<rect id="Badge_Surface" x="34" y="646" width="48" height="18" rx="9" fill="#DECFE8"/>
+<text id="Badge_Label" x="58" y="659" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="9.5" font-weight="800" fill="#24152C" text-anchor="middle">CLEAN</text>
+</g>
+<text id="Garment_Name" x="32" y="690" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="800" fill="#24152C">White Cotton Tee</text>
+<text id="Garment_Meta" x="32" y="707" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">TOP · White · Academic</text>
+</g>
+<g id="Garment_Card_2">
+<rect id="Card_Surface_3" x="191.5" y="564" width="163.5" height="152" rx="18" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1" filter="url(#Card_Shadow)"/>
+<g id="Garment_Image_2">
+<rect id="Tile_Background_2" x="199.5" y="572" width="147.5" height="98" rx="12" fill="#FDF3D2"/>
+<g id="Garment_Vector_2" transform="translate(231.11 578.86) scale(0.8428)">
+<path id="Silhouette_2" d="M32 14 L14 26 L22 42 L31 38 L31 88 L69 88 L69 38 L78 42 L86 26 L68 14 L58 14 L50 24 L42 14 Z" fill="#DECFE8" stroke="#24152C" stroke-width="1.54" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail_2" d="M42 14 L50 24 L58 14 M50 24 V36 M31 80 H69" fill="none" stroke="#24152C" stroke-width="1.54" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+</g>
+<g id="Favorite_Button_2">
+<circle id="Button_Circle_3" cx="333" cy="586" r="12" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<g id="Icon_Heart_3" transform="translate(326 579) scale(0.5833)">
+<path id="Vector_8" d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" fill="none" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+<g id="Laundry_Badge_Clean_2">
+<rect id="Badge_Surface_2" x="205.5" y="646" width="48" height="18" rx="9" fill="#DECFE8"/>
+<text id="Badge_Label_2" x="229.5" y="659" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="9.5" font-weight="800" fill="#24152C" text-anchor="middle">CLEAN</text>
+</g>
+<text id="Garment_Name_2" x="203.5" y="690" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="800" fill="#24152C">Lilac Knit Polo</text>
+<text id="Garment_Meta_2" x="203.5" y="707" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">TOP · Lilac · Office</text>
+</g>
+</g>
+<g id="Bottom_Navigation_Bar">
+<rect id="Nav_Surface" x="0" y="728" width="375" height="84" fill="#FFFFFF"/>
+<rect id="Nav_Top_Hairline" x="0" y="728" width="375" height="1" fill="#DECFE8"/>
+<g id="Tab_Home">
+<g id="Icon_Home" transform="translate(26.5 744) scale(0.9167)">
+<path id="Vector_9" d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" fill="none" stroke="#4B1D6F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label" x="37.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="600" fill="#4B1D6F" text-anchor="middle" opacity="0.75">Home</text>
+</g>
+<g id="Tab_Wardrobe">
+<rect id="Active_Indicator_Pill" x="102.5" y="729" width="20" height="3" rx="1.5" fill="#24152C"/>
+<g id="Icon_Shirt" transform="translate(101.5 744) scale(0.9167)">
+<path id="Vector_10" d="M8 3L3 6l2 4.5 2-1V21h10V9.5l2 1L21 6l-5-3a4 4 0 0 1-8 0z" fill="#24152C" fill-opacity="0.2" stroke="#24152C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_2" x="112.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="800" fill="#24152C" text-anchor="middle" opacity="1">Wardrobe</text>
+</g>
+<g id="Tab_Outfit_AI_Center_Badge">
+<circle id="Badge_Glow" cx="187.5" cy="740" r="31" fill="#24152C" opacity="0.12"/>
+<circle id="Badge_Circle" cx="187.5" cy="740" r="24" fill="#24152C" stroke="#DECFE8" stroke-width="1.5"/>
+<g id="Icon_Sparkles" transform="translate(176.5 729) scale(0.9167)">
+<path id="Vector_11" d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z M18.5 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="none" stroke="#FBF5A7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_3" x="187.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="800" fill="#4B1D6F" text-anchor="middle" opacity="0.75">Outfit</text>
+</g>
+<g id="Tab_Community">
+<g id="Icon_People" transform="translate(251.5 744) scale(0.9167)">
+<path id="Vector_12" d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M2 21v-1a7 7 0 0 1 14 0v1 M16 3.2a4 4 0 0 1 0 7.6 M22 21v-1a7 7 0 0 0-4-6.3" fill="none" stroke="#4B1D6F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_4" x="262.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="600" fill="#4B1D6F" text-anchor="middle" opacity="0.75">Community</text>
+</g>
+<g id="Tab_Account">
+<g id="Icon_Person" transform="translate(326.5 744) scale(0.9167)">
+<path id="Vector_13" d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z M4 21v-.5a8 8 0 0 1 16 0v.5" fill="none" stroke="#4B1D6F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_5" x="337.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="600" fill="#4B1D6F" text-anchor="middle" opacity="0.75">Account</text>
+</g>
+</g>
+<rect id="Home_Indicator" x="120.5" y="799" width="134" height="5" rx="2.5" fill="#24152C"/>
+</g>
+</svg>

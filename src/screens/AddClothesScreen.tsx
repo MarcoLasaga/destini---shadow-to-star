@@ -232,7 +232,7 @@ export default function AddClothesScreen() {
           onPress={save}
           style={[styles.save, { backgroundColor: theme.secondaryAccent, opacity: saving ? 0.65 : 1 }]}
         >
-          <Text style={styles.saveText}>{saving ? 'Saving…' : 'Add to wardrobe'}</Text>
+          <Text style={[styles.saveText, { color: theme.onAccent }]}>{saving ? 'Saving…' : 'Add to wardrobe'}</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>

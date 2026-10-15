@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="375" height="812" viewBox="0 0 375 812" fill="none">
+<title>Screen_08_Notifications_and_Account_Settings</title>
+<defs>
+<filter id="Card_Shadow" x="-10%" y="-10%" width="120%" height="135%" color-interpolation-filters="sRGB">
+<feDropShadow dx="0" dy="4" stdDeviation="7" flood-color="#24152C" flood-opacity="0.07"/>
+</filter>
+<clipPath id="Screen_Clip"><rect width="375" height="812"/></clipPath>
+</defs>
+<g id="Screen_08_Notifications_and_Account_Settings" clip-path="url(#Screen_Clip)">
+<rect id="Background" x="0" y="0" width="375" height="812" fill="#FAF7F0"/>
+<g id="Status_Bar">
+<text id="Time" x="32" y="31" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="15" font-weight="600" fill="#24152C">9:41</text>
+<g id="Cellular_Signal">
+<rect id="Signal_Bar_1" x="289" y="26" width="3" height="4" rx="1" fill="#24152C"/>
+<rect id="Signal_Bar_2" x="294" y="24" width="3" height="6" rx="1" fill="#24152C"/>
+<rect id="Signal_Bar_3" x="299" y="22" width="3" height="8" rx="1" fill="#24152C"/>
+<rect id="Signal_Bar_4" x="304" y="20" width="3" height="10" rx="1" fill="#24152C"/>
+</g>
+<g id="WiFi">
+<path id="Wifi_Arc_Outer" d="M311.5 22a10.5 10.5 0 0 1 14 0" fill="none" stroke="#24152C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Wifi_Arc_Inner" d="M314.7 25.4a5.5 5.5 0 0 1 7.6 0" fill="none" stroke="#24152C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<circle id="Wifi_Dot" cx="318.5" cy="28.8" r="1.6" fill="#24152C"/>
+</g>
+<g id="Battery">
+<rect id="Battery_Body" x="332" y="20" width="25" height="12" rx="3.5" fill="none" stroke="#24152C" stroke-width="1" opacity="0.5"/>
+<rect id="Battery_Level" x="334" y="22" width="19" height="8" rx="2" fill="#24152C"/>
+<rect id="Battery_Cap" x="358.5" y="24" width="1.8" height="4" rx="0.9" fill="#24152C" opacity="0.5"/>
+</g>
+</g>
+<g id="Header_Bar">
+<text id="Screen_Title" x="20" y="92" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="28" font-weight="900" fill="#24152C" letter-spacing="-0.6">Account</text>
+<text id="Subtitle" x="20" y="114" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="400" fill="#4B1D6F">Notifications &amp; preferences</text>
+<g id="Notifications_Bell">
+<circle id="Button_Circle" cx="335" cy="86" r="20" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<g id="Icon_Bell" transform="translate(325 76) scale(0.8333)">
+<path id="Vector" d="M18 8.5a6 6 0 1 0-12 0c0 7-3 8.5-3 8.5h18s-3-1.5-3-8.5z M13.7 20.5a2 2 0 0 1-3.4 0" fill="none" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<circle id="Unread_Count_Badge" cx="349" cy="72" r="8" fill="#FDD78B" stroke="#24152C" stroke-width="1.2"/>
+<text id="Unread_Count" x="349" y="75.5" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="9.5" font-weight="800" fill="#24152C" text-anchor="middle">2</text>
+</g>
+</g>
+<g id="Profile_Card">
+<rect id="Card_Surface" x="20" y="130" width="335" height="68" rx="18" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1" filter="url(#Card_Shadow)"/>
+<circle id="Avatar" cx="56" cy="164" r="20" fill="#DECFE8"/>
+<text id="Avatar_Initials" x="56" y="169" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="800" fill="#24152C" text-anchor="middle">AR</text>
+<text id="Profile_Name" x="88" y="159" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="15" font-weight="800" fill="#24152C">Alex Rivera</text>
+<text id="Profile_Email" x="88" y="177" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="400" fill="#4B1D6F">alex@stylesense.app</text>
+<g id="Icon_ChevronRight" transform="translate(321 155) scale(0.7500)">
+<path id="Vector_2" d="M9 6l6 6-6 6" fill="none" stroke="#4B1D6F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+<text id="Section_Label_Appearance" x="20" y="224" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="800" fill="#4B1D6F" letter-spacing="1.3">APPEARANCE</text>
+<g id="Appearance_Card">
+<rect id="Card_Surface_2" x="20" y="234" width="335" height="62" rx="18" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1" filter="url(#Card_Shadow)"/>
+<circle id="Icon_Circle" cx="52" cy="265" r="16" fill="#DECFE8"/>
+<g id="Icon_Moon" transform="translate(44 257) scale(0.6667)">
+<path id="Vector_3" d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" fill="none" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Setting_Title" x="78" y="261" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="800" fill="#24152C">Theme</text>
+<text id="Setting_Note" x="78" y="278" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">Saved to AsyncStorage</text>
+<g id="Light_Dark_Mode_Toggle">
+<rect id="Toggle_Track" x="213" y="249" width="128" height="32" rx="16" fill="#FAF7F0" stroke="#DECFE8" stroke-width="1"/>
+<g id="Option_Light_Active">
+<rect id="Option_Surface" x="215" y="251" width="62" height="28" rx="14" fill="#24152C"/>
+<g id="Icon_Sun" transform="translate(224 259) scale(0.5000)">
+<path id="Vector_4" d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10z M12 1v2 M12 21v2 M4.2 4.2l1.4 1.4 M18.4 18.4l1.4 1.4 M1 12h2 M21 12h2 M4.2 19.8l1.4-1.4 M18.4 5.6l1.4-1.4" fill="none" stroke="#FBF5A7" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Option_Label" x="241" y="269" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="800" fill="#FBF5A7">Light</text>
+</g>
+<g id="Option_Dark">
+<g id="Icon_Moon_2" transform="translate(287 259) scale(0.5000)">
+<path id="Vector_5" d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" fill="none" stroke="#4B1D6F" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Option_Label_2" x="304" y="269" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="700" fill="#4B1D6F">Dark</text>
+</g>
+</g>
+</g>
+<text id="Section_Label_Smart_Alerts" x="20" y="322" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="800" fill="#4B1D6F" letter-spacing="1.3">SMART ALERTS</text>
+<text id="Alerts_On_Count" x="355" y="322" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="700" fill="#4B1D6F" text-anchor="end">3 of 4 on</text>
+<g id="Smart_Alert_Switches_Card">
+<rect id="Card_Surface_3" x="20" y="332" width="335" height="232" rx="18" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1" filter="url(#Card_Shadow)"/>
+<g id="Alert_Row_Weather_Alerts">
+<circle id="Icon_Circle_2" cx="52" cy="361" r="16" fill="#FDD78B"/>
+<g id="Icon_CloudSun" transform="translate(44 353) scale(0.6667)">
+<path id="Vector_6" d="M10 2v2 M3.5 4.5l1.4 1.4 M1.5 11h2 M16.5 4.5l-1.4 1.4 M13.9 9.6A4 4 0 0 0 6.2 11 M17.5 21H9a5 5 0 1 1 4.6-7h3.9a3.5 3.5 0 0 1 0 7z" fill="none" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Alert_Label" x="78" y="358" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="800" fill="#24152C">Weather Alerts</text>
+<text id="Alert_Note" x="78" y="375" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">Live OpenWeatherMap conditions</text>
+<g id="Weather_Alerts_Switch">
+<rect id="Switch_Track" x="293" y="347" width="46" height="28" rx="14" fill="#24152C"/>
+<circle id="Switch_Thumb" cx="325" cy="361" r="11" fill="#FBF5A7"/>
+</g>
+</g>
+<g id="Alert_Row_Sustainability_Tips">
+<rect id="Row_Divider" x="78" y="390" width="261" height="1" fill="#DECFE8"/>
+<circle id="Icon_Circle_3" cx="52" cy="419" r="16" fill="#DECFE8"/>
+<g id="Icon_Leaf" transform="translate(44 411) scale(0.6667)">
+<path id="Vector_7" d="M11 20A7 7 0 0 1 4 13c0-6 6-10 16-10 0 10-4 16-9 17z M4 21c4-6 8-9 12-11" fill="none" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Alert_Label_2" x="78" y="416" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="800" fill="#24152C">Sustainability Tips</text>
+<text id="Alert_Note_2" x="78" y="433" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">Re-wear and care nudges</text>
+<g id="Sustainability_Tips_Switch">
+<rect id="Switch_Track_2" x="293" y="405" width="46" height="28" rx="14" fill="#24152C"/>
+<circle id="Switch_Thumb_2" cx="325" cy="419" r="11" fill="#FBF5A7"/>
+</g>
+</g>
+<g id="Alert_Row_Outfit_Reminders">
+<rect id="Row_Divider_2" x="78" y="448" width="261" height="1" fill="#DECFE8"/>
+<circle id="Icon_Circle_4" cx="52" cy="477" r="16" fill="#FDD78B"/>
+<g id="Icon_Shirt" transform="translate(44 469) scale(0.6667)">
+<path id="Vector_8" d="M8 3L3 6l2 4.5 2-1V21h10V9.5l2 1L21 6l-5-3a4 4 0 0 1-8 0z" fill="none" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Alert_Label_3" x="78" y="474" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="800" fill="#24152C">Outfit Reminders</text>
+<text id="Alert_Note_3" x="78" y="491" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">Planned looks for tomorrow</text>
+<g id="Outfit_Reminders_Switch">
+<rect id="Switch_Track_3" x="293" y="463" width="46" height="28" rx="14" fill="#24152C"/>
+<circle id="Switch_Thumb_3" cx="325" cy="477" r="11" fill="#FBF5A7"/>
+</g>
+</g>
+<g id="Alert_Row_Laundry_Reminders">
+<rect id="Row_Divider_3" x="78" y="506" width="261" height="1" fill="#DECFE8"/>
+<circle id="Icon_Circle_5" cx="52" cy="535" r="16" fill="#DECFE8"/>
+<g id="Icon_Droplet" transform="translate(44 527) scale(0.6667)">
+<path id="Vector_9" d="M12 2.7l5.7 5.6a8 8 0 1 1-11.3 0z" fill="none" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Alert_Label_4" x="78" y="532" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="800" fill="#24152C">Laundry Reminders</text>
+<text id="Alert_Note_4" x="78" y="549" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">When pieces need washing</text>
+<g id="Laundry_Reminders_Switch">
+<rect id="Switch_Track_4" x="293" y="521" width="46" height="28" rx="14" fill="#DECFE8"/>
+<circle id="Switch_Thumb_4" cx="307" cy="535" r="11" fill="#FFFFFF"/>
+</g>
+</g>
+</g>
+<text id="Section_Label_Recent_Alerts" x="20" y="588" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="800" fill="#4B1D6F" letter-spacing="1.3">RECENT ALERTS</text>
+<text id="Mark_All_Read" x="355" y="588" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="700" fill="#24152C" text-anchor="end" text-decoration="underline">Mark All Read</text>
+<g id="Notification_Card_1">
+<rect id="Card_Surface_4" x="20" y="598" width="335" height="58" rx="16" fill="#FFFFFF" stroke="#24152C" stroke-width="1" filter="url(#Card_Shadow)"/>
+<rect id="Icon_Tile" x="32" y="609" width="36" height="36" rx="10" fill="#24152C"/>
+<g id="Icon_CloudSun_2" transform="translate(41 618) scale(0.7500)">
+<path id="Vector_10" d="M10 2v2 M3.5 4.5l1.4 1.4 M1.5 11h2 M16.5 4.5l-1.4 1.4 M13.9 9.6A4 4 0 0 0 6.2 11 M17.5 21H9a5 5 0 1 1 4.6-7h3.9a3.5 3.5 0 0 1 0 7z" fill="none" stroke="#FBF5A7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Notification_Title" x="78" y="623" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#24152C">Makati Weather Alert: 29°C &amp; Humid</text>
+<text id="Notification_Body" x="78" y="640" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">Breathable tops prioritized · Just now</text>
+<circle id="Unread_Dot" cx="343" cy="618" r="4" fill="#FDD78B" stroke="#24152C" stroke-width="1"/>
+</g>
+<g id="Notification_Card_2">
+<rect id="Card_Surface_5" x="20" y="664" width="335" height="58" rx="16" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1" filter="url(#Card_Shadow)"/>
+<rect id="Icon_Tile_2" x="32" y="675" width="36" height="36" rx="10" fill="#24152C"/>
+<g id="Icon_Droplet_2" transform="translate(41 684) scale(0.7500)">
+<path id="Vector_11" d="M12 2.7l5.7 5.6a8 8 0 1 1-11.3 0z" fill="none" stroke="#FBF5A7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Notification_Title_2" x="78" y="689" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#24152C">3 items need washing</text>
+<text id="Notification_Body_2" x="78" y="706" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">White hoodie + 2 tees · 1h ago</text>
+</g>
+<g id="Bottom_Navigation_Bar">
+<rect id="Nav_Surface" x="0" y="728" width="375" height="84" fill="#FFFFFF"/>
+<rect id="Nav_Top_Hairline" x="0" y="728" width="375" height="1" fill="#DECFE8"/>
+<g id="Tab_Home">
+<g id="Icon_Home" transform="translate(26.5 744) scale(0.9167)">
+<path id="Vector_12" d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" fill="none" stroke="#4B1D6F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label" x="37.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="600" fill="#4B1D6F" text-anchor="middle" opacity="0.75">Home</text>
+</g>
+<g id="Tab_Wardrobe">
+<g id="Icon_Shirt_2" transform="translate(101.5 744) scale(0.9167)">
+<path id="Vector_13" d="M8 3L3 6l2 4.5 2-1V21h10V9.5l2 1L21 6l-5-3a4 4 0 0 1-8 0z" fill="none" stroke="#4B1D6F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_2" x="112.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="600" fill="#4B1D6F" text-anchor="middle" opacity="0.75">Wardrobe</text>
+</g>
+<g id="Tab_Outfit_AI_Center_Badge">
+<circle id="Badge_Glow" cx="187.5" cy="740" r="31" fill="#24152C" opacity="0.12"/>
+<circle id="Badge_Circle" cx="187.5" cy="740" r="24" fill="#24152C" stroke="#DECFE8" stroke-width="1.5"/>
+<g id="Icon_Sparkles" transform="translate(176.5 729) scale(0.9167)">
+<path id="Vector_14" d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z M18.5 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="none" stroke="#FBF5A7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_3" x="187.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="800" fill="#4B1D6F" text-anchor="middle" opacity="0.75">Outfit</text>
+</g>
+<g id="Tab_Community">
+<g id="Icon_People" transform="translate(251.5 744) scale(0.9167)">
+<path id="Vector_15" d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M2 21v-1a7 7 0 0 1 14 0v1 M16 3.2a4 4 0 0 1 0 7.6 M22 21v-1a7 7 0 0 0-4-6.3" fill="none" stroke="#4B1D6F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_4" x="262.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="600" fill="#4B1D6F" text-anchor="middle" opacity="0.75">Community</text>
+</g>
+<g id="Tab_Account">
+<rect id="Active_Indicator_Pill" x="327.5" y="729" width="20" height="3" rx="1.5" fill="#24152C"/>
+<g id="Icon_Person" transform="translate(326.5 744) scale(0.9167)">
+<path id="Vector_16" d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z M4 21v-.5a8 8 0 0 1 16 0v.5" fill="#24152C" fill-opacity="0.2" stroke="#24152C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_5" x="337.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="800" fill="#24152C" text-anchor="middle" opacity="1">Account</text>
+</g>
+</g>
+<rect id="Home_Indicator" x="120.5" y="799" width="134" height="5" rx="2.5" fill="#24152C"/>
+</g>
+</svg>

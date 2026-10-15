@@ -42,7 +42,7 @@ export default function ClothingCard({
     transform: [{ scale: scale.value }],
   }));
 
-  const activeBorderColor = theme.mode === 'dark' ? '#6366F1' : theme.secondaryAccent;
+  const activeBorderColor = theme.secondaryAccent;
 
   const handlePress = () => {
     if (selectionMode) {
@@ -106,7 +106,7 @@ export default function ClothingCard({
                   : { backgroundColor: 'rgba(0,0,0,0.3)', borderWidth: 1.5, borderColor: '#FFFFFF' },
               ]}
             >
-              {isSelected && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+              {isSelected && <Ionicons name="checkmark" size={14} color={theme.onAccent} />}
             </View>
           )}
 

@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="375" height="812" viewBox="0 0 375 812" fill="none">
+<title>Screen_05_Hybrid_Outfit_Recommender</title>
+<defs>
+<filter id="Card_Shadow" x="-10%" y="-10%" width="120%" height="135%" color-interpolation-filters="sRGB">
+<feDropShadow dx="0" dy="4" stdDeviation="7" flood-color="#24152C" flood-opacity="0.07"/>
+</filter>
+<clipPath id="Screen_Clip"><rect width="375" height="812"/></clipPath>
+</defs>
+<g id="Screen_05_Hybrid_Outfit_Recommender" clip-path="url(#Screen_Clip)">
+<rect id="Background" x="0" y="0" width="375" height="812" fill="#FAF7F0"/>
+<g id="Status_Bar">
+<text id="Time" x="32" y="31" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="15" font-weight="600" fill="#24152C">9:41</text>
+<g id="Cellular_Signal">
+<rect id="Signal_Bar_1" x="289" y="26" width="3" height="4" rx="1" fill="#24152C"/>
+<rect id="Signal_Bar_2" x="294" y="24" width="3" height="6" rx="1" fill="#24152C"/>
+<rect id="Signal_Bar_3" x="299" y="22" width="3" height="8" rx="1" fill="#24152C"/>
+<rect id="Signal_Bar_4" x="304" y="20" width="3" height="10" rx="1" fill="#24152C"/>
+</g>
+<g id="WiFi">
+<path id="Wifi_Arc_Outer" d="M311.5 22a10.5 10.5 0 0 1 14 0" fill="none" stroke="#24152C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Wifi_Arc_Inner" d="M314.7 25.4a5.5 5.5 0 0 1 7.6 0" fill="none" stroke="#24152C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<circle id="Wifi_Dot" cx="318.5" cy="28.8" r="1.6" fill="#24152C"/>
+</g>
+<g id="Battery">
+<rect id="Battery_Body" x="332" y="20" width="25" height="12" rx="3.5" fill="none" stroke="#24152C" stroke-width="1" opacity="0.5"/>
+<rect id="Battery_Level" x="334" y="22" width="19" height="8" rx="2" fill="#24152C"/>
+<rect id="Battery_Cap" x="358.5" y="24" width="1.8" height="4" rx="0.9" fill="#24152C" opacity="0.5"/>
+</g>
+</g>
+<g id="Header_Bar">
+<text id="Screen_Title" x="20" y="86" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="22" font-weight="900" fill="#24152C" letter-spacing="-0.5">Outfit Recommendations</text>
+<text id="Subtitle" x="20" y="106" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="400" fill="#4B1D6F">Top-3 Hybrid picks for today</text>
+<g id="Refresh_Button">
+<circle id="Button_Circle" cx="337" cy="88" r="18" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<g id="Icon_Sparkles" transform="translate(329 80) scale(0.6667)">
+<path id="Vector" d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z M18.5 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="none" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+</g>
+<g id="Weather_Badge_OpenWeatherMap">
+<rect id="Badge_Surface" x="20" y="120" width="335" height="34" rx="17" fill="#24152C"/>
+<g id="Icon_Sun" transform="translate(32 128) scale(0.7500)">
+<path id="Vector_2" d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10z M12 1v2 M12 21v2 M4.2 4.2l1.4 1.4 M18.4 18.4l1.4 1.4 M1 12h2 M21 12h2 M4.2 19.8l1.4-1.4 M18.4 5.6l1.4-1.4" fill="none" stroke="#FDD78B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Weather_Label" x="58" y="141.5" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="400" fill="#24152C"><tspan fill="#FBF5A7" font-weight="800">Makati · 29°C</tspan><tspan fill="#DECFE8" font-weight="500">  Humid · 12 km/h</tspan></text>
+<text id="Source_Label" x="343" y="141" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="700" fill="#FDD78B" text-anchor="end">OpenWeatherMap</text>
+</g>
+<g id="Occasion_Filter_Pills">
+<g id="Occasion_Academic">
+<rect id="Pill_Surface" x="20" y="164" width="73" height="28" rx="14" fill="#24152C" stroke="#24152C" stroke-width="1"/>
+<text id="Pill_Label" x="56.5" y="181.96" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#FBF5A7" text-anchor="middle">Academic</text>
+</g>
+<g id="Occasion_Office">
+<rect id="Pill_Surface_2" x="99" y="164" width="60" height="28" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Pill_Label_2" x="129" y="181.96" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#24152C" text-anchor="middle">Office</text>
+</g>
+<g id="Occasion_Formal">
+<rect id="Pill_Surface_3" x="165" y="164" width="60" height="28" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Pill_Label_3" x="195" y="181.96" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#24152C" text-anchor="middle">Formal</text>
+</g>
+<g id="Occasion_Casual">
+<rect id="Pill_Surface_4" x="231" y="164" width="60" height="28" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Pill_Label_4" x="261" y="181.96" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#24152C" text-anchor="middle">Casual</text>
+</g>
+<g id="Occasion_Workout">
+<rect id="Pill_Surface_5" x="297" y="164" width="66" height="28" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Pill_Label_5" x="330" y="181.96" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#24152C" text-anchor="middle">Workout</text>
+</g>
+</g>
+<g id="No_New_Clothes_Mode_Card">
+<rect id="Card_Surface" x="20" y="204" width="335" height="58" rx="18" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1" filter="url(#Card_Shadow)"/>
+<circle id="Icon_Circle" cx="50" cy="233" r="16" fill="#FDD78B"/>
+<g id="Icon_Leaf" transform="translate(42 225) scale(0.6667)">
+<path id="Vector_3" d="M11 20A7 7 0 0 1 4 13c0-6 6-10 16-10 0 10-4 16-9 17z M4 21c4-6 8-9 12-11" fill="none" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Toggle_Title" x="76" y="229" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="800" fill="#24152C">No New Clothes Mode</text>
+<text id="Toggle_Subtitle" x="76" y="246" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">Re-wear only what you already own</text>
+<g id="No_New_Clothes_Switch">
+<rect id="Switch_Track" x="293" y="219" width="46" height="28" rx="14" fill="#24152C"/>
+<circle id="Switch_Thumb" cx="325" cy="233" r="11" fill="#FBF5A7"/>
+</g>
+</g>
+<g id="Top_Pick_Outfit_Card_1">
+<rect id="Card_Surface_2" x="20" y="274" width="335" height="340" rx="18" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1" filter="url(#Card_Shadow)"/>
+<g id="Top_Pick_Badge">
+<rect id="Badge_Surface_2" x="36" y="290" width="206" height="24" rx="12" fill="#FDD78B"/>
+<text id="Badge_Label" x="139" y="306" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="800" fill="#24152C" text-anchor="middle" letter-spacing="0.4">TOP PICK · BEST HYBRID MATCH</text>
+</g>
+<text id="Rank_Label" x="339" y="306" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="700" fill="#4B1D6F" text-anchor="end">#1 of 3</text>
+<text id="Outfit_Name" x="36" y="338" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="800" fill="#24152C">Academic Look · Lilac Knit &amp; Chinos</text>
+<g id="Garment_Tiles">
+<g id="Tile_Top">
+<rect id="Tile_Background" x="36" y="350" width="69.75" height="68" rx="12" fill="#FDF3D2"/>
+<g id="Garment_Vector" transform="translate(43.67 356.8) scale(0.5440)">
+<path id="Silhouette" d="M32 14 L14 26 L22 42 L31 38 L31 88 L69 88 L69 38 L78 42 L86 26 L68 14 L58 14 L50 24 L42 14 Z" fill="#DECFE8" stroke="#24152C" stroke-width="2.39" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail" d="M42 14 L50 24 L58 14 M50 24 V36 M31 80 H69" fill="none" stroke="#24152C" stroke-width="2.39" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+</g>
+<g id="Tile_Bottom">
+<rect id="Tile_Background_2" x="113.75" y="350" width="69.75" height="68" rx="12" fill="#FDF3D2"/>
+<g id="Garment_Vector_2" transform="translate(121.42 356.8) scale(0.5440)">
+<path id="Silhouette_2" d="M30 10 H70 L75 90 H56 L50 38 L44 90 H25 Z" fill="#24152C" stroke="#24152C" stroke-width="2.39" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail_2" d="M30 18 H70 M50 18 V38" fill="none" stroke="#24152C" stroke-width="2.39" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+</g>
+<g id="Tile_Shoes">
+<rect id="Tile_Background_3" x="191.5" y="350" width="69.75" height="68" rx="12" fill="#FDF3D2"/>
+<g id="Garment_Vector_3" transform="translate(199.18 356.8) scale(0.5440)">
+<path id="Silhouette_3" d="M10 64 Q12 50 28 52 L46 56 Q60 42 72 54 L90 62 Q94 72 86 76 H14 Q8 72 10 64 Z" fill="#FFFFFF" stroke="#24152C" stroke-width="2.39" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail_3" d="M12 70 H88 M40 56 L44 62 M48 54 L52 60" fill="none" stroke="#24152C" stroke-width="2.39" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+</g>
+<g id="Tile_Accessory">
+<rect id="Tile_Background_4" x="269.25" y="350" width="69.75" height="68" rx="12" fill="#FDF3D2"/>
+<g id="Garment_Vector_4" transform="translate(276.93 356.8) scale(0.5440)">
+<path id="Silhouette_4" d="M20 40 H80 L86 90 H14 Z" fill="#FDD78B" stroke="#24152C" stroke-width="2.39" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail_4" d="M34 40 V32 A16 16 0 0 1 66 32 V40" fill="none" stroke="#24152C" stroke-width="2.39" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+</g>
+</g>
+</g>
+<g id="Hybrid_Score_Ring">
+<circle id="Ring_Track" cx="72" cy="466" r="32" fill="none" stroke="#DECFE8" stroke-width="7"/>
+<circle id="Ring_Progress_87" cx="72" cy="466" r="32" fill="none" stroke="#24152C" stroke-width="7" stroke-dasharray="174.92 201.06" stroke-linecap="round" transform="rotate(-90 72 466)"/>
+<text id="Ring_Value" x="72" y="471" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="18" font-weight="900" fill="#24152C" text-anchor="middle">87%</text>
+<text id="Ring_Caption" x="72" y="486" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="8" font-weight="800" fill="#4B1D6F" text-anchor="middle" letter-spacing="1">HYBRID</text>
+</g>
+<g id="Score_Breakdown">
+<g id="Content_Based_Score">
+<text id="Score_Label" x="124" y="446" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#24152C"><tspan fill="#24152C" font-weight="700">Content-Based</tspan><tspan fill="#4B1D6F" font-weight="600">  ×0.55</tspan></text>
+<text id="Score_Value" x="339" y="446" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="900" fill="#24152C" text-anchor="end">88%</text>
+<rect id="Bar_Track" x="124" y="452" width="215" height="7" rx="3.5" fill="#DECFE8"/>
+<rect id="Bar_Fill" x="124" y="452" width="189.2" height="7" rx="3.5" fill="#24152C"/>
+</g>
+<g id="Collaborative_Score">
+<text id="Score_Label_2" x="124" y="480" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#24152C"><tspan fill="#24152C" font-weight="700">Collaborative</tspan><tspan fill="#4B1D6F" font-weight="600">  ×0.45</tspan></text>
+<text id="Score_Value_2" x="339" y="480" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="900" fill="#24152C" text-anchor="end">85%</text>
+<rect id="Bar_Track_2" x="124" y="486" width="215" height="7" rx="3.5" fill="#DECFE8"/>
+<rect id="Bar_Fill_2" x="124" y="486" width="182.75" height="7" rx="3.5" fill="#4B1D6F"/>
+</g>
+</g>
+<g id="Formula_Strip">
+<rect id="Strip_Surface" x="36" y="508" width="303" height="26" rx="8" fill="#FAF7F0" stroke="#DECFE8" stroke-width="1"/>
+<text id="Formula" x="187.5" y="525" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10.5" font-weight="700" fill="#24152C" text-anchor="middle">Hybrid = 0.55 × 88 + 0.45 × 85 = 86.65 → 87%</text>
+</g>
+<g id="Explainability_Reasons">
+<g id="Reason_Weather">
+<g id="Icon_Sun_2" transform="translate(36 541) scale(0.5833)">
+<path id="Vector_4" d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10z M12 1v2 M12 21v2 M4.2 4.2l1.4 1.4 M18.4 18.4l1.4 1.4 M1 12h2 M21 12h2 M4.2 19.8l1.4-1.4 M18.4 5.6l1.4-1.4" fill="none" stroke="#4B1D6F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Reason_Text" x="56" y="552" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#24152C">Breathable knit for 29°C Makati humidity</text>
+</g>
+<g id="Reason_Collaborative">
+<g id="Icon_People" transform="translate(36 559) scale(0.5833)">
+<path id="Vector_5" d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M2 21v-1a7 7 0 0 1 14 0v1 M16 3.2a4 4 0 0 1 0 7.6 M22 21v-1a7 7 0 0 0-4-6.3" fill="none" stroke="#4B1D6F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Reason_Text_2" x="56" y="570" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#24152C">Loved by 214 users with similar taste</text>
+</g>
+</g>
+<g id="Feedback_Actions">
+<g id="Like_Button">
+<rect id="Button_Surface" x="36" y="580" width="71.25" height="30" rx="15" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<g id="Icon_Heart" transform="translate(47.83 588) scale(0.5833)">
+<path id="Vector_6" d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" fill="none" stroke="#24152C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Button_Label" x="67.83" y="599.14" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="800" fill="#24152C">Like</text>
+</g>
+<g id="Dislike_Button">
+<rect id="Button_Surface_2" x="113.25" y="580" width="71.25" height="30" rx="15" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<g id="Icon_X" transform="translate(114.72 588) scale(0.5833)">
+<path id="Vector_7" d="M18 6L6 18 M6 6l12 12" fill="none" stroke="#24152C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Button_Label_2" x="134.72" y="599.14" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="800" fill="#24152C">Dislike</text>
+</g>
+<g id="Save_Button">
+<rect id="Button_Surface_3" x="190.5" y="580" width="71.25" height="30" rx="15" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<g id="Icon_Bookmark" transform="translate(202.32 588) scale(0.5833)">
+<path id="Vector_8" d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" fill="none" stroke="#24152C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Button_Label_3" x="222.32" y="599.14" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="800" fill="#24152C">Save</text>
+</g>
+<g id="Wear_Button">
+<rect id="Button_Surface_4" x="267.75" y="580" width="71.25" height="30" rx="15" fill="#24152C"/>
+<g id="Icon_Check" transform="translate(279.57 588) scale(0.5833)">
+<path id="Vector_9" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#FBF5A7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Button_Label_4" x="299.57" y="599.14" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="800" fill="#FBF5A7">Wear</text>
+</g>
+</g>
+</g>
+<text id="Section_Label_More_Picks" x="20" y="634" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="800" fill="#4B1D6F" letter-spacing="1.3">MORE PICKS</text>
+<text id="Swipe_Hint" x="355" y="634" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="600" fill="#4B1D6F" text-anchor="end">Swipe →</text>
+<g id="Alternative_Outfit_Card_2">
+<rect id="Card_Surface_3" x="20" y="644" width="163.5" height="72" rx="18" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1" filter="url(#Card_Shadow)"/>
+<g id="Mini_Tile_1">
+<rect id="Tile_Background_5" x="30" y="660" width="40" height="40" rx="10" fill="#FDF3D2"/>
+<g id="Garment_Vector_5" transform="translate(34 664) scale(0.3200)">
+<path id="Silhouette_5" d="M32 14 L14 26 L22 42 L31 38 L31 88 L69 88 L69 38 L78 42 L86 26 L68 14 Q50 26 32 14 Z" fill="#FFFFFF" stroke="#24152C" stroke-width="4.06" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail_5" d="M42 16 Q50 22 58 16" fill="none" stroke="#24152C" stroke-width="4.06" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+</g>
+<g id="Mini_Tile_2">
+<rect id="Tile_Background_6" x="74" y="660" width="40" height="40" rx="10" fill="#FDF3D2"/>
+<g id="Garment_Vector_6" transform="translate(78 664) scale(0.3200)">
+<path id="Silhouette_6" d="M30 10 H70 L75 90 H56 L50 38 L44 90 H25 Z" fill="#4B1D6F" stroke="#24152C" stroke-width="4.06" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail_6" d="M30 18 H70 M50 18 V38" fill="none" stroke="#24152C" stroke-width="4.06" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+</g>
+<text id="Rank" x="124" y="672" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="800" fill="#4B1D6F">#2</text>
+<text id="Hybrid_Score" x="124" y="693" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="18" font-weight="900" fill="#24152C">84%</text>
+<text id="Occasion" x="124" y="707" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10.5" font-weight="400" fill="#4B1D6F">Office · Clean</text>
+</g>
+<g id="Alternative_Outfit_Card_3">
+<rect id="Card_Surface_4" x="191.5" y="644" width="163.5" height="72" rx="18" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1" filter="url(#Card_Shadow)"/>
+<g id="Mini_Tile_1_2">
+<rect id="Tile_Background_7" x="201.5" y="660" width="40" height="40" rx="10" fill="#FDF3D2"/>
+<g id="Garment_Vector_7" transform="translate(205.5 664) scale(0.3200)">
+<path id="Silhouette_7" d="M30 14 L12 26 L16 90 H45 V32 L50 24 L55 32 V90 H84 L88 26 L70 14 L60 12 L50 24 L40 12 Z" fill="#FDD78B" stroke="#24152C" stroke-width="4.06" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail_7" d="M50 24 V90 M22 62 H38 M62 62 H78" fill="none" stroke="#24152C" stroke-width="4.06" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+</g>
+<g id="Mini_Tile_2_2">
+<rect id="Tile_Background_8" x="245.5" y="660" width="40" height="40" rx="10" fill="#FDF3D2"/>
+<g id="Garment_Vector_8" transform="translate(249.5 664) scale(0.3200)">
+<path id="Silhouette_8" d="M30 10 H70 L75 90 H56 L50 38 L44 90 H25 Z" fill="#DECFE8" stroke="#24152C" stroke-width="4.06" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail_8" d="M30 18 H70 M50 18 V38" fill="none" stroke="#24152C" stroke-width="4.06" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+</g>
+<text id="Rank_2" x="295.5" y="672" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="800" fill="#4B1D6F">#3</text>
+<text id="Hybrid_Score_2" x="295.5" y="693" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="18" font-weight="900" fill="#24152C">81%</text>
+<text id="Occasion_2" x="295.5" y="707" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10.5" font-weight="400" fill="#4B1D6F">Casual · Clean</text>
+</g>
+<g id="Bottom_Navigation_Bar">
+<rect id="Nav_Surface" x="0" y="728" width="375" height="84" fill="#FFFFFF"/>
+<rect id="Nav_Top_Hairline" x="0" y="728" width="375" height="1" fill="#DECFE8"/>
+<g id="Tab_Home">
+<g id="Icon_Home" transform="translate(26.5 744) scale(0.9167)">
+<path id="Vector_10" d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" fill="none" stroke="#4B1D6F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label" x="37.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="600" fill="#4B1D6F" text-anchor="middle" opacity="0.75">Home</text>
+</g>
+<g id="Tab_Wardrobe">
+<g id="Icon_Shirt" transform="translate(101.5 744) scale(0.9167)">
+<path id="Vector_11" d="M8 3L3 6l2 4.5 2-1V21h10V9.5l2 1L21 6l-5-3a4 4 0 0 1-8 0z" fill="none" stroke="#4B1D6F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_2" x="112.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="600" fill="#4B1D6F" text-anchor="middle" opacity="0.75">Wardrobe</text>
+</g>
+<g id="Tab_Outfit_AI_Center_Badge">
+<circle id="Badge_Glow" cx="187.5" cy="740" r="31" fill="#24152C" opacity="0.12"/>
+<circle id="Badge_Circle" cx="187.5" cy="740" r="24" fill="#24152C" stroke="#FDD78B" stroke-width="1.5"/>
+<g id="Icon_Sparkles_2" transform="translate(176.5 729) scale(0.9167)">
+<path id="Vector_12" d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z M18.5 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="#FBF5A7" stroke="#FBF5A7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_3" x="187.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="800" fill="#24152C" text-anchor="middle" opacity="1">Outfit</text>
+</g>
+<g id="Tab_Community">
+<g id="Icon_People_2" transform="translate(251.5 744) scale(0.9167)">
+<path id="Vector_13" d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M2 21v-1a7 7 0 0 1 14 0v1 M16 3.2a4 4 0 0 1 0 7.6 M22 21v-1a7 7 0 0 0-4-6.3" fill="none" stroke="#4B1D6F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_4" x="262.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="600" fill="#4B1D6F" text-anchor="middle" opacity="0.75">Community</text>
+</g>
+<g id="Tab_Account">
+<g id="Icon_Person" transform="translate(326.5 744) scale(0.9167)">
+<path id="Vector_14" d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z M4 21v-.5a8 8 0 0 1 16 0v.5" fill="none" stroke="#4B1D6F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_5" x="337.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="600" fill="#4B1D6F" text-anchor="middle" opacity="0.75">Account</text>
+</g>
+</g>
+<rect id="Home_Indicator" x="120.5" y="799" width="134" height="5" rx="2.5" fill="#24152C"/>
+</g>
+</svg>

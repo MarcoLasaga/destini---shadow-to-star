@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="375" height="812" viewBox="0 0 375 812" fill="none">
+<title>Screen_06_Outfit_Planner_and_Packing</title>
+<defs>
+<filter id="Card_Shadow" x="-10%" y="-10%" width="120%" height="135%" color-interpolation-filters="sRGB">
+<feDropShadow dx="0" dy="4" stdDeviation="7" flood-color="#24152C" flood-opacity="0.07"/>
+</filter>
+<clipPath id="Screen_Clip"><rect width="375" height="812"/></clipPath>
+</defs>
+<g id="Screen_06_Outfit_Planner_and_Packing" clip-path="url(#Screen_Clip)">
+<rect id="Background" x="0" y="0" width="375" height="812" fill="#FAF7F0"/>
+<g id="Status_Bar">
+<text id="Time" x="32" y="31" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="15" font-weight="600" fill="#24152C">9:41</text>
+<g id="Cellular_Signal">
+<rect id="Signal_Bar_1" x="289" y="26" width="3" height="4" rx="1" fill="#24152C"/>
+<rect id="Signal_Bar_2" x="294" y="24" width="3" height="6" rx="1" fill="#24152C"/>
+<rect id="Signal_Bar_3" x="299" y="22" width="3" height="8" rx="1" fill="#24152C"/>
+<rect id="Signal_Bar_4" x="304" y="20" width="3" height="10" rx="1" fill="#24152C"/>
+</g>
+<g id="WiFi">
+<path id="Wifi_Arc_Outer" d="M311.5 22a10.5 10.5 0 0 1 14 0" fill="none" stroke="#24152C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Wifi_Arc_Inner" d="M314.7 25.4a5.5 5.5 0 0 1 7.6 0" fill="none" stroke="#24152C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<circle id="Wifi_Dot" cx="318.5" cy="28.8" r="1.6" fill="#24152C"/>
+</g>
+<g id="Battery">
+<rect id="Battery_Body" x="332" y="20" width="25" height="12" rx="3.5" fill="none" stroke="#24152C" stroke-width="1" opacity="0.5"/>
+<rect id="Battery_Level" x="334" y="22" width="19" height="8" rx="2" fill="#24152C"/>
+<rect id="Battery_Cap" x="358.5" y="24" width="1.8" height="4" rx="0.9" fill="#24152C" opacity="0.5"/>
+</g>
+</g>
+<g id="Header_Bar">
+<text id="Screen_Title" x="20" y="90" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="28" font-weight="900" fill="#24152C" letter-spacing="-0.6">Planner</text>
+<text id="Subtitle" x="20" y="112" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="400" fill="#4B1D6F">Plan your week &amp; pack smarter</text>
+<g id="Add_Plan_Button">
+<circle id="Button_Circle" cx="335" cy="86" r="20" fill="#24152C"/>
+<g id="Icon_Plus" transform="translate(326 77) scale(0.7500)">
+<path id="Vector" d="M12 5v14 M5 12h14" fill="none" stroke="#FBF5A7" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+</g>
+<g id="Segmented_Control">
+<rect id="Track" x="20" y="126" width="335" height="38" rx="19" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<g id="Segment_Plan_Day_Active">
+<rect id="Segment_Surface" x="23" y="129" width="164" height="32" rx="16" fill="#24152C"/>
+<g id="Icon_Calendar" transform="translate(64 137) scale(0.6667)">
+<path id="Vector_2" d="M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M16 2v4 M8 2v4 M3 10h18" fill="none" stroke="#FBF5A7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Segment_Label" x="86" y="150" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="800" fill="#FBF5A7">Plan Day</text>
+</g>
+<g id="Segment_Pack_Trip">
+<g id="Icon_Suitcase" transform="translate(233 137) scale(0.6667)">
+<path id="Vector_3" d="M4 7h16a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M3 13h18" fill="none" stroke="#4B1D6F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Segment_Label_2" x="255" y="150" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="700" fill="#4B1D6F">Pack Trip</text>
+</g>
+</g>
+<text id="Section_Label_Weekly_Calendar" x="20" y="190" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="800" fill="#4B1D6F" letter-spacing="1.3">WEEKLY CALENDAR</text>
+<text id="Week_Range" x="355" y="190" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="700" fill="#24152C" text-anchor="end">Oct 13 – 19</text>
+<g id="Weekly_Calendar_Strip">
+<g id="Day_13">
+<rect id="Day_Surface" x="20" y="200" width="43" height="66" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Weekday" x="41.5" y="220" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#4B1D6F" text-anchor="middle">M</text>
+<text id="Date" x="41.5" y="243" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="17" font-weight="900" fill="#24152C" text-anchor="middle">13</text>
+<circle id="Planned_Dot" cx="41.5" cy="255" r="3" fill="#FDD78B" stroke="#24152C" stroke-width="0.8"/>
+</g>
+<g id="Day_14">
+<rect id="Day_Surface_2" x="68.33" y="200" width="43" height="66" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Weekday_2" x="89.83" y="220" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#4B1D6F" text-anchor="middle">T</text>
+<text id="Date_2" x="89.83" y="243" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="17" font-weight="900" fill="#24152C" text-anchor="middle">14</text>
+<circle id="Planned_Dot_2" cx="89.83" cy="255" r="3" fill="#FDD78B" stroke="#24152C" stroke-width="0.8"/>
+</g>
+<g id="Day_15">
+<rect id="Day_Surface_3" x="116.66" y="200" width="43" height="66" rx="14" fill="#24152C" stroke="#24152C" stroke-width="1"/>
+<text id="Weekday_3" x="138.16" y="220" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#DECFE8" text-anchor="middle">W</text>
+<text id="Date_3" x="138.16" y="243" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="17" font-weight="900" fill="#FBF5A7" text-anchor="middle">15</text>
+<circle id="Planned_Dot_3" cx="138.16" cy="255" r="3" fill="#FBF5A7"/>
+</g>
+<g id="Day_16">
+<rect id="Day_Surface_4" x="164.99" y="200" width="43" height="66" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Weekday_4" x="186.49" y="220" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#4B1D6F" text-anchor="middle">T</text>
+<text id="Date_4" x="186.49" y="243" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="17" font-weight="900" fill="#24152C" text-anchor="middle">16</text>
+</g>
+<g id="Day_17">
+<rect id="Day_Surface_5" x="213.32" y="200" width="43" height="66" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Weekday_5" x="234.82" y="220" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#4B1D6F" text-anchor="middle">F</text>
+<text id="Date_5" x="234.82" y="243" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="17" font-weight="900" fill="#24152C" text-anchor="middle">17</text>
+<circle id="Planned_Dot_4" cx="234.82" cy="255" r="3" fill="#FDD78B" stroke="#24152C" stroke-width="0.8"/>
+</g>
+<g id="Day_18">
+<rect id="Day_Surface_6" x="261.65" y="200" width="43" height="66" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Weekday_6" x="283.15" y="220" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#4B1D6F" text-anchor="middle">S</text>
+<text id="Date_6" x="283.15" y="243" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="17" font-weight="900" fill="#24152C" text-anchor="middle">18</text>
+</g>
+<g id="Day_19">
+<rect id="Day_Surface_7" x="309.98" y="200" width="43" height="66" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Weekday_7" x="331.48" y="220" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#4B1D6F" text-anchor="middle">S</text>
+<text id="Date_7" x="331.48" y="243" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="17" font-weight="900" fill="#24152C" text-anchor="middle">19</text>
+</g>
+</g>
+<g id="Planned_Outfit_Card">
+<rect id="Card_Surface" x="20" y="276" width="335" height="96" rx="18" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1" filter="url(#Card_Shadow)"/>
+<g id="Tile_Top">
+<rect id="Tile_Background" x="36" y="298" width="52" height="52" rx="10" fill="#FDF3D2"/>
+<g id="Garment_Vector" transform="translate(41.2 303.2) scale(0.4160)">
+<path id="Silhouette" d="M32 14 L14 26 L22 42 L31 38 L31 88 L69 88 L69 38 L78 42 L86 26 L68 14 L58 14 L50 24 L42 14 Z" fill="#DECFE8" stroke="#24152C" stroke-width="3.13" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail" d="M42 14 L50 24 L58 14 M50 24 V36 M31 80 H69" fill="none" stroke="#24152C" stroke-width="3.13" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+</g>
+<g id="Tile_Bottom">
+<rect id="Tile_Background_2" x="94" y="298" width="52" height="52" rx="10" fill="#FDF3D2"/>
+<g id="Garment_Vector_2" transform="translate(99.2 303.2) scale(0.4160)">
+<path id="Silhouette_2" d="M30 10 H70 L75 90 H56 L50 38 L44 90 H25 Z" fill="#24152C" stroke="#24152C" stroke-width="3.13" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail_2" d="M30 18 H70 M50 18 V38" fill="none" stroke="#24152C" stroke-width="3.13" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+</g>
+<g id="Tile_Shoes">
+<rect id="Tile_Background_3" x="152" y="298" width="52" height="52" rx="10" fill="#FDF3D2"/>
+<g id="Garment_Vector_3" transform="translate(157.2 303.2) scale(0.4160)">
+<path id="Silhouette_3" d="M10 64 Q12 50 28 52 L46 56 Q60 42 72 54 L90 62 Q94 72 86 76 H14 Q8 72 10 64 Z" fill="#FFFFFF" stroke="#24152C" stroke-width="3.13" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail_3" d="M12 70 H88 M40 56 L44 62 M48 54 L52 60" fill="none" stroke="#24152C" stroke-width="3.13" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+</g>
+<text id="Plan_Date" x="218" y="304" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="800" fill="#4B1D6F" letter-spacing="1">WED · OCT 15</text>
+<text id="Plan_Title" x="218" y="322" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="800" fill="#24152C">Academic Look</text>
+<text id="Plan_Items" x="218" y="339" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#4B1D6F">Lilac Knit · Plum Chinos</text>
+<g id="Hybrid_Tag">
+<rect id="Tag_Surface" x="218" y="346" width="74" height="18" rx="9" fill="#FDD78B"/>
+<text id="Tag_Label" x="255" y="359" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="800" fill="#24152C" text-anchor="middle">Hybrid 87%</text>
+</g>
+</g>
+<g id="Replace_Plan_Confirmation_Dialog">
+<rect id="Dialog_Surface" x="20" y="382" width="335" height="62" rx="16" fill="#24152C" filter="url(#Card_Shadow)"/>
+<g id="Icon_Alert" transform="translate(32 392) scale(0.8333)">
+<path id="Vector_4" d="M12 9v4 M12 17h.01 M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" fill="none" stroke="#FDD78B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Dialog_Message" x="60" y="404" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="700" fill="#FDF3D2">This date already has a planned outfit.</text>
+<text id="Dialog_Question" x="60" y="429" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#FBF5A7">Replace it?</text>
+<g id="Cancel_Button">
+<rect id="Button_Surface" x="206" y="413" width="62" height="24" rx="12" fill="none" stroke="#DECFE8" stroke-width="1"/>
+<text id="Button_Label" x="237" y="428.96" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="800" fill="#FDF3D2" text-anchor="middle">Cancel</text>
+</g>
+<g id="Replace_Button">
+<rect id="Button_Surface_2" x="274" y="413" width="68" height="24" rx="12" fill="#24152C"/>
+<text id="Button_Label_2" x="308" y="428.96" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="800" fill="#FBF5A7" text-anchor="middle">Replace</text>
+</g>
+</g>
+<text id="Section_Label_Pack_Trip" x="20" y="470" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="800" fill="#4B1D6F" letter-spacing="1.3">PACK TRIP ASSISTANT</text>
+<text id="Clean_Only_Note" x="355" y="470" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="700" fill="#24152C" text-anchor="end">CLEAN items only</text>
+<g id="Trip_Summary_Card">
+<rect id="Card_Surface_2" x="20" y="480" width="335" height="78" rx="18" fill="#FDF3D2" stroke="#DECFE8" stroke-width="1" filter="url(#Card_Shadow)"/>
+<circle id="Icon_Circle" cx="50" cy="519" r="18" fill="#24152C"/>
+<g id="Icon_Suitcase_2" transform="translate(41 510) scale(0.7500)">
+<path id="Vector_5" d="M4 7h16a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M3 13h18" fill="none" stroke="#FBF5A7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Destination" x="78" y="510" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="15" font-weight="800" fill="#24152C">Baguio City</text>
+<text id="Trip_Details" x="78" y="527" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#4B1D6F">3 days · Casual</text>
+<g id="Destination_Weather_Chip">
+<rect id="Chip_Surface" x="78" y="536" width="112" height="16" rx="8" fill="#24152C"/>
+<text id="Chip_Label" x="134" y="548" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="9.5" font-weight="700" fill="#FBF5A7" text-anchor="middle">Rain 18°C · 9 km/h</text>
+</g>
+<g id="Packing_Mode_Toggle">
+<rect id="Toggle_Track" x="247" y="505" width="96" height="28" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<g id="Mode_Light_Active">
+<rect id="Mode_Surface" x="249" y="507" width="46" height="24" rx="12" fill="#24152C"/>
+<text id="Mode_Label" x="272" y="523" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10.5" font-weight="800" fill="#FBF5A7" text-anchor="middle">Light</text>
+</g>
+<text id="Mode_Heavy" x="319" y="523" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10.5" font-weight="700" fill="#4B1D6F" text-anchor="middle">Heavy</text>
+</g>
+</g>
+<g id="Packing_Checklist_Card">
+<rect id="Card_Surface_3" x="20" y="566" width="335" height="152" rx="18" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1" filter="url(#Card_Shadow)"/>
+<text id="Checklist_Title" x="36" y="590" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="800" fill="#24152C">Packing Checklist</text>
+<text id="Checklist_Progress_Label" x="339" y="590" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#4B1D6F" text-anchor="end">4 / 5 packed</text>
+<rect id="Progress_Track" x="36" y="598" width="303" height="5" rx="2.5" fill="#DECFE8"/>
+<rect id="Progress_Fill" x="36" y="598" width="242.4" height="5" rx="2.5" fill="#24152C"/>
+<g id="Checklist_Items">
+<g id="Checklist_Item_White_Cotton_Tee">
+<rect id="Checkbox" x="36" y="612" width="14" height="14" rx="4" fill="#24152C" stroke="#24152C" stroke-width="1.3"/>
+<g id="Icon_Check" transform="translate(38 614) scale(0.4167)">
+<path id="Vector_6" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#FBF5A7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Item_Name" x="58" y="623" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="600" fill="#24152C" opacity="0.6">White Cotton Tee</text>
+<g id="Category_Tag">
+<rect id="Tag_Surface_2" x="308.64" y="612" width="30.36" height="14" rx="7" fill="#DECFE8"/>
+<text id="Tag_Label_2" x="323.82" y="622" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="9" font-weight="800" fill="#24152C" text-anchor="middle">TOP</text>
+</g>
+</g>
+<g id="Checklist_Item_Lilac_Knit_Polo">
+<rect id="Checkbox_2" x="36" y="632" width="14" height="14" rx="4" fill="#24152C" stroke="#24152C" stroke-width="1.3"/>
+<g id="Icon_Check_2" transform="translate(38 634) scale(0.4167)">
+<path id="Vector_7" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#FBF5A7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Item_Name_2" x="58" y="643" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="600" fill="#24152C" opacity="0.6">Lilac Knit Polo</text>
+<g id="Category_Tag_2">
+<rect id="Tag_Surface_3" x="308.64" y="632" width="30.36" height="14" rx="7" fill="#DECFE8"/>
+<text id="Tag_Label_3" x="323.82" y="642" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="9" font-weight="800" fill="#24152C" text-anchor="middle">TOP</text>
+</g>
+</g>
+<g id="Checklist_Item_Plum_Chinos">
+<rect id="Checkbox_3" x="36" y="652" width="14" height="14" rx="4" fill="#24152C" stroke="#24152C" stroke-width="1.3"/>
+<g id="Icon_Check_3" transform="translate(38 654) scale(0.4167)">
+<path id="Vector_8" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#FBF5A7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Item_Name_3" x="58" y="663" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="600" fill="#24152C" opacity="0.6">Plum Chinos</text>
+<g id="Category_Tag_3">
+<rect id="Tag_Surface_4" x="290.28" y="652" width="48.72" height="14" rx="7" fill="#DECFE8"/>
+<text id="Tag_Label_4" x="314.64" y="662" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="9" font-weight="800" fill="#24152C" text-anchor="middle">BOTTOM</text>
+</g>
+</g>
+<g id="Checklist_Item_White_Sneakers">
+<rect id="Checkbox_4" x="36" y="672" width="14" height="14" rx="4" fill="#24152C" stroke="#24152C" stroke-width="1.3"/>
+<g id="Icon_Check_4" transform="translate(38 674) scale(0.4167)">
+<path id="Vector_9" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#FBF5A7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Item_Name_4" x="58" y="683" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="600" fill="#24152C" opacity="0.6">White Sneakers</text>
+<g id="Category_Tag_4">
+<rect id="Tag_Surface_5" x="296.4" y="672" width="42.6" height="14" rx="7" fill="#DECFE8"/>
+<text id="Tag_Label_5" x="317.7" y="682" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="9" font-weight="800" fill="#24152C" text-anchor="middle">SHOES</text>
+</g>
+</g>
+<g id="Checklist_Item_Peach_Windbreaker">
+<rect id="Checkbox_5" x="36" y="692" width="14" height="14" rx="4" fill="none" stroke="#24152C" stroke-width="1.3"/>
+<text id="Item_Name_5" x="58" y="703" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="600" fill="#24152C" opacity="1">Peach Windbreaker</text>
+<g id="Category_Tag_5">
+<rect id="Tag_Surface_6" x="271.92" y="692" width="67.08" height="14" rx="7" fill="#DECFE8"/>
+<text id="Tag_Label_6" x="305.46" y="702" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="9" font-weight="800" fill="#24152C" text-anchor="middle">OUTERWEAR</text>
+</g>
+</g>
+</g>
+</g>
+<g id="Bottom_Navigation_Bar">
+<rect id="Nav_Surface" x="0" y="728" width="375" height="84" fill="#FFFFFF"/>
+<rect id="Nav_Top_Hairline" x="0" y="728" width="375" height="1" fill="#DECFE8"/>
+<g id="Tab_Home">
+<rect id="Active_Indicator_Pill" x="27.5" y="729" width="20" height="3" rx="1.5" fill="#24152C"/>
+<g id="Icon_Home" transform="translate(26.5 744) scale(0.9167)">
+<path id="Vector_10" d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" fill="#24152C" fill-opacity="0.2" stroke="#24152C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label" x="37.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="800" fill="#24152C" text-anchor="middle" opacity="1">Home</text>
+</g>
+<g id="Tab_Wardrobe">
+<g id="Icon_Shirt" transform="translate(101.5 744) scale(0.9167)">
+<path id="Vector_11" d="M8 3L3 6l2 4.5 2-1V21h10V9.5l2 1L21 6l-5-3a4 4 0 0 1-8 0z" fill="none" stroke="#4B1D6F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_2" x="112.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="600" fill="#4B1D6F" text-anchor="middle" opacity="0.75">Wardrobe</text>
+</g>
+<g id="Tab_Outfit_AI_Center_Badge">
+<circle id="Badge_Glow" cx="187.5" cy="740" r="31" fill="#24152C" opacity="0.12"/>
+<circle id="Badge_Circle" cx="187.5" cy="740" r="24" fill="#24152C" stroke="#DECFE8" stroke-width="1.5"/>
+<g id="Icon_Sparkles" transform="translate(176.5 729) scale(0.9167)">
+<path id="Vector_12" d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z M18.5 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="none" stroke="#FBF5A7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_3" x="187.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="800" fill="#4B1D6F" text-anchor="middle" opacity="0.75">Outfit</text>
+</g>
+<g id="Tab_Community">
+<g id="Icon_People" transform="translate(251.5 744) scale(0.9167)">
+<path id="Vector_13" d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M2 21v-1a7 7 0 0 1 14 0v1 M16 3.2a4 4 0 0 1 0 7.6 M22 21v-1a7 7 0 0 0-4-6.3" fill="none" stroke="#4B1D6F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_4" x="262.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="600" fill="#4B1D6F" text-anchor="middle" opacity="0.75">Community</text>
+</g>
+<g id="Tab_Account">
+<g id="Icon_Person" transform="translate(326.5 744) scale(0.9167)">
+<path id="Vector_14" d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z M4 21v-.5a8 8 0 0 1 16 0v.5" fill="none" stroke="#4B1D6F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_5" x="337.5" y="782" font-family="Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="600" fill="#4B1D6F" text-anchor="middle" opacity="0.75">Account</text>
+</g>
+</g>
+<rect id="Home_Indicator" x="120.5" y="799" width="134" height="5" rx="2.5" fill="#24152C"/>
+</g>
+</svg>

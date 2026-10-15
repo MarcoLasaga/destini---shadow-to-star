@@ -52,35 +52,23 @@ export default function CommunityScreen() {
           style={[
             styles.postButton,
             {
-              backgroundColor: theme.mode === 'dark' ? '#2D2A3E' : theme.secondaryAccent,
-              borderColor: theme.mode === 'dark' ? '#6366F1' : 'transparent',
+              backgroundColor: theme.secondaryAccent,
+              borderColor: 'transparent',
               borderWidth: theme.mode === 'dark' ? 1 : 0,
             },
           ]}
         >
-          <Ionicons name="add" size={16} color="#FFFFFF" />
-          <Text style={styles.postButtonText}>Post Look</Text>
+          <Ionicons name="add" size={16} color={theme.onAccent} />
+          <Text style={[styles.postButtonText, { color: theme.onAccent }]}>Post Look</Text>
         </Pressable>
       </View>
 
       <View style={styles.modes}>
         {(['recent', 'trending'] as const).map((value) => {
           const isActive = community.mode === value;
-          const bg = isActive
-            ? theme.mode === 'dark'
-              ? '#D4AF37'
-              : theme.secondaryAccent
-            : theme.surface;
-          const textColor = isActive
-            ? theme.mode === 'dark'
-              ? '#0F1115'
-              : '#FFFFFF'
-            : theme.text;
-          const borderColor = isActive
-            ? theme.mode === 'dark'
-              ? '#D4AF37'
-              : theme.secondaryAccent
-            : theme.border;
+          const bg = isActive ? theme.secondaryAccent : theme.surface;
+          const textColor = isActive ? theme.onAccent : theme.text;
+          const borderColor = isActive ? theme.secondaryAccent : theme.border;
 
           return (
             <Pressable
@@ -166,13 +154,13 @@ export default function CommunityScreen() {
                 style={[
                   styles.shareCta,
                   {
-                    backgroundColor: theme.mode === 'dark' ? '#2D2A3E' : theme.secondaryAccent,
-                    borderColor: theme.mode === 'dark' ? '#6366F1' : 'transparent',
+                    backgroundColor: theme.secondaryAccent,
+                    borderColor: 'transparent',
                     borderWidth: theme.mode === 'dark' ? 1 : 0,
                   },
                 ]}
               >
-                <Text style={styles.shareCtaText}>Publish First Look</Text>
+                <Text style={[styles.shareCtaText, { color: theme.onAccent }]}>Publish First Look</Text>
               </Pressable>
             </View>
           )

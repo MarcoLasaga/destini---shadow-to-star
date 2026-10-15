@@ -24,8 +24,8 @@ export default function PackingScreen() {
         title="Packing Assistant"
         rightElement={
           <Pressable onPress={() => setModalVisible(true)} style={[styles.newTripButton, { backgroundColor: theme.secondaryAccent }]}>
-            <Ionicons name="add" size={15} color="#FFFFFF" />
-            <Text style={styles.newTripLabel}>New Trip</Text>
+            <Ionicons name="add" size={15} color={theme.onAccent} />
+            <Text style={[styles.newTripLabel, { color: theme.onAccent }]}>New Trip</Text>
           </Pressable>
         }
       />
@@ -46,7 +46,7 @@ export default function PackingScreen() {
               onPress={() => setModalVisible(true)}
               style={[styles.emptyCta, { backgroundColor: theme.secondaryAccent }]}
             >
-              <Text style={styles.emptyCtaText}>Start Packing a Trip</Text>
+              <Text style={[styles.emptyCtaText, { color: theme.onAccent }]}>Start Packing a Trip</Text>
             </Pressable>
           </View>
         }
