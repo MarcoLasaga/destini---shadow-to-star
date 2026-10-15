@@ -16,7 +16,8 @@ export const ENV = {
   SUPABASE_URL: process.env.VITE_SUPABASE_URL || 'https://wdvndocbxxzpltywtpub.supabase.co',
   SUPABASE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || '',
   // URL of the separately deployed clothing CNN. It receives a normalized image body
-  // and returns category, color, style and optional confidence scores.
-  CNN_ANALYSIS_URL: process.env.CNN_ANALYSIS_URL || '',
+  CNN_ANALYSIS_URL: process.env.CNN_ANALYSIS_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8000/analyze'),
+  ML_SERVICE_URL: process.env.ML_SERVICE_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8000'),
+  OPENWEATHER_API_KEY: process.env.OPENWEATHER_API_KEY || '',
 }
 

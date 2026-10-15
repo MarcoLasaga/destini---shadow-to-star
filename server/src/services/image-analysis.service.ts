@@ -5,13 +5,22 @@ import { ENV } from '../config/env'
 const CATEGORIES = ['TOP', 'BOTTOM', 'SHOES', 'OUTERWEAR', 'ACCESSORIES'] as const
 const STYLES = ['CASUAL', 'FORMAL', 'SPORTY', 'STREETWEAR', 'MINIMALIST', 'BOHEMIAN', 'VINTAGE', 'CLASSIC'] as const
 
+export interface ColorClusterInfo {
+  color_name: string
+  proportion: number
+  lab: [number, number, number] | number[]
+}
+
 export interface ClothingPrediction {
   category?: (typeof CATEGORIES)[number]
   categoryConfidence?: number
   color?: string
+  secondary_color?: string | null
+  palette?: ColorClusterInfo[] | Record<string, unknown> | unknown
   style?: (typeof STYLES)[number]
   confidence?: number
-  palette?: Record<string, unknown>
+  is_safe_garment?: boolean
+  moderation_reason?: string | null
   attributes?: Record<string, unknown> | null
 }
 
@@ -36,12 +45,13 @@ async function preprocessForCnn(buffer: Buffer) {
 
 export const imageAnalysisService = {
   async analyze(file: Express.Multer.File): Promise<ClothingPrediction> {
-    if (!ENV.CNN_ANALYSIS_URL) {
+    const analysisUrl = ENV.CNN_ANALYSIS_URL
+    if (!analysisUrl) {
       throw Object.assign(new Error('Image analysis is not configured. Set CNN_ANALYSIS_URL to the deployed clothing classifier.'), { statusCode: 503, isOperational: true })
     }
 
     const normalized = await preprocessForCnn(file.buffer)
-    const { data } = await axios.post<unknown>(ENV.CNN_ANALYSIS_URL, normalized, {
+    const { data } = await axios.post<unknown>(analysisUrl, normalized, {
       headers: { 'Content-Type': 'image/jpeg', 'X-Source-Filename': encodeURIComponent(file.originalname) },
       timeout: 15_000,
     })
@@ -52,9 +62,16 @@ export const imageAnalysisService = {
       category: optionalEnum(result.category, CATEGORIES),
       categoryConfidence: confidence,
       color: typeof result.color === 'string' && result.color.length <= 50 ? result.color : undefined,
+      secondary_color: typeof result.secondary_color === 'string'
+        ? result.secondary_color
+        : (result.secondary_color === null ? null : undefined),
+      palette: result.palette as any,
       style: optionalEnum(result.style, STYLES),
       confidence,
-      palette: result.palette && typeof result.palette === 'object' ? result.palette as Record<string, unknown> : undefined,
+      is_safe_garment: typeof result.is_safe_garment === 'boolean' ? result.is_safe_garment : true,
+      moderation_reason: typeof result.moderation_reason === 'string'
+        ? result.moderation_reason
+        : (result.moderation_reason === null ? null : undefined),
       attributes: result.attributes && typeof result.attributes === 'object' ? result.attributes as Record<string, unknown> : null,
     }
   },

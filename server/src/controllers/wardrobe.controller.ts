@@ -1,9 +1,39 @@
 import { Response, NextFunction } from 'express'
+import axios from 'axios'
 import { wardrobeService } from '../services/wardrobe.service'
 import { sendSuccess, sendError } from '../utils/response'
 import { filterSchema } from '../validators/wardrobe.validator'
 import { imageAnalysisService } from '../services/image-analysis.service'
+import { getSupabaseClient } from '../config/supabase'
 import type { AuthRequest } from '../types'
+
+const VALID_CATEGORIES = new Set(['TOP', 'BOTTOM', 'SHOES', 'OUTERWEAR', 'ACCESSORIES'])
+const VALID_STYLES = new Set(['CASUAL', 'FORMAL', 'SPORTY', 'STREETWEAR', 'MINIMALIST', 'BOHEMIAN', 'VINTAGE', 'CLASSIC'])
+const VALID_LAUNDRY = new Set(['CLEAN', 'DIRTY', 'LAUNDRY', 'NEEDS_WASHING'])
+
+function normalizeCategory(raw?: string | null): 'TOP' | 'BOTTOM' | 'SHOES' | 'OUTERWEAR' | 'ACCESSORIES' {
+  const upper = (raw || '').toUpperCase().trim()
+  if (VALID_CATEGORIES.has(upper)) return upper as any
+  if (upper.includes('SHOE') || upper.includes('BOOT') || upper.includes('SNEAKER') || upper.includes('FOOTWEAR') || upper.includes('SANDAL')) return 'SHOES'
+  if (upper.includes('BOTTOM') || upper.includes('PANT') || upper.includes('JEAN') || upper.includes('SHORT') || upper.includes('SKIRT')) return 'BOTTOM'
+  if (upper.includes('COAT') || upper.includes('JACKET') || upper.includes('OUTER') || upper.includes('HOODIE') || upper.includes('CARDIGAN')) return 'OUTERWEAR'
+  if (upper.includes('ACCESSOR') || upper.includes('BAG') || upper.includes('HAT') || upper.includes('BELT') || upper.includes('WATCH')) return 'ACCESSORIES'
+  return 'TOP'
+}
+
+function normalizeStyle(raw?: string | null): 'CASUAL' | 'FORMAL' | 'SPORTY' | 'STREETWEAR' | 'MINIMALIST' | 'BOHEMIAN' | 'VINTAGE' | 'CLASSIC' {
+  const upper = (raw || '').toUpperCase().trim()
+  if (VALID_STYLES.has(upper)) return upper as any
+  return 'CASUAL'
+}
+
+function normalizeLaundryStatus(raw?: string | null): 'CLEAN' | 'DIRTY' | 'LAUNDRY' | 'NEEDS_WASHING' {
+  const upper = (raw || '').toUpperCase().trim()
+  if (VALID_LAUNDRY.has(upper)) return upper as any
+  if (upper.includes('WASH')) return 'NEEDS_WASHING'
+  if (upper.includes('DIRT')) return 'DIRTY'
+  return 'CLEAN'
+}
 
 export const wardrobeController = {
   async getAll(req: AuthRequest, res: Response, next: NextFunction) {
@@ -45,8 +75,191 @@ export const wardrobeController = {
         return
       }
       const prediction = await imageAnalysisService.analyze(req.file)
+      if (prediction.is_safe_garment === false) {
+        sendError(
+          res,
+          prediction.moderation_reason || 'Image rejected by AI Safety Gate: Potential NSFW or non-garment photo detected.',
+          422,
+          prediction
+        )
+        return
+      }
       sendSuccess(res, prediction, 'Image analyzed successfully')
     } catch (err) {
+      next(err)
+    }
+  },
+
+  async moderate(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const {
+        caption = '',
+        garment_confidence = 1.0,
+        skin_exposure_ratio = 0.0,
+      } = req.body || {}
+
+      const mlUrl = process.env.ML_SERVICE_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8000')
+      if (!mlUrl) {
+        sendError(res, 'ML microservice is not configured. Set ML_SERVICE_URL to the deployed microservice.', 503)
+        return
+      }
+      const { data } = await axios.post(`${mlUrl}/moderate`, {
+        caption: typeof caption === 'string' ? caption : '',
+        garment_confidence: typeof garment_confidence === 'number' ? garment_confidence : 1.0,
+        skin_exposure_ratio: typeof skin_exposure_ratio === 'number' ? skin_exposure_ratio : 0.0,
+      }, { timeout: 10_000 })
+
+      const moderationResult = {
+        approved: Boolean(data.approved),
+        sanitized_caption: String(data.sanitized_caption ?? ''),
+        reason: data.reason ?? null,
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: moderationResult,
+        ...moderationResult,
+      })
+    } catch (err: any) {
+      if (err.response?.status) {
+        sendError(res, err.response.data?.detail || err.message, err.response.status)
+        return
+      }
+      next(err)
+    }
+  },
+
+  async recommend(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      let weather = {
+        temperature_c: 28.0,
+        condition: 'Clear',
+        humidity: 70.0,
+        precipitation_mm: 0.0,
+      }
+
+      const apiKey = process.env.OPENWEATHER_API_KEY
+      if (apiKey) {
+        try {
+          const city = req.body?.city || req.query?.city || 'Makati,PH'
+          const weatherRes = await axios.get('https://api.openweathermap.org/data/2.5/weather', {
+            params: { q: city, units: 'metric', appid: apiKey },
+            timeout: 5000,
+          })
+          if (weatherRes.data) {
+            weather = {
+              temperature_c: typeof weatherRes.data.main?.temp === 'number' ? weatherRes.data.main.temp : 28.0,
+              condition: weatherRes.data.weather?.[0]?.main || 'Clear',
+              humidity: typeof weatherRes.data.main?.humidity === 'number' ? weatherRes.data.main.humidity : 70.0,
+              precipitation_mm: typeof weatherRes.data.rain?.['1h'] === 'number'
+                ? weatherRes.data.rain['1h']
+                : (typeof weatherRes.data.rain?.['3h'] === 'number' ? weatherRes.data.rain['3h'] : 0.0),
+            }
+          }
+        } catch (_weatherErr) {
+          // Gracefully fallback to Makati/Manila 28C Clear if offline/unset or error
+          weather = {
+            temperature_c: 28.0,
+            condition: 'Clear',
+            humidity: 70.0,
+            precipitation_mm: 0.0,
+          }
+        }
+      }
+
+      if (req.body?.weather && typeof req.body.weather === 'object') {
+        weather = { ...weather, ...req.body.weather }
+      }
+
+      let rawItems: any[] = []
+      if (Array.isArray(req.body?.wardrobe) && req.body.wardrobe.length > 0) {
+        rawItems = req.body.wardrobe
+      } else {
+        try {
+          const supabase = await getSupabaseClient(req.user!.token)
+          const { data, error } = await supabase
+            .from('wardrobe_items')
+            .select('*')
+            .eq('user_id', req.user!.userId)
+
+          if (error) throw error
+          rawItems = data || []
+        } catch (dbErr: any) {
+          if (dbErr.message?.includes('supabaseKey is required')) {
+            rawItems = []
+          } else {
+            throw dbErr
+          }
+        }
+      }
+
+      const mappedWardrobe = (rawItems || []).map((row: any) => {
+        const lastWorn = row.last_worn_at || row.lastWornAt
+        const worn_within_7_days = Boolean(lastWorn && (Date.now() - new Date(lastWorn).getTime() < 7 * 24 * 60 * 60 * 1000))
+
+        return {
+          id: String(row.id),
+          clothing_name: row.clothing_name || row.clothingName || 'Item',
+          category: normalizeCategory(row.category),
+          color: (typeof row.color === 'string' && row.color.trim()) ? row.color.trim() : 'Black',
+          style: normalizeStyle(row.style),
+          occasion: row.occasion || 'Casual',
+          laundry_status: normalizeLaundryStatus(row.laundry_status || row.laundryStatus),
+          worn_within_7_days,
+          is_favorite: Boolean(row.is_favorite ?? row.isFavorite ?? false),
+          is_disliked: Boolean(row.is_disliked ?? row.isDisliked ?? false),
+        }
+      })
+
+      let preferredStyles = ['CASUAL']
+      let preferredColors = ['Black', 'White', 'Navy']
+
+      if (Array.isArray(req.body?.preferred_styles) && req.body.preferred_styles.length > 0) {
+        preferredStyles = req.body.preferred_styles
+          .map((s: string) => String(s).toUpperCase())
+          .filter((s: string) => VALID_STYLES.has(s))
+        if (!preferredStyles.length) preferredStyles = ['CASUAL']
+      }
+      if (Array.isArray(req.body?.preferred_colors) && req.body.preferred_colors.length > 0) {
+        preferredColors = req.body.preferred_colors.filter((c: unknown) => typeof c === 'string' && (c as string).length > 0)
+        if (!preferredColors.length) preferredColors = ['Black', 'White', 'Navy']
+      }
+
+      const mlPayload = {
+        user_id: req.user!.userId,
+        target_occasion: req.body?.target_occasion || req.body?.occasion || 'Casual',
+        no_new_clothes_mode: req.body?.no_new_clothes_mode ?? true,
+        wardrobe: mappedWardrobe,
+        preferred_styles: preferredStyles,
+        preferred_colors: preferredColors,
+        weather,
+        community_signals: Array.isArray(req.body?.community_signals) ? req.body.community_signals : [],
+        alpha: typeof req.body?.alpha === 'number' ? req.body.alpha : 0.55,
+      }
+
+      const mlUrl = process.env.ML_SERVICE_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8000')
+      if (!mlUrl) {
+        sendError(res, 'ML microservice is not configured. Set ML_SERVICE_URL to the deployed microservice.', 503)
+        return
+      }
+      const { data: recommendations } = await axios.post(`${mlUrl}/recommend`, mlPayload, {
+        timeout: 15_000,
+      })
+
+      if (req.query?.raw === 'true') {
+        return res.status(200).json(recommendations)
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: recommendations,
+        recommendations,
+      })
+    } catch (err: any) {
+      if (err.response?.status) {
+        sendError(res, err.response.data?.detail || err.message, err.response.status)
+        return
+      }
       next(err)
     }
   },
