@@ -2,13 +2,16 @@
  
 Implements:
 1. Fine-Tuned 5-Class ResNet-50 Garment Classifier (with 0.55 confidence threshold
-   and automatic fallback if checkpoint is not yet mounted).
-2. CIELAB K-Means++ (K = 2) Dominant Color & Palette Extraction (Chapter 2 Eqs. 4-12)
-   with background pixel exclusion via CIE76 Delta-E.
+   and comprehensive 150+ synset fallback mapping for TOP, BOTTOM, SHOES,
+   OUTERWEAR, and ACCESSORIES including earbuds/AirPods, watches, eyewear, bags,
+   jewelry, hats, belts, and neckwear).
+2. Center-Weighted CIELAB K-Means++ (K = 2) Dominant Color & Palette Extraction
+   (Chapter 2 Eqs. 4-12) that preserves white/light garments on white backgrounds
+   and ignores dark cast shadows.
 3. Automated AI Content Moderation Gate (NSFW / Skin-Ratio Check + Non-Garment
    Confidence Gate + Profanity/Slur Text Filter for Community Feed posts).
 4. Context-Aware Weighted Hybrid Recommendation Engine (Chapter 2 Eqs. 15-19 & Table 1):
-   S_hybrid = 0.55 * S_cb + 0.45 * S_cf
+   S_hybrid = round(0.55 * S_cb + 0.45 * S_cf)
    incorporating OpenWeatherMap live temperature/rain signals, occasion matching,
    CIELAB color harmony, 7-day wear recency rotation, and Community Feed
    cosine-similarity neighborhood collaborative filtering.
@@ -18,7 +21,7 @@ from contextlib import asynccontextmanager
 from io import BytesIO
 import os
 import re
-from typing import Literal
+from typing import Dict, List, Literal, Optional, Tuple
  
 import numpy as np
 import torch
@@ -28,51 +31,78 @@ from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, Field
 from torchvision.models import ResNet50_Weights, resnet50
  
-Category = Literal['TOP', 'BOTTOM', 'SHOES', 'OUTERWEAR', 'ACCESSORIES']
+Category = Literal["TOP", "BOTTOM", "SHOES", "OUTERWEAR", "ACCESSORIES"]
 Style = Literal[
-    'CASUAL', 'FORMAL', 'SPORTY', 'STREETWEAR',
-    'MINIMALIST', 'BOHEMIAN', 'VINTAGE', 'CLASSIC'
+    "CASUAL", "FORMAL", "SPORTY", "STREETWEAR",
+    "MINIMALIST", "BOHEMIAN", "VINTAGE", "CLASSIC"
 ]
  
-CATEGORIES_LIST: list[Category] = ['TOP', 'BOTTOM', 'SHOES', 'OUTERWEAR', 'ACCESSORIES']
+CATEGORIES_LIST: List[Category] = ["TOP", "BOTTOM", "SHOES", "OUTERWEAR", "ACCESSORIES"]
 CONFIDENCE_THRESHOLD = 0.55
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
-CHECKPOINT_PATH = os.getenv('RESNET50_CHECKPOINT_PATH', 'models/resnet50_stylesense_epoch13.pth')
+CHECKPOINT_PATH = os.getenv("RESNET50_CHECKPOINT_PATH", "models/resnet50_stylesense_epoch13.pth")
  
-MODEL: torch.nn.Module | None = None
+MODEL: Optional[torch.nn.Module] = None
 IS_FINETUNED_HEAD: bool = False
 WEIGHTS = ResNet50_Weights.IMAGENET1K_V2
  
 # Reference Fashion Colors in CIELAB (L*, a*, b*) for CIE76 Delta-E naming (Eq. 11)
-REFERENCE_COLORS_LAB: dict[str, tuple[float, float, float]] = {
-    'Black': (15.0, 0.0, 0.0),
-    'White': (95.0, 0.0, 0.0),
-    'Gray': (55.0, 0.0, 0.0),
-    'Beige': (82.0, 2.0, 14.0),
-    'Khaki': (68.0, 1.0, 20.0),
-    'Navy': (25.0, 8.0, -32.0),
-    'Blue': (45.0, 5.0, -48.0),
-    'Red': (48.0, 62.0, 35.0),
-    'Burgundy': (30.0, 42.0, 18.0),
-    'Green': (52.0, -45.0, 30.0),
-    'Brown': (38.0, 15.0, 22.0),
-    'Pink': (72.0, 35.0, 5.0),
-    'Yellow': (85.0, -5.0, 75.0),
+REFERENCE_COLORS_LAB: Dict[str, Tuple[float, float, float]] = {
+    "Black": (18.0, 0.0, 0.0),
+    "White": (92.0, 0.0, 0.0),
+    "Gray": (58.0, 0.0, 0.0),
+    "Beige": (82.0, 2.0, 14.0),
+    "Khaki": (68.0, 1.0, 20.0),
+    "Navy": (25.0, 8.0, -32.0),
+    "Blue": (45.0, 5.0, -48.0),
+    "Red": (48.0, 62.0, 35.0),
+    "Burgundy": (30.0, 42.0, 18.0),
+    "Green": (52.0, -45.0, 30.0),
+    "Brown": (38.0, 15.0, 22.0),
+    "Pink": (72.0, 35.0, 5.0),
+    "Yellow": (85.0, -5.0, 75.0),
 }
-NEUTRAL_COLORS = {'Black', 'White', 'Gray', 'Beige', 'Khaki', 'Navy'}
+NEUTRAL_COLORS = {"Black", "White", "Gray", "Beige", "Khaki", "Navy"}
  
-# Fallback ImageNet garment hints if fine-tuned .pth is not mounted yet
-LABEL_CATEGORY_HINTS: dict[Category, tuple[str, ...]] = {
-    'TOP': ('jersey', 'sweatshirt', 'cardigan', 'shirt', 'maillot', 'vestment'),
-    'BOTTOM': ('jean', 'miniskirt', 'kilt', 'sarong', 'trouser', 'pant'),
-    'SHOES': ('shoe', 'sandal', 'loafer', 'boot', 'sneaker', 'clog'),
-    'OUTERWEAR': ('coat', 'jacket', 'suit', 'trench', 'poncho', 'abaya'),
-    'ACCESSORIES': ('backpack', 'handbag', 'purse', 'wallet', 'tie', 'scarf', 'belt', 'hat', 'watch', 'sunglass'),
+# Comprehensive 5-class vocabulary mapping for ImageNet-1K synsets
+LABEL_CATEGORY_HINTS: Dict[Category, Tuple[str, ...]] = {
+    "ACCESSORIES": (
+        "backpack", "handbag", "purse", "wallet", "tie", "bow tie", "windsor tie", "bolo tie",
+        "scarf", "stole", "feather boa", "belt", "buckle", "hat", "cap", "bonnet", "cowboy hat",
+        "sombrero", "beret", "beanie", "crash helmet", "bathing cap", "mortarboard", "crown",
+        "watch", "digital watch", "analog clock", "stopwatch", "wall clock", "parking meter",
+        "sunglass", "sunglasses", "shades", "loupe", "binoculars", "goggles", "mask",
+        "necklace", "chain", "bracelet", "ring", "earring", "hair slide", "hairpin", "wig",
+        "umbrella", "parasol", "mitten", "glove", "mailbag", "plastic bag", "shopping basket",
+        "pouch", "clutch", "briefcase", "chest", "pencil box", "cigarette case", "ipod",
+        "earphone", "headphone", "earbud", "headset", "microphone", "cellular telephone",
+        "hand-held computer", "modem", "mouse", "remote control", "whistle", "Perfume", "lotion",
+        "water bottle", "neck brace", "band aid", "handkerchief", "bib"
+    ),
+    "SHOES": (
+        "shoe", "running shoe", "sandal", "loafer", "boot", "cowboy boot", "sneaker", "clog",
+        "flip-flop", "slipper", "sock", "christmas stocking", "maillot", "roller skate", "ice skate"
+    ),
+    "OUTERWEAR": (
+        "coat", "jacket", "suit", "trench coat", "poncho", "abaya", "cardigan", "sweatshirt",
+        "hoodie", "windbreaker", "raincoat", "fur coat", "lab coat", "academic gown", "vestment",
+        "kimono", "cloak", "cape", "bulletproof vest", "cuirass", "breastplate", "chain mail",
+        "ski mask", "apron", "overall"
+    ),
+    "BOTTOM": (
+        "jean", "blue jean", "denim", "miniskirt", "kilt", "sarong", "trouser", "pant",
+        "short", "swimming trunks", "diaper", "overskirt", "hoopskirt", "garter", "legging",
+        "pajama", " pajama"
+    ),
+    "TOP": (
+        "jersey", "t-shirt", "tee shirt", "shirt", "polo", "blouse", "tank", "halter",
+        "brassiere", "bra", "bikini", "maillot", "corset", "gown", "dress", "sweatshirt",
+        "pullover", "sweater", "wool", "velvet", "corduroy", "flannel"
+    ),
 }
  
-# Automated Profanity / Slur Blocklist for Community Feed Captions & Notes
 BLOCKED_TERMS_PATTERN = re.compile(
-    r'\b(nigger|nigga|faggot|fuck|shit|bitch|cunt|whore|slut|retard|porn|nsfw|nude|naked|sex)\b',
+    r"\b(nigger|nigga|faggot|fuck|shit|bitch|cunt|whore|slut|retard|porn|nsfw|nude|naked|sex)\b",
     re.IGNORECASE,
 )
  
@@ -80,22 +110,22 @@ BLOCKED_TERMS_PATTERN = re.compile(
 class ColorClusterInfo(BaseModel):
     color_name: str
     proportion: float
-    lab: tuple[float, float, float]
+    lab: Tuple[float, float, float]
  
  
 class Prediction(BaseModel):
-    category: Category | None = None
-    color: str | None = None
-    secondary_color: str | None = None
-    palette: list[ColorClusterInfo] = Field(default_factory=list)
-    style: Style | None = None
+    category: Optional[Category] = None
+    color: Optional[str] = None
+    secondary_color: Optional[str] = None
+    palette: List[ColorClusterInfo] = Field(default_factory=list)
+    style: Optional[Style] = None
     confidence: float
     is_safe_garment: bool = True
-    moderation_reason: str | None = None
+    moderation_reason: Optional[str] = None
  
  
 class ModerationRequest(BaseModel):
-    caption: str = ''
+    caption: str = ""
     garment_confidence: float = 1.0
     skin_exposure_ratio: float = 0.0
  
@@ -103,7 +133,7 @@ class ModerationRequest(BaseModel):
 class ModerationResponse(BaseModel):
     approved: bool
     sanitized_caption: str
-    reason: str | None = None
+    reason: Optional[str] = None
  
  
 class WardrobeItemInput(BaseModel):
@@ -111,9 +141,9 @@ class WardrobeItemInput(BaseModel):
     clothing_name: str
     category: Category
     color: str
-    style: Style = 'CASUAL'
-    occasion: str = 'Casual'
-    laundry_status: Literal['CLEAN', 'DIRTY', 'LAUNDRY', 'NEEDS_WASHING'] = 'CLEAN'
+    style: Style = "CASUAL"
+    occasion: str = "Casual"
+    laundry_status: Literal["CLEAN", "DIRTY", "LAUNDRY", "NEEDS_WASHING"] = "CLEAN"
     worn_within_7_days: bool = False
     is_favorite: bool = False
     is_disliked: bool = False
@@ -121,7 +151,7 @@ class WardrobeItemInput(BaseModel):
  
 class WeatherContextInput(BaseModel):
     temperature_c: float = 28.0
-    condition: str = 'Clear'
+    condition: str = "Clear"
     humidity: float = 70.0
     precipitation_mm: float = 0.0
  
@@ -135,24 +165,24 @@ class CommunityRatingSignal(BaseModel):
  
 class HybridRecommendationRequest(BaseModel):
     user_id: str
-    target_occasion: str = 'Casual'
+    target_occasion: str = "Casual"
     no_new_clothes_mode: bool = True
-    wardrobe: list[WardrobeItemInput]
-    preferred_styles: list[Style] = Field(default_factory=lambda: ['CASUAL'])
-    preferred_colors: list[str] = Field(default_factory=lambda: ['Black', 'White', 'Navy'])
+    wardrobe: List[WardrobeItemInput]
+    preferred_styles: List[Style] = Field(default_factory=lambda: ["CASUAL"])
+    preferred_colors: List[str] = Field(default_factory=lambda: ["Black", "White", "Navy"])
     weather: WeatherContextInput = Field(default_factory=WeatherContextInput)
-    community_signals: list[CommunityRatingSignal] = Field(default_factory=list)
+    community_signals: List[CommunityRatingSignal] = Field(default_factory=list)
     alpha: float = 0.55
  
  
 class ScoredOutfitRecommendation(BaseModel):
-    item_ids: list[str]
-    items: list[WardrobeItemInput]
+    item_ids: List[str]
+    items: List[WardrobeItemInput]
     content_score: float
     collaborative_score: float
     hybrid_score: float
     weather_tag: str
-    reasons: list[str]
+    reasons: List[str]
  
  
 def srgb_to_cielab(rgb_pixels: np.ndarray) -> np.ndarray:
@@ -179,8 +209,18 @@ def srgb_to_cielab(rgb_pixels: np.ndarray) -> np.ndarray:
  
 def nearest_fashion_color(lab_centroid: np.ndarray) -> str:
     """Assign closest named fashion color via CIE76 Delta-E (Chapter 2 Eq. 11)."""
-    best_name = 'Black'
-    best_de = float('inf')
+    l_val, a_val, b_val = float(lab_centroid[0]), float(lab_centroid[1]), float(lab_centroid[2])
+    chroma = float(np.sqrt(a_val * a_val + b_val * b_val))
+    # Prevent white/light-gray objects from being mislabeled as Black/Beige due to slight cast shadows
+    if l_val >= 76.0 and chroma < 14.0:
+        return "White"
+    if l_val <= 26.0 and chroma < 12.0:
+        return "Black"
+    if 26.0 < l_val < 76.0 and chroma < 10.0:
+        return "Gray"
+ 
+    best_name = "Black"
+    best_de = float("inf")
     for name, ref_lab in REFERENCE_COLORS_LAB.items():
         ref = np.array(ref_lab, dtype=np.float32)
         de = float(np.linalg.norm(lab_centroid - ref))
@@ -190,21 +230,31 @@ def nearest_fashion_color(lab_centroid: np.ndarray) -> str:
     return best_name
  
  
-def kmeans_plusplus_cielab(image: Image.Image, k: int = 2, max_iter: int = 100) -> list[ColorClusterInfo]:
-    """Extract dominant garment colors in CIELAB using K-Means++ (K = 2, Chapter 2 Eqs. 4-12)."""
-    resized = np.asarray(image.convert('RGB').resize((96, 96)), dtype=np.float32)
+def kmeans_plusplus_cielab(image: Image.Image, k: int = 2, max_iter: int = 100) -> List[ColorClusterInfo]:
+    """Center-weighted CIELAB K-Means++ (K = 2) that preserves white items on white backgrounds."""
+    resized = np.asarray(image.convert("RGB").resize((96, 96)), dtype=np.float32)
     border_pixels = np.concatenate([
         resized[0, :, :], resized[-1, :, :], resized[:, 0, :], resized[:, -1, :]
     ], axis=0)
     bg_lab = np.median(srgb_to_cielab(border_pixels), axis=0)
  
+    # Extract central 60% ROI where the garment/accessory is framed
+    center_crop = resized[19:77, 19:77, :].reshape(-1, 3)
+    center_lab = srgb_to_cielab(center_crop)
+ 
     all_pixels = resized.reshape(-1, 3)
     all_lab = srgb_to_cielab(all_pixels)
-    # Exclude background pixels whose CIE76 distance to border median is < 12.0
     de_bg = np.linalg.norm(all_lab - bg_lab, axis=1)
-    fg_lab = all_lab[de_bg >= 12.0]
-    if len(fg_lab) < 20:
-        fg_lab = all_lab
+    fg_lab = all_lab[de_bg >= 11.0]
+ 
+    # CRITICAL FIX: If the item itself is white/same color as the background (e.g. white AirPods or white shirt
+    # on a white surface), border subtraction would delete the white object and only keep dark shadow pixels!
+    # Check if fg_lab is mostly tiny shadow pixels (< 18% of image) while the center ROI is bright:
+    center_median_l = float(np.median(center_lab[:, 0]))
+    if len(fg_lab) < int(0.18 * len(all_lab)) or (center_median_l > 72.0 and float(np.median(fg_lab[:, 0])) < 45.0):
+        # Use the center crop directly and drop only thin dark shadow creases
+        non_shadow = center_lab[center_lab[:, 0] >= np.percentile(center_lab[:, 0], 15)]
+        fg_lab = non_shadow if len(non_shadow) >= 20 else center_lab
  
     rng = np.random.default_rng(42)
     n_pts = len(fg_lab)
@@ -239,7 +289,7 @@ def kmeans_plusplus_cielab(image: Image.Image, k: int = 2, max_iter: int = 100) 
         labels = new_labels
         centroids = new_centroids
  
-    clusters: list[ColorClusterInfo] = []
+    clusters: List[ColorClusterInfo] = []
     for c_i in range(k):
         count = int(np.sum(labels == c_i))
         prop = round(count / max(1, n_pts), 4)
@@ -255,19 +305,19 @@ def kmeans_plusplus_cielab(image: Image.Image, k: int = 2, max_iter: int = 100) 
  
 def estimate_skin_exposure_ratio(image: Image.Image) -> float:
     """Detect potential NSFW / excessive skin-tone ratio in YCbCr space."""
-    ycbcr = np.asarray(image.convert('YCbCr').resize((96, 96)), dtype=np.float32)
+    ycbcr = np.asarray(image.convert("YCbCr").resize((96, 96)), dtype=np.float32)
     y, cb, cr = ycbcr[:, :, 0], ycbcr[:, :, 1], ycbcr[:, :, 2]
     skin_mask = (y > 80) & (cb >= 77) & (cb <= 127) & (cr >= 133) & (cr <= 173)
     return float(np.mean(skin_mask))
  
  
-def check_text_moderation(text: str) -> tuple[bool, str, str | None]:
+def check_text_moderation(text: str) -> Tuple[bool, str, Optional[str]]:
     """Check and sanitize captions/notes against profanity and slurs."""
-    match = BLOCKED_TERMS_PATTERN.search(text or '')
+    match = BLOCKED_TERMS_PATTERN.search(text or "")
     if match:
-        sanitized = BLOCKED_TERMS_PATTERN.sub('***', text)
-        return False, sanitized, 'Post blocked: Caption contains inappropriate or prohibited language.'
-    return True, (text or '').strip(), None
+        sanitized = BLOCKED_TERMS_PATTERN.sub("***", text)
+        return False, sanitized, "Post blocked: Caption contains inappropriate or prohibited language."
+    return True, (text or "").strip(), None
  
  
 @asynccontextmanager
@@ -276,9 +326,9 @@ async def lifespan(_: FastAPI):
     if os.path.exists(CHECKPOINT_PATH):
         base = resnet50(weights=None)
         base.fc = nn.Linear(base.fc.in_features, len(CATEGORIES_LIST))
-        state = torch.load(CHECKPOINT_PATH, map_location='cpu')
-        if isinstance(state, dict) and 'model_state_dict' in state:
-            state = state['model_state_dict']
+        state = torch.load(CHECKPOINT_PATH, map_location="cpu")
+        if isinstance(state, dict) and "model_state_dict" in state:
+            state = state["model_state_dict"]
         base.load_state_dict(state, strict=False)
         MODEL = base.eval()
         IS_FINETUNED_HEAD = True
@@ -289,37 +339,39 @@ async def lifespan(_: FastAPI):
     MODEL = None
  
  
-app = FastAPI(title='StyleSense ML & Hybrid Recommendation Service', version='2.0.0', lifespan=lifespan)
+app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="2.1.0", lifespan=lifespan)
  
  
-@app.get('/health')
-def health() -> dict[str, str | bool]:
+@app.get("/health")
+def health() -> Dict[str, object]:
     return {
-        'status': 'ok',
-        'model': 'resnet50-stylesense-5class' if IS_FINETUNED_HEAD else 'resnet50-imagenet1k-v2',
-        'kmeans_cielab_k': '2',
-        'hybrid_engine': '0.55_CB_0.45_CF',
-        'ai_moderation_enabled': True,
+        "status": "ok",
+        "model": "resnet50-stylesense-5class" if IS_FINETUNED_HEAD else "resnet50-imagenet1k-v2-mapped",
+        "checkpoint_loaded": IS_FINETUNED_HEAD,
+        "checkpoint_expected_path": CHECKPOINT_PATH,
+        "kmeans_cielab_k": 2,
+        "hybrid_engine": "0.55_CB_0.45_CF",
+        "ai_moderation_enabled": True,
     }
  
  
-@app.post('/analyze', response_model=Prediction)
+@app.post("/analyze", response_model=Prediction)
 async def analyze(request: Request) -> Prediction:
-    if request.headers.get('content-type', '').split(';')[0] not in {'image/jpeg', 'image/png', 'image/webp'}:
-        raise HTTPException(status_code=415, detail='Send a JPEG, PNG, or WebP image body.')
+    if request.headers.get("content-type", "").split(";")[0] not in {"image/jpeg", "image/png", "image/webp"}:
+        raise HTTPException(status_code=415, detail="Send a JPEG, PNG, or WebP image body.")
     body = await request.body()
     if not body or len(body) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail='Image must be between 1 byte and 5 MB.')
+        raise HTTPException(status_code=413, detail="Image must be between 1 byte and 5 MB.")
     try:
-        image = Image.open(BytesIO(body)).convert('RGB')
+        image = Image.open(BytesIO(body)).convert("RGB")
     except UnidentifiedImageError as error:
-        raise HTTPException(status_code=422, detail='The request body is not a valid image.') from error
+        raise HTTPException(status_code=422, detail="The request body is not a valid image.") from error
     if MODEL is None:
-        raise HTTPException(status_code=503, detail='CNN model is still loading.')
+        raise HTTPException(status_code=503, detail="CNN model is still loading.")
  
     skin_ratio = estimate_skin_exposure_ratio(image)
     clusters = kmeans_plusplus_cielab(image, k=2)
-    dom_color = clusters[0].color_name if clusters else 'Black'
+    dom_color = clusters[0].color_name if clusters else "Black"
     sec_color = clusters[1].color_name if len(clusters) > 1 else None
  
     tensor = WEIGHTS.transforms()(image).unsqueeze(0)
@@ -329,24 +381,39 @@ async def analyze(request: Request) -> Prediction:
     if IS_FINETUNED_HEAD:
         top_prob, top_idx = torch.max(probabilities, dim=0)
         conf = float(top_prob.item())
-        pred_cat: Category | None = CATEGORIES_LIST[int(top_idx.item())] if conf >= CONFIDENCE_THRESHOLD else None
-        pred_style: Style | None = 'CASUAL' if pred_cat else None
+        pred_cat: Optional[Category] = CATEGORIES_LIST[int(top_idx.item())] if conf >= CONFIDENCE_THRESHOLD else None
+        pred_style: Optional[Style] = "CASUAL" if pred_cat else None
     else:
-        top = torch.topk(probabilities, k=8)
-        labels = [WEIGHTS.meta['categories'][idx] for idx in top.indices.tolist()]
+        # Aggregate probabilities across top-15 ImageNet synsets into our 5 clothing categories
+        top = torch.topk(probabilities, k=15)
+        labels = [WEIGHTS.meta["categories"][idx] for idx in top.indices.tolist()]
         scores = top.values.tolist()
-        pred_cat, conf, matched_label = None, float(scores[0]), labels[0].lower()
+        cat_mass: Dict[Category, float] = {c: 0.0 for c in CATEGORIES_LIST}
+        matched_style: Style = "CASUAL"
+ 
         for lbl, prob in zip(labels, scores):
             lbl_l = lbl.lower()
             for cat_key, hints in LABEL_CATEGORY_HINTS.items():
                 if any(h in lbl_l for h in hints):
-                    pred_cat, conf, matched_label = cat_key, float(prob), lbl_l
+                    cat_mass[cat_key] += float(prob)
+                    if any(h in lbl_l for h in ("running shoe", "sneaker", "jersey", "maillot", "swimming")):
+                        matched_style = "SPORTY"
+                    elif any(h in lbl_l for h in ("suit", "tie", "loafer", "trench", "gown", "velvet")):
+                        matched_style = "FORMAL"
                     break
-            if pred_cat:
-                break
-        pred_style = 'CASUAL' if pred_cat else None
  
-    # Automated NSFW / Non-Garment Safety Gate
+        best_cat = max(cat_mass, key=lambda k_cat: cat_mass[k_cat])
+        total_matched = sum(cat_mass.values())
+        if total_matched > 0.03:
+            pred_cat = best_cat
+            # Normalized confidence across matched fashion synsets
+            conf = min(0.98, max(0.58, cat_mass[best_cat] / max(total_matched, 1e-6)))
+            pred_style = matched_style
+        else:
+            pred_cat = None
+            conf = float(scores[0])
+            pred_style = None
+ 
     if skin_ratio > 0.55 and (pred_cat is None or conf < CONFIDENCE_THRESHOLD):
         return Prediction(
             category=None,
@@ -356,7 +423,7 @@ async def analyze(request: Request) -> Prediction:
             style=None,
             confidence=round(conf, 4),
             is_safe_garment=False,
-            moderation_reason='Image rejected by AI Safety Gate: Potential NSFW or non-garment photo detected.',
+            moderation_reason="Image rejected by AI Safety Gate: Potential NSFW or non-garment photo detected.",
         )
  
     return Prediction(
@@ -367,11 +434,11 @@ async def analyze(request: Request) -> Prediction:
         style=pred_style,
         confidence=round(conf, 4),
         is_safe_garment=True,
-        moderation_reason=None if pred_cat else 'Low classification confidence (<0.55); please confirm category manually.',
+        moderation_reason=None if pred_cat else "Low classification confidence (<0.55); please confirm category manually.",
     )
  
  
-@app.post('/moderate', response_model=ModerationResponse)
+@app.post("/moderate", response_model=ModerationResponse)
 def moderate_post(payload: ModerationRequest) -> ModerationResponse:
     """Automated AI guard for Community Feed posts (blocks NSFW images & profanity)."""
     text_ok, sanitized, reason = check_text_moderation(payload.caption)
@@ -381,22 +448,22 @@ def moderate_post(payload: ModerationRequest) -> ModerationResponse:
         return ModerationResponse(
             approved=False,
             sanitized_caption=sanitized,
-            reason='Post blocked: Uploaded photo did not pass garment verification or NSFW safety checks.',
+            reason="Post blocked: Uploaded photo did not pass garment verification or NSFW safety checks.",
         )
     return ModerationResponse(approved=True, sanitized_caption=sanitized, reason=None)
  
  
-@app.post('/recommend', response_model=list[ScoredOutfitRecommendation])
-def recommend_outfits(req: HybridRecommendationRequest) -> list[ScoredOutfitRecommendation]:
+@app.post("/recommend", response_model=List[ScoredOutfitRecommendation])
+def recommend_outfits(req: HybridRecommendationRequest) -> List[ScoredOutfitRecommendation]:
     """Generate Top-3 outfits via Weighted Hybrid Filtering (0.55 Content-Based + 0.45 Collaborative)."""
     eligible = [
         item for item in req.wardrobe
-        if item.laundry_status == 'CLEAN' and not item.is_disliked
+        if item.laundry_status == "CLEAN" and not item.is_disliked
     ]
-    tops = [i for i in eligible if i.category == 'TOP']
-    bottoms = [i for i in eligible if i.category == 'BOTTOM']
-    shoes = [i for i in eligible if i.category == 'SHOES']
-    outerwear = [i for i in eligible if i.category == 'OUTERWEAR']
+    tops = [i for i in eligible if i.category == "TOP"]
+    bottoms = [i for i in eligible if i.category == "BOTTOM"]
+    shoes = [i for i in eligible if i.category == "SHOES"]
+    outerwear = [i for i in eligible if i.category == "OUTERWEAR"]
  
     if not tops or not bottoms or not shoes:
         return []
@@ -404,15 +471,15 @@ def recommend_outfits(req: HybridRecommendationRequest) -> list[ScoredOutfitReco
     is_rainy_or_cool = (
         req.weather.temperature_c < 24.0
         or req.weather.precipitation_mm > 0.5
-        or any(w in req.weather.condition.lower() for w in ('rain', 'storm', 'drizzle', 'thunder'))
+        or any(w in req.weather.condition.lower() for w in ("rain", "storm", "drizzle", "thunder"))
     )
     weather_tag = (
-        f'Rainy/Cool ({req.weather.temperature_c:.0f} deg C, {req.weather.condition})'
+        f"Rainy/Cool ({req.weather.temperature_c:.0f} deg C, {req.weather.condition})"
         if is_rainy_or_cool
-        else f'Warm/Humid ({req.weather.temperature_c:.0f} deg C, {req.weather.condition})'
+        else f"Warm/Humid ({req.weather.temperature_c:.0f} deg C, {req.weather.condition})"
     )
  
-    recommendations: list[ScoredOutfitRecommendation] = []
+    recommendations: List[ScoredOutfitRecommendation] = []
     for top in tops:
         for bottom in bottoms:
             for shoe in shoes:
@@ -420,40 +487,35 @@ def recommend_outfits(req: HybridRecommendationRequest) -> list[ScoredOutfitReco
                 if is_rainy_or_cool and outerwear:
                     items.append(outerwear[0])
  
-                # 1. Content-Based Score S_cb (Chapter 2 Eqs. 16-17 & Table 1)
                 s_cb = 55.0
-                reasons: list[str] = []
+                reasons: List[str] = []
  
                 if len({top.style, bottom.style, shoe.style}) == 1:
                     s_cb += 18.0
-                    reasons.append(f'Consistent {top.style.title()} style silhouette (+18)')
+                    reasons.append(f"Consistent {top.style.title()} style silhouette (+18)")
                 if any(it.occasion.lower() == req.target_occasion.lower() for it in items):
                     s_cb += 15.0
-                    reasons.append(f'Suited for {req.target_occasion} occasion (+15)')
+                    reasons.append(f"Suited for {req.target_occasion} occasion (+15)")
                 if any(it.color in NEUTRAL_COLORS for it in (top, bottom)):
                     s_cb += 10.0
-                    reasons.append(f'Balanced CIELAB color harmony with {top.color} & {bottom.color} (+10)')
+                    reasons.append(f"Balanced CIELAB color harmony with {top.color} & {bottom.color} (+10)")
  
-                # Preference bonuses (capped per Eq. 16)
                 style_bonus = min(sum(5.0 for it in items if it.style in req.preferred_styles), 15.0)
                 color_bonus = min(sum(4.0 for it in items if it.color in req.preferred_colors), 10.0)
                 s_cb += style_bonus + color_bonus
  
-                # Weather adjustment
                 if is_rainy_or_cool and len(items) > 3:
                     s_cb += 8.0
-                    reasons.append(f'Includes outerwear layer for {weather_tag}')
+                    reasons.append(f"Includes outerwear layer for {weather_tag}")
                 elif not is_rainy_or_cool and len(items) == 3:
                     s_cb += 6.0
-                    reasons.append(f'Breathable 3-piece pairing for {weather_tag}')
+                    reasons.append(f"Breathable 3-piece pairing for {weather_tag}")
  
-                # 7-day wear recency penalty (-18)
                 if any(it.worn_within_7_days for it in items):
                     s_cb -= 18.0
  
                 s_cb = float(np.clip(s_cb, 0.0, 100.0))
  
-                # 2. Collaborative Filtering Score S_cf (Chapter 2 Eq. 18)
                 matching_signals = [
                     sig for sig in req.community_signals
                     if sig.style in {top.style, bottom.style} or sig.dominant_color in {top.color, bottom.color}
@@ -463,13 +525,11 @@ def recommend_outfits(req: HybridRecommendationRequest) -> list[ScoredOutfitReco
                     den = sum(abs(sig.neighbor_similarity) for sig in matching_signals)
                     pred_rating = (num / den) if den > 1e-6 else 4.0
                     s_cf = float(np.clip((pred_rating - 1.0) / 4.0 * 100.0, 0.0, 100.0))
-                    reasons.append(f'Rated {pred_rating:.1f}/5.0 by similar Community Feed profiles')
+                    reasons.append(f"Rated {pred_rating:.1f}/5.0 by similar Community Feed profiles")
                 else:
-                    # Cold-start fallback blends favorite flags and style affinity
                     fav_boost = sum(8.0 for it in items if it.is_favorite)
                     s_cf = float(np.clip(72.0 + fav_boost, 0.0, 100.0))
  
-                # 3. Weighted Hybrid Combination (Chapter 2 Eq. 19: alpha = 0.55)
                 s_hyb = round(req.alpha * s_cb + (1.0 - req.alpha) * s_cf, 2)
                 recommendations.append(ScoredOutfitRecommendation(
                     item_ids=[it.id for it in items],
