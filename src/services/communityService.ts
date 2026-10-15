@@ -17,7 +17,19 @@ export type CommunityOutfit = SharedOutfitRow & {
 const pageSize = 10;
 
 // Client-side regex check blocking N-word, slurs, and profanity
-const PROFANITY_AND_SLURS_REGEX = /\b(n+[i1!l|]+g+[a@4e3]+[rshd]*|n+i+g+g+[aeiouy]r*|n+[i1!l]+g+g+[a@4]+|f+a+g+g?o?t?|k+i+k+e|c+h+i+n+k|s+p+i+c|w+e+t+b+a+c+k|g+o+o+k|r+e+t+a+r+d|f+u+c+k|s+h+i+t|b+i+t+c+h|c+u+n+t|a+s+s+h+o+l+e|d+i+c+k|p+u+s+s+y|w+h+o+r+e|s+l+u+t)\b/i;
+export const PROFANITY_AND_SLURS_REGEX = /\b(n+[i1!l|]+g+[a@4e3]+[rshd]*|n+i+g+g+[aeiouy]r*|n+[i1!l]+g+g+[a@4]+|f+a+g+g?o?t?|k+i+k+e|c+h+i+n+k|s+p+i+c|w+e+t+b+a+c+k|g+o+o+k|r+e+t+a+r+d|f+u+c+k|s+h+i+t|b+i+t+c+h|c+u+n+t|a+s+s+h+o+l+e|d+i+c+k|p+u+s+s+y|w+h+o+r+e|s+l+u+t)\b/i;
+
+export function containsProfanityOrSlurs(...texts: (string | undefined | null)[]): { hasProfanity: boolean; reason?: string } {
+  for (const text of texts) {
+    if (text && PROFANITY_AND_SLURS_REGEX.test(text)) {
+      return {
+        hasProfanity: true,
+        reason: 'Contains prohibited language, offensive slurs, or profanity. Please revise before continuing.',
+      };
+    }
+  }
+  return { hasProfanity: false };
+}
 
 export function checkClientSideModeration(text: string): { isApproved: boolean; reason?: string } {
   if (!text || !text.trim()) return { isApproved: true };

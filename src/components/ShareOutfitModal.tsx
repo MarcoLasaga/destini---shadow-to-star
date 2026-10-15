@@ -17,6 +17,7 @@ import { publishOutfit } from '../services/communityService';
 import { useToast } from '../contexts/ToastContext';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useOutfit } from '../contexts/OutfitContext';
+import ConfirmDialogModal from './common/ConfirmDialogModal';
 
 export default function ShareOutfitModal({
   outfit,
@@ -111,7 +112,8 @@ export default function ShareOutfitModal({
   const activeAccent = theme.secondaryAccent;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <>
+      <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.overlay}
@@ -299,6 +301,18 @@ export default function ShareOutfitModal({
         </View>
       </KeyboardAvoidingView>
     </Modal>
+
+    {/* Moderation Shield Dialog Modal */}
+    <ConfirmDialogModal
+      visible={!!moderationError}
+      variant="moderation"
+      title="Post Blocked by Moderation"
+      message={moderationError || ''}
+      confirmText="Revise Caption"
+      showCancel={false}
+      onConfirm={() => setModerationError(null)}
+    />
+    </>
   );
 }
 

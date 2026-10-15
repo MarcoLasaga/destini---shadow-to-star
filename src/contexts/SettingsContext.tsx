@@ -5,6 +5,7 @@ import { Theme, lightTheme, darkTheme } from '../constants/theme';
 
 const STORAGE_KEY_THEME = '@stylesense_theme_preference';
 const STORAGE_KEY_NOTIFS = '@stylesense_notification_prefs';
+const STORAGE_KEY_LANGUAGE = '@stylesense_language_preference';
 
 interface SettingsContextValue {
   themePreference: 'light' | 'dark';
@@ -13,7 +14,7 @@ interface SettingsContextValue {
   notifications: NotificationPrefs;
   toggleNotification: (key: keyof NotificationPrefs) => Promise<boolean>;
   language: string;
-  setLanguage: (value: string) => void;
+  setLanguage: (value: string) => Promise<void>;
   lastActivatedNotification: keyof NotificationPrefs | null;
   clearNotificationBanner: () => void;
 }
@@ -31,7 +32,7 @@ const defaultNotifications: NotificationPrefs = {
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [themePreference, setThemePreferenceState] = useState<'light' | 'dark'>('light');
   const [notifications, setNotifications] = useState<NotificationPrefs>(defaultNotifications);
-  const [language, setLanguage] = useState('English');
+  const [language, setLanguageState] = useState('English (US)');
   const [lastActivatedNotification, setLastActivatedNotification] = useState<keyof NotificationPrefs | null>(null);
 
   // Load persisted settings
@@ -48,10 +49,24 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
           const parsed = JSON.parse(storedNotifs);
           setNotifications((prev) => ({ ...prev, ...parsed }));
         }
+
+        const storedLang = await AsyncStorage.getItem(STORAGE_KEY_LANGUAGE);
+        if (storedLang) {
+          setLanguageState(storedLang);
+        }
       } catch (err) {
         console.warn('Failed to load settings from storage', err);
       }
     })();
+  }, []);
+
+  const setLanguage = useCallback(async (value: string) => {
+    setLanguageState(value);
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY_LANGUAGE, value);
+    } catch (err) {
+      console.warn('Failed to persist language', err);
+    }
   }, []);
 
   const setThemePreference = useCallback(async (value: 'light' | 'dark') => {

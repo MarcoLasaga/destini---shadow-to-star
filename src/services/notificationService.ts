@@ -19,7 +19,8 @@ export interface AppNotification {
   category: NotificationCategory;
   title: string;
   body: string;
-  time: string;
+  time?: string;
+  createdAt: number;
   read: boolean;
   target: NotificationTarget;
 }
@@ -31,7 +32,6 @@ const CHANNEL_ID = 'stylesense-smart-alerts';
 // Configure foreground notification behavior
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
     shouldShowBanner: true,
@@ -173,6 +173,7 @@ export async function triggerSmartAlert(options: SmartAlertOptions): Promise<voi
       category,
       title,
       body,
+      createdAt: Date.now(),
       time: 'Just now',
       read: false,
       target,

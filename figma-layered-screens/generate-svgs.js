@@ -1,22 +1,21 @@
 /* eslint-disable */
-// StyleSense — Figma-ready layered SVG generator
-// Run:  node figma-layered-screens/generate-svgs.js
-// Emits 8 × 375x812 SVGs whose nested <g id> groups, <rect rx>, <path> icons and
-// <text> nodes import into Figma as a named, editable layer hierarchy.
+// StyleSense — High-Precision Layered SVG Generator for Figma
+// Generates 10 standalone, Figma-ready 375x812 SVGs mirroring the real StyleSense app 1:1
+// Run: node figma-layered-screens/generate-svgs.js
 
 const fs = require('fs');
 const path = require('path');
 
 const OUT = __dirname;
-const FONT = "Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif";
+const FONT = "Arial, sans-serif";
 
-// ── Official StyleSense brand palette ─────────────────────────────────────────
+// ── Official StyleSense Brand Palette ─────────────────────────────────────────
 const B = {
   darkPlum: '#24152C',
   mediumPlum: '#4B1D6F',
   softLilac: '#DECFE8',
   paleYellow: '#FBF5A7',
-  peach: '#FDD78B',
+  peachGold: '#FDD78B',
   softCream: '#FDF3D2',
   alabaster: '#FAF7F0',
   darkCard: '#2E1B38',
@@ -24,16 +23,48 @@ const B = {
   white: '#FFFFFF',
 };
 
-const LIGHT = {
-  mode: 'light', bg: B.alabaster, surface: B.white, border: B.softLilac, text: B.darkPlum,
-  muted: B.mediumPlum, accent: B.darkPlum, onAccent: B.paleYellow, badge: B.softLilac, tile: B.softCream,
-};
-const DARK = {
-  mode: 'dark', bg: B.darkPlum, surface: B.darkCard, border: B.mediumPlum, text: B.softCream,
-  muted: B.softLilac, accent: B.paleYellow, onAccent: B.darkPlum, badge: B.mediumPlum, tile: B.darkTile,
+const THEMES = {
+  light: {
+    mode: 'light',
+    bg: B.alabaster,
+    surface: B.white,
+    border: B.softLilac,
+    text: B.darkPlum,
+    muted: B.mediumPlum,
+    accent: B.paleYellow, // CTA button fill: pale yellow
+    onAccent: B.darkPlum,  // text/icon on pale yellow CTA: dark plum
+    highlightText: B.darkPlum, // NEVER pale yellow in light mode
+    statIconColor: B.mediumPlum, // crisp visible plum in light mode
+    badge: B.softLilac,
+    badgeText: B.darkPlum,
+    tileBg: '#F4F1EA',
+    navSurface: B.white,
+    navActiveIcon: B.darkPlum,
+    navInactiveIcon: B.mediumPlum,
+    navActivePill: B.softLilac,
+  },
+  dark: {
+    mode: 'dark',
+    bg: B.darkPlum,
+    surface: B.darkCard,
+    border: B.mediumPlum,
+    text: B.softCream,
+    muted: B.softLilac,
+    accent: B.paleYellow, // CTA button fill: pale yellow
+    onAccent: B.darkPlum,  // text/icon on pale yellow CTA: dark plum
+    highlightText: B.paleYellow, // high-contrast yellow in dark mode
+    statIconColor: B.paleYellow, // high-contrast yellow in dark mode
+    badge: B.mediumPlum,
+    badgeText: B.softCream,
+    tileBg: B.darkTile,
+    navSurface: B.darkPlum,
+    navActiveIcon: B.paleYellow,
+    navInactiveIcon: B.softLilac,
+    navActivePill: B.mediumPlum,
+  },
 };
 
-// ── Primitive builders (unique ids → Figma layer names) ──────────────────────
+// ── Primitive SVG & Figma Layer Builders ─────────────────────────────────────
 let ids = new Map();
 const uid = (raw) => {
   const id = String(raw).replace(/[^A-Za-z0-9_\-]/g, '_').replace(/_+/g, '_').replace(/_$/, '');
@@ -61,7 +92,6 @@ const P = (id, d, o = {}) => `<path ${A({
   'stroke-linecap': o.stroke ? 'round' : undefined, 'stroke-linejoin': o.stroke ? 'round' : undefined,
   'stroke-dasharray': o.dash, opacity: o.opacity,
 })}/>`;
-// Text: string, or array of [string, fill, weight?] segments for mixed styling.
 const T = (id, x, y, s, o = {}) => {
   const body = Array.isArray(s)
     ? s.map(([str, fill, weight]) => `<tspan ${A({ fill, 'font-weight': weight })}>${esc(str)}</tspan>`).join('')
@@ -83,7 +113,7 @@ const tw = (s, size, weight = 400) => {
   return s.length * size * f;
 };
 
-// ── Vector icon set (24×24 grid, stroke-based) ────────────────────────────────
+// ── Vector Icons (24x24 viewBox) ─────────────────────────────────────────────
 const ICON = {
   home: 'M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z',
   shirt: 'M8 3L3 6l2 4.5 2-1V21h10V9.5l2 1L21 6l-5-3a4 4 0 0 1-8 0z',
@@ -114,10 +144,12 @@ const ICON = {
   x: 'M18 6L6 18 M6 6l12 12',
   moon: 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z',
   search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z M21 21l-4.3-4.3',
-  cpu: 'M6 6h12v12H6z M10 10h4v4h-4z M9 2v4 M15 2v4 M9 18v4 M15 18v4 M18 9h4 M18 15h4 M2 9h4 M2 15h4',
-  alert: 'M12 9v4 M12 17h.01 M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z',
-  wind: 'M9.6 4.6A2 2 0 1 1 11 8H2 M12.6 19.4A2 2 0 1 0 14 16H2 M17.7 7.7A2.5 2.5 0 1 1 19.5 12H2',
-  share: 'M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7 M16 6l-4-4-4 4 M12 2v13',
+  chart: 'M18 20V10 M12 20V4 M6 20v-6',
+  settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z',
+  book: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z',
+  help: 'M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3 M12 17h.01 M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z',
+  logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9',
+  thumbDown: 'M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17',
 };
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const I = (name, x, y, size, color, o = {}) =>
@@ -125,7 +157,7 @@ const I = (name, x, y, size, color, o = {}) =>
     transform: `translate(${n2(x)} ${n2(y)}) scale(${(size / 24).toFixed(4)})`,
   });
 
-// ── Vector garment illustrations (100×100 grid) ──────────────────────────────
+// ── Vector Garments ──────────────────────────────────────────────────────────
 const GARMENT = {
   tee: 'M32 14 L14 26 L22 42 L31 38 L31 88 L69 88 L69 38 L78 42 L86 26 L68 14 Q50 26 32 14 Z',
   knit: 'M32 14 L14 26 L22 42 L31 38 L31 88 L69 88 L69 38 L78 42 L86 26 L68 14 L58 14 L50 24 L42 14 Z',
@@ -145,22 +177,22 @@ const DETAIL = {
   bag: 'M34 40 V32 A16 16 0 0 1 66 32 V40',
 };
 const garment = (id, type, x, y, size, color, o = {}) => {
-  const line = o.line || B.darkPlum;
+  const line = o.line || (color === B.darkPlum ? B.softLilac : B.darkPlum);
   const sw = (1.3 * 100) / size;
   return G(id, [
     P('Silhouette', GARMENT[type], { fill: color, stroke: line, sw }),
-    P('Stitch_Detail', DETAIL[type], { stroke: line, sw, opacity: type === 'bag' ? 1 : 0.45 }),
+    P('Stitch_Detail', DETAIL[type], { stroke: line, sw, opacity: 0.45 }),
   ], { transform: `translate(${n2(x)} ${n2(y)}) scale(${(size / 100).toFixed(4)})` });
 };
 const tile = (id, x, y, w, h, type, color, o = {}) => {
   const size = Math.min(w, h) * (o.scale || 0.8);
   return G(id, [
-    R('Tile_Background', x, y, w, h, { rx: o.rx || 12, fill: o.bg || B.softCream, stroke: o.stroke }),
+    R('Tile_Background', x, y, w, h, { rx: o.rx || 12, fill: o.bg || '#F4F1EA', stroke: o.stroke }),
     garment('Garment_Vector', type, x + (w - size) / 2, y + (h - size) / 2, size, color, o),
   ]);
 };
 
-// ── Shared components ────────────────────────────────────────────────────────
+// ── Shared Standard UI Bars ──────────────────────────────────────────────────
 const statusBar = (t) => {
   const c = t.text;
   return G('Status_Bar', [
@@ -182,24 +214,26 @@ const homeIndicator = (t) => R('Home_Indicator', 120.5, 799, 134, 5, { rx: 2.5, 
 
 const bottomNav = (t, active) => {
   const tabs = [['Home', 'home'], ['Wardrobe', 'shirt'], ['Outfit', 'sparkles'], ['Community', 'people'], ['Account', 'person']];
-  const kids = [R('Nav_Surface', 0, 728, 375, 84, { fill: t.surface }), R('Nav_Top_Hairline', 0, 728, 375, 1, { fill: t.border })];
+  const kids = [
+    R('Nav_Surface', 0, 728, 375, 84, { fill: t.navSurface }),
+    R('Nav_Top_Hairline', 0, 728, 375, 1, { fill: t.border }),
+  ];
   tabs.forEach(([key, icon], i) => {
     const cx = 37.5 + i * 75;
     const on = key === active;
     if (key === 'Outfit') {
       kids.push(G('Tab_Outfit_AI_Center_Badge', [
-        C('Badge_Glow', cx, 740, 31, { fill: t.accent, opacity: 0.12 }),
-        C('Badge_Circle', cx, 740, 24, { fill: t.accent, stroke: on ? B.peach : t.border, sw: 1.5 }),
-        I('sparkles', cx - 11, 729, 22, t.onAccent, { fill: on ? t.onAccent : undefined }),
-        T('Tab_Label', cx, 782, 'Outfit', { size: 10, weight: 800, fill: on ? t.accent : t.muted, anchor: 'middle', opacity: on ? 1 : 0.75 }),
+        C('Badge_Circle', cx, 742, 22, { fill: B.paleYellow, stroke: B.peachGold, sw: 1.5 }),
+        I('sparkles', cx - 10, 732, 20, B.darkPlum, { fill: B.darkPlum }),
+        T('Tab_Label', cx, 782, 'Outfit', { size: 10, weight: 800, fill: on ? t.navActiveIcon : t.navInactiveIcon, anchor: 'middle' }),
       ]));
       return;
     }
-    const col = on ? t.accent : t.muted;
+    const col = on ? t.navActiveIcon : t.navInactiveIcon;
     kids.push(G(`Tab_${key}`, [
-      on && R('Active_Indicator_Pill', cx - 10, 729, 20, 3, { rx: 1.5, fill: t.accent }),
-      I(icon, cx - 11, 744, 22, col, { fill: on ? col : undefined, fo: on ? 0.2 : undefined, sw: on ? 2.2 : 1.8 }),
-      T('Tab_Label', cx, 782, key, { size: 10, weight: on ? 800 : 600, fill: col, anchor: 'middle', opacity: on ? 1 : 0.75 }),
+      on && R('Active_Indicator_Pill', cx - 18, 734, 36, 26, { rx: 13, fill: t.navActivePill }),
+      I(icon, cx - 10, 737, 20, col, { fill: on ? col : undefined, fo: on ? 0.2 : undefined, sw: on ? 2.2 : 1.8 }),
+      T('Tab_Label', cx, 782, key, { size: 10, weight: on ? 800 : 600, fill: col, anchor: 'middle' }),
     ]));
   });
   return G('Bottom_Navigation_Bar', kids);
@@ -212,17 +246,16 @@ const card = (id, x, y, w, h, t, kids, o = {}) =>
   G(id, [R('Card_Surface', x, y, w, h, { rx: o.rx || 18, fill: o.fill || t.surface, stroke: o.stroke || t.border, shadow: o.shadow !== false }), kids]);
 
 const btn = (id, x, y, w, h, label, o = {}) => {
-  const t = o.t || LIGHT;
+  const t = o.t;
   const v = o.variant || 'primary';
-  const size = o.size || 14;
+  const size = o.size || 13;
   const sty = {
-    primary: { fill: t.accent, txt: t.onAccent },
+    primary: { fill: B.paleYellow, stroke: 'none', txt: B.darkPlum },
     secondary: { fill: t.surface, stroke: t.border, txt: t.text },
-    soft: { fill: t.badge, txt: t.text },
-    peach: { fill: B.peach, txt: B.darkPlum },
+    soft: { fill: t.badge, stroke: 'none', txt: t.badgeText },
     ghostDark: { fill: 'none', stroke: B.softLilac, txt: B.softCream },
   }[v];
-  const isz = o.iconSize || size + 3;
+  const isz = o.iconSize || size + 2;
   const cw = tw(label, size, 800) + (o.icon ? isz + 6 : 0);
   const sx = x + (w - cw) / 2;
   const by = y + h / 2 + size * 0.36;
@@ -235,40 +268,23 @@ const btn = (id, x, y, w, h, label, o = {}) => {
 
 const pillW = (label, o = {}) => Math.round(tw(label, o.size || 12, 700) + 2 * (o.px !== undefined ? o.px : 14));
 const pill = (id, x, y, label, o = {}) => {
-  const t = o.t || LIGHT;
+  const t = o.t;
   const size = o.size || 12;
   const h = o.h || 30;
   const w = pillW(label, o);
   const on = o.active;
+  const fill = on ? (t.mode === 'dark' ? B.paleYellow : B.softLilac) : t.surface;
+  const txtColor = on ? B.darkPlum : t.text;
+  const stroke = on ? (t.mode === 'dark' ? B.paleYellow : B.softLilac) : t.border;
   return G(id, [
-    R('Pill_Surface', x, y, w, h, { rx: h / 2, fill: on ? t.accent : t.surface, stroke: on ? t.accent : t.border }),
-    T('Pill_Label', x + w / 2, y + h / 2 + size * 0.36, label, { size, weight: 700, fill: on ? t.onAccent : t.text, anchor: 'middle' }),
+    R('Pill_Surface', x, y, w, h, { rx: h / 2, fill, stroke }),
+    T('Pill_Label', x + w / 2, y + h / 2 + size * 0.36, label, { size, weight: 700, fill: txtColor, anchor: 'middle' }),
   ]);
-};
-const flow = (prefix, items, x, y, maxW, o = {}) => {
-  let cx = x;
-  let cy = y;
-  const h = o.h || 30;
-  const gap = o.gap || 6;
-  const out = items.map((it) => {
-    const w = pillW(it.label, o);
-    if (cx > x && cx + w > x + maxW) { cx = x; cy += h + gap; }
-    const s = pill(`Pill_${it.label}`, cx, cy, it.label, { ...o, active: it.active });
-    cx += w + gap;
-    return s;
-  });
-  return { svg: G(prefix, out), h: cy + h - y };
 };
 
 const toggle = (id, x, y, on, t) => G(id, [
-  R('Switch_Track', x, y, 46, 28, { rx: 14, fill: on ? t.accent : t.border }),
-  C('Switch_Thumb', on ? x + 32 : x + 14, y + 14, 11, { fill: on ? t.onAccent : t.mode === 'dark' ? B.softCream : B.white }),
-]);
-
-const backHeader = (t, title, right) => G('Header_Bar', [
-  G('Back_Button', [C('Button_Circle', 39, 77, 19, { fill: t.surface, stroke: t.border }), I('arrowLeft', 30, 68, 18, t.text)]),
-  T('Screen_Title', 70, 84, title, { size: 20, weight: 800, fill: t.text, ls: -0.3 }),
-  right,
+  R('Switch_Track', x, y, 44, 26, { rx: 13, fill: on ? B.paleYellow : t.border }),
+  C('Switch_Thumb', on ? x + 31 : x + 13, y + 13, 10, { fill: on ? B.darkPlum : (t.mode === 'dark' ? B.softCream : B.white) }),
 ]);
 
 const svgDoc = (screenId, t, body) => `<?xml version="1.0" encoding="UTF-8"?>
@@ -276,7 +292,7 @@ const svgDoc = (screenId, t, body) => `<?xml version="1.0" encoding="UTF-8"?>
 <title>${screenId}</title>
 <defs>
 <filter id="Card_Shadow" x="-10%" y="-10%" width="120%" height="135%" color-interpolation-filters="sRGB">
-<feDropShadow dx="0" dy="4" stdDeviation="7" flood-color="${B.darkPlum}" flood-opacity="${t.mode === 'dark' ? 0.4 : 0.07}"/>
+<feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="${B.darkPlum}" flood-opacity="${t.mode === 'dark' ? 0.35 : 0.05}"/>
 </filter>
 <clipPath id="Screen_Clip"><rect width="375" height="812"/></clipPath>
 </defs>
@@ -287,618 +303,487 @@ ${flat(body)}
 `;
 
 // ═════════════════════════════════════════════════════════════════════════════
-// 01 — Onboarding: name + style
+// 1. HOME SCREEN (01_Home_Light & 02_Home_Dark)
+// Mirrors HomeScreen.tsx (GreetingHeader, WeatherCard, QuickShortcuts,
+// WardrobeSummary with Medium Plum / Pale Yellow icons, SustainabilityTip,
+// WardrobeAnalyticsPreview, BottomNav)
 // ═════════════════════════════════════════════════════════════════════════════
-function s01() {
-  const t = LIGHT;
-  const styles = [
-    ['Easy & casual', 'Relaxed everyday', true], ['Clean & minimal', 'Simple, considered', true],
-    ['Streetwear', 'Statement layers', false], ['Classic', 'Timeless polish', true],
-    ['Creative', 'Colour & texture', false], ['Soft & romantic', 'Flowy details', false],
+function buildHomeScreen(t) {
+  const qa = [
+    ['Add Clothes', 'camera'],
+    ['Generate Outfit', 'sparkles'],
+    ['Plan Day', 'calendar'],
+    ['Pack Trip', 'suitcase'],
   ];
-  const cw = (335 - 8) / 2;
-  return ['Screen_01_Onboarding_Name_and_Style', t, [
-    R('Background', 0, 0, 375, 812, { fill: t.bg }),
-    statusBar(t),
-    G('Header_Bar', [
-      G('Brand_Logo', [
-        R('Brand_Mark', 20, 58, 34, 34, { rx: 11, fill: B.peach }),
-        T('Brand_Mark_Letter', 37, 81, 'S', { size: 18, weight: 900, fill: B.darkPlum, anchor: 'middle' }),
-        T('Brand_Wordmark', 63, 81, [['Style', B.darkPlum], ['Sense', B.mediumPlum]], { size: 20, weight: 800 }),
-      ]),
-      G('Skip_Link', [
-        T('Skip_Label', 355, 80, 'Skip for now', { size: 13, fill: t.muted, anchor: 'end' }),
-        R('Skip_Underline', 273, 84, 82, 1, { fill: t.muted }),
-      ]),
-    ]),
-    G('Progress_Bar', [
-      R('Progress_Track', 20, 104, 335, 4, { rx: 2, fill: t.border }),
-      R('Progress_Fill', 20, 104, 335 * (2 / 6), 4, { rx: 2, fill: t.accent }),
-    ]),
-    G('Intro_Block', [
-      G('Icon_Bubble', [R('Bubble', 163.5, 128, 48, 48, { rx: 15, fill: B.peach }), I('person', 175.5, 140, 24, B.darkPlum)]),
-      T('Eyebrow', 187.5, 202, 'FIRST THINGS FIRST', { size: 11.5, weight: 800, fill: t.muted, ls: 1.4, anchor: 'middle' }),
-      T('Title', 187.5, 236, 'What should we call you?', { size: 24, weight: 900, fill: t.text, ls: -0.5, anchor: 'middle' }),
-      TM('Body', 187.5, 262, ['Your StyleSense space should feel', 'personal from the very beginning.'], 19, { size: 14, fill: t.muted, anchor: 'middle' }),
-    ]),
-    G('Name_Input_Field', [
-      T('Field_Label', 22, 318, 'Your name', { size: 13, weight: 700, fill: t.text }),
-      R('Input_Surface', 20, 328, 335, 52, { rx: 14, fill: B.white, stroke: B.darkPlum, sw: 1.5 }),
-      T('Input_Value', 36, 360, 'Alex', { size: 17, weight: 500, fill: t.text }),
-      R('Text_Caret', 74, 343, 1.5, 22, { fill: B.mediumPlum }),
-      G('Valid_Check', [C('Check_Circle', 331, 354, 11, { fill: B.peach }), I('check', 324, 347, 14, B.darkPlum, { sw: 2.6 })]),
-    ]),
-    G('Style_Preference_Section', [
-      T('Section_Title', 20, 420, 'What feels most like you, Alex?', { size: 17, weight: 800, fill: t.text }),
-      T('Section_Hint', 20, 440, 'Pick as many as you like — no wrong answers.', { size: 12.5, fill: t.muted }),
-      G('Style_Choice_Grid', styles.map(([label, note, on], i) => {
-        const x = 20 + (i % 2) * (cw + 8);
-        const y = 454 + Math.floor(i / 2) * 68;
-        return G(`Style_Choice_${label}`, [
-          R('Choice_Surface', x, y, cw, 60, { rx: 14, fill: on ? B.softLilac : B.white, stroke: on ? B.darkPlum : B.softLilac, sw: 1.5 }),
-          R('Checkbox', x + 12, y + 19, 22, 22, { rx: 7, fill: on ? B.darkPlum : 'none', stroke: on ? B.darkPlum : B.softLilac, sw: 1.5 }),
-          on && I('check', x + 16, y + 23, 14, B.paleYellow, { sw: 2.8 }),
-          T('Choice_Label', x + 44, y + 27, label, { size: 13.5, weight: 800, fill: t.text }),
-          T('Choice_Note', x + 44, y + 44, note, { size: 11, fill: t.muted }),
-        ]);
-      })),
-    ]),
-    G('Footer_Navigation', [
-      R('Footer_Hairline', 20, 712, 335, 1, { fill: t.border }),
-      G('Back_Button', [I('arrowLeft', 20, 743, 18, t.muted), T('Back_Label', 44, 757, 'Back', { size: 14, weight: 700, fill: t.muted })]),
-      T('Step_Counter', 168, 757, '2 of 4', { size: 12, fill: t.muted, anchor: 'middle' }),
-      btn('Continue_Button', 225, 730, 130, 44, 'Continue', { t, icon: 'arrowRight', size: 14 }),
-    ]),
-    homeIndicator(t),
-  ]];
-}
 
-// ═════════════════════════════════════════════════════════════════════════════
-// 02 — Home dashboard
-// ═════════════════════════════════════════════════════════════════════════════
-function s02() {
-  const t = LIGHT;
-  const tw3 = 95;
-  const qa = [['Add Clothes', 'camera', B.softLilac], ['Plan Day', 'calendar', B.peach], ['Pack Trip', 'suitcase', B.softLilac], ['Community', 'people', B.peach]];
-  const stats = [['36', 'Clean'], ['12', 'Needs Wash'], ['82%', 'Re-wear rate']];
-  return ['Screen_02_Home_Dashboard', t, [
+  return [
     R('Background', 0, 0, 375, 812, { fill: t.bg }),
     statusBar(t),
     G('Header_Bar', [
-      T('Greeting', 20, 78, 'Good morning,', { size: 14, fill: t.muted }),
-      T('User_Name', 20, 106, 'Alex', { size: 28, weight: 900, fill: t.text, ls: -0.6 }),
+      T('Greeting', 20, 76, 'Good morning,', { size: 14, fill: t.muted }),
+      T('User_Name', 20, 102, 'Jdyy ✨', { size: 26, weight: 900, fill: t.text, ls: -0.5 }),
       G('Notifications_Button', [
-        C('Button_Circle', 297, 88, 20, { fill: t.surface, stroke: t.border }), I('bell', 287, 78, 20, t.text),
-        C('Unread_Dot', 310, 74, 5, { fill: B.peach, stroke: B.darkPlum, sw: 1.2 }),
+        C('Button_Circle', 335, 86, 20, { fill: t.surface, stroke: t.border }),
+        I('bell', 325, 76, 20, t.text),
       ]),
-      G('Avatar', [C('Avatar_Circle', 343, 88, 20, { fill: B.softLilac }), T('Avatar_Initials', 343, 93, 'AR', { size: 13, weight: 800, fill: B.darkPlum, anchor: 'middle' })]),
     ]),
     G('Weather_Card_OpenWeatherMap', [
-      R('Card_Surface', 20, 124, 335, 108, { rx: 20, fill: B.darkPlum, shadow: true }),
-      C('Decor_Orb', 318, 180, 48, { fill: B.mediumPlum, opacity: 0.55 }),
-      I('cloudSun', 290, 154, 54, B.peach, { sw: 1.7 }),
-      T('Location', 36, 150, 'Makati City, PH', { size: 12, weight: 600, fill: B.softLilac }),
-      T('Temperature', 36, 194, '29°C', { size: 40, weight: 900, fill: B.paleYellow, ls: -1 }),
-      T('Condition', 140, 176, 'Humid · Feels 33°C', { size: 12.5, weight: 600, fill: B.softCream }),
-      T('Wind_Humidity', 140, 194, 'Wind 12 km/h · RH 78%', { size: 11.5, fill: B.softLilac }),
-      G('Source_Tag', [R('Tag_Surface', 36, 206, 124, 18, { rx: 9, fill: B.mediumPlum }), T('Tag_Label', 98, 219, 'via OpenWeatherMap', { size: 10, weight: 700, fill: B.paleYellow, anchor: 'middle' })]),
-    ]),
-    sec('Section_Label_Todays_Pick', 20, 260, "TODAY'S HYBRID PICK", t),
-    T('See_All_Link', 355, 260, 'See all', { size: 12.5, weight: 700, fill: t.text, anchor: 'end' }),
-    card('Todays_Outfit_Card', 20, 272, 335, 168, t, [
-      G('Garment_Tiles', [
-        tile('Tile_Top', 36, 288, tw3, 84, 'tee', B.white),
-        tile('Tile_Bottom', 36 + tw3 + 8, 288, tw3, 84, 'pants', B.mediumPlum),
-        tile('Tile_Shoes', 36 + (tw3 + 8) * 2, 288, tw3, 84, 'shoe', B.white),
+      R('Card_Surface', 20, 118, 335, 116, { rx: 20, fill: t.mode === 'dark' ? B.darkCard : B.darkPlum, stroke: t.border, shadow: true }),
+      I('cloudSun', 290, 148, 52, B.peachGold, { sw: 1.8 }),
+      T('Location_Pill', 36, 144, 'Makati City · Live', { size: 12, weight: 700, fill: B.softLilac }),
+      T('Temperature', 36, 188, '27°C', { size: 40, weight: 900, fill: B.paleYellow, ls: -1 }),
+      T('Condition', 138, 172, 'Mainly Clear · Feels 31°C', { size: 13, weight: 600, fill: B.softCream }),
+      T('Metrics', 138, 190, 'Humidity 76% · Wind 8 km/h', { size: 11.5, fill: B.softLilac }),
+      G('Layer_Pill', [
+        R('Pill_Bg', 36, 202, 160, 20, { rx: 10, fill: B.mediumPlum }),
+        T('Pill_Label', 116, 216, 'Light layers you can adjust', { size: 10.5, weight: 700, fill: B.paleYellow, anchor: 'middle' }),
       ]),
-      G('Hybrid_Score_Badge', [R('Badge_Surface', 251, 294, 80, 22, { rx: 11, fill: B.peach }), T('Badge_Label', 291, 309, 'Hybrid 87%', { size: 11, weight: 800, fill: B.darkPlum, anchor: 'middle' })]),
-      T('Outfit_Name', 36, 398, 'Casual · White Tee & Chinos', { size: 14.5, weight: 800, fill: t.text }),
-      T('Outfit_Meta', 36, 418, 'Content 88% · Collab 85% · 29°C ready', { size: 11.5, fill: t.muted }),
-      G('Open_Button', [C('Circle', 323, 406, 15, { fill: B.darkPlum }), I('arrowRight', 315.5, 398.5, 15, B.paleYellow, { sw: 2.4 })]),
     ]),
-    sec('Section_Label_Quick_Actions', 20, 468, 'QUICK ACTIONS', t),
-    G('Quick_Actions_Grid', qa.map(([label, icon, bg], i) => {
+    sec('Section_Quick_Shortcuts', 20, 258, 'QUICK ACTIONS', t),
+    G('Quick_Actions_Grid', qa.map(([label, icon], i) => {
       const x = 20 + i * 86;
       const cx = x + 38;
-      return card(`Quick_Action_${label}`, x, 480, 76, 84, t, [
-        C('Icon_Circle', cx, 510, 18, { fill: bg }), I(icon, cx - 9, 501, 18, B.darkPlum),
-        T('Action_Label', cx, 548, label, { size: 10.5, weight: 700, fill: t.text, anchor: 'middle' }),
+      return card(`Quick_Action_${label}`, x, 268, 77, 82, t, [
+        C('Icon_Circle', cx, 298, 18, { fill: t.badge }),
+        I(icon, cx - 9, 289, 18, t.mode === 'dark' ? B.softCream : B.darkPlum),
+        T('Action_Label', cx, 336, label, { size: 9.5, weight: 700, fill: t.text, anchor: 'middle' }),
       ]);
     })),
-    card('Wardrobe_Health_Card', 20, 580, 335, 128, t, [
-      T('Card_Title', 36, 606, 'Wardrobe Health', { size: 14.5, weight: 800, fill: t.text }),
-      T('Item_Count', 339, 606, '48 items', { size: 12, fill: t.muted, anchor: 'end' }),
-      G('Stat_Boxes', stats.map(([v, l], i) => {
-        const x = 36 + i * 103;
-        return G(`Stat_${l}`, [
-          R('Stat_Surface', x, 618, 95, 48, { rx: 12, fill: t.bg, stroke: t.border }),
-          T('Stat_Value', x + 12, 640, v, { size: 18, weight: 900, fill: t.text }),
-          T('Stat_Label', x + 12, 657, l, { size: 10.5, fill: t.muted }),
-        ]);
-      })),
-      G('Sustainability_Meter', [
-        I('leaf', 36, 680, 14, B.mediumPlum),
-        T('Meter_Label', 56, 691, 'Sustainability score', { size: 11.5, weight: 600, fill: t.text }),
-        R('Meter_Track', 190, 684, 112, 8, { rx: 4, fill: B.softLilac }),
-        R('Meter_Fill', 190, 684, 92, 8, { rx: 4, fill: B.darkPlum }),
-        T('Meter_Value', 339, 692, '82%', { size: 11.5, weight: 800, fill: t.text, anchor: 'end' }),
+    card('Wardrobe_Summary_Card', 20, 366, 335, 126, t, [
+      T('Summary_Title', 36, 392, 'Wardrobe Summary', { size: 14.5, weight: 800, fill: t.text }),
+      T('View_All_Link', 339, 392, 'View All >', { size: 12.5, weight: 700, fill: t.statIconColor, anchor: 'end' }),
+      G('Summary_Stats_Row', [
+        G('Stat_Items', [
+          R('Tile_1', 36, 404, 96, 68, { rx: 14, fill: t.tileBg, stroke: t.border }),
+          I('shirt', 48, 416, 18, t.statIconColor),
+          T('Stat_Val_1', 48, 452, '13', { size: 20, weight: 900, fill: t.text }),
+          T('Stat_Lbl_1', 48, 464, 'ITEMS', { size: 9.5, weight: 700, fill: t.muted }),
+        ]),
+        G('Stat_Favorites', [
+          R('Tile_2', 139, 404, 96, 68, { rx: 14, fill: t.tileBg, stroke: t.border }),
+          I('heart', 151, 416, 18, t.statIconColor),
+          T('Stat_Val_2', 151, 452, '1', { size: 20, weight: 900, fill: t.text }),
+          T('Stat_Lbl_2', 151, 464, 'FAVORITES', { size: 9.5, weight: 700, fill: t.muted }),
+        ]),
+        G('Stat_To_Wash', [
+          R('Tile_3', 242, 404, 96, 68, { rx: 14, fill: t.tileBg, stroke: t.border }),
+          I('droplet', 254, 416, 18, t.statIconColor),
+          T('Stat_Val_3', 254, 452, '4', { size: 20, weight: 900, fill: t.text }),
+          T('Stat_Lbl_3', 254, 464, 'TO WASH', { size: 9.5, weight: 700, fill: t.muted }),
+        ]),
+      ]),
+    ]),
+    card('Sustainability_Tip_Card', 20, 506, 335, 78, t, [
+      C('Tip_Icon_Circle', 48, 545, 18, { fill: B.peachGold }),
+      I('leaf', 39, 536, 18, B.darkPlum),
+      T('Tip_Title', 76, 536, 'Sustainable Styling', { size: 13.5, weight: 800, fill: t.text }),
+      TM('Tip_Body', 76, 552, ['Re-wearing your clean pieces reduces personal', 'wardrobe footprint by 24% this week.'], 15, { size: 11, fill: t.muted }),
+    ]),
+    card('Wardrobe_Analytics_Preview_Card', 20, 598, 335, 114, t, [
+      T('Analytics_Title', 36, 622, 'Wardrobe Analytics', { size: 14, weight: 800, fill: t.text }),
+      T('Analytics_Badge', 339, 622, 'Optimal Health', { size: 11.5, weight: 700, fill: t.statIconColor, anchor: 'end' }),
+      G('Metric_Row_1', [
+        T('M_Label_1', 36, 648, 'Garment Utilization Rate', { size: 11.5, weight: 600, fill: t.text }),
+        T('M_Val_1', 339, 648, '84%', { size: 12, weight: 900, fill: t.text, anchor: 'end' }),
+        R('Track_1', 36, 654, 303, 5, { rx: 2.5, fill: t.border }),
+        R('Fill_1', 36, 654, 303 * 0.84, 5, { rx: 2.5, fill: t.statIconColor }),
+      ]),
+      G('Metric_Row_2', [
+        T('M_Label_2', 36, 680, 'Clean Rotation Ratio', { size: 11.5, weight: 600, fill: t.text }),
+        T('M_Val_2', 339, 680, '69%', { size: 12, weight: 900, fill: t.text, anchor: 'end' }),
+        R('Track_2', 36, 686, 303, 5, { rx: 2.5, fill: t.border }),
+        R('Fill_2', 36, 686, 303 * 0.69, 5, { rx: 2.5, fill: B.peachGold }),
       ]),
     ]),
     bottomNav(t, 'Home'),
     homeIndicator(t),
-  ]];
+  ];
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// 03 — Wardrobe manager + unified Filter By
+// 2. WARDROBE SCREEN (03_Wardrobe_Light & 04_Wardrobe_Dark)
+// Mirrors WardrobeScreen.tsx (Title, "+ Add Clothes" button, "Filter By (0)"
+// dropdown button, active filter chips row, 2-column garment grid)
 // ═════════════════════════════════════════════════════════════════════════════
-function s03() {
-  const t = LIGHT;
-  const px = 36;
-  const maxW = 303;
-  const po = { t, size: 11, h: 28, px: 12, gap: 6 };
-  let cy = 250;
-  const panelKids = [];
-  const section = (id, label, items) => {
-    panelKids.push(sec(`${id}_Label`, px, cy + 11, label, t));
-    cy += 20;
-    const f = flow(`${id}_Options`, items, px, cy, maxW, po);
-    panelKids.push(f.svg);
-    cy += f.h + 14;
-  };
-  section('Category', 'CATEGORY', ['TOP', 'BOTTOM', 'SHOES', 'OUTERWEAR', 'ACCESSORIES'].map((l) => ({ label: l, active: l === 'TOP' })));
-  section('Occasion', 'OCCASION', ['Academic', 'Office', 'Formal', 'Casual', 'Workout'].map((l) => ({ label: l, active: false })));
-  section('Laundry_Status', 'LAUNDRY STATUS', ['CLEAN', 'NEEDS_WASHING'].map((l) => ({ label: l, active: l === 'CLEAN' })));
-  panelKids.push(G('Favorites_Only_Row', [
-    R('Row_Divider', px, cy - 4, maxW, 1, { fill: t.border }),
-    I('heart', px, cy + 8, 16, t.text),
-    T('Row_Label', px + 24, cy + 21, 'Favorites Only', { size: 13, weight: 700, fill: t.text }),
-    toggle('Favorites_Switch', 293, cy + 2, false, t),
-  ]));
-  cy += 34;
-  const panelH = cy + 12 - 236;
-  const cardsY = 236 + panelH + 14;
-  const cw = (335 - 8) / 2;
-  const garments = [
-    ['White Cotton Tee', 'tee', B.white, 'TOP · White · Academic', true],
-    ['Lilac Knit Polo', 'knit', B.softLilac, 'TOP · Lilac · Office', false],
+function buildWardrobeScreen(t) {
+  const cw = (335 - 12) / 2;
+  const items = [
+    { title: 'White Jeans', cat: 'BOTTOM · Casual', type: 'pants', color: B.white, wash: false, fav: true },
+    { title: 'Black SHOES', cat: 'SHOES · Workout', type: 'shoe', color: B.darkPlum, wash: false, fav: false },
+    { title: 'Corduroy Jacket', cat: 'OUTERWEAR · Academic', type: 'jacket', color: B.peachGold, wash: false, fav: false },
+    { title: 'Black Smartwatch', cat: 'ACCESSORIES · Office', type: 'bag', color: B.darkPlum, wash: true, fav: true },
   ];
-  return ['Screen_03_Wardrobe', t, [
+
+  return [
     R('Background', 0, 0, 375, 812, { fill: t.bg }),
     statusBar(t),
     G('Header_Bar', [
-      T('Screen_Title', 20, 92, 'Wardrobe', { size: 28, weight: 900, fill: t.text, ls: -0.6 }),
-      T('Item_Count', 20, 114, '48 items · 36 clean', { size: 13, fill: t.muted }),
-      G('Search_Button', [C('Button_Circle', 335, 86, 20, { fill: t.surface, stroke: t.border }), I('search', 326, 77, 18, t.text)]),
+      T('Screen_Title', 20, 88, 'Wardrobe', { size: 28, weight: 900, fill: t.text, ls: -0.6 }),
+      T('Subtitle', 20, 110, '13 items · 9 clean', { size: 13, fill: t.muted }),
+      btn('Add_Clothes_Header_Button', 225, 74, 130, 38, '+ Add Clothes', { t, size: 12.5, rx: 19 }),
     ]),
-    G('Capture_Actions', [
-      btn('Take_Photo_Camera_Button', 20, 130, 164, 46, 'Take Photo (Camera)', { t, icon: 'camera', size: 12, iconSize: 15, rx: 14 }),
-      btn('Upload_From_Gallery_Button', 191, 130, 164, 46, 'Upload from Gallery', { t, variant: 'secondary', icon: 'image', size: 12, iconSize: 15, rx: 14 }),
-    ]),
-    G('Filter_Bar', [
+    G('Filter_Controls_Row', [
       G('Filter_By_Dropdown_Button', [
-        R('Button_Surface', 20, 188, 150, 38, { rx: 19, fill: B.darkPlum }),
-        I('options', 34, 199, 16, B.paleYellow, { sw: 2.4 }),
-        T('Button_Label', 56, 212, 'Filter By (2)', { size: 13.5, weight: 800, fill: B.paleYellow }),
-        I('chevronUp', 146, 199, 16, B.paleYellow, { sw: 2.4 }),
+        R('Btn_Surface', 20, 126, 128, 36, { rx: 18, fill: t.surface, stroke: t.border }),
+        I('options', 32, 136, 16, t.text),
+        T('Btn_Label', 54, 149, 'Filter By (2)', { size: 12.5, weight: 700, fill: t.text }),
+        I('chevronDown', 124, 136, 14, t.text),
       ]),
-      T('Reset_Link', 184, 212, 'Reset', { size: 12.5, weight: 600, fill: t.muted }),
-      T('Sort_Label', 355, 212, 'Sort: Recent', { size: 12.5, weight: 600, fill: t.text, anchor: 'end' }),
+      G('Sort_Menu', [
+        T('Sort_Label', 355, 148, 'Sort: Recent ▼', { size: 12, weight: 600, fill: t.muted, anchor: 'end' }),
+      ]),
     ]),
-    card('Filter_By_Dropdown_Panel', 20, 236, 335, panelH, t, panelKids),
-    G('Garment_Grid', garments.map(([name, type, color, meta, fav], i) => {
-      const x = 20 + i * (cw + 8);
-      const y = cardsY;
-      return card(`Garment_Card_${i + 1}`, x, y, cw, 152, t, [
-        tile('Garment_Image', x + 8, y + 8, cw - 16, 98, type, color, { scale: 0.86 }),
-        G('Favorite_Button', [C('Button_Circle', x + cw - 22, y + 22, 12, { fill: B.white, stroke: t.border }), I('heart', x + cw - 29, y + 15, 14, B.darkPlum, { fill: fav ? B.darkPlum : undefined })]),
-        G('Laundry_Badge_Clean', [R('Badge_Surface', x + 14, y + 82, 48, 18, { rx: 9, fill: B.softLilac }), T('Badge_Label', x + 38, y + 95, 'CLEAN', { size: 9.5, weight: 800, fill: B.darkPlum, anchor: 'middle' })]),
-        T('Garment_Name', x + 12, y + 126, name, { size: 13.5, weight: 800, fill: t.text }),
-        T('Garment_Meta', x + 12, y + 143, meta, { size: 11, fill: t.muted }),
+    G('Active_Filter_Chips_Row', [
+      G('Chip_1', [
+        R('Chip_Surface_1', 20, 172, 112, 32, { rx: 16, fill: t.badge, stroke: t.border }),
+        T('Chip_Text_1', 32, 192, 'Cat: BOTTOM', { size: 11, weight: 700, fill: t.badgeText }),
+        I('x', 114, 180, 14, t.badgeText),
+      ]),
+      G('Chip_2', [
+        R('Chip_Surface_2', 138, 172, 118, 32, { rx: 16, fill: t.badge, stroke: t.border }),
+        T('Chip_Text_2', 150, 192, 'Occ: Academic', { size: 11, weight: 700, fill: t.badgeText }),
+        I('x', 238, 180, 14, t.badgeText),
+      ]),
+    ]),
+    G('Garment_Grid', items.map((it, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const x = 20 + col * (cw + 12);
+      const y = 216 + row * 242;
+      return card(`Garment_Card_${i + 1}`, x, y, cw, 230, t, [
+        tile('Garment_Thumbnail', x + 8, y + 8, cw - 16, 140, it.type, it.color, { rx: 12, bg: t.tileBg }),
+        G('Fav_Heart', [
+          C('Heart_Circle', x + cw - 24, y + 24, 14, { fill: t.surface, stroke: t.border }),
+          I('heart', x + cw - 31, y + 17, 14, it.fav ? '#E5484D' : t.muted, { fill: it.fav ? '#E5484D' : undefined }),
+        ]),
+        it.wash && G('Needs_Wash_Badge', [
+          R('Badge_Surface', x + 12, y + 120, 84, 20, { rx: 10, fill: B.peachGold }),
+          T('Badge_Text', x + 54, y + 134, 'NEEDS WASH', { size: 9, weight: 800, fill: B.darkPlum, anchor: 'middle' }),
+        ]),
+        T('Garment_Title', x + 12, y + 172, it.title, { size: 14, weight: 800, fill: t.text }),
+        T('Garment_Cat', x + 12, y + 190, it.cat, { size: 11, fill: t.muted }),
+        G('Wear_Count_Pill', [
+          T('Wear_Count', x + 12, y + 212, 'Worn 6 times', { size: 10.5, weight: 600, fill: t.statIconColor }),
+        ]),
       ]);
     })),
     bottomNav(t, 'Wardrobe'),
     homeIndicator(t),
-  ]];
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-// 04 — Add Clothes: ResNet-50 classification + CIELAB K-Means (K=2)
-// ═════════════════════════════════════════════════════════════════════════════
-function s04() {
-  const t = LIGHT;
-  const probs = [['TOP', 96.4, B.darkPlum], ['OUTERWEAR', 2.8, B.mediumPlum], ['ACCESSORIES', 0.8, B.mediumPlum]];
-  const swatches = [
-    ['Medium Plum', B.mediumPlum, '#4B1D6F · L* 22.1  a* 37.4  b* −38.9', '68%'],
-    ['Soft Cream', B.softCream, '#FDF3D2 · L* 96.0  a* 0.2  b* 14.9', '32%'],
   ];
-  const corner = (x, y, dx, dy) => `M${x} ${y + dy * 14} V${y} H${x + dx * 14}`;
-  return ['Screen_04_Add_Clothes_CNN_KMeans', t, [
-    R('Background', 0, 0, 375, 812, { fill: t.bg }),
-    statusBar(t),
-    backHeader(t, 'Add Clothes', G('AI_Tagging_Badge', [R('Badge_Surface', 271, 65, 84, 24, { rx: 12, fill: B.peach }), I('sparkles', 279, 70, 14, B.darkPlum), T('Badge_Label', 297, 81, 'AI Tagging', { size: 11, weight: 800, fill: B.darkPlum })])),
-    G('Photo_Preview_Card', [
-      R('Card_Surface', 20, 108, 335, 236, { rx: 22, fill: B.softCream, stroke: t.border, shadow: true }),
-      G('ResNet50_Detection_Chip', [R('Chip_Surface', 110, 122, 140, 22, { rx: 11, fill: B.darkPlum }), I('cpu', 118, 126, 14, B.paleYellow), T('Chip_Label', 137, 137, 'ResNet-50 · 96.4%', { size: 11, weight: 800, fill: B.paleYellow })]),
-      G('Detection_Bounding_Box', [
-        R('Box_Dashed', 110, 152, 155, 138, { rx: 10, stroke: B.darkPlum, sw: 1.2, dash: '6 5' }),
-        P('Corner_TL', corner(110, 152, 1, 1), { stroke: B.darkPlum, sw: 3 }),
-        P('Corner_TR', corner(265, 152, -1, 1), { stroke: B.darkPlum, sw: 3 }),
-        P('Corner_BL', corner(110, 290, 1, -1), { stroke: B.darkPlum, sw: 3 }),
-        P('Corner_BR', corner(265, 290, -1, -1), { stroke: B.darkPlum, sw: 3 }),
-      ]),
-      garment('Captured_Garment_Hoodie', 'hoodie', 125.5, 157, 124, B.mediumPlum, { line: B.darkPlum }),
-      R('Hoodie_Cream_Band', 160.2, 247, 54.6, 8, { rx: 2, fill: B.softCream }),
-      btn('Retake_Camera_Button', 34, 300, 150, 32, 'Retake (Camera)', { t, variant: 'secondary', icon: 'camera', size: 11.5, iconSize: 14 }),
-      btn('Upload_From_Gallery_Button', 191, 300, 150, 32, 'Upload from Gallery', { t, variant: 'secondary', icon: 'image', size: 11.5, iconSize: 14 }),
-    ]),
-    G('Moderation_Passed_Strip', [
-      R('Strip_Surface', 20, 356, 335, 42, { rx: 14, fill: B.softLilac }),
-      I('shield', 32, 366, 22, B.darkPlum),
-      T('Strip_Title', 62, 374, 'Moderation passed', { size: 12.5, weight: 800, fill: B.darkPlum }),
-      T('Strip_Detail', 62, 390, 'is_safe_garment: true · garment detected', { size: 11, fill: B.mediumPlum }),
-      C('Check_Circle', 335, 377, 11, { fill: B.darkPlum }), I('check', 328, 370, 14, B.paleYellow, { sw: 2.8 }),
-    ]),
-    card('CNN_Classification_Card', 20, 410, 335, 122, t, [
-      sec('Card_Label', 36, 434, 'CNN CLASSIFICATION · RESNET-50', t),
-      T('Input_Spec', 339, 434, '224×224', { size: 10.5, fill: t.muted, anchor: 'end' }),
-      T('Predicted_Category', 36, 462, [['TOP', B.darkPlum, 900], ['  · Hoodie', B.mediumPlum, 600]], { size: 22 }),
-      G('Softmax_Probabilities', probs.map(([label, p, col], i) => {
-        const y = 476 + i * 18;
-        return G(`Probability_${label}`, [
-          T('Class_Label', 36, y + 8, label, { size: 10.5, weight: 700, fill: t.text }),
-          R('Bar_Track', 124, y, 170, 7, { rx: 3.5, fill: B.softLilac }),
-          R('Bar_Fill', 124, y, Math.max(4, 170 * p / 100), 7, { rx: 3.5, fill: col }),
-          T('Class_Percent', 339, y + 8, `${p}%`, { size: 11, weight: 800, fill: t.text, anchor: 'end' }),
-        ]);
-      })),
-    ]),
-    card('CIELAB_KMeans_Color_Card', 20, 544, 335, 144, t, [
-      sec('Card_Label', 36, 568, 'COLOR EXTRACTION · CIELAB K-MEANS', t),
-      G('K_Value_Chip', [R('Chip_Surface', 293, 556, 46, 18, { rx: 9, fill: B.peach }), T('Chip_Label', 316, 569, 'K = 2', { size: 10, weight: 800, fill: B.darkPlum, anchor: 'middle' })]),
-      G('Cluster_Swatches', swatches.map(([name, hex, lab, pct], i) => {
-        const y = 584 + i * 40;
-        return G(`Cluster_${i + 1}_${name}`, [
-          C('Swatch', 54, y + 16, 15, { fill: hex, stroke: B.softLilac, sw: 1.5 }),
-          T('Color_Name', 80, y + 13, name, { size: 13, weight: 800, fill: t.text }),
-          T('LAB_Values', 80, y + 29, lab, { size: 10.5, fill: t.muted }),
-          T('Cluster_Share', 339, y + 21, pct, { size: 15, weight: 900, fill: t.text, anchor: 'end' }),
-        ]);
-      })),
-      G('Cluster_Proportion_Bar', [
-        R('Share_Cluster_1', 36, 668, 303 * 0.68 - 2, 8, { rx: 4, fill: B.mediumPlum }),
-        R('Share_Cluster_2', 36 + 303 * 0.68, 668, 303 * 0.32, 8, { rx: 4, fill: B.softCream, stroke: B.softLilac }),
-      ]),
-    ]),
-    btn('Save_To_Wardrobe_Button', 20, 704, 335, 52, 'Save to Wardrobe', { t, icon: 'check', size: 15, rx: 16 }),
-    T('Helper_Text', 187.5, 778, 'Auto-tagged by AI · every field stays editable', { size: 11, fill: t.muted, anchor: 'middle' }),
-    homeIndicator(t),
-  ]];
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// 05 — Hybrid outfit recommender
+// 3. OUTFIT RECOMMENDATION SCREEN (05_Outfit_Light & 06_Outfit_Dark)
+// Mirrors OutfitScreen.tsx (Title, Weather banner, No New Clothes Mode card,
+// Top-3 Curated Outfits, Choice #1 pill + 94% Hybrid Match highlight text,
+// OutfitRecommendationStatsBar, OutfitPreviewCard with ample badge padding)
 // ═════════════════════════════════════════════════════════════════════════════
-function s05() {
-  const t = LIGHT;
+function buildOutfitScreen(t) {
   const occ = ['Academic', 'Office', 'Formal', 'Casual', 'Workout'];
   let ox = 20;
-  const occPills = occ.map((l, i) => { const s = pill(`Occasion_${l}`, ox, 164, l, { t, size: 11, h: 28, px: 10, active: i === 0 }); ox += pillW(l, { size: 11, px: 10 }) + 6; return s; });
-  const r = 32;
-  const circ = 2 * Math.PI * r;
+  const occPills = occ.map((l, i) => {
+    const s = pill(`Occasion_${l}`, ox, 154, l, { t, size: 11, h: 28, px: 11, active: i === 0 });
+    ox += pillW(l, { size: 11, px: 11 }) + 6;
+    return s;
+  });
+
   const tileW = (303 - 24) / 4;
-  const tiles = [['Top', 'knit', B.softLilac], ['Bottom', 'pants', B.darkPlum], ['Shoes', 'shoe', B.white], ['Accessory', 'bag', B.peach]];
+  const tiles = [
+    ['Top', 'knit', B.softLilac],
+    ['Bottom', 'pants', B.darkPlum],
+    ['Shoes', 'shoe', B.white],
+    ['Accessory', 'bag', B.peachGold],
+  ];
+
   const actW = (303 - 18) / 4;
-  const actions = [['Like', 'heart', 'secondary'], ['Dislike', 'x', 'secondary'], ['Save', 'bookmark', 'secondary'], ['Wear', 'check', 'primary']];
-  const bar = (id, y, label, weight, val, col) => G(id, [
-    T('Score_Label', 124, y, [[label, B.darkPlum, 700], [`  ×${weight}`, B.mediumPlum, 600]], { size: 11.5 }),
-    T('Score_Value', 339, y, `${val}%`, { size: 11.5, weight: 900, fill: t.text, anchor: 'end' }),
-    R('Bar_Track', 124, y + 6, 215, 7, { rx: 3.5, fill: B.softLilac }),
-    R('Bar_Fill', 124, y + 6, 215 * val / 100, 7, { rx: 3.5, fill: col }),
-  ]);
-  const mini = (i, x, rank, pct, occLabel, items) => card(`Alternative_Outfit_Card_${rank}`, x, 644, 163.5, 72, t, [
-    tile('Mini_Tile_1', x + 10, 660, 40, 40, items[0][0], items[0][1], { rx: 10 }),
-    tile('Mini_Tile_2', x + 54, 660, 40, 40, items[1][0], items[1][1], { rx: 10 }),
-    T('Rank', x + 104, 672, `#${rank}`, { size: 11, weight: 800, fill: t.muted }),
-    T('Hybrid_Score', x + 104, 693, `${pct}%`, { size: 18, weight: 900, fill: t.text }),
-    T('Occasion', x + 104, 707, occLabel, { size: 10.5, fill: t.muted }),
-  ]);
-  return ['Screen_05_Hybrid_Outfit_Recommender', t, [
+  const actions = [
+    ['Like', 'heart', 'secondary'],
+    ['Dislike', 'thumbDown', 'secondary'],
+    ['Save', 'bookmark', 'secondary'],
+    ['Wear', 'check', 'primary'],
+  ];
+
+  return [
     R('Background', 0, 0, 375, 812, { fill: t.bg }),
     statusBar(t),
     G('Header_Bar', [
-      T('Screen_Title', 20, 86, 'Outfit Recommendations', { size: 22, weight: 900, fill: t.text, ls: -0.5 }),
-      T('Subtitle', 20, 106, 'Top-3 Hybrid picks for today', { size: 12.5, fill: t.muted }),
-      G('Refresh_Button', [C('Button_Circle', 337, 88, 18, { fill: t.surface, stroke: t.border }), I('sparkles', 329, 80, 16, t.text)]),
-    ]),
-    G('Weather_Badge_OpenWeatherMap', [
-      R('Badge_Surface', 20, 120, 335, 34, { rx: 17, fill: B.darkPlum }),
-      I('sun', 32, 128, 18, B.peach),
-      T('Weather_Label', 58, 141.5, [['Makati · 29°C', B.paleYellow, 800], ['  Humid · 12 km/h', B.softLilac, 500]], { size: 12.5 }),
-      T('Source_Label', 343, 141, 'OpenWeatherMap', { size: 10, weight: 700, fill: B.peach, anchor: 'end' }),
-    ]),
-    G('Occasion_Filter_Pills', occPills),
-    card('No_New_Clothes_Mode_Card', 20, 204, 335, 58, t, [
-      C('Icon_Circle', 50, 233, 16, { fill: B.peach }), I('leaf', 42, 225, 16, B.darkPlum),
-      T('Toggle_Title', 76, 229, 'No New Clothes Mode', { size: 14, weight: 800, fill: t.text }),
-      T('Toggle_Subtitle', 76, 246, 'Re-wear only what you already own', { size: 11, fill: t.muted }),
-      toggle('No_New_Clothes_Switch', 293, 219, true, t),
-    ]),
-    card('Top_Pick_Outfit_Card_1', 20, 274, 335, 340, t, [
-      G('Top_Pick_Badge', [R('Badge_Surface', 36, 290, 206, 24, { rx: 12, fill: B.peach }), T('Badge_Label', 139, 306, 'TOP PICK · BEST HYBRID MATCH', { size: 10, weight: 800, fill: B.darkPlum, ls: 0.4, anchor: 'middle' })]),
-      T('Rank_Label', 339, 306, '#1 of 3', { size: 11.5, weight: 700, fill: t.muted, anchor: 'end' }),
-      T('Outfit_Name', 36, 338, 'Academic Look · Lilac Knit & Chinos', { size: 14, weight: 800, fill: t.text }),
-      G('Garment_Tiles', tiles.map(([n, type, col], i) => tile(`Tile_${n}`, 36 + i * (tileW + 8), 350, tileW, 68, type, col))),
-      G('Hybrid_Score_Ring', [
-        C('Ring_Track', 72, 466, r, { stroke: B.softLilac, sw: 7 }),
-        C('Ring_Progress_87', 72, 466, r, { stroke: B.darkPlum, sw: 7, cap: 'round', dash: `${(circ * 0.87).toFixed(2)} ${circ.toFixed(2)}`, transform: 'rotate(-90 72 466)' }),
-        T('Ring_Value', 72, 471, '87%', { size: 18, weight: 900, fill: t.text, anchor: 'middle' }),
-        T('Ring_Caption', 72, 486, 'HYBRID', { size: 8, weight: 800, fill: t.muted, ls: 1, anchor: 'middle' }),
+      T('Screen_Title', 20, 84, 'Outfit Recommendations', { size: 21, weight: 900, fill: t.text, ls: -0.5 }),
+      T('Subtitle', 20, 104, 'Hybrid Content & Collaborative Filtering', { size: 12, fill: t.muted }),
+      G('Refresh_Pill', [
+        C('Pill_Circle', 337, 86, 18, { fill: t.surface, stroke: t.border }),
+        I('sparkles', 329, 78, 16, t.text),
       ]),
-      G('Score_Breakdown', [
-        bar('Content_Based_Score', 446, 'Content-Based', '0.55', 88, B.darkPlum),
-        bar('Collaborative_Score', 480, 'Collaborative', '0.45', 85, B.mediumPlum),
-      ]),
-      G('Formula_Strip', [
-        R('Strip_Surface', 36, 508, 303, 26, { rx: 8, fill: t.bg, stroke: t.border }),
-        T('Formula', 187.5, 525, 'Hybrid = 0.55 × 88 + 0.45 × 85 = 86.65 → 87%', { size: 10.5, weight: 700, fill: t.text, anchor: 'middle' }),
-      ]),
-      G('Explainability_Reasons', [
-        G('Reason_Weather', [I('sun', 36, 541, 14, B.mediumPlum), T('Reason_Text', 56, 552, 'Breathable knit for 29°C Makati humidity', { size: 11.5, fill: t.text })]),
-        G('Reason_Collaborative', [I('people', 36, 559, 14, B.mediumPlum), T('Reason_Text', 56, 570, 'Loved by 214 users with similar taste', { size: 11.5, fill: t.text })]),
-      ]),
-      G('Feedback_Actions', actions.map(([label, icon, v], i) =>
-        btn(`${label}_Button`, 36 + i * (actW + 6), 580, actW, 30, label, { t, variant: v, icon, size: 11.5, iconSize: 14 }))),
     ]),
-    sec('Section_Label_More_Picks', 20, 634, 'MORE PICKS', t),
-    T('Swipe_Hint', 355, 634, 'Swipe →', { size: 11.5, weight: 600, fill: t.muted, anchor: 'end' }),
-    mini(0, 20, 2, 84, 'Office · Clean', [['tee', B.white], ['pants', B.mediumPlum]]),
-    mini(1, 191.5, 3, 81, 'Casual · Clean', [['jacket', B.peach], ['pants', B.softLilac]]),
+    G('Weather_Banner', [
+      R('Banner_Surface', 20, 114, 335, 32, { rx: 16, fill: t.mode === 'dark' ? B.darkCard : B.darkPlum, stroke: t.border }),
+      I('cloudSun', 30, 121, 18, B.peachGold),
+      T('Weather_Text', 56, 134, [['Makati · 27°C', B.paleYellow, 800], ['  Mainly Clear · Feels 31°C', B.softLilac, 500]], { size: 11.5 }),
+    ]),
+    G('Occasion_Filters', occPills),
+    card('No_New_Clothes_Card', 20, 192, 335, 50, t, [
+      C('Icon_Circle', 44, 217, 14, { fill: B.peachGold }),
+      I('leaf', 37, 210, 14, B.darkPlum),
+      T('Mode_Title', 68, 215, 'No New Clothes Mode', { size: 13, weight: 800, fill: t.text }),
+      T('Mode_Subtitle', 68, 230, 'Re-wear only pieces you own', { size: 10.5, fill: t.muted }),
+      toggle('No_New_Clothes_Switch', 295, 204, true, t),
+    ]),
+    G('Top3_Choice_Header', [
+      T('Top3_Label', 20, 260, 'TOP-3 CURATED OUTFITS', { size: 11, weight: 800, fill: t.muted, ls: 1.2 }),
+      G('Choice_Row', [
+        R('Choice_Pill', 20, 270, 78, 26, { rx: 13, fill: t.mode === 'dark' ? B.darkTile : B.softLilac }),
+        T('Choice_Text', 59, 287, 'Choice #1', { size: 11, weight: 800, fill: t.text, anchor: 'middle' }),
+        T('Match_Highlight', 108, 287, '94% Hybrid Match', { size: 12, weight: 800, fill: t.highlightText }),
+      ]),
+    ]),
+    card('Hybrid_Stats_Bar_Card', 20, 306, 335, 78, t, [
+      I('chart', 34, 320, 16, t.highlightText),
+      T('Stats_Bar_Title', 56, 332, 'Top-3 Outfit  ·  Hybrid Recommendation Breakdown', { size: 11, weight: 800, fill: t.highlightText }),
+      G('Breakdown_Metrics', [
+        G('Col_1', [
+          T('Score_Big', 36, 362, '94%', { size: 22, weight: 900, fill: t.highlightText }),
+          T('Score_Lbl', 36, 375, 'HYBRID SCORE', { size: 8.5, weight: 800, fill: t.muted }),
+        ]),
+        G('Col_2', [
+          T('Val_2', 120, 362, '96%', { size: 15, weight: 800, fill: t.text }),
+          T('Lbl_2', 120, 375, 'Content', { size: 9, weight: 600, fill: t.muted }),
+        ]),
+        G('Col_3', [
+          T('Val_3', 190, 362, '91%', { size: 15, weight: 800, fill: t.text }),
+          T('Lbl_3', 190, 375, 'Collab', { size: 9, weight: 600, fill: t.muted }),
+        ]),
+        G('Col_4', [
+          T('Val_4', 260, 362, '100%', { size: 15, weight: 800, fill: t.text }),
+          T('Lbl_4', 260, 375, 'Reuse', { size: 9, weight: 600, fill: t.muted }),
+        ]),
+      ]),
+    ]),
+    card('Outfit_Preview_Card', 20, 394, 335, 318, t, [
+      G('Badge_Pill', [
+        R('Pill_Surface', 36, 406, 178, 24, { rx: 12, fill: B.peachGold }),
+        T('Pill_Text', 125, 422, 'Top Pick · Best Hybrid Match', { size: 10, weight: 800, fill: B.darkPlum, anchor: 'middle' }),
+      ]),
+      G('Context_Badges', [
+        R('Ctx_Badge', 248, 406, 91, 24, { rx: 12, fill: t.tileBg, stroke: t.border }),
+        T('Ctx_Text', 293, 422, '27°C · Casual', { size: 10, weight: 700, fill: t.text, anchor: 'middle' }),
+      ]),
+      T('Outfit_Name', 36, 448, 'Lilac Knit Polo & White Jeans', { size: 14, weight: 800, fill: t.text }),
+      T('Outfit_Sub', 36, 465, 'Optimal breathability for 27°C Makati weather', { size: 11, fill: t.muted }),
+      G('Garment_Tiles', tiles.map(([n, type, col], i) =>
+        tile(`Tile_${n}`, 36 + i * (tileW + 8), 476, tileW, 68, type, col, { rx: 10, bg: t.tileBg }))),
+      G('Score_Bars', [
+        T('Formula_Lbl', 36, 564, 'Hybrid Score: 0.55 × 96% + 0.45 × 91% = 94%', { size: 10.5, weight: 700, fill: t.statIconColor }),
+        R('F_Track', 36, 572, 303, 6, { rx: 3, fill: t.border }),
+        R('F_Fill', 36, 572, 303 * 0.94, 6, { rx: 3, fill: t.statIconColor }),
+      ]),
+      G('Action_Buttons_Row', actions.map(([label, icon, v], i) =>
+        btn(`${label}_Btn`, 36 + i * (actW + 6), 594, actW, 32, label, { t, variant: v, icon, size: 11, iconSize: 13 }))),
+      G('Wear_Notice', [
+        T('Notice_Text', 187.5, 642, 'Worn today? Tap Wear to update laundry status', { size: 10.5, fill: t.muted, anchor: 'middle' }),
+      ]),
+    ]),
     bottomNav(t, 'Outfit'),
     homeIndicator(t),
-  ]];
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-// 06 — Outfit planner + packing assistant
-// ═════════════════════════════════════════════════════════════════════════════
-function s06() {
-  const t = LIGHT;
-  const days = [['M', 13, true], ['T', 14, true], ['W', 15, true], ['T', 16, false], ['F', 17, true], ['S', 18, false], ['S', 19, false]];
-  const dw = 43;
-  const checklist = [
-    ['White Cotton Tee', 'TOP', true], ['Lilac Knit Polo', 'TOP', true], ['Plum Chinos', 'BOTTOM', true],
-    ['White Sneakers', 'SHOES', true], ['Peach Windbreaker', 'OUTERWEAR', false],
   ];
-  return ['Screen_06_Outfit_Planner_and_Packing', t, [
-    R('Background', 0, 0, 375, 812, { fill: t.bg }),
-    statusBar(t),
-    G('Header_Bar', [
-      T('Screen_Title', 20, 90, 'Planner', { size: 28, weight: 900, fill: t.text, ls: -0.6 }),
-      T('Subtitle', 20, 112, 'Plan your week & pack smarter', { size: 13, fill: t.muted }),
-      G('Add_Plan_Button', [C('Button_Circle', 335, 86, 20, { fill: B.darkPlum }), I('plus', 326, 77, 18, B.paleYellow, { sw: 2.6 })]),
-    ]),
-    G('Segmented_Control', [
-      R('Track', 20, 126, 335, 38, { rx: 19, fill: B.white, stroke: t.border }),
-      G('Segment_Plan_Day_Active', [R('Segment_Surface', 23, 129, 164, 32, { rx: 16, fill: B.darkPlum }), I('calendar', 64, 137, 16, B.paleYellow), T('Segment_Label', 86, 150, 'Plan Day', { size: 13, weight: 800, fill: B.paleYellow })]),
-      G('Segment_Pack_Trip', [I('suitcase', 233, 137, 16, t.muted), T('Segment_Label', 255, 150, 'Pack Trip', { size: 13, weight: 700, fill: t.muted })]),
-    ]),
-    sec('Section_Label_Weekly_Calendar', 20, 190, 'WEEKLY CALENDAR', t),
-    T('Week_Range', 355, 190, 'Oct 13 – 19', { size: 12, weight: 700, fill: t.text, anchor: 'end' }),
-    G('Weekly_Calendar_Strip', days.map(([d, n, planned], i) => {
-      const x = 20 + i * (dw + 5.33);
-      const sel = n === 15;
-      return G(`Day_${n}`, [
-        R('Day_Surface', x, 200, dw, 66, { rx: 14, fill: sel ? B.darkPlum : B.white, stroke: sel ? B.darkPlum : t.border }),
-        T('Weekday', x + dw / 2, 220, d, { size: 11, weight: 700, fill: sel ? B.softLilac : t.muted, anchor: 'middle' }),
-        T('Date', x + dw / 2, 243, String(n), { size: 17, weight: 900, fill: sel ? B.paleYellow : t.text, anchor: 'middle' }),
-        planned && C('Planned_Dot', x + dw / 2, 255, 3, { fill: sel ? B.paleYellow : B.peach, stroke: sel ? undefined : B.darkPlum, sw: 0.8 }),
-      ]);
-    })),
-    card('Planned_Outfit_Card', 20, 276, 335, 96, t, [
-      tile('Tile_Top', 36, 298, 52, 52, 'knit', B.softLilac, { rx: 10 }),
-      tile('Tile_Bottom', 94, 298, 52, 52, 'pants', B.darkPlum, { rx: 10 }),
-      tile('Tile_Shoes', 152, 298, 52, 52, 'shoe', B.white, { rx: 10 }),
-      T('Plan_Date', 218, 304, 'WED · OCT 15', { size: 10, weight: 800, fill: t.muted, ls: 1 }),
-      T('Plan_Title', 218, 322, 'Academic Look', { size: 14, weight: 800, fill: t.text }),
-      T('Plan_Items', 218, 339, 'Lilac Knit · Plum Chinos', { size: 11.5, fill: t.muted }),
-      G('Hybrid_Tag', [R('Tag_Surface', 218, 346, 74, 18, { rx: 9, fill: B.peach }), T('Tag_Label', 255, 359, 'Hybrid 87%', { size: 10, weight: 800, fill: B.darkPlum, anchor: 'middle' })]),
-    ]),
-    G('Replace_Plan_Confirmation_Dialog', [
-      R('Dialog_Surface', 20, 382, 335, 62, { rx: 16, fill: B.darkPlum, shadow: true }),
-      I('alert', 32, 392, 20, B.peach),
-      T('Dialog_Message', 60, 404, 'This date already has a planned outfit.', { size: 11.5, weight: 700, fill: B.softCream }),
-      T('Dialog_Question', 60, 429, 'Replace it?', { size: 12.5, weight: 800, fill: B.paleYellow }),
-      btn('Cancel_Button', 206, 413, 62, 24, 'Cancel', { t, variant: 'ghostDark', size: 11 }),
-      btn('Replace_Button', 274, 413, 68, 24, 'Replace', { t, variant: 'primary', size: 11, rx: 12 }),
-    ]),
-    sec('Section_Label_Pack_Trip', 20, 470, 'PACK TRIP ASSISTANT', t),
-    T('Clean_Only_Note', 355, 470, 'CLEAN items only', { size: 11.5, weight: 700, fill: t.text, anchor: 'end' }),
-    G('Trip_Summary_Card', [
-      R('Card_Surface', 20, 480, 335, 78, { rx: 18, fill: B.softCream, stroke: t.border, shadow: true }),
-      C('Icon_Circle', 50, 519, 18, { fill: B.darkPlum }), I('suitcase', 41, 510, 18, B.paleYellow),
-      T('Destination', 78, 510, 'Baguio City', { size: 15, weight: 800, fill: t.text }),
-      T('Trip_Details', 78, 527, '3 days · Casual', { size: 11.5, fill: t.muted }),
-      G('Destination_Weather_Chip', [R('Chip_Surface', 78, 536, 112, 16, { rx: 8, fill: B.darkPlum }), T('Chip_Label', 134, 548, 'Rain 18°C · 9 km/h', { size: 9.5, weight: 700, fill: B.paleYellow, anchor: 'middle' })]),
-      G('Packing_Mode_Toggle', [
-        R('Toggle_Track', 247, 505, 96, 28, { rx: 14, fill: B.white, stroke: t.border }),
-        G('Mode_Light_Active', [R('Mode_Surface', 249, 507, 46, 24, { rx: 12, fill: B.darkPlum }), T('Mode_Label', 272, 523, 'Light', { size: 10.5, weight: 800, fill: B.paleYellow, anchor: 'middle' })]),
-        T('Mode_Heavy', 319, 523, 'Heavy', { size: 10.5, weight: 700, fill: t.muted, anchor: 'middle' }),
-      ]),
-    ]),
-    card('Packing_Checklist_Card', 20, 566, 335, 152, t, [
-      T('Checklist_Title', 36, 590, 'Packing Checklist', { size: 13.5, weight: 800, fill: t.text }),
-      T('Checklist_Progress_Label', 339, 590, '4 / 5 packed', { size: 11, weight: 700, fill: t.muted, anchor: 'end' }),
-      R('Progress_Track', 36, 598, 303, 5, { rx: 2.5, fill: B.softLilac }),
-      R('Progress_Fill', 36, 598, 303 * 0.8, 5, { rx: 2.5, fill: B.darkPlum }),
-      G('Checklist_Items', checklist.map(([name, cat, done], i) => {
-        const y = 612 + i * 20;
-        const w = tw(cat, 9, 800) + 12;
-        return G(`Checklist_Item_${name}`, [
-          R('Checkbox', 36, y, 14, 14, { rx: 4, fill: done ? B.darkPlum : 'none', stroke: B.darkPlum, sw: 1.3 }),
-          done && I('check', 38, y + 2, 10, B.paleYellow, { sw: 3 }),
-          T('Item_Name', 58, y + 11, name, { size: 12, weight: 600, fill: t.text, opacity: done ? 0.6 : 1 }),
-          G('Category_Tag', [R('Tag_Surface', 339 - w, y, w, 14, { rx: 7, fill: B.softLilac }), T('Tag_Label', 339 - w / 2, y + 10, cat, { size: 9, weight: 800, fill: B.darkPlum, anchor: 'middle' })]),
-        ]);
-      })),
-    ]),
-    bottomNav(t, 'Home'),
-    homeIndicator(t),
-  ]];
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// 07 — Community feed (dark mode)
+// 4. COMMUNITY SCREEN (07_Community_Light & 08_Community_Dark)
+// Mirrors CommunityScreen.tsx (Title, "+ Post Look" button, "Recent" / "Trending"
+// mode selector pills, shared outfit cards with 5-star rating, AI Moderation Shield)
 // ═════════════════════════════════════════════════════════════════════════════
-function s07() {
-  const t = DARK;
+function buildCommunityScreen(t) {
   const shield = (x, y) => G('AI_Moderation_Shield_Badge', [
-    R('Badge_Surface', x, y, 108, 24, { rx: 12, fill: B.mediumPlum, stroke: B.paleYellow }),
-    I('shield', x + 8, y + 5, 14, B.paleYellow),
-    T('Badge_Label', x + 27, y + 16, 'AI Moderated', { size: 10.5, weight: 800, fill: B.paleYellow }),
+    R('Badge_Surface', x, y, 102, 22, { rx: 11, fill: t.mode === 'dark' ? B.mediumPlum : B.softLilac, stroke: t.border }),
+    I('shield', x + 8, y + 4, 13, t.mode === 'dark' ? B.paleYellow : B.darkPlum),
+    T('Badge_Label', x + 26, y + 15, 'AI Moderated', { size: 10, weight: 800, fill: t.mode === 'dark' ? B.paleYellow : B.darkPlum }),
   ]);
-  const stars = (x, y, filled) => G('Star_Rating_1_to_5', [1, 2, 3, 4, 5].map((n) =>
-    I('star', x + (n - 1) * 20, y, 16, n <= filled ? B.paleYellow : B.softLilac, { id: `Star_${n}`, fill: n <= filled ? B.paleYellow : undefined, sw: 1.6 })));
-  const post = (n, y, h, user, handle, initials, avatarBg, outfit, caption, rating, likes, saves) => card(`Shared_Outfit_Card_${n}`, 20, y, 335, h, t, [
-    G('Author_Row', [
-      C('Avatar', 48, y + 30, 16, { fill: avatarBg }),
-      T('Avatar_Initials', 48, y + 35, initials, { size: 11, weight: 800, fill: B.darkPlum, anchor: 'middle' }),
-      T('Author_Name', 72, y + 26, user, { size: 13.5, weight: 800, fill: t.text }),
-      T('Author_Meta', 72, y + 42, handle, { size: 11, fill: t.muted }),
-    ]),
-    shield(231, y + 16),
-    G('Outfit_Image_Area', [
-      R('Image_Surface', 36, y + 58, 303, 148, { rx: 14, fill: B.darkTile }),
-      garment('Garment_Top', outfit[0][0], 50, y + 70, 112, outfit[0][1]),
-      garment('Garment_Bottom', outfit[1][0], 160, y + 74, 104, outfit[1][1]),
-      garment('Garment_Shoes', 'shoe', 252, y + 118, 78, B.paleYellow),
-      G('Hybrid_Badge', [R('Badge_Surface', 48, y + 174, 90, 22, { rx: 11, fill: B.paleYellow }), T('Badge_Label', 93, y + 189, `Hybrid ${outfit[2]}%`, { size: 10.5, weight: 800, fill: B.darkPlum, anchor: 'middle' })]),
-    ]),
-    TM('Caption', 36, y + 228, caption, 17, { size: 12.5, fill: t.text }),
-    R('Divider', 36, y + 256, 303, 1, { fill: t.border }),
-    G('Rating_Row', [
-      T('Rate_Label', 36, y + 281, 'Rate', { size: 11, weight: 700, fill: t.muted }),
-      stars(68, y + 268, rating),
-      T('Rating_Summary', 172, y + 281, '4.6 · 38 ratings', { size: 11, weight: 600, fill: t.muted }),
-    ]),
-    G('Engagement_Actions', [
-      G('Like_Button', [I('heart', 36, y + 296, 18, B.peach, { fill: B.peach }), T('Like_Count', 60, y + 310, String(likes), { size: 12, weight: 700, fill: t.text })]),
-      G('Save_Button', [I('bookmark', 104, y + 296, 18, t.text), T('Save_Count', 128, y + 310, String(saves), { size: 12, weight: 700, fill: t.text })]),
-      G('Share_Button', [I('share', 168, y + 296, 18, t.text)]),
-      T('Your_Rating', 339, y + 310, `You rated ${rating} / 5`, { size: 11, weight: 800, fill: B.paleYellow, anchor: 'end' }),
-    ]),
-  ]);
-  return ['Screen_07_Community_Feed_Dark', t, [
+
+  const stars = (x, y, filled) => G('Star_Rating', [1, 2, 3, 4, 5].map((n) =>
+    I('star', x + (n - 1) * 18, y, 14, n <= filled ? B.peachGold : t.muted, { fill: n <= filled ? B.peachGold : undefined, sw: 1.5 })));
+
+  const post = (id, y, user, handle, initial, outfitName, caption, rating, likes, saves) =>
+    card(`Post_Card_${id}`, 20, y, 335, 252, t, [
+      G('Author_Header', [
+        C('Avatar', 44, y + 26, 16, { fill: B.peachGold }),
+        T('Avatar_Init', 44, y + 31, initial, { size: 11, weight: 800, fill: B.darkPlum, anchor: 'middle' }),
+        T('User_Name', 68, y + 23, user, { size: 13.5, weight: 800, fill: t.text }),
+        T('User_Handle', 68, y + 38, handle, { size: 11, fill: t.muted }),
+      ]),
+      shield(233, y + 14),
+      T('Outfit_Title', 36, y + 68, outfitName, { size: 13.5, weight: 800, fill: t.text }),
+      TM('Caption', 36, y + 84, caption, 15, { size: 11.5, fill: t.muted }),
+      G('Garments_Preview_Row', [
+        tile('Garment_1', 36, y + 116, 70, 58, 'knit', B.softLilac, { rx: 10, bg: t.tileBg }),
+        tile('Garment_2', 114, y + 116, 70, 58, 'pants', B.white, { rx: 10, bg: t.tileBg }),
+        tile('Garment_3', 192, y + 116, 70, 58, 'shoe', B.darkPlum, { rx: 10, bg: t.tileBg }),
+        tile('Garment_4', 270, y + 116, 68, 58, 'jacket', B.peachGold, { rx: 10, bg: t.tileBg }),
+      ]),
+      R('Divider', 36, y + 188, 303, 1, { fill: t.border }),
+      G('Rating_Row', [
+        T('Rate_Label', 36, y + 208, 'Community Rating:', { size: 11, weight: 600, fill: t.muted }),
+        stars(142, y + 196, rating),
+        T('Rate_Score', 242, y + 208, '4.8 (32)', { size: 11, weight: 700, fill: t.text }),
+      ]),
+      G('Actions_Footer', [
+        G('Like_Btn', [
+          I('heart', 36, y + 222, 16, '#E5484D', { fill: '#E5484D' }),
+          T('Like_Count', 58, y + 235, String(likes), { size: 12, weight: 700, fill: t.text }),
+        ]),
+        G('Save_Btn', [
+          I('bookmark', 106, y + 222, 16, t.text),
+          T('Save_Count', 128, y + 235, String(saves), { size: 12, weight: 700, fill: t.text }),
+        ]),
+        G('Share_Btn', [
+          I('share', 176, y + 222, 16, t.text),
+        ]),
+      ]),
+    ]);
+
+  return [
     R('Background', 0, 0, 375, 812, { fill: t.bg }),
     statusBar(t),
     G('Header_Bar', [
-      T('Screen_Title', 20, 92, 'Community', { size: 28, weight: 900, fill: t.text, ls: -0.6 }),
-      T('Subtitle', 20, 114, 'Find and share your favorite looks', { size: 13, fill: t.muted }),
-      btn('Post_Look_Button', 245, 74, 110, 36, 'Post Look', { t, icon: 'plus', size: 13, iconSize: 15 }),
+      T('Screen_Title', 20, 88, 'Community', { size: 28, weight: 900, fill: t.text, ls: -0.6 }),
+      T('Subtitle', 20, 110, 'Find and share your favorite looks', { size: 13, fill: t.muted }),
+      btn('Post_Look_Header_Button', 245, 74, 110, 38, 'Post Look', { t, icon: 'plus', size: 12.5, iconSize: 14, rx: 19 }),
     ]),
-    G('Feed_Mode_Pills', [
-      pill('Mode_Recent', 20, 130, 'Recent', { t, active: true, size: 13, h: 32 }),
-      pill('Mode_Trending', 20 + pillW('Recent', { size: 13 }) + 8, 130, 'Trending', { t, size: 13, h: 32 }),
+    G('Mode_Pills_Row', [
+      pill('Pill_Recent', 20, 126, 'Recent', { t, active: true, size: 12.5, h: 32 }),
+      pill('Pill_Trending', 20 + pillW('Recent', { size: 12.5 }) + 8, 126, 'Trending', { t, active: false, size: 12.5, h: 32 }),
     ]),
-    post(1, 174, 330, 'Mika Santos', '@mika.styles · 2h · Academic', 'MS', B.peach,
-      [['knit', B.softLilac], ['pants', B.softCream], 89],
-      ['Perfect breathable combo for a humid', 'campus day in Makati. #OOTD #ReWear'], 4, 124, 31),
-    post(2, 516, 330, 'Jonas Reyes', '@jonas.fits · 5h · Office', 'JR', B.softLilac,
-      [['jacket', B.peach], ['pants', B.softLilac], 86],
-      ['Peach overshirt for Friday meetings —', 'zero new purchases this month!'], 5, 98, 22),
+    post('1', 172, 'Sophia Reyes', '@sophia.fits · 2h · Academic', 'S', 'Casual Academic Layers', ['Light lilac knit paired with relaxed denim.', 'Comfortable for campus walking all day!'], 5, 48, 14),
+    post('2', 438, 'Marco Tan', '@marco.style · 6h · Office', 'M', 'Smart Casual Office Rotation', ['Earth tones with peach outerwear layer.', 'Re-wearing wardrobe staples sustainably.'], 4, 32, 9),
     bottomNav(t, 'Community'),
     homeIndicator(t),
-  ]];
+  ];
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// 08 — Notifications & account settings
+// 5. ACCOUNT / SETTINGS SCREEN (09_Account_Light & 10_Account_Dark)
+// Mirrors ProfileScreen.tsx & SettingsScreen.tsx (Profile card, Stats row:
+// 13 Items, 1 Fav, 24 Wears, Appearance Theme toggle, Alert Preferences
+// 4 switches, Language selector, Sign Out button)
 // ═════════════════════════════════════════════════════════════════════════════
-function s08() {
-  const t = LIGHT;
+function buildAccountScreen(t) {
   const alerts = [
-    ['Weather Alerts', 'Live OpenWeatherMap conditions', 'cloudSun', B.peach, true],
-    ['Sustainability Tips', 'Re-wear and care nudges', 'leaf', B.softLilac, true],
-    ['Outfit Reminders', 'Planned looks for tomorrow', 'shirt', B.peach, true],
-    ['Laundry Reminders', 'When pieces need washing', 'droplet', B.softLilac, false],
+    ['Weather Alerts', 'Live conditions for your outfit', 'cloudSun', true],
+    ['Sustainability Tips', 'Re-wear and care nudges', 'leaf', true],
+    ['Outfit Reminders', 'Planned looks for tomorrow', 'shirt', true],
+    ['Laundry Reminders', 'When pieces need washing', 'droplet', false],
   ];
-  const notif = (n, y, icon, title, body, unread) => G(`Notification_Card_${n}`, [
-    R('Card_Surface', 20, y, 335, 58, { rx: 16, fill: B.white, stroke: unread ? B.darkPlum : t.border, shadow: true }),
-    R('Icon_Tile', 32, y + 11, 36, 36, { rx: 10, fill: B.darkPlum }), I(icon, 41, y + 20, 18, B.paleYellow),
-    T('Notification_Title', 78, y + 25, title, { size: 12.5, weight: 800, fill: t.text }),
-    T('Notification_Body', 78, y + 42, body, { size: 11, fill: t.muted }),
-    unread && C('Unread_Dot', 343, y + 20, 4, { fill: B.peach, stroke: B.darkPlum, sw: 1 }),
-  ]);
-  return ['Screen_08_Notifications_and_Account_Settings', t, [
+
+  return [
     R('Background', 0, 0, 375, 812, { fill: t.bg }),
     statusBar(t),
     G('Header_Bar', [
-      T('Screen_Title', 20, 92, 'Account', { size: 28, weight: 900, fill: t.text, ls: -0.6 }),
-      T('Subtitle', 20, 114, 'Notifications & preferences', { size: 13, fill: t.muted }),
+      T('Screen_Title', 20, 88, 'Account', { size: 28, weight: 900, fill: t.text, ls: -0.6 }),
+      T('Subtitle', 20, 110, 'Profile, settings & alert preferences', { size: 13, fill: t.muted }),
       G('Notifications_Bell', [
-        C('Button_Circle', 335, 86, 20, { fill: t.surface, stroke: t.border }), I('bell', 325, 76, 20, t.text),
-        C('Unread_Count_Badge', 349, 72, 8, { fill: B.peach, stroke: B.darkPlum, sw: 1.2 }),
-        T('Unread_Count', 349, 75.5, '2', { size: 9.5, weight: 800, fill: B.darkPlum, anchor: 'middle' }),
+        C('Button_Circle', 335, 86, 20, { fill: t.surface, stroke: t.border }),
+        I('bell', 325, 76, 20, t.text),
       ]),
     ]),
-    card('Profile_Card', 20, 130, 335, 68, t, [
-      C('Avatar', 56, 164, 20, { fill: B.softLilac }), T('Avatar_Initials', 56, 169, 'AR', { size: 13, weight: 800, fill: B.darkPlum, anchor: 'middle' }),
-      T('Profile_Name', 88, 159, 'Alex Rivera', { size: 15, weight: 800, fill: t.text }),
-      T('Profile_Email', 88, 177, 'alex@stylesense.app', { size: 12, fill: t.muted }),
-      I('chevronRight', 321, 155, 18, t.muted),
-    ]),
-    sec('Section_Label_Appearance', 20, 224, 'APPEARANCE', t),
-    card('Appearance_Card', 20, 234, 335, 62, t, [
-      C('Icon_Circle', 52, 265, 16, { fill: B.softLilac }), I('moon', 44, 257, 16, B.darkPlum),
-      T('Setting_Title', 78, 261, 'Theme', { size: 14, weight: 800, fill: t.text }),
-      T('Setting_Note', 78, 278, 'Saved to AsyncStorage', { size: 11, fill: t.muted }),
-      G('Light_Dark_Mode_Toggle', [
-        R('Toggle_Track', 213, 249, 128, 32, { rx: 16, fill: t.bg, stroke: t.border }),
-        G('Option_Light_Active', [R('Option_Surface', 215, 251, 62, 28, { rx: 14, fill: B.darkPlum }), I('sun', 224, 259, 12, B.paleYellow, { sw: 2.4 }), T('Option_Label', 241, 269, 'Light', { size: 11.5, weight: 800, fill: B.paleYellow })]),
-        G('Option_Dark', [I('moon', 287, 259, 12, t.muted, { sw: 2.4 }), T('Option_Label', 304, 269, 'Dark', { size: 11.5, weight: 700, fill: t.muted })]),
+    card('Profile_Card', 20, 126, 335, 142, t, [
+      C('Avatar_Circle', 56, 160, 24, { fill: B.peachGold }),
+      T('Avatar_Initial', 56, 167, 'J', { size: 18, weight: 800, fill: B.darkPlum, anchor: 'middle' }),
+      T('Profile_Name', 92, 154, 'Jdyy', { size: 16, weight: 800, fill: t.text }),
+      T('Profile_Email', 92, 171, 'jdyy@stylesense.app', { size: 11.5, fill: t.muted }),
+      T('Member_Since', 92, 186, 'Member since 2026', { size: 10.5, fill: t.muted }),
+      btn('Edit_Profile_Btn', 242, 146, 96, 30, 'Edit Profile', { t, variant: 'secondary', size: 11, rx: 15 }),
+      G('Profile_Stats_Row', [
+        R('Stats_Surface', 36, 198, 303, 56, { rx: 14, fill: t.tileBg, stroke: t.border }),
+        G('Stat_1', [
+          T('S1_Val', 86, 224, '13', { size: 17, weight: 900, fill: t.text, anchor: 'middle' }),
+          T('S1_Lbl', 86, 240, 'Items', { size: 10.5, fill: t.muted, anchor: 'middle' }),
+        ]),
+        R('S_Div_1', 137, 208, 1, 36, { fill: t.border }),
+        G('Stat_2', [
+          T('S2_Val', 188, 224, '1', { size: 17, weight: 900, fill: t.text, anchor: 'middle' }),
+          T('S2_Lbl', 188, 240, 'Favorites', { size: 10.5, fill: t.muted, anchor: 'middle' }),
+        ]),
+        R('S_Div_2', 239, 208, 1, 36, { fill: t.border }),
+        G('Stat_3', [
+          T('S3_Val', 289, 224, '24', { size: 17, weight: 900, fill: t.text, anchor: 'middle' }),
+          T('S3_Lbl', 289, 240, 'Wears', { size: 10.5, fill: t.muted, anchor: 'middle' }),
+        ]),
       ]),
     ]),
-    sec('Section_Label_Smart_Alerts', 20, 322, 'SMART ALERTS', t),
-    T('Alerts_On_Count', 355, 322, '3 of 4 on', { size: 11.5, weight: 700, fill: t.muted, anchor: 'end' }),
-    card('Smart_Alert_Switches_Card', 20, 332, 335, 232, t, alerts.map(([label, note, icon, bg, on], i) => {
-      const y = 332 + i * 58;
+    sec('Section_Appearance', 20, 290, 'APPEARANCE', t),
+    card('Appearance_Card', 20, 300, 335, 54, t, [
+      I('moon', 36, 317, 18, t.text),
+      T('Theme_Title', 62, 326, 'Theme', { size: 13.5, weight: 800, fill: t.text }),
+      T('Theme_Sub', 62, 342, 'Light and Dark mode switching', { size: 10.5, fill: t.muted }),
+      G('Theme_Selector', [
+        R('Track', 223, 311, 116, 32, { rx: 16, fill: t.tileBg, stroke: t.border }),
+        t.mode === 'light'
+          ? G('Light_Active', [
+              R('Pill_Light', 225, 313, 56, 28, { rx: 14, fill: B.darkPlum }),
+              T('Lbl_L', 253, 331, 'Light', { size: 11, weight: 800, fill: B.paleYellow, anchor: 'middle' }),
+              T('Lbl_D', 309, 331, 'Dark', { size: 11, weight: 600, fill: t.muted, anchor: 'middle' }),
+            ])
+          : G('Dark_Active', [
+              T('Lbl_L', 253, 331, 'Light', { size: 11, weight: 600, fill: t.muted, anchor: 'middle' }),
+              R('Pill_Dark', 281, 313, 56, 28, { rx: 14, fill: B.paleYellow }),
+              T('Lbl_D', 309, 331, 'Dark', { size: 11, weight: 800, fill: B.darkPlum, anchor: 'middle' }),
+            ]),
+      ]),
+    ]),
+    sec('Section_Alert_Prefs', 20, 376, 'ALERT PREFERENCES', t),
+    T('Alert_Count', 355, 376, '3 of 4 active', { size: 11.5, weight: 700, fill: t.muted, anchor: 'end' }),
+    card('Alert_Prefs_Card', 20, 386, 335, 216, t, alerts.map(([label, note, icon, on], i) => {
+      const y = 386 + i * 54;
       return G(`Alert_Row_${label}`, [
-        i > 0 && R('Row_Divider', 78, y, 261, 1, { fill: t.border }),
-        C('Icon_Circle', 52, y + 29, 16, { fill: bg }), I(icon, 44, y + 21, 16, B.darkPlum),
-        T('Alert_Label', 78, y + 26, label, { size: 14, weight: 800, fill: t.text }),
-        T('Alert_Note', 78, y + 43, note, { size: 11, fill: t.muted }),
-        toggle(`${label.replace(/ /g, '_')}_Switch`, 293, y + 15, on, t),
+        i > 0 && R(`Divider_${i}`, 62, y, 277, 1, { fill: t.border }),
+        I(icon, 36, y + 17, 18, t.text),
+        T('Alert_Label', 62, y + 25, label, { size: 13, weight: 800, fill: t.text }),
+        T('Alert_Note', 62, y + 41, note, { size: 10.5, fill: t.muted }),
+        toggle(`Switch_${label}`, 295, y + 14, on, t),
       ]);
     })),
-    sec('Section_Label_Recent_Alerts', 20, 588, 'RECENT ALERTS', t),
-    T('Mark_All_Read', 355, 588, 'Mark All Read', { size: 12, weight: 700, fill: t.text, anchor: 'end', deco: 'underline' }),
-    notif(1, 598, 'cloudSun', 'Makati Weather Alert: 29°C & Humid', 'Breathable tops prioritized · Just now', true),
-    notif(2, 664, 'droplet', '3 items need washing', 'White hoodie + 2 tees · 1h ago', false),
+    card('Settings_Menu_Card', 20, 616, 335, 88, t, [
+      G('Language_Row', [
+        I('settings', 36, 627, 18, t.text),
+        T('Lang_Label', 62, 638, 'Language', { size: 13, weight: 800, fill: t.text }),
+        T('Lang_Val', 320, 638, 'English (US)', { size: 12, fill: t.muted, anchor: 'end' }),
+        I('chevronRight', 326, 627, 16, t.muted),
+      ]),
+      R('Menu_Div', 62, 658, 277, 1, { fill: t.border }),
+      G('Sign_Out_Row', [
+        I('logout', 36, 669, 18, '#E5484D'),
+        T('SignOut_Label', 62, 680, 'Sign Out', { size: 13, weight: 800, fill: '#E5484D' }),
+      ]),
+    ]),
     bottomNav(t, 'Account'),
     homeIndicator(t),
-  ]];
+  ];
 }
 
-// ── Emit ─────────────────────────────────────────────────────────────────────
+// ── Screen Catalog & Generator Execution ─────────────────────────────────────
 const screens = [
-  ['01_Onboarding_Name_and_Style.svg', s01],
-  ['02_Home_Dashboard.svg', s02],
-  ['03_Wardrobe_Manager_FilterBy.svg', s03],
-  ['04_Add_Clothes_CNN_KMeans_Tagging.svg', s04],
-  ['05_Hybrid_Outfit_Recommender.svg', s05],
-  ['06_Outfit_Planner_and_Packing_Assistant.svg', s06],
-  ['07_Community_Feed_Dark_Mode.svg', s07],
-  ['08_Notifications_and_Account_Settings.svg', s08],
+  ['01_Home_Light.svg', THEMES.light, buildHomeScreen],
+  ['02_Home_Dark.svg', THEMES.dark, buildHomeScreen],
+  ['03_Wardrobe_Light.svg', THEMES.light, buildWardrobeScreen],
+  ['04_Wardrobe_Dark.svg', THEMES.dark, buildWardrobeScreen],
+  ['05_Outfit_Light.svg', THEMES.light, buildOutfitScreen],
+  ['06_Outfit_Dark.svg', THEMES.dark, buildOutfitScreen],
+  ['07_Community_Light.svg', THEMES.light, buildCommunityScreen],
+  ['08_Community_Dark.svg', THEMES.dark, buildCommunityScreen],
+  ['09_Account_Light.svg', THEMES.light, buildAccountScreen],
+  ['10_Account_Dark.svg', THEMES.dark, buildAccountScreen],
 ];
 
-for (const [file, build] of screens) {
+console.log('Generating 10 standalone, Figma-ready 375x812 SVGs...');
+
+for (const [file, theme, builder] of screens) {
   ids = new Map();
-  const [screenId, t, body] = build();
+  const screenId = file.replace(/\.svg$/, '');
   ids.set(screenId, 1);
-  const svg = svgDoc(screenId, t, body);
+  const body = builder(theme);
+  const svg = svgDoc(screenId, theme, body);
   fs.writeFileSync(path.join(OUT, file), svg, 'utf8');
   const groups = (svg.match(/<g /g) || []).length;
   const texts = (svg.match(/<text /g) || []).length;
-  console.log(`${file.padEnd(46)} ${String(groups).padStart(4)} groups  ${String(texts).padStart(3)} text  ${(svg.length / 1024).toFixed(1)} KB`);
+  console.log(`${file.padEnd(28)} ${String(groups).padStart(4)} groups  ${String(texts).padStart(3)} text  ${(svg.length / 1024).toFixed(1)} KB`);
 }
 
+console.log('Done! All 10 SVGs successfully generated in figma-layered-screens/.');

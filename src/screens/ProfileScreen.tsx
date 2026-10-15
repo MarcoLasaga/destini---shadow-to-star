@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { useProfile } from '../contexts/ProfileContext';
 import { useWardrobe } from '../contexts/WardrobeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Image } from 'expo-image';
+import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
 
 const MENU_ITEMS = [
   { key: 'SavedOutfits', label: 'Saved Outfits', icon: 'bookmark-outline' as const },
@@ -26,6 +27,7 @@ export default function ProfileScreen() {
   const { profile, setAvatar } = useProfile();
   const { items } = useWardrobe();
   const { logout } = useAuth();
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
 
   const favoritesCount = items.filter((i) => i.favorite).length;
   const totalWears = items.reduce((sum, i) => sum + i.timesWorn, 0);
@@ -109,11 +111,25 @@ export default function ProfileScreen() {
           ))}
         </View>
 
-        <Pressable onPress={logout} style={styles.logoutButton}>
+        <Pressable onPress={() => setLogoutModalVisible(true)} style={styles.logoutButton}>
           <Ionicons name="log-out-outline" size={17} color="#E5484D" />
           <Text style={styles.logoutLabel}>Log Out</Text>
         </Pressable>
       </ScrollView>
+
+      <ConfirmDialogModal
+        visible={logoutModalVisible}
+        variant="danger"
+        title="Sign Out"
+        message="Are you sure you want to sign out of your StyleSense account?"
+        confirmText="Sign Out"
+        cancelText="Cancel"
+        onConfirm={() => {
+          setLogoutModalVisible(false);
+          logout();
+        }}
+        onCancel={() => setLogoutModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }

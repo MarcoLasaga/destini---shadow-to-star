@@ -42,8 +42,8 @@ export default function OutfitPreviewCard({ outfit }: { outfit: GeneratedOutfit 
             </View>
           )}
         </View>
-        <View style={[styles.hybridPill, { backgroundColor: theme.secondaryAccent }]}>
-          <Text style={[styles.hybridPillText, { color: theme.onAccent }]}>{hybrid}% Hybrid</Text>
+        <View style={[styles.hybridPill, { backgroundColor: theme.mode === 'dark' ? '#FBF5A7' : '#24152C' }]}>
+          <Text style={[styles.hybridPillText, { color: theme.mode === 'dark' ? '#24152C' : '#FBF5A7' }]}>{hybrid}% Hybrid</Text>
         </View>
       </View>
 
@@ -84,7 +84,7 @@ export default function OutfitPreviewCard({ outfit }: { outfit: GeneratedOutfit 
         {/* Hybrid Recommendation Breakdown (Hybrid, Content, Collaborative, Reuse) */}
         <View style={[styles.statsRow, { backgroundColor: theme.mode === 'dark' ? '#232329' : '#F4F1EA' }]}>
           <View style={styles.statBlock}>
-            <Text style={[styles.statValue, { color: theme.secondaryAccent }]}>{hybrid}%</Text>
+            <Text style={[styles.statValue, { color: theme.mode === 'dark' ? '#FBF5A7' : '#24152C' }]}>{hybrid}%</Text>
             <Text style={[styles.statLabel, { color: theme.textMuted }]}>Hybrid Score</Text>
           </View>
           <View style={styles.statDivider} />
@@ -303,11 +303,11 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 10,
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sectionTitle: { fontSize: 16, fontWeight: '800' },
-  badgePill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  headerLeft: { flex: 1, gap: 4, marginRight: 8 },
+  sectionTitle: { fontSize: 15.5, fontWeight: '800' },
+  badgePill: { paddingHorizontal: 13, paddingVertical: 3.5, borderRadius: 999, alignSelf: 'flex-start' },
   badgeText: { fontSize: 11, fontWeight: '700', color: '#3D2E10' },
-  hybridPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
+  hybridPill: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: 999, alignSelf: 'flex-start' },
   hybridPillText: { fontSize: 11.5, fontWeight: '700', color: '#FFFFFF' },
   imageWrap: { width: '100%', aspectRatio: 0.88, position: 'relative' },
   image: { width: '100%', height: '100%' },

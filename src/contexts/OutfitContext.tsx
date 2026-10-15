@@ -40,7 +40,7 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
   const wardrobe = useWardrobe();
   const { weather } = useWeather();
 
-  const [occasion, setOccasion] = useState('Any occasion');
+  const [occasion, setOccasionState] = useState('Any occasion');
   const [noNewClothesMode, setNoNewClothesMode] = useState(false);
   const [currentOutfit, setCurrentOutfit] = useState<GeneratedOutfit | null>(null);
   const [currentOutfits, setCurrentOutfits] = useState<GeneratedOutfit[]>([]);
@@ -72,6 +72,7 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
         const outfits = await generateRecommendations(selectedOccasion, session.access_token, {
           noNewClothesMode: activeNoNewClothes,
           weather,
+          wardrobeItems: wardrobe.items,
         });
 
         const top3 = outfits.slice(0, 3);
@@ -91,7 +92,15 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
       }
     },
-    [session, noNewClothesMode, weather]
+    [session, noNewClothesMode, weather, wardrobe.items]
+  );
+
+  const setOccasion = useCallback(
+    (newOccasion: string) => {
+      setOccasionState(newOccasion);
+      runWithLoading(newOccasion, noNewClothesMode);
+    },
+    [noNewClothesMode, runWithLoading]
   );
 
   const toggleNoNewClothesMode = useCallback(() => {

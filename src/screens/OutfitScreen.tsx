@@ -113,7 +113,7 @@ export default function OutfitScreen() {
               </Text>
             </View>
           </View>
-          <Text style={[styles.weatherTip, { color: theme.secondaryAccent }]}>{weather.tip}</Text>
+          <Text style={[styles.weatherTip, { color: theme.mode === 'dark' ? '#FBF5A7' : '#4B1D6F' }]}>{weather.tip}</Text>
         </View>
 
         {/* Working "No New Clothes Mode" Toggle Card */}
@@ -227,7 +227,7 @@ export default function OutfitScreen() {
                       Choice #{index + 1}
                     </Text>
                   </View>
-                  <Text style={[styles.rankScore, { color: theme.secondaryAccent }]}>
+                  <Text style={[styles.rankScore, { color: theme.mode === 'dark' ? '#FBF5A7' : '#24152C' }]}>
                     {outfit.hybridScore ?? outfit.matchPercent}% Hybrid Match
                   </Text>
                 </View>

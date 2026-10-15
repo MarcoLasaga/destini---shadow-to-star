@@ -7,7 +7,6 @@ import {
   ScrollView,
   Modal,
   TextInput,
-  Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
@@ -18,6 +17,7 @@ import { useOutfit } from '../contexts/OutfitContext';
 import { useToast } from '../contexts/ToastContext';
 import ScreenHeader from '../components/ScreenHeader';
 import { GeneratedOutfit } from '../types';
+import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
 
 export default function SavedOutfitsScreen() {
   const theme = useAppTheme();
@@ -27,6 +27,7 @@ export default function SavedOutfitsScreen() {
 
   const [renameTarget, setRenameTarget] = useState<GeneratedOutfit | null>(null);
   const [newName, setNewName] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<GeneratedOutfit | null>(null);
 
   const openRenameModal = (outfit: GeneratedOutfit) => {
     setRenameTarget(outfit);
@@ -46,21 +47,14 @@ export default function SavedOutfitsScreen() {
   };
 
   const handleDelete = (outfit: GeneratedOutfit) => {
-    Alert.alert(
-      'Delete Saved Outfit',
-      `Are you sure you want to remove "${outfit.name}" from your saved looks?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            deleteSavedOutfit(outfit.id);
-            showToast('Outfit removed from saved');
-          },
-        },
-      ]
-    );
+    setDeleteTarget(outfit);
+  };
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    deleteSavedOutfit(deleteTarget.id);
+    showToast(`"${deleteTarget.name}" removed from saved looks`);
+    setDeleteTarget(null);
   };
 
   return (
@@ -266,6 +260,18 @@ export default function SavedOutfitsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Delete Outfit Confirmation Dialog */}
+      <ConfirmDialogModal
+        visible={!!deleteTarget}
+        variant="danger"
+        title="Delete Saved Outfit"
+        message={deleteTarget ? `Are you sure you want to remove "${deleteTarget.name}" from your saved looks?` : ''}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </View>
   );
 }

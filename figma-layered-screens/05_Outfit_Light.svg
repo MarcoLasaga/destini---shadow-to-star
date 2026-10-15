@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="375" height="812" viewBox="0 0 375 812" fill="none">
+<title>05_Outfit_Light</title>
+<defs>
+<filter id="Card_Shadow" x="-10%" y="-10%" width="120%" height="135%" color-interpolation-filters="sRGB">
+<feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#24152C" flood-opacity="0.05"/>
+</filter>
+<clipPath id="Screen_Clip"><rect width="375" height="812"/></clipPath>
+</defs>
+<g id="05_Outfit_Light" clip-path="url(#Screen_Clip)">
+<rect id="Background" x="0" y="0" width="375" height="812" fill="#FAF7F0"/>
+<g id="Status_Bar">
+<text id="Time" x="32" y="31" font-family="Arial, sans-serif" font-size="15" font-weight="600" fill="#24152C">9:41</text>
+<g id="Cellular_Signal">
+<rect id="Signal_Bar_1" x="289" y="26" width="3" height="4" rx="1" fill="#24152C"/>
+<rect id="Signal_Bar_2" x="294" y="24" width="3" height="6" rx="1" fill="#24152C"/>
+<rect id="Signal_Bar_3" x="299" y="22" width="3" height="8" rx="1" fill="#24152C"/>
+<rect id="Signal_Bar_4" x="304" y="20" width="3" height="10" rx="1" fill="#24152C"/>
+</g>
+<g id="WiFi">
+<path id="Wifi_Arc_Outer" d="M311.5 22a10.5 10.5 0 0 1 14 0" fill="none" stroke="#24152C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Wifi_Arc_Inner" d="M314.7 25.4a5.5 5.5 0 0 1 7.6 0" fill="none" stroke="#24152C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<circle id="Wifi_Dot" cx="318.5" cy="28.8" r="1.6" fill="#24152C"/>
+</g>
+<g id="Battery">
+<rect id="Battery_Body" x="332" y="20" width="25" height="12" rx="3.5" fill="none" stroke="#24152C" stroke-width="1" opacity="0.5"/>
+<rect id="Battery_Level" x="334" y="22" width="19" height="8" rx="2" fill="#24152C"/>
+<rect id="Battery_Cap" x="358.5" y="24" width="1.8" height="4" rx="0.9" fill="#24152C" opacity="0.5"/>
+</g>
+</g>
+<g id="Header_Bar">
+<text id="Screen_Title" x="20" y="84" font-family="Arial, sans-serif" font-size="21" font-weight="900" fill="#24152C" letter-spacing="-0.5">Outfit Recommendations</text>
+<text id="Subtitle" x="20" y="104" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#4B1D6F">Hybrid Content &amp; Collaborative Filtering</text>
+<g id="Refresh_Pill">
+<circle id="Pill_Circle" cx="337" cy="86" r="18" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<g id="Icon_Sparkles" transform="translate(329 78) scale(0.6667)">
+<path id="Vector" d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z M18.5 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="none" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+</g>
+<g id="Weather_Banner">
+<rect id="Banner_Surface" x="20" y="114" width="335" height="32" rx="16" fill="#24152C" stroke="#DECFE8" stroke-width="1"/>
+<g id="Icon_CloudSun" transform="translate(30 121) scale(0.7500)">
+<path id="Vector_2" d="M10 2v2 M3.5 4.5l1.4 1.4 M1.5 11h2 M16.5 4.5l-1.4 1.4 M13.9 9.6A4 4 0 0 0 6.2 11 M17.5 21H9a5 5 0 1 1 4.6-7h3.9a3.5 3.5 0 0 1 0 7z" fill="none" stroke="#FDD78B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Weather_Text" x="56" y="134" font-family="Arial, sans-serif" font-size="11.5" font-weight="400" fill="#24152C"><tspan fill="#FBF5A7" font-weight="800">Makati · 27°C</tspan><tspan fill="#DECFE8" font-weight="500">  Mainly Clear · Feels 31°C</tspan></text>
+</g>
+<g id="Occasion_Filters">
+<g id="Occasion_Academic">
+<rect id="Pill_Surface" x="20" y="154" width="75" height="28" rx="14" fill="#DECFE8" stroke="#DECFE8" stroke-width="1"/>
+<text id="Pill_Label" x="57.5" y="171.96" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#24152C" text-anchor="middle">Academic</text>
+</g>
+<g id="Occasion_Office">
+<rect id="Pill_Surface_2" x="101" y="154" width="62" height="28" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Pill_Label_2" x="132" y="171.96" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#24152C" text-anchor="middle">Office</text>
+</g>
+<g id="Occasion_Formal">
+<rect id="Pill_Surface_3" x="169" y="154" width="62" height="28" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Pill_Label_3" x="200" y="171.96" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#24152C" text-anchor="middle">Formal</text>
+</g>
+<g id="Occasion_Casual">
+<rect id="Pill_Surface_4" x="237" y="154" width="62" height="28" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Pill_Label_4" x="268" y="171.96" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#24152C" text-anchor="middle">Casual</text>
+</g>
+<g id="Occasion_Workout">
+<rect id="Pill_Surface_5" x="305" y="154" width="68" height="28" rx="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<text id="Pill_Label_5" x="339" y="171.96" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#24152C" text-anchor="middle">Workout</text>
+</g>
+</g>
+<g id="No_New_Clothes_Card">
+<rect id="Card_Surface" x="20" y="192" width="335" height="50" rx="18" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1" filter="url(#Card_Shadow)"/>
+<circle id="Icon_Circle" cx="44" cy="217" r="14" fill="#FDD78B"/>
+<g id="Icon_Leaf" transform="translate(37 210) scale(0.5833)">
+<path id="Vector_3" d="M11 20A7 7 0 0 1 4 13c0-6 6-10 16-10 0 10-4 16-9 17z M4 21c4-6 8-9 12-11" fill="none" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Mode_Title" x="68" y="215" font-family="Arial, sans-serif" font-size="13" font-weight="800" fill="#24152C">No New Clothes Mode</text>
+<text id="Mode_Subtitle" x="68" y="230" font-family="Arial, sans-serif" font-size="10.5" font-weight="400" fill="#4B1D6F">Re-wear only pieces you own</text>
+<g id="No_New_Clothes_Switch">
+<rect id="Switch_Track" x="295" y="204" width="44" height="26" rx="13" fill="#FBF5A7"/>
+<circle id="Switch_Thumb" cx="326" cy="217" r="10" fill="#24152C"/>
+</g>
+</g>
+<g id="Top3_Choice_Header">
+<text id="Top3_Label" x="20" y="260" font-family="Arial, sans-serif" font-size="11" font-weight="800" fill="#4B1D6F" letter-spacing="1.2">TOP-3 CURATED OUTFITS</text>
+<g id="Choice_Row">
+<rect id="Choice_Pill" x="20" y="270" width="78" height="26" rx="13" fill="#DECFE8"/>
+<text id="Choice_Text" x="59" y="287" font-family="Arial, sans-serif" font-size="11" font-weight="800" fill="#24152C" text-anchor="middle">Choice #1</text>
+<text id="Match_Highlight" x="108" y="287" font-family="Arial, sans-serif" font-size="12" font-weight="800" fill="#24152C">94% Hybrid Match</text>
+</g>
+</g>
+<g id="Hybrid_Stats_Bar_Card">
+<rect id="Card_Surface_2" x="20" y="306" width="335" height="78" rx="18" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1" filter="url(#Card_Shadow)"/>
+<g id="Icon_Chart" transform="translate(34 320) scale(0.6667)">
+<path id="Vector_4" d="M18 20V10 M12 20V4 M6 20v-6" fill="none" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Stats_Bar_Title" x="56" y="332" font-family="Arial, sans-serif" font-size="11" font-weight="800" fill="#24152C">Top-3 Outfit  ·  Hybrid Recommendation Breakdown</text>
+<g id="Breakdown_Metrics">
+<g id="Col_1">
+<text id="Score_Big" x="36" y="362" font-family="Arial, sans-serif" font-size="22" font-weight="900" fill="#24152C">94%</text>
+<text id="Score_Lbl" x="36" y="375" font-family="Arial, sans-serif" font-size="8.5" font-weight="800" fill="#4B1D6F">HYBRID SCORE</text>
+</g>
+<g id="Col_2">
+<text id="Val_2" x="120" y="362" font-family="Arial, sans-serif" font-size="15" font-weight="800" fill="#24152C">96%</text>
+<text id="Lbl_2" x="120" y="375" font-family="Arial, sans-serif" font-size="9" font-weight="600" fill="#4B1D6F">Content</text>
+</g>
+<g id="Col_3">
+<text id="Val_3" x="190" y="362" font-family="Arial, sans-serif" font-size="15" font-weight="800" fill="#24152C">91%</text>
+<text id="Lbl_3" x="190" y="375" font-family="Arial, sans-serif" font-size="9" font-weight="600" fill="#4B1D6F">Collab</text>
+</g>
+<g id="Col_4">
+<text id="Val_4" x="260" y="362" font-family="Arial, sans-serif" font-size="15" font-weight="800" fill="#24152C">100%</text>
+<text id="Lbl_4" x="260" y="375" font-family="Arial, sans-serif" font-size="9" font-weight="600" fill="#4B1D6F">Reuse</text>
+</g>
+</g>
+</g>
+<g id="Outfit_Preview_Card">
+<rect id="Card_Surface_3" x="20" y="394" width="335" height="318" rx="18" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1" filter="url(#Card_Shadow)"/>
+<g id="Badge_Pill">
+<rect id="Pill_Surface_6" x="36" y="406" width="178" height="24" rx="12" fill="#FDD78B"/>
+<text id="Pill_Text" x="125" y="422" font-family="Arial, sans-serif" font-size="10" font-weight="800" fill="#24152C" text-anchor="middle">Top Pick · Best Hybrid Match</text>
+</g>
+<g id="Context_Badges">
+<rect id="Ctx_Badge" x="248" y="406" width="91" height="24" rx="12" fill="#F4F1EA" stroke="#DECFE8" stroke-width="1"/>
+<text id="Ctx_Text" x="293" y="422" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#24152C" text-anchor="middle">27°C · Casual</text>
+</g>
+<text id="Outfit_Name" x="36" y="448" font-family="Arial, sans-serif" font-size="14" font-weight="800" fill="#24152C">Lilac Knit Polo &amp; White Jeans</text>
+<text id="Outfit_Sub" x="36" y="465" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">Optimal breathability for 27°C Makati weather</text>
+<g id="Garment_Tiles">
+<g id="Tile_Top">
+<rect id="Tile_Background" x="36" y="476" width="69.75" height="68" rx="10" fill="#F4F1EA"/>
+<g id="Garment_Vector" transform="translate(43.67 482.8) scale(0.5440)">
+<path id="Silhouette" d="M32 14 L14 26 L22 42 L31 38 L31 88 L69 88 L69 38 L78 42 L86 26 L68 14 L58 14 L50 24 L42 14 Z" fill="#DECFE8" stroke="#24152C" stroke-width="2.39" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail" d="M42 14 L50 24 L58 14 M50 24 V36 M31 80 H69" fill="none" stroke="#24152C" stroke-width="2.39" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+</g>
+<g id="Tile_Bottom">
+<rect id="Tile_Background_2" x="113.75" y="476" width="69.75" height="68" rx="10" fill="#F4F1EA"/>
+<g id="Garment_Vector_2" transform="translate(121.42 482.8) scale(0.5440)">
+<path id="Silhouette_2" d="M30 10 H70 L75 90 H56 L50 38 L44 90 H25 Z" fill="#24152C" stroke="#DECFE8" stroke-width="2.39" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail_2" d="M30 18 H70 M50 18 V38" fill="none" stroke="#DECFE8" stroke-width="2.39" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+</g>
+<g id="Tile_Shoes">
+<rect id="Tile_Background_3" x="191.5" y="476" width="69.75" height="68" rx="10" fill="#F4F1EA"/>
+<g id="Garment_Vector_3" transform="translate(199.18 482.8) scale(0.5440)">
+<path id="Silhouette_3" d="M10 64 Q12 50 28 52 L46 56 Q60 42 72 54 L90 62 Q94 72 86 76 H14 Q8 72 10 64 Z" fill="#FFFFFF" stroke="#24152C" stroke-width="2.39" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail_3" d="M12 70 H88 M40 56 L44 62 M48 54 L52 60" fill="none" stroke="#24152C" stroke-width="2.39" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+</g>
+<g id="Tile_Accessory">
+<rect id="Tile_Background_4" x="269.25" y="476" width="69.75" height="68" rx="10" fill="#F4F1EA"/>
+<g id="Garment_Vector_4" transform="translate(276.93 482.8) scale(0.5440)">
+<path id="Silhouette_4" d="M20 40 H80 L86 90 H14 Z" fill="#FDD78B" stroke="#24152C" stroke-width="2.39" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail_4" d="M34 40 V32 A16 16 0 0 1 66 32 V40" fill="none" stroke="#24152C" stroke-width="2.39" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+</g>
+</g>
+<g id="Score_Bars">
+<text id="Formula_Lbl" x="36" y="564" font-family="Arial, sans-serif" font-size="10.5" font-weight="700" fill="#4B1D6F">Hybrid Score: 0.55 × 96% + 0.45 × 91% = 94%</text>
+<rect id="F_Track" x="36" y="572" width="303" height="6" rx="3" fill="#DECFE8"/>
+<rect id="F_Fill" x="36" y="572" width="284.82" height="6" rx="3" fill="#4B1D6F"/>
+</g>
+<g id="Action_Buttons_Row">
+<g id="Like_Btn">
+<rect id="Button_Surface" x="36" y="594" width="71.25" height="32" rx="16" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<g id="Icon_Heart" transform="translate(48.92 603.5) scale(0.5417)">
+<path id="Vector_5" d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" fill="none" stroke="#24152C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Button_Label" x="67.92" y="613.96" font-family="Arial, sans-serif" font-size="11" font-weight="800" fill="#24152C">Like</text>
+</g>
+<g id="Dislike_Btn">
+<rect id="Button_Surface_2" x="113.25" y="594" width="71.25" height="32" rx="16" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<g id="Icon_ThumbDown" transform="translate(116.28 603.5) scale(0.5417)">
+<path id="Vector_6" d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" fill="none" stroke="#24152C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Button_Label_2" x="135.28" y="613.96" font-family="Arial, sans-serif" font-size="11" font-weight="800" fill="#24152C">Dislike</text>
+</g>
+<g id="Save_Btn">
+<rect id="Button_Surface_3" x="190.5" y="594" width="71.25" height="32" rx="16" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<g id="Icon_Bookmark" transform="translate(203.43 603.5) scale(0.5417)">
+<path id="Vector_7" d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" fill="none" stroke="#24152C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Button_Label_3" x="222.43" y="613.96" font-family="Arial, sans-serif" font-size="11" font-weight="800" fill="#24152C">Save</text>
+</g>
+<g id="Wear_Btn">
+<rect id="Button_Surface_4" x="267.75" y="594" width="71.25" height="32" rx="16" fill="#FBF5A7" stroke="none" stroke-width="1"/>
+<g id="Icon_Check" transform="translate(280.68 603.5) scale(0.5417)">
+<path id="Vector_8" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#24152C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Button_Label_4" x="299.68" y="613.96" font-family="Arial, sans-serif" font-size="11" font-weight="800" fill="#24152C">Wear</text>
+</g>
+</g>
+<g id="Wear_Notice">
+<text id="Notice_Text" x="187.5" y="642" font-family="Arial, sans-serif" font-size="10.5" font-weight="400" fill="#4B1D6F" text-anchor="middle">Worn today? Tap Wear to update laundry status</text>
+</g>
+</g>
+<g id="Bottom_Navigation_Bar">
+<rect id="Nav_Surface" x="0" y="728" width="375" height="84" fill="#FFFFFF"/>
+<rect id="Nav_Top_Hairline" x="0" y="728" width="375" height="1" fill="#DECFE8"/>
+<g id="Tab_Home">
+<g id="Icon_Home" transform="translate(27.5 737) scale(0.8333)">
+<path id="Vector_9" d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" fill="none" stroke="#4B1D6F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label" x="37.5" y="782" font-family="Arial, sans-serif" font-size="10" font-weight="600" fill="#4B1D6F" text-anchor="middle">Home</text>
+</g>
+<g id="Tab_Wardrobe">
+<g id="Icon_Shirt" transform="translate(102.5 737) scale(0.8333)">
+<path id="Vector_10" d="M8 3L3 6l2 4.5 2-1V21h10V9.5l2 1L21 6l-5-3a4 4 0 0 1-8 0z" fill="none" stroke="#4B1D6F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_2" x="112.5" y="782" font-family="Arial, sans-serif" font-size="10" font-weight="600" fill="#4B1D6F" text-anchor="middle">Wardrobe</text>
+</g>
+<g id="Tab_Outfit_AI_Center_Badge">
+<circle id="Badge_Circle" cx="187.5" cy="742" r="22" fill="#FBF5A7" stroke="#FDD78B" stroke-width="1.5"/>
+<g id="Icon_Sparkles_2" transform="translate(177.5 732) scale(0.8333)">
+<path id="Vector_11" d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z M18.5 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="#24152C" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_3" x="187.5" y="782" font-family="Arial, sans-serif" font-size="10" font-weight="800" fill="#24152C" text-anchor="middle">Outfit</text>
+</g>
+<g id="Tab_Community">
+<g id="Icon_People" transform="translate(252.5 737) scale(0.8333)">
+<path id="Vector_12" d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M2 21v-1a7 7 0 0 1 14 0v1 M16 3.2a4 4 0 0 1 0 7.6 M22 21v-1a7 7 0 0 0-4-6.3" fill="none" stroke="#4B1D6F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_4" x="262.5" y="782" font-family="Arial, sans-serif" font-size="10" font-weight="600" fill="#4B1D6F" text-anchor="middle">Community</text>
+</g>
+<g id="Tab_Account">
+<g id="Icon_Person" transform="translate(327.5 737) scale(0.8333)">
+<path id="Vector_13" d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z M4 21v-.5a8 8 0 0 1 16 0v.5" fill="none" stroke="#4B1D6F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_5" x="337.5" y="782" font-family="Arial, sans-serif" font-size="10" font-weight="600" fill="#4B1D6F" text-anchor="middle">Account</text>
+</g>
+</g>
+<rect id="Home_Indicator" x="120.5" y="799" width="134" height="5" rx="2.5" fill="#24152C"/>
+</g>
+</svg>

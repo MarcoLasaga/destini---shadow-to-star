@@ -19,14 +19,17 @@ export default function OutfitRecommendationStatsBar({ outfit }: { outfit: Gener
     { value: `${outfit.sustainPercent}%`, label: 'Reuse', highlight: false },
   ];
 
+  const isDark = theme.mode === 'dark';
+  const accentColor = isDark ? '#FBF5A7' : '#24152C';
+
   return (
     <View style={[styles.card, { backgroundColor: theme.mode === 'dark' ? '#2A2A31' : '#FBEFD2', borderColor: theme.border }]}>
       <View style={styles.header}>
         <View style={styles.titleWrap}>
-          <Ionicons name="analytics-outline" size={16} color={theme.secondaryAccent} />
+          <Ionicons name="analytics-outline" size={16} color={accentColor} />
           <Text style={[styles.title, { color: theme.text }]}>Hybrid Recommendation Breakdown</Text>
         </View>
-        <Text style={[styles.badgeText, { color: theme.secondaryAccent }]}>Top-3 Outfit</Text>
+        <Text style={[styles.badgeText, { color: accentColor }]}>Top-3 Outfit</Text>
       </View>
       <View style={styles.statsRow}>
         {stats.map((stat) => (
@@ -34,13 +37,13 @@ export default function OutfitRecommendationStatsBar({ outfit }: { outfit: Gener
             key={stat.label}
             style={[
               styles.statBlock,
-              stat.highlight && { backgroundColor: theme.secondaryAccent + '15', borderRadius: 10, paddingVertical: 4 },
+              stat.highlight && { backgroundColor: isDark ? '#FBF5A718' : '#24152C12', borderRadius: 10, paddingVertical: 4 },
             ]}
           >
             <Text
               style={[
                 styles.statValue,
-                { color: stat.highlight ? theme.secondaryAccent : theme.text },
+                { color: stat.highlight ? accentColor : theme.text },
               ]}
               numberOfLines={1}
             >

@@ -6,6 +6,8 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { usePacking } from '../contexts/PackingContext';
 import ScreenHeader from '../components/ScreenHeader';
 import NewTripModal from '../components/NewTripModal';
+import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
+import { PackingTrip } from '../types';
 
 function formatShort(iso: string) {
   const d = new Date(iso);
@@ -15,8 +17,9 @@ function formatShort(iso: string) {
 export default function PackingScreen() {
   const theme = useAppTheme();
   const navigation = useNavigation<any>();
-  const { trips } = usePacking();
+  const { trips, deleteTrip } = usePacking();
   const [modalVisible, setModalVisible] = useState(false);
+  const [tripToDelete, setTripToDelete] = useState<PackingTrip | null>(null);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -64,10 +67,19 @@ export default function PackingScreen() {
                   <Ionicons name="location" size={16} color={theme.secondaryAccent} />
                   <Text style={[styles.tripDestination, { color: theme.text }]}>{item.destination}</Text>
                 </View>
-                <View style={[styles.percentBadge, { backgroundColor: percent === 100 ? '#2F8F5B20' : theme.secondaryAccent + '20' }]}>
-                  <Text style={[styles.percentText, { color: percent === 100 ? '#2F8F5B' : theme.secondaryAccent }]}>
-                    {percent}% Packed
-                  </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={[styles.percentBadge, { backgroundColor: percent === 100 ? '#2F8F5B20' : theme.secondaryAccent + '20' }]}>
+                    <Text style={[styles.percentText, { color: percent === 100 ? '#2F8F5B' : theme.secondaryAccent }]}>
+                      {percent}% Packed
+                    </Text>
+                  </View>
+                  <Pressable
+                    hitSlop={8}
+                    onPress={() => setTripToDelete(item)}
+                    style={{ padding: 2 }}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#E5484D" />
+                  </Pressable>
                 </View>
               </View>
 
@@ -112,6 +124,22 @@ export default function PackingScreen() {
       />
 
       <NewTripModal visible={modalVisible} onClose={() => setModalVisible(false)} />
+
+      {/* Delete Trip Confirmation Dialog */}
+      <ConfirmDialogModal
+        visible={!!tripToDelete}
+        variant="danger"
+        title="Delete Trip Checklist"
+        message={tripToDelete ? `Are you sure you want to delete the packing checklist for "${tripToDelete.destination}"? This cannot be undone.` : ''}
+        confirmText="Delete Trip"
+        cancelText="Cancel"
+        onConfirm={async () => {
+          if (!tripToDelete) return;
+          await deleteTrip(tripToDelete.id);
+          setTripToDelete(null);
+        }}
+        onCancel={() => setTripToDelete(null)}
+      />
     </View>
   );
 }

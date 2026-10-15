@@ -18,6 +18,8 @@ import {
 import SelectField from '../components/SelectField';
 import TextField from '../components/TextField';
 import ChipGroup from '../components/ChipGroup';
+import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
+import { containsProfanityOrSlurs } from '../services/communityService';
 
 const { width } = Dimensions.get('window');
 
@@ -39,6 +41,12 @@ export default function EditClothingScreen() {
   const [seasons, setSeasons] = useState<string[]>(original?.seasons ?? []);
   const [occasions, setOccasions] = useState<string[]>(original?.occasions ?? []);
 
+  const [moderationModal, setModerationModal] = useState<{ visible: boolean; title: string; message: string }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
   if (!original) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
@@ -58,7 +66,22 @@ export default function EditClothingScreen() {
   };
 
   const handleSave = () => {
-    updateItem(original.id, { name, category, color, brand, material, style, seasons, occasions });
+    if (!name.trim()) {
+      showToast('Item name is required');
+      return;
+    }
+
+    const profanityCheck = containsProfanityOrSlurs(name, brand, material);
+    if (profanityCheck.hasProfanity) {
+      setModerationModal({
+        visible: true,
+        title: 'Prohibited Language',
+        message: profanityCheck.reason || 'Item details contain prohibited language or profanity. Please revise before saving.',
+      });
+      return;
+    }
+
+    updateItem(original.id, { name: name.trim(), category, color, brand, material, style, seasons, occasions });
     showToast('Clothing item updated.');
     navigation.goBack();
   };
@@ -90,15 +113,23 @@ export default function EditClothingScreen() {
           />
 
           <View style={styles.row}>
-            <SelectField label="Color" value={color} options={COLOR_OPTIONS} onChange={setColor} />
+            <View style={{ flex: 1 }}>
+              <SelectField label="Color" value={color} options={COLOR_OPTIONS} onChange={setColor} />
+            </View>
             <View style={{ width: 12 }} />
-            <TextField label="Brand" value={brand} onChangeText={setBrand} placeholder="Brand" />
+            <View style={{ flex: 1 }}>
+              <TextField label="Brand" value={brand} onChangeText={setBrand} placeholder="Brand" />
+            </View>
           </View>
 
           <View style={styles.row}>
-            <TextField label="Material" value={material} onChangeText={setMaterial} placeholder="Material" />
+            <View style={{ flex: 1 }}>
+              <TextField label="Material" value={material} onChangeText={setMaterial} placeholder="Material" />
+            </View>
             <View style={{ width: 12 }} />
-            <SelectField label="Style" value={style} options={STYLE_OPTIONS} onChange={setStyle} />
+            <View style={{ flex: 1 }}>
+              <SelectField label="Style" value={style} options={STYLE_OPTIONS} onChange={setStyle} />
+            </View>
           </View>
 
           <ChipGroup label="Occasions" options={OCCASION_OPTIONS} selected={occasions} onToggle={toggleOccasion} />
@@ -109,6 +140,17 @@ export default function EditClothingScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* Moderation Shield Dialog Modal */}
+      <ConfirmDialogModal
+        visible={moderationModal.visible}
+        variant="moderation"
+        title={moderationModal.title}
+        message={moderationModal.message}
+        confirmText="Understood"
+        showCancel={false}
+        onConfirm={() => setModerationModal({ visible: false, title: '', message: '' })}
+      />
     </View>
   );
 }
@@ -125,5 +167,5 @@ const styles = StyleSheet.create({
   form: { paddingHorizontal: 20, paddingTop: 20, gap: 18 },
   row: { flexDirection: 'row' },
   saveButton: { borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 8 },
-  saveLabel: { color: '#FFFFFF', fontWeight: '700', fontSize: 15 },
+  saveLabel: { fontWeight: '700', fontSize: 15 },
 });

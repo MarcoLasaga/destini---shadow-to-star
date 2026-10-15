@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -11,6 +11,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useWardrobe } from '../contexts/WardrobeContext';
 import { supabase } from '../integrations/supabase/client';
 import { analyzeClothingImage } from '../services/imageAnalysisService';
+import { containsProfanityOrSlurs } from '../services/communityService';
+import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
 import TextField from '../components/TextField';
 import SelectField from '../components/SelectField';
 import ChipGroup from '../components/ChipGroup';
@@ -31,10 +33,7 @@ const CATEGORY_NAME_FROM_API: Record<string, string> = {
   OUTERWEAR: 'Outerwear',
   ACCESSORIES: 'Accessory',
 };
-
-// Five valid categories matching thesis Chapters 1–3 (Dresses removed)
 const ALLOWED_CATEGORIES = ['Tops', 'Bottoms', 'Shoes', 'Outerwear', 'Accessories'];
-// Five valid occasions matching thesis Chapters 1–3
 const THESIS_OCCASIONS = ['Academic', 'Office', 'Formal', 'Casual', 'Workout'];
 
 export default function AddClothesScreen() {
@@ -42,6 +41,7 @@ export default function AddClothesScreen() {
   const navigation = useNavigation<any>();
   const { session } = useAuth();
   const { addItem } = useWardrobe();
+
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [category, setCategory] = useState('Tops');
@@ -51,16 +51,33 @@ export default function AddClothesScreen() {
   const [style, setStyle] = useState('Casual');
   const [seasons, setSeasons] = useState<string[]>(['All']);
   const [occasions, setOccasions] = useState<string[]>(['Casual']);
-  const [saving, setSaving] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [isImageVerified, setIsImageVerified] = useState(false);
   const [confidence, setConfidence] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Custom Moderation Shield & Info Modal States
+  const [moderationModal, setModerationModal] = useState<{ visible: boolean; title: string; message: string }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
+  const [infoModal, setInfoModal] = useState<{ visible: boolean; title: string; message: string }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
 
   const pickImage = async (useCamera: boolean) => {
     const permission = useCamera
       ? await ImagePicker.requestCameraPermissionsAsync()
       : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission required', `Allow access to your ${useCamera ? 'camera' : 'photos'} to add a clothing image.`);
+      setInfoModal({
+        visible: true,
+        title: 'Permission Required',
+        message: `Please allow access to your ${useCamera ? 'camera' : 'photos'} in device settings to add a clothing item.`,
+      });
       return;
     }
     const result = useCamera
@@ -77,25 +94,34 @@ export default function AddClothesScreen() {
       { compress: 0.86, format: SaveFormat.JPEG }
     );
 
-    // Tentatively set image preview while analyzing
+    // Tentatively set image preview while analyzing; mark unverified until moderation succeeds
     setImageUri(processed.uri);
+    setIsImageVerified(false);
 
     if (session?.access_token) {
       setAnalyzing(true);
       try {
         const prediction = await analyzeClothingImage(processed.uri, session.access_token);
 
-        // Moderation check: block upload if is_safe_garment is false
-        if (prediction.is_safe_garment === false) {
+        // Moderation check: block upload if is_safe_garment is false or category is null with moderation reason
+        if (
+          prediction.is_safe_garment === false ||
+          (prediction.category === null && prediction.moderation_reason)
+        ) {
           setImageUri(null);
+          setIsImageVerified(false);
           setConfidence(null);
-          Alert.alert(
-            'Upload Blocked',
-            prediction.moderation_reason ||
-              'This image was flagged by automated moderation and cannot be uploaded. Please ensure the photo clearly contains a safe wardrobe garment.'
-          );
+          setModerationModal({
+            visible: true,
+            title: 'Image Blocked by Moderation',
+            message:
+              prediction.moderation_reason ||
+              'This image was flagged by automated content moderation. Non-clothing, unsafe, or inappropriate images cannot be added. Please upload a clear photo of a garment.',
+          });
           return;
         }
+
+        setIsImageVerified(true);
 
         setConfidence(
           typeof prediction.categoryConfidence === 'number'
@@ -115,13 +141,37 @@ export default function AddClothesScreen() {
         if (!name.trim() && prediction.category) {
           setName(`${prediction.color ? `${prediction.color} ` : ''}${CATEGORY_NAME_FROM_API[prediction.category] || 'Item'}`);
         }
-      } catch (error) {
+      } catch (error: any) {
         setConfidence(null);
+        const isModerationError =
+          error?.response?.status === 422 ||
+          error?.status === 422 ||
+          error?.message?.includes('422') ||
+          error?.message?.toLowerCase().includes('moderation') ||
+          error?.message?.toLowerCase().includes('inappropriate');
+
+        if (isModerationError) {
+          setImageUri(null);
+          setIsImageVerified(false);
+          setModerationModal({
+            visible: true,
+            title: 'Image Blocked by Moderation',
+            message:
+              error?.response?.data?.moderation_reason ||
+              error?.response?.data?.message ||
+              'This photo was flagged by automated content moderation and cannot be uploaded. Non-clothing, offensive, or inappropriate images are strictly prohibited.',
+          });
+          return;
+        }
+
         // A photo can still be saved when the API/CNN is unreachable.
+        setIsImageVerified(true);
         if (__DEV__) console.info('[StyleSense] wardrobe analysis unavailable; manual values remain editable.', error);
       } finally {
         setAnalyzing(false);
       }
+    } else {
+      setIsImageVerified(true);
     }
   };
 
@@ -141,10 +191,44 @@ export default function AddClothesScreen() {
   };
 
   const save = async () => {
-    if (!name.trim()) {
-      Alert.alert('Name required', 'Give this clothing item a name before saving.');
+    if (analyzing) {
+      setInfoModal({
+        visible: true,
+        title: 'Analysis in Progress',
+        message: 'Please wait for garment moderation and category analysis to complete.',
+      });
       return;
     }
+
+    if (imageUri && !isImageVerified) {
+      setModerationModal({
+        visible: true,
+        title: 'Image Moderation Required',
+        message: 'Please wait for your garment photo to be verified or upload a safe garment image.',
+      });
+      return;
+    }
+
+    if (!name.trim()) {
+      setInfoModal({
+        visible: true,
+        title: 'Name Required',
+        message: 'Give this clothing item a name before adding it to your wardrobe.',
+      });
+      return;
+    }
+
+    // Client-side profanity and slurs check on user input text
+    const profanityCheck = containsProfanityOrSlurs(name, brand, material);
+    if (profanityCheck.hasProfanity) {
+      setModerationModal({
+        visible: true,
+        title: 'Prohibited Language',
+        message: profanityCheck.reason || 'Item name or details contain prohibited language or profanity. Please revise before saving.',
+      });
+      return;
+    }
+
     setSaving(true);
     try {
       const image = imageUri ? await uploadImage(imageUri) : '';
@@ -172,7 +256,11 @@ export default function AddClothesScreen() {
       navigation.goBack();
     } catch (error) {
       console.error('Unable to add wardrobe item', error);
-      Alert.alert('Could not save item', 'Please check your connection and try again.');
+      setInfoModal({
+        visible: true,
+        title: 'Could Not Save Item',
+        message: 'Please check your connection and try again.',
+      });
     } finally {
       setSaving(false);
     }
@@ -182,59 +270,102 @@ export default function AddClothesScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.icon}>
-          <Ionicons name="arrow-back" size={21} color={theme.text} />
+          <Ionicons name="arrow-back" size={20} color={theme.text} />
         </Pressable>
-        <Text style={[styles.title, { color: theme.text }]}>Add clothing</Text>
+        <Text style={[styles.title, { color: theme.text }]}>Add to Wardrobe</Text>
         <View style={styles.icon} />
       </View>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={[styles.photo, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          {imageUri ? <Image source={{ uri: imageUri }} style={styles.photoImage} /> : <Ionicons name="shirt-outline" size={44} color={theme.textMuted} />}
+          {imageUri ? (
+            <Image source={{ uri: imageUri }} style={styles.photoImage} />
+          ) : (
+            <Ionicons name="shirt-outline" size={48} color={theme.textMuted} />
+          )}
         </View>
+
         <View style={styles.photoActions}>
-          <Pressable onPress={() => pickImage(false)} style={[styles.photoButton, { borderColor: theme.border, backgroundColor: theme.surface }]}>
-            <Ionicons name="images-outline" size={18} color={theme.text} />
-            <Text style={{ color: theme.text, fontWeight: '600', fontSize: 13.5 }}>Upload from Gallery</Text>
+          <Pressable
+            onPress={() => pickImage(true)}
+            style={[styles.photoButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
+          >
+            <Ionicons name="camera-outline" size={17} color={theme.text} />
+            <Text style={{ color: theme.text, fontWeight: '700', fontSize: 13 }}>Take Photo (Camera)</Text>
           </Pressable>
-          <Pressable onPress={() => pickImage(true)} style={[styles.photoButton, { backgroundColor: theme.secondaryAccent }]}>
-            <Ionicons name="camera-outline" size={18} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13.5 }}>Take Photo (Camera)</Text>
+          <Pressable
+            onPress={() => pickImage(false)}
+            style={[styles.photoButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
+          >
+            <Ionicons name="images-outline" size={17} color={theme.text} />
+            <Text style={{ color: theme.text, fontWeight: '700', fontSize: 13 }}>Upload from Gallery</Text>
           </Pressable>
         </View>
-        {analyzing && <Text style={[styles.analyzingText, { color: theme.textMuted }]}>Analyzing photo and checking garment moderation…</Text>}
-        {!analyzing && confidence !== null && (
-          <Text style={[styles.analyzingText, { color: theme.textMuted }]}>
-            AI suggestion confidence: {Math.round(confidence * 100)}%. Review the fields before saving.
+
+        {analyzing && (
+          <Text style={[styles.analyzingText, { color: theme.secondaryAccent }]}>
+            Analyzing garment with ResNet-50 & CIELAB K-Means…
           </Text>
         )}
-        <TextField label="Name *" value={name} onChangeText={setName} placeholder="e.g. Black hoodie" />
-        <SelectField
-          label="Category"
-          required
-          value={category}
-          options={ALLOWED_CATEGORIES}
-          onChange={setCategory}
-        />
+        {!analyzing && confidence !== null && (
+          <Text style={[styles.analyzingText, { color: theme.secondaryAccent }]}>
+            Classified as {category} with {Math.round(confidence * 100)}% AI confidence
+          </Text>
+        )}
+
+        <TextField label="Name *" value={name} onChangeText={setName} placeholder="e.g. Linen Camp Shirt" />
+        <SelectField label="Category" value={category} options={ALLOWED_CATEGORIES} onChange={setCategory} required />
+        <SelectField label="Color" value={color} options={COLOR_OPTIONS} onChange={setColor} />
         <View style={styles.row}>
-          <SelectField label="Color" value={color} options={COLOR_OPTIONS} onChange={setColor} />
+          <View style={{ flex: 1 }}>
+            <TextField label="Brand" value={brand} onChangeText={setBrand} placeholder="Optional" />
+          </View>
           <View style={styles.gap} />
-          <TextField label="Brand" value={brand} onChangeText={setBrand} placeholder="Optional" />
+          <View style={{ flex: 1 }}>
+            <TextField label="Material" value={material} onChangeText={setMaterial} placeholder="Optional" />
+          </View>
         </View>
-        <View style={styles.row}>
-          <TextField label="Material" value={material} onChangeText={setMaterial} placeholder="Optional" />
-          <View style={styles.gap} />
-          <SelectField label="Style" value={style} options={STYLE_OPTIONS} onChange={setStyle} />
-        </View>
+        <SelectField label="Style" value={style} options={STYLE_OPTIONS} onChange={setStyle} />
         <ChipGroup label="Occasions" options={THESIS_OCCASIONS} selected={occasions} onToggle={(value) => toggle(value, setOccasions)} />
         <ChipGroup label="Seasons" options={SEASON_OPTIONS} selected={seasons} onToggle={(value) => toggle(value, setSeasons)} />
         <Pressable
-          disabled={saving}
+          disabled={saving || analyzing || (!!imageUri && !isImageVerified)}
           onPress={save}
-          style={[styles.save, { backgroundColor: theme.secondaryAccent, opacity: saving ? 0.65 : 1 }]}
+          style={[
+            styles.save,
+            {
+              backgroundColor: theme.secondaryAccent,
+              opacity: saving || analyzing || (!!imageUri && !isImageVerified) ? 0.5 : 1,
+            },
+          ]}
         >
-          <Text style={[styles.saveText, { color: theme.onAccent }]}>{saving ? 'Saving…' : 'Add to wardrobe'}</Text>
+          <Text style={[styles.saveText, { color: theme.onAccent }]}>
+            {saving ? 'Saving…' : analyzing ? 'Analyzing Garment…' : 'Add to wardrobe'}
+          </Text>
         </Pressable>
       </ScrollView>
+
+      {/* Moderation Shield Dialog Modal */}
+      <ConfirmDialogModal
+        visible={moderationModal.visible}
+        variant="moderation"
+        title={moderationModal.title}
+        message={moderationModal.message}
+        confirmText="Understood"
+        showCancel={false}
+        onConfirm={() => setModerationModal({ visible: false, title: '', message: '' })}
+      />
+
+      {/* Informational Dialog Modal */}
+      <ConfirmDialogModal
+        visible={infoModal.visible}
+        variant="info"
+        title={infoModal.title}
+        message={infoModal.message}
+        confirmText="OK"
+        showCancel={false}
+        onConfirm={() => setInfoModal({ visible: false, title: '', message: '' })}
+      />
     </SafeAreaView>
   );
 }
@@ -249,9 +380,9 @@ const styles = StyleSheet.create({
   photoImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   photoActions: { flexDirection: 'row', gap: 12 },
   photoButton: { flex: 1, minHeight: 48, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 8 },
-  analyzingText: { textAlign: 'center', fontSize: 13 },
+  analyzingText: { textAlign: 'center', fontSize: 13, fontWeight: '600' },
   row: { flexDirection: 'row' },
   gap: { width: 12 },
   save: { borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 6 },
-  saveText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  saveText: { fontSize: 15, fontWeight: '700' },
 });

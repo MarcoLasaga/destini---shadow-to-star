@@ -1,18 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, SectionList, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRoute, RouteProp } from '@react-navigation/native';
+import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { usePacking } from '../contexts/PackingContext';
 import { fetchWeatherByCoords, placeholderWeather } from '../services/weatherService';
 import { WeatherData, RootStackParamList, PackingItem } from '../types';
 import ScreenHeader from '../components/ScreenHeader';
+import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
 
 export default function PackingTripDetailScreen() {
   const theme = useAppTheme();
+  const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RootStackParamList, 'PackingTripDetail'>>();
-  const { getTrip, toggleItem } = usePacking();
+  const { getTrip, toggleItem, deleteTrip } = usePacking();
   const [weather, setWeather] = useState<WeatherData>(placeholderWeather);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const trip = getTrip(route.params.tripId);
 
@@ -34,6 +38,17 @@ export default function PackingTripDetailScreen() {
     );
   }
 
+  const handleDeleteTrip = async () => {
+    setDeleting(true);
+    try {
+      await deleteTrip(trip.id);
+      setDeleteConfirmVisible(false);
+      navigation.goBack();
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const packedCount = trip.checklist.filter((i) => i.checked).length;
   const progressPercent = trip.checklist.length > 0 ? Math.round((packedCount / trip.checklist.length) * 100) : 0;
 
@@ -44,7 +59,17 @@ export default function PackingTripDetailScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <ScreenHeader title="Packing Assistant" />
+      <ScreenHeader
+        title="Packing Assistant"
+        rightElement={
+          <Pressable
+            onPress={() => setDeleteConfirmVisible(true)}
+            style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Ionicons name="trash-outline" size={19} color="#E5484D" />
+          </Pressable>
+        }
+      />
       <SectionList
         sections={sections}
         keyExtractor={(item) => item.id}
@@ -188,6 +213,19 @@ export default function PackingTripDetailScreen() {
             )}
           </Pressable>
         )}
+      />
+
+      {/* Delete Trip Checklist Confirmation Dialog */}
+      <ConfirmDialogModal
+        visible={deleteConfirmVisible}
+        variant="danger"
+        title="Delete Trip Checklist"
+        message={`Are you sure you want to delete the packing checklist for "${trip.destination}"? This action cannot be undone.`}
+        confirmText="Delete Trip"
+        cancelText="Cancel"
+        loading={deleting}
+        onConfirm={handleDeleteTrip}
+        onCancel={() => setDeleteConfirmVisible(false)}
       />
     </View>
   );

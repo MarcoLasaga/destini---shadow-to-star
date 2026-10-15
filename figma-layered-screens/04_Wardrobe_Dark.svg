@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="375" height="812" viewBox="0 0 375 812" fill="none">
+<title>04_Wardrobe_Dark</title>
+<defs>
+<filter id="Card_Shadow" x="-10%" y="-10%" width="120%" height="135%" color-interpolation-filters="sRGB">
+<feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#24152C" flood-opacity="0.35"/>
+</filter>
+<clipPath id="Screen_Clip"><rect width="375" height="812"/></clipPath>
+</defs>
+<g id="04_Wardrobe_Dark" clip-path="url(#Screen_Clip)">
+<rect id="Background" x="0" y="0" width="375" height="812" fill="#24152C"/>
+<g id="Status_Bar">
+<text id="Time" x="32" y="31" font-family="Arial, sans-serif" font-size="15" font-weight="600" fill="#FDF3D2">9:41</text>
+<g id="Cellular_Signal">
+<rect id="Signal_Bar_1" x="289" y="26" width="3" height="4" rx="1" fill="#FDF3D2"/>
+<rect id="Signal_Bar_2" x="294" y="24" width="3" height="6" rx="1" fill="#FDF3D2"/>
+<rect id="Signal_Bar_3" x="299" y="22" width="3" height="8" rx="1" fill="#FDF3D2"/>
+<rect id="Signal_Bar_4" x="304" y="20" width="3" height="10" rx="1" fill="#FDF3D2"/>
+</g>
+<g id="WiFi">
+<path id="Wifi_Arc_Outer" d="M311.5 22a10.5 10.5 0 0 1 14 0" fill="none" stroke="#FDF3D2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Wifi_Arc_Inner" d="M314.7 25.4a5.5 5.5 0 0 1 7.6 0" fill="none" stroke="#FDF3D2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<circle id="Wifi_Dot" cx="318.5" cy="28.8" r="1.6" fill="#FDF3D2"/>
+</g>
+<g id="Battery">
+<rect id="Battery_Body" x="332" y="20" width="25" height="12" rx="3.5" fill="none" stroke="#FDF3D2" stroke-width="1" opacity="0.5"/>
+<rect id="Battery_Level" x="334" y="22" width="19" height="8" rx="2" fill="#FDF3D2"/>
+<rect id="Battery_Cap" x="358.5" y="24" width="1.8" height="4" rx="0.9" fill="#FDF3D2" opacity="0.5"/>
+</g>
+</g>
+<g id="Header_Bar">
+<text id="Screen_Title" x="20" y="88" font-family="Arial, sans-serif" font-size="28" font-weight="900" fill="#FDF3D2" letter-spacing="-0.6">Wardrobe</text>
+<text id="Subtitle" x="20" y="110" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#DECFE8">13 items · 9 clean</text>
+<g id="Add_Clothes_Header_Button">
+<rect id="Button_Surface" x="225" y="74" width="130" height="38" rx="19" fill="#FBF5A7" stroke="none" stroke-width="1"/>
+<text id="Button_Label" x="290" y="97.5" font-family="Arial, sans-serif" font-size="12.5" font-weight="800" fill="#24152C" text-anchor="middle">+ Add Clothes</text>
+</g>
+</g>
+<g id="Filter_Controls_Row">
+<g id="Filter_By_Dropdown_Button">
+<rect id="Btn_Surface" x="20" y="126" width="128" height="36" rx="18" fill="#2E1B38" stroke="#4B1D6F" stroke-width="1"/>
+<g id="Icon_Options" transform="translate(32 136) scale(0.6667)">
+<path id="Vector" d="M4 6h16 M7 12h10 M10 18h4" fill="none" stroke="#FDF3D2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Btn_Label" x="54" y="149" font-family="Arial, sans-serif" font-size="12.5" font-weight="700" fill="#FDF3D2">Filter By (2)</text>
+<g id="Icon_ChevronDown" transform="translate(124 136) scale(0.5833)">
+<path id="Vector_2" d="M6 9l6 6 6-6" fill="none" stroke="#FDF3D2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+<g id="Sort_Menu">
+<text id="Sort_Label" x="355" y="148" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#DECFE8" text-anchor="end">Sort: Recent ▼</text>
+</g>
+</g>
+<g id="Active_Filter_Chips_Row">
+<g id="Chip_1">
+<rect id="Chip_Surface_1" x="20" y="172" width="112" height="32" rx="16" fill="#4B1D6F" stroke="#4B1D6F" stroke-width="1"/>
+<text id="Chip_Text_1" x="32" y="192" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#FDF3D2">Cat: BOTTOM</text>
+<g id="Icon_X" transform="translate(114 180) scale(0.5833)">
+<path id="Vector_3" d="M18 6L6 18 M6 6l12 12" fill="none" stroke="#FDF3D2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+<g id="Chip_2">
+<rect id="Chip_Surface_2" x="138" y="172" width="118" height="32" rx="16" fill="#4B1D6F" stroke="#4B1D6F" stroke-width="1"/>
+<text id="Chip_Text_2" x="150" y="192" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#FDF3D2">Occ: Academic</text>
+<g id="Icon_X_2" transform="translate(238 180) scale(0.5833)">
+<path id="Vector_4" d="M18 6L6 18 M6 6l12 12" fill="none" stroke="#FDF3D2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+</g>
+<g id="Garment_Grid">
+<g id="Garment_Card_1">
+<rect id="Card_Surface" x="20" y="216" width="161.5" height="230" rx="18" fill="#2E1B38" stroke="#4B1D6F" stroke-width="1" filter="url(#Card_Shadow)"/>
+<g id="Garment_Thumbnail">
+<rect id="Tile_Background" x="28" y="224" width="145.5" height="140" rx="12" fill="#3A2447"/>
+<g id="Garment_Vector" transform="translate(44.75 238) scale(1.1200)">
+<path id="Silhouette" d="M30 10 H70 L75 90 H56 L50 38 L44 90 H25 Z" fill="#FFFFFF" stroke="#24152C" stroke-width="1.16" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail" d="M30 18 H70 M50 18 V38" fill="none" stroke="#24152C" stroke-width="1.16" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+</g>
+<g id="Fav_Heart">
+<circle id="Heart_Circle" cx="157.5" cy="240" r="14" fill="#2E1B38" stroke="#4B1D6F" stroke-width="1"/>
+<g id="Icon_Heart" transform="translate(150.5 233) scale(0.5833)">
+<path id="Vector_5" d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" fill="#E5484D" stroke="#E5484D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+<text id="Garment_Title" x="32" y="388" font-family="Arial, sans-serif" font-size="14" font-weight="800" fill="#FDF3D2">White Jeans</text>
+<text id="Garment_Cat" x="32" y="406" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#DECFE8">BOTTOM · Casual</text>
+<g id="Wear_Count_Pill">
+<text id="Wear_Count" x="32" y="428" font-family="Arial, sans-serif" font-size="10.5" font-weight="600" fill="#FBF5A7">Worn 6 times</text>
+</g>
+</g>
+<g id="Garment_Card_2">
+<rect id="Card_Surface_2" x="193.5" y="216" width="161.5" height="230" rx="18" fill="#2E1B38" stroke="#4B1D6F" stroke-width="1" filter="url(#Card_Shadow)"/>
+<g id="Garment_Thumbnail_2">
+<rect id="Tile_Background_2" x="201.5" y="224" width="145.5" height="140" rx="12" fill="#3A2447"/>
+<g id="Garment_Vector_2" transform="translate(218.25 238) scale(1.1200)">
+<path id="Silhouette_2" d="M10 64 Q12 50 28 52 L46 56 Q60 42 72 54 L90 62 Q94 72 86 76 H14 Q8 72 10 64 Z" fill="#24152C" stroke="#DECFE8" stroke-width="1.16" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail_2" d="M12 70 H88 M40 56 L44 62 M48 54 L52 60" fill="none" stroke="#DECFE8" stroke-width="1.16" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+</g>
+<g id="Fav_Heart_2">
+<circle id="Heart_Circle_2" cx="331" cy="240" r="14" fill="#2E1B38" stroke="#4B1D6F" stroke-width="1"/>
+<g id="Icon_Heart_2" transform="translate(324 233) scale(0.5833)">
+<path id="Vector_6" d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" fill="none" stroke="#DECFE8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+<text id="Garment_Title_2" x="205.5" y="388" font-family="Arial, sans-serif" font-size="14" font-weight="800" fill="#FDF3D2">Black SHOES</text>
+<text id="Garment_Cat_2" x="205.5" y="406" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#DECFE8">SHOES · Workout</text>
+<g id="Wear_Count_Pill_2">
+<text id="Wear_Count_2" x="205.5" y="428" font-family="Arial, sans-serif" font-size="10.5" font-weight="600" fill="#FBF5A7">Worn 6 times</text>
+</g>
+</g>
+<g id="Garment_Card_3">
+<rect id="Card_Surface_3" x="20" y="458" width="161.5" height="230" rx="18" fill="#2E1B38" stroke="#4B1D6F" stroke-width="1" filter="url(#Card_Shadow)"/>
+<g id="Garment_Thumbnail_3">
+<rect id="Tile_Background_3" x="28" y="466" width="145.5" height="140" rx="12" fill="#3A2447"/>
+<g id="Garment_Vector_3" transform="translate(44.75 480) scale(1.1200)">
+<path id="Silhouette_3" d="M30 14 L12 26 L16 90 H45 V32 L50 24 L55 32 V90 H84 L88 26 L70 14 L60 12 L50 24 L40 12 Z" fill="#FDD78B" stroke="#24152C" stroke-width="1.16" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail_3" d="M50 24 V90 M22 62 H38 M62 62 H78" fill="none" stroke="#24152C" stroke-width="1.16" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+</g>
+<g id="Fav_Heart_3">
+<circle id="Heart_Circle_3" cx="157.5" cy="482" r="14" fill="#2E1B38" stroke="#4B1D6F" stroke-width="1"/>
+<g id="Icon_Heart_3" transform="translate(150.5 475) scale(0.5833)">
+<path id="Vector_7" d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" fill="none" stroke="#DECFE8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+<text id="Garment_Title_3" x="32" y="630" font-family="Arial, sans-serif" font-size="14" font-weight="800" fill="#FDF3D2">Corduroy Jacket</text>
+<text id="Garment_Cat_3" x="32" y="648" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#DECFE8">OUTERWEAR · Academic</text>
+<g id="Wear_Count_Pill_3">
+<text id="Wear_Count_3" x="32" y="670" font-family="Arial, sans-serif" font-size="10.5" font-weight="600" fill="#FBF5A7">Worn 6 times</text>
+</g>
+</g>
+<g id="Garment_Card_4">
+<rect id="Card_Surface_4" x="193.5" y="458" width="161.5" height="230" rx="18" fill="#2E1B38" stroke="#4B1D6F" stroke-width="1" filter="url(#Card_Shadow)"/>
+<g id="Garment_Thumbnail_4">
+<rect id="Tile_Background_4" x="201.5" y="466" width="145.5" height="140" rx="12" fill="#3A2447"/>
+<g id="Garment_Vector_4" transform="translate(218.25 480) scale(1.1200)">
+<path id="Silhouette_4" d="M20 40 H80 L86 90 H14 Z" fill="#24152C" stroke="#DECFE8" stroke-width="1.16" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stitch_Detail_4" d="M34 40 V32 A16 16 0 0 1 66 32 V40" fill="none" stroke="#DECFE8" stroke-width="1.16" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+</g>
+</g>
+<g id="Fav_Heart_4">
+<circle id="Heart_Circle_4" cx="331" cy="482" r="14" fill="#2E1B38" stroke="#4B1D6F" stroke-width="1"/>
+<g id="Icon_Heart_4" transform="translate(324 475) scale(0.5833)">
+<path id="Vector_8" d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" fill="#E5484D" stroke="#E5484D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+<g id="Needs_Wash_Badge">
+<rect id="Badge_Surface" x="205.5" y="578" width="84" height="20" rx="10" fill="#FDD78B"/>
+<text id="Badge_Text" x="247.5" y="592" font-family="Arial, sans-serif" font-size="9" font-weight="800" fill="#24152C" text-anchor="middle">NEEDS WASH</text>
+</g>
+<text id="Garment_Title_4" x="205.5" y="630" font-family="Arial, sans-serif" font-size="14" font-weight="800" fill="#FDF3D2">Black Smartwatch</text>
+<text id="Garment_Cat_4" x="205.5" y="648" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#DECFE8">ACCESSORIES · Office</text>
+<g id="Wear_Count_Pill_4">
+<text id="Wear_Count_4" x="205.5" y="670" font-family="Arial, sans-serif" font-size="10.5" font-weight="600" fill="#FBF5A7">Worn 6 times</text>
+</g>
+</g>
+</g>
+<g id="Bottom_Navigation_Bar">
+<rect id="Nav_Surface" x="0" y="728" width="375" height="84" fill="#24152C"/>
+<rect id="Nav_Top_Hairline" x="0" y="728" width="375" height="1" fill="#4B1D6F"/>
+<g id="Tab_Home">
+<g id="Icon_Home" transform="translate(27.5 737) scale(0.8333)">
+<path id="Vector_9" d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" fill="none" stroke="#DECFE8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label" x="37.5" y="782" font-family="Arial, sans-serif" font-size="10" font-weight="600" fill="#DECFE8" text-anchor="middle">Home</text>
+</g>
+<g id="Tab_Wardrobe">
+<rect id="Active_Indicator_Pill" x="94.5" y="734" width="36" height="26" rx="13" fill="#4B1D6F"/>
+<g id="Icon_Shirt" transform="translate(102.5 737) scale(0.8333)">
+<path id="Vector_10" d="M8 3L3 6l2 4.5 2-1V21h10V9.5l2 1L21 6l-5-3a4 4 0 0 1-8 0z" fill="#FBF5A7" fill-opacity="0.2" stroke="#FBF5A7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_2" x="112.5" y="782" font-family="Arial, sans-serif" font-size="10" font-weight="800" fill="#FBF5A7" text-anchor="middle">Wardrobe</text>
+</g>
+<g id="Tab_Outfit_AI_Center_Badge">
+<circle id="Badge_Circle" cx="187.5" cy="742" r="22" fill="#FBF5A7" stroke="#FDD78B" stroke-width="1.5"/>
+<g id="Icon_Sparkles" transform="translate(177.5 732) scale(0.8333)">
+<path id="Vector_11" d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z M18.5 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="#24152C" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_3" x="187.5" y="782" font-family="Arial, sans-serif" font-size="10" font-weight="800" fill="#DECFE8" text-anchor="middle">Outfit</text>
+</g>
+<g id="Tab_Community">
+<g id="Icon_People" transform="translate(252.5 737) scale(0.8333)">
+<path id="Vector_12" d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M2 21v-1a7 7 0 0 1 14 0v1 M16 3.2a4 4 0 0 1 0 7.6 M22 21v-1a7 7 0 0 0-4-6.3" fill="none" stroke="#DECFE8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_4" x="262.5" y="782" font-family="Arial, sans-serif" font-size="10" font-weight="600" fill="#DECFE8" text-anchor="middle">Community</text>
+</g>
+<g id="Tab_Account">
+<g id="Icon_Person" transform="translate(327.5 737) scale(0.8333)">
+<path id="Vector_13" d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z M4 21v-.5a8 8 0 0 1 16 0v.5" fill="none" stroke="#DECFE8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Tab_Label_5" x="337.5" y="782" font-family="Arial, sans-serif" font-size="10" font-weight="600" fill="#DECFE8" text-anchor="middle">Account</text>
+</g>
+</g>
+<rect id="Home_Indicator" x="120.5" y="799" width="134" height="5" rx="2.5" fill="#FDF3D2"/>
+</g>
+</svg>

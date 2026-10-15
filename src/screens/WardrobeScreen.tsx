@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, Modal, ScrollView, Switch, Alert } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, Modal, ScrollView, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
@@ -8,6 +8,7 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { useWardrobe } from '../contexts/WardrobeContext';
 import { useToast } from '../contexts/ToastContext';
 import ClothingCard from '../components/ClothingCard';
+import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
 
 // Five unified categories per thesis Chapters 1–3 (Dresses removed)
 export const FILTER_CATEGORIES = ['ALL', 'TOP', 'BOTTOM', 'SHOES', 'OUTERWEAR', 'ACCESSORIES'] as const;
@@ -88,30 +89,45 @@ export default function WardrobeScreen() {
     }
   };
 
+  // Batch Delete Confirmation Dialog State
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState<{
+    visible: boolean;
+    itemIds: string[];
+    title: string;
+    message: string;
+  }>({
+    visible: false,
+    itemIds: [],
+    title: '',
+    message: '',
+  });
+  const [deletingBatch, setDeletingBatch] = useState(false);
+
   const handleBatchDelete = () => {
     if (selectedIds.size === 0) return;
     const count = selectedIds.size;
-    Alert.alert(
-      'Delete Selected Garments',
-      `Are you sure you want to delete ${count} ${count === 1 ? 'garment' : 'garments'} from your wardrobe? This cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: `Delete (${count})`,
-          style: 'destructive',
-          onPress: async () => {
-            const idsToDelete = Array.from(selectedIds);
-            cancelSelection();
-            try {
-              await deleteItems(idsToDelete);
-              showToast(`${count} ${count === 1 ? 'garment' : 'garments'} deleted`);
-            } catch (err) {
-              showToast('Error deleting garments');
-            }
-          },
-        },
-      ]
-    );
+    setDeleteConfirmModal({
+      visible: true,
+      itemIds: Array.from(selectedIds),
+      title: `Delete Selected ${count === 1 ? 'Garment' : 'Garments'}`,
+      message: `Are you sure you want to delete ${count} ${count === 1 ? 'garment' : 'garments'} from your wardrobe? This cannot be undone.`,
+    });
+  };
+
+  const executeDelete = async () => {
+    const idsToDelete = deleteConfirmModal.itemIds;
+    const count = idsToDelete.length;
+    setDeletingBatch(true);
+    cancelSelection();
+    try {
+      await deleteItems(idsToDelete);
+      showToast(`${count} ${count === 1 ? 'garment' : 'garments'} deleted`);
+      setDeleteConfirmModal({ visible: false, itemIds: [], title: '', message: '' });
+    } catch {
+      showToast('Error deleting garments');
+    } finally {
+      setDeletingBatch(false);
+    }
   };
 
   const resetFilters = () => {
@@ -254,11 +270,11 @@ export default function WardrobeScreen() {
               onPress={() => setSelectedCategory('ALL')}
               style={[
                 styles.activePill,
-                { backgroundColor: theme.surface, borderColor: theme.border },
+                { backgroundColor: theme.mode === 'dark' ? '#4B1D6F' : '#DECFE8', borderColor: theme.mode === 'dark' ? '#FDD78B' : '#4B1D6F' },
               ]}
             >
-              <Text style={[styles.activePillText, { color: theme.text }]}>Category: {selectedCategory}</Text>
-              <Ionicons name="close-circle" size={14} color={theme.textMuted} />
+              <Text style={[styles.activePillText, { color: theme.mode === 'dark' ? '#FDF3D2' : '#24152C' }]}>Category: {selectedCategory}</Text>
+              <Ionicons name="close-circle" size={14} color={theme.mode === 'dark' ? '#FDF3D2' : '#24152C'} />
             </Pressable>
           )}
           {selectedOccasion !== 'ALL' && (
@@ -266,11 +282,11 @@ export default function WardrobeScreen() {
               onPress={() => setSelectedOccasion('ALL')}
               style={[
                 styles.activePill,
-                { backgroundColor: theme.surface, borderColor: theme.border },
+                { backgroundColor: theme.mode === 'dark' ? '#4B1D6F' : '#DECFE8', borderColor: theme.mode === 'dark' ? '#FDD78B' : '#4B1D6F' },
               ]}
             >
-              <Text style={[styles.activePillText, { color: theme.text }]}>Occasion: {selectedOccasion}</Text>
-              <Ionicons name="close-circle" size={14} color={theme.textMuted} />
+              <Text style={[styles.activePillText, { color: theme.mode === 'dark' ? '#FDF3D2' : '#24152C' }]}>Occasion: {selectedOccasion}</Text>
+              <Ionicons name="close-circle" size={14} color={theme.mode === 'dark' ? '#FDF3D2' : '#24152C'} />
             </Pressable>
           )}
           {selectedLaundry !== 'ALL' && (
@@ -278,13 +294,13 @@ export default function WardrobeScreen() {
               onPress={() => setSelectedLaundry('ALL')}
               style={[
                 styles.activePill,
-                { backgroundColor: theme.surface, borderColor: theme.border },
+                { backgroundColor: theme.mode === 'dark' ? '#4B1D6F' : '#DECFE8', borderColor: theme.mode === 'dark' ? '#FDD78B' : '#4B1D6F' },
               ]}
             >
-              <Text style={[styles.activePillText, { color: theme.text }]}>
+              <Text style={[styles.activePillText, { color: theme.mode === 'dark' ? '#FDF3D2' : '#24152C' }]}>
                 {selectedLaundry === 'CLEAN' ? 'Status: Clean' : 'Status: Needs Washing'}
               </Text>
-              <Ionicons name="close-circle" size={14} color={theme.textMuted} />
+              <Ionicons name="close-circle" size={14} color={theme.mode === 'dark' ? '#FDF3D2' : '#24152C'} />
             </Pressable>
           )}
           {favoritesOnly && (
@@ -292,11 +308,11 @@ export default function WardrobeScreen() {
               onPress={() => setFavoritesOnly(false)}
               style={[
                 styles.activePill,
-                { backgroundColor: theme.surface, borderColor: theme.border },
+                { backgroundColor: theme.mode === 'dark' ? '#4B1D6F' : '#DECFE8', borderColor: theme.mode === 'dark' ? '#FDD78B' : '#4B1D6F' },
               ]}
             >
-              <Text style={[styles.activePillText, { color: theme.text }]}>★ Favorites Only</Text>
-              <Ionicons name="close-circle" size={14} color={theme.textMuted} />
+              <Text style={[styles.activePillText, { color: theme.mode === 'dark' ? '#FDF3D2' : '#24152C' }]}>★ Favorites Only</Text>
+              <Ionicons name="close-circle" size={14} color={theme.mode === 'dark' ? '#FDF3D2' : '#24152C'} />
             </Pressable>
           )}
         </ScrollView>
@@ -391,7 +407,7 @@ export default function WardrobeScreen() {
       <Modal visible={filterModalVisible} animationType="slide" transparent onRequestClose={() => setFilterModalVisible(false)}>
         <View style={styles.modalBackdrop}>
           <SafeAreaView style={[styles.modalSheet, { backgroundColor: theme.background }]} edges={['bottom']}>
-            <View style={styles.modalHeader}>
+            <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
               <View>
                 <Text style={[styles.modalTitle, { color: theme.text }]}>Filter Wardrobe</Text>
                 <Text style={[styles.modalSubtitle, { color: theme.textMuted }]}>
@@ -513,7 +529,7 @@ export default function WardrobeScreen() {
             </ScrollView>
 
             {/* Modal Bottom Actions */}
-            <View style={styles.modalFooter}>
+            <View style={[styles.modalFooter, { borderTopColor: theme.border }]}>
               <Pressable
                 onPress={resetFilters}
                 style={[styles.modalResetButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
@@ -532,6 +548,19 @@ export default function WardrobeScreen() {
           </SafeAreaView>
         </View>
       </Modal>
+
+      {/* Batch Delete Confirmation Dialog */}
+      <ConfirmDialogModal
+        visible={deleteConfirmModal.visible}
+        variant="danger"
+        title={deleteConfirmModal.title}
+        message={deleteConfirmModal.message}
+        confirmText={`Delete (${deleteConfirmModal.itemIds.length})`}
+        cancelText="Cancel"
+        loading={deletingBatch}
+        onConfirm={executeDelete}
+        onCancel={() => setDeleteConfirmModal({ visible: false, itemIds: [], title: '', message: '' })}
+      />
     </SafeAreaView>
   );
 }

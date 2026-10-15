@@ -15,15 +15,21 @@ export const lightTheme = {
   background: brand.alabaster,
   surface: '#FFFFFF',
   primaryAccent: brand.peachGold,
-  secondaryAccent: brand.darkPlum, // primary CTA fill
-  onAccent: brand.paleYellow, // text/icons on CTA fill
+  secondaryAccent: brand.paleYellow, // primary CTA fill: bright Pale Yellow
+  onAccent: brand.darkPlum, // text/icons on CTA fill: Dark Plum
+  highlightText: brand.darkPlum, // crisp high-contrast highlight text
+  statIconColor: brand.mediumPlum, // crisp visible icon color
   badgeBg: brand.softLilac,
   badgeAlt: brand.peachGold,
-  buttonBg: brand.darkPlum,
-  buttonText: brand.paleYellow,
-  buttonBorder: 'transparent',
-  activePillBg: brand.darkPlum,
-  activePillText: brand.paleYellow,
+  buttonBg: brand.paleYellow,
+  buttonText: brand.darkPlum,
+  buttonBorder: brand.softLilac,
+  activePillBg: brand.softLilac,
+  activePillText: brand.darkPlum,
+  navSurface: '#FFFFFF',
+  navActiveHighlight: brand.paleYellow,
+  navActiveIcon: brand.darkPlum,
+  navInactiveIcon: brand.mediumPlum,
   text: brand.darkPlum,
   textMuted: brand.mediumPlum,
   border: brand.softLilac,
@@ -34,8 +40,10 @@ export const darkTheme = {
   background: brand.darkPlum,
   surface: brand.darkCard,
   primaryAccent: brand.peachGold,
-  secondaryAccent: brand.paleYellow, // primary CTA fill
+  secondaryAccent: brand.paleYellow, // primary CTA fill: bright Pale Yellow
   onAccent: brand.darkPlum,
+  highlightText: brand.paleYellow,
+  statIconColor: brand.paleYellow,
   badgeBg: brand.mediumPlum,
   badgeAlt: brand.peachGold,
   buttonBg: brand.paleYellow,
@@ -43,6 +51,10 @@ export const darkTheme = {
   buttonBorder: 'transparent',
   activePillBg: brand.paleYellow,
   activePillText: brand.darkPlum,
+  navSurface: brand.darkPlum,
+  navActiveHighlight: brand.mediumPlum,
+  navActiveIcon: brand.paleYellow,
+  navInactiveIcon: brand.softLilac,
   text: brand.softCream,
   textMuted: brand.softLilac,
   border: brand.mediumPlum,

@@ -1,15 +1,46 @@
 import 'react-native-gesture-handler';
-import React, { useEffect } from 'react';
 import { LogBox } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { initNotifications } from './src/services/notificationService';
 
 LogBox.ignoreLogs([
   "The action 'RESET' with payload",
   "The action 'NAVIGATE' with payload",
+  "expo-notifications:",
+  "expo-notifications functionality",
+  "[expo-notifications]",
 ]);
+
+// Filter out Expo Go expo-notifications deprecation/removal warnings
+const originalWarn = console.warn;
+console.warn = (...args: any[]) => {
+  const str = args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a) || '')).join(' ');
+  if (
+    str.includes('Android Push notifications (remote notifications) functionality provided by expo-notifications was removed from Expo Go') ||
+    str.includes('expo-notifications:') ||
+    str.includes('[expo-notifications]')
+  ) {
+    return;
+  }
+  originalWarn(...args);
+};
+
+const originalError = console.error;
+console.error = (...args: any[]) => {
+  const str = args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a) || '')).join(' ');
+  if (
+    str.includes('Android Push notifications (remote notifications) functionality provided by expo-notifications was removed from Expo Go') ||
+    str.includes('expo-notifications:') ||
+    str.includes('[expo-notifications]')
+  ) {
+    return;
+  }
+  originalError(...args);
+};
+
+import React, { useEffect } from 'react';
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { initNotifications } from './src/services/notificationService';
 import RootNavigator from './src/navigation/RootNavigator';
 import { WardrobeProvider } from './src/contexts/WardrobeContext';
 import { ToastProvider } from './src/contexts/ToastContext';

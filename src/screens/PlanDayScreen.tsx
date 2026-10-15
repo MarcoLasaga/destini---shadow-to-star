@@ -5,7 +5,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Alert,
   Modal,
   FlatList,
 } from 'react-native';
@@ -18,6 +17,7 @@ import { usePlanner } from '../contexts/PlannerContext';
 import { useOutfit } from '../contexts/OutfitContext';
 import { useToast } from '../contexts/ToastContext';
 import { GeneratedOutfit } from '../types';
+import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
 
 function formatDateKey(d: Date): string {
   const year = d.getFullYear();
@@ -39,6 +39,8 @@ export default function PlanDayScreen() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedDateKey, setSelectedDateKey] = useState<string>(() => formatDateKey(new Date()));
   const [pickerModalVisible, setPickerModalVisible] = useState(false);
+  const [conflictOutfit, setConflictOutfit] = useState<GeneratedOutfit | null>(null);
+  const [removeConfirmVisible, setRemoveConfirmVisible] = useState(false);
 
   // Generate 7 days of the currently selected week
   const weekDays = useMemo(() => {
@@ -69,27 +71,19 @@ export default function PlanDayScreen() {
     const result = await scheduleOutfit(selectedDateKey, outfit, { force: false });
 
     if (result.conflict) {
-      // The exact required confirmation prompt
-      Alert.alert(
-        'Conflict Detected',
-        'This date already has a planned outfit. Replace it?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Replace',
-            style: 'destructive',
-            onPress: async () => {
-              await scheduleOutfit(selectedDateKey, outfit, { force: true });
-              setPickerModalVisible(false);
-              showToast('Planned outfit successfully replaced.');
-            },
-          },
-        ]
-      );
+      setConflictOutfit(outfit);
     } else {
       setPickerModalVisible(false);
       showToast('Outfit scheduled for ' + selectedDateKey);
     }
+  };
+
+  const handleConfirmReplace = async () => {
+    if (!conflictOutfit) return;
+    await scheduleOutfit(selectedDateKey, conflictOutfit, { force: true });
+    setConflictOutfit(null);
+    setPickerModalVisible(false);
+    showToast('Planned outfit successfully replaced.');
   };
 
   const handleMarkWorn = async () => {
@@ -99,17 +93,13 @@ export default function PlanDayScreen() {
   };
 
   const handleRemove = () => {
-    Alert.alert('Remove Planned Outfit', 'Are you sure you want to unschedule this outfit?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: async () => {
-          await removePlan(selectedDateKey);
-          showToast('Outfit removed from calendar.');
-        },
-      },
-    ]);
+    setRemoveConfirmVisible(true);
+  };
+
+  const handleConfirmRemove = async () => {
+    await removePlan(selectedDateKey);
+    setRemoveConfirmVisible(false);
+    showToast('Outfit removed from calendar.');
   };
 
   // Available candidate outfits to schedule
@@ -358,6 +348,30 @@ export default function PlanDayScreen() {
           </SafeAreaView>
         </View>
       </Modal>
+
+      {/* Date Outfit Conflict Modal */}
+      <ConfirmDialogModal
+        visible={!!conflictOutfit}
+        variant="danger"
+        title="Conflict Detected"
+        message="This date already has a planned outfit. Replace it?"
+        confirmText="Replace"
+        cancelText="Cancel"
+        onConfirm={handleConfirmReplace}
+        onCancel={() => setConflictOutfit(null)}
+      />
+
+      {/* Remove Planned Outfit Modal */}
+      <ConfirmDialogModal
+        visible={removeConfirmVisible}
+        variant="danger"
+        title="Remove Planned Outfit"
+        message="Are you sure you want to unschedule this outfit from your calendar?"
+        confirmText="Remove"
+        cancelText="Cancel"
+        onConfirm={handleConfirmRemove}
+        onCancel={() => setRemoveConfirmVisible(false)}
+      />
     </SafeAreaView>
   );
 }

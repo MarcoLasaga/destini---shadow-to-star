@@ -43,8 +43,10 @@ export default function BottomTabNavigator() {
   const theme = useAppTheme();
   const isDark = theme.mode === 'dark';
 
-  const activeColor = theme.secondaryAccent;
-  const inactiveColor = theme.textMuted;
+  const navSurface = isDark ? theme.surface : '#FFFFFF';
+  const activeColor = isDark ? '#FBF5A7' : '#24152C';
+  const inactiveColor = isDark ? '#DECFE8' : '#4B1D6F';
+  const activePillBg = isDark ? '#4B1D6F' : '#DECFE8';
 
   return (
     <Tab.Navigator
@@ -54,17 +56,32 @@ export default function BottomTabNavigator() {
         tabBarActiveTintColor: activeColor,
         tabBarInactiveTintColor: inactiveColor,
         tabBarStyle: {
-          backgroundColor: theme.surface,
+          backgroundColor: navSurface,
           borderTopColor: theme.border,
           borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 84 : 68,
+          overflow: 'visible',
+          height: Platform.OS === 'ios' ? 88 : 74,
+          paddingTop: 10,
           paddingBottom: Platform.OS === 'ios' ? 24 : 10,
-          paddingTop: 8,
           elevation: 8,
           shadowColor: '#000000',
           shadowOffset: { width: 0, height: -3 },
           shadowOpacity: isDark ? 0.35 : 0.06,
           shadowRadius: 10,
+        },
+        tabBarItemStyle: {
+          overflow: 'visible',
+          height: 38,
+          minWidth: 56,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        tabBarIconStyle: {
+          overflow: 'visible',
+          height: 38,
+          minWidth: 56,
+          alignItems: 'center',
+          justifyContent: 'center',
         },
         tabBarLabelStyle: {
           fontSize: 10.5,
@@ -80,13 +97,15 @@ export default function BottomTabNavigator() {
         component={HomeScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <View style={styles.tabIconWrapper}>
-              {focused && <View style={[styles.topIndicator, { backgroundColor: activeColor }]} />}
-              <Ionicons
-                name={focused ? ICONS_ACTIVE.Home : ICONS_INACTIVE.Home}
-                size={22}
-                color={focused ? activeColor : inactiveColor}
-              />
+            <View style={styles.tabIconOuter}>
+              <View style={[styles.tabIconWrapper, focused && { backgroundColor: activePillBg }]}>
+                {focused && <View style={[styles.topIndicator, { backgroundColor: activeColor }]} />}
+                <Ionicons
+                  name={focused ? ICONS_ACTIVE.Home : ICONS_INACTIVE.Home}
+                  size={20}
+                  color={focused ? activeColor : inactiveColor}
+                />
+              </View>
             </View>
           ),
         }}
@@ -97,13 +116,15 @@ export default function BottomTabNavigator() {
         component={WardrobeScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <View style={styles.tabIconWrapper}>
-              {focused && <View style={[styles.topIndicator, { backgroundColor: activeColor }]} />}
-              <Ionicons
-                name={focused ? ICONS_ACTIVE.Wardrobe : ICONS_INACTIVE.Wardrobe}
-                size={22}
-                color={focused ? activeColor : inactiveColor}
-              />
+            <View style={styles.tabIconOuter}>
+              <View style={[styles.tabIconWrapper, focused && { backgroundColor: activePillBg }]}>
+                {focused && <View style={[styles.topIndicator, { backgroundColor: activeColor }]} />}
+                <Ionicons
+                  name={focused ? ICONS_ACTIVE.Wardrobe : ICONS_INACTIVE.Wardrobe}
+                  size={20}
+                  color={focused ? activeColor : inactiveColor}
+                />
+              </View>
             </View>
           ),
         }}
@@ -128,8 +149,8 @@ export default function BottomTabNavigator() {
                   style={[
                     styles.centerBadge,
                     {
-                      backgroundColor: isDark ? '#FBF5A7' : '#24152C',
-                      borderColor: isFocused ? '#FDD78B' : theme.border,
+                      backgroundColor: '#FBF5A7',
+                      borderColor: isDark ? '#FDD78B' : '#DECFE8',
                       shadowColor: '#24152C',
                     },
                   ]}
@@ -137,7 +158,7 @@ export default function BottomTabNavigator() {
                   <Ionicons
                     name={isFocused ? 'sparkles' : 'sparkles-outline'}
                     size={22}
-                    color={isDark ? '#24152C' : '#FBF5A7'}
+                    color="#24152C"
                   />
                 </View>
                 <Text
@@ -161,13 +182,15 @@ export default function BottomTabNavigator() {
         component={CommunityScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <View style={styles.tabIconWrapper}>
-              {focused && <View style={[styles.topIndicator, { backgroundColor: activeColor }]} />}
-              <Ionicons
-                name={focused ? ICONS_ACTIVE.Community : ICONS_INACTIVE.Community}
-                size={22}
-                color={focused ? activeColor : inactiveColor}
-              />
+            <View style={styles.tabIconOuter}>
+              <View style={[styles.tabIconWrapper, focused && { backgroundColor: activePillBg }]}>
+                {focused && <View style={[styles.topIndicator, { backgroundColor: activeColor }]} />}
+                <Ionicons
+                  name={focused ? ICONS_ACTIVE.Community : ICONS_INACTIVE.Community}
+                  size={20}
+                  color={focused ? activeColor : inactiveColor}
+                />
+              </View>
             </View>
           ),
         }}
@@ -178,13 +201,15 @@ export default function BottomTabNavigator() {
         component={ProfileScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <View style={styles.tabIconWrapper}>
-              {focused && <View style={[styles.topIndicator, { backgroundColor: activeColor }]} />}
-              <Ionicons
-                name={focused ? ICONS_ACTIVE.Profile : ICONS_INACTIVE.Profile}
-                size={22}
-                color={focused ? activeColor : inactiveColor}
-              />
+            <View style={styles.tabIconOuter}>
+              <View style={[styles.tabIconWrapper, focused && { backgroundColor: activePillBg }]}>
+                {focused && <View style={[styles.topIndicator, { backgroundColor: activeColor }]} />}
+                <Ionicons
+                  name={focused ? ICONS_ACTIVE.Profile : ICONS_INACTIVE.Profile}
+                  size={20}
+                  color={focused ? activeColor : inactiveColor}
+                />
+              </View>
             </View>
           ),
         }}
@@ -194,17 +219,27 @@ export default function BottomTabNavigator() {
 }
 
 const styles = StyleSheet.create({
+  tabIconOuter: {
+    overflow: 'visible',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 48,
+    height: 34,
+  },
   tabIconWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: 32,
+    width: 44,
+    height: 30,
+    borderRadius: 15,
     position: 'relative',
+    overflow: 'visible',
   },
   topIndicator: {
     position: 'absolute',
-    top: -6,
-    width: 18,
-    height: 3,
+    top: -5,
+    width: 16,
+    height: 2.5,
     borderRadius: 2,
   },
   centerBadgeContainer: {
@@ -212,6 +247,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     flex: 1,
+    overflow: 'visible',
   },
   centerBadge: {
     width: 48,

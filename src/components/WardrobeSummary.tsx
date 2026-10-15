@@ -16,6 +16,9 @@ export default function WardrobeSummary({ stats }: { stats: WardrobeStats }) {
     { icon: 'archive-outline' as const, value: stats.toWash, label: 'To Wash' },
   ];
 
+  const isDark = theme.mode === 'dark';
+  const accentColor = isDark ? '#FBF5A7' : '#4B1D6F';
+
   return (
     <Animated.View
       entering={FadeInDown.duration(450).delay(200)}
@@ -24,15 +27,15 @@ export default function WardrobeSummary({ stats }: { stats: WardrobeStats }) {
       <View style={styles.headerRow}>
         <Text style={[styles.title, { color: theme.text }]}>Wardrobe Summary</Text>
         <Pressable onPress={() => navigation.navigate('MainTabs', { screen: 'Wardrobe' })} style={styles.viewAll}>
-          <Text style={[styles.viewAllText, { color: theme.secondaryAccent }]}>View All</Text>
-          <Ionicons name="chevron-forward" size={14} color={theme.secondaryAccent} />
+          <Text style={[styles.viewAllText, { color: accentColor }]}>View All</Text>
+          <Ionicons name="chevron-forward" size={14} color={accentColor} />
         </Pressable>
       </View>
 
       <View style={[styles.statsRow, { backgroundColor: theme.mode === 'dark' ? '#232329' : '#F4F1EA' }]}>
         {items.map((item) => (
           <View key={item.label} style={styles.statBlock}>
-            <Ionicons name={item.icon} size={18} color={theme.secondaryAccent} />
+            <Ionicons name={item.icon} size={18} color={accentColor} />
             <Text style={[styles.statValue, { color: theme.text }]}>{item.value}</Text>
             <Text style={[styles.statLabel, { color: theme.textMuted }]}>{item.label}</Text>
           </View>

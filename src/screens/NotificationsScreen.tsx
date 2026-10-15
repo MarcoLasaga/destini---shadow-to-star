@@ -1,15 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Switch } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import Animated, { FadeInDown, FadeInUp, LinearTransition } from 'react-native-reanimated';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { useSettings } from '../contexts/SettingsContext';
 import { useToast } from '../contexts/ToastContext';
 import ScreenHeader from '../components/ScreenHeader';
-import { NotificationPrefs } from '../types';
-import { triggerSmartAlert } from '../services/notificationService';
 
 type Category = 'weather' | 'outfit' | 'laundry' | 'sustainability';
 type Target = 'Outfit' | 'Wardrobe' | 'Planner';
@@ -19,7 +16,8 @@ interface AppNotification {
   category: Category;
   title: string;
   body: string;
-  time: string;
+  createdAt: number;
+  time?: string;
   read: boolean;
   target: Target;
 }
@@ -41,20 +39,36 @@ const CATEGORY_META: Record<Category, { icon: keyof typeof Ionicons.glyphMap; ta
   sustainability: { icon: 'leaf', target: 'Wardrobe' },
 };
 
-const PREFS: { key: keyof NotificationPrefs; label: string; note: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { key: 'weatherAlerts', label: 'Weather Alerts', note: 'Live conditions for your outfit', icon: 'partly-sunny-outline' },
-  { key: 'sustainabilityTips', label: 'Sustainability Tips', note: 'Re-wear and care nudges', icon: 'leaf-outline' },
-  { key: 'outfitReminders', label: 'Outfit Reminders', note: 'Planned looks for tomorrow', icon: 'shirt-outline' },
-  { key: 'laundryReminders', label: 'Laundry Reminders', note: 'When pieces need washing', icon: 'water-outline' },
-];
+export function formatRelativeTime(createdAt?: number): string {
+  if (!createdAt) return 'Just now';
+  const diffSec = Math.max(0, Math.floor((Date.now() - createdAt) / 1000));
+  if (diffSec < 60) return 'Just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffHours < 48) return 'Yesterday';
 
+  const d = new Date(createdAt);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const month = months[d.getMonth()];
+  const day = d.getDate();
+  let hours = d.getHours();
+  const minutes = d.getMinutes().toString().padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  return `${month} ${day}, ${hours}:${minutes} ${ampm}`;
+}
+
+const now = Date.now();
 const SEED: AppNotification[] = [
   {
     id: 'seed-1',
     category: 'weather',
     title: 'Manila Weather Alert: 31°C & Humid',
     body: 'Breathable cotton tops are prioritized in today’s Hybrid Outfit.',
-    time: '8:05 AM',
+    createdAt: now - 5 * 60 * 1000, // 5 mins ago
     read: false,
     target: 'Outfit',
   },
@@ -63,7 +77,7 @@ const SEED: AppNotification[] = [
     category: 'outfit',
     title: 'Tomorrow’s look is waiting',
     body: 'Plan your Academic outfit for Monday so you’re ready before class.',
-    time: '7:30 PM',
+    createdAt: now - 45 * 60 * 1000, // 45 mins ago
     read: false,
     target: 'Planner',
   },
@@ -72,7 +86,7 @@ const SEED: AppNotification[] = [
     category: 'laundry',
     title: '3 items need washing',
     body: 'Your white hoodie and 2 tees reached their wear limit.',
-    time: 'Yesterday',
+    createdAt: now - 3 * 3600 * 1000, // 3 hours ago
     read: false,
     target: 'Wardrobe',
   },
@@ -81,7 +95,7 @@ const SEED: AppNotification[] = [
     category: 'sustainability',
     title: 'Re-wear tip',
     body: 'Re-styling your denim jacket this week saves about 2.5 kg of CO₂.',
-    time: 'Yesterday',
+    createdAt: now - 24 * 3600 * 1000, // 1 day ago
     read: true,
     target: 'Wardrobe',
   },
@@ -90,7 +104,7 @@ const SEED: AppNotification[] = [
     category: 'outfit',
     title: 'New Top-3 outfits ready',
     body: 'Your Hybrid recommendations were refreshed with this week’s feedback.',
-    time: 'Mon',
+    createdAt: now - 3 * 24 * 3600 * 1000, // 3 days ago
     read: true,
     target: 'Outfit',
   },
@@ -99,17 +113,31 @@ const SEED: AppNotification[] = [
 export default function NotificationsScreen() {
   const theme = useAppTheme();
   const navigation = useNavigation<any>();
-  const { notifications: prefs, toggleNotification } = useSettings();
   const { showToast } = useToast();
 
   const [items, setItems] = useState<AppNotification[]>(SEED);
   const [filter, setFilter] = useState<'all' | Category>('all');
-  const [prefsOpen, setPrefsOpen] = useState(true);
+  const [, setTick] = useState(0);
+
+  // Re-evaluate relative time every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick((prev) => prev + 1);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
       .then((raw) => {
-        if (raw) setItems(JSON.parse(raw));
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const upgraded = parsed.map((item: any, idx: number) => ({
+            ...item,
+            createdAt: item.createdAt || Date.now() - (idx + 1) * 20 * 60 * 1000,
+          }));
+          setItems(upgraded);
+        }
       })
       .catch(() => undefined);
   }, []);
@@ -124,20 +152,6 @@ export default function NotificationsScreen() {
     () => (filter === 'all' ? items : items.filter((n) => n.category === filter)),
     [items, filter]
   );
-
-  const sendTestAlert = async () => {
-    await triggerSmartAlert({
-      type: 'Weather',
-      title: 'Makati Weather Alert: 29°C & Humid',
-      body: 'Breathable tops prioritized for today’s Hybrid Outfit.',
-      targetRoute: 'Outfit',
-    });
-    const stored = await AsyncStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      setItems(JSON.parse(stored));
-    }
-    showToast('🌤 Makati Weather Alert: 29°C & Humid — notification banner sent!');
-  };
 
   const markAllRead = () => {
     if (unreadCount === 0) {
@@ -155,69 +169,14 @@ export default function NotificationsScreen() {
     else navigation.navigate('PlanDay');
   };
 
-  const onToggle = async (key: keyof NotificationPrefs, label: string) => {
-    const enabled = await toggleNotification(key);
-    showToast(enabled ? `${label} enabled` : `${label} turned off`);
-  };
-
   const cardBg = theme.surface;
   const unreadBg = theme.mode === 'dark' ? '#3A2447' : '#FFFFFF';
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <ScreenHeader
-        title="Notifications"
-        rightElement={
-          <Pressable
-            onPress={sendTestAlert}
-            style={({ pressed }) => [
-              styles.testBtn,
-              { backgroundColor: theme.secondaryAccent, opacity: pressed ? 0.8 : 1 },
-            ]}
-          >
-            <Ionicons name="add" size={14} color={theme.onAccent} />
-            <Text style={[styles.testBtnText, { color: theme.onAccent }]}>Send Test Alert</Text>
-          </Pressable>
-        }
-      />
+      <ScreenHeader title="Notifications" />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Collapsible Alert Preferences */}
-        <Animated.View
-          entering={FadeInDown.duration(300)}
-          layout={LinearTransition}
-          style={[styles.card, { backgroundColor: cardBg, borderColor: theme.border }]}
-        >
-          <Pressable onPress={() => setPrefsOpen((v) => !v)} style={styles.prefsHeader}>
-            <View style={[styles.iconBubble, { backgroundColor: theme.badgeBg }]}>
-              <Ionicons name="options-outline" size={16} color={theme.text} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>ALERT PREFERENCES</Text>
-              <Text style={[styles.note, { color: theme.textMuted }]}>
-                {PREFS.filter((p) => prefs[p.key]).length} of 4 smart alerts on
-              </Text>
-            </View>
-            <Ionicons name={prefsOpen ? 'chevron-up' : 'chevron-down'} size={18} color={theme.textMuted} />
-          </Pressable>
-
-          {prefsOpen &&
-            PREFS.map((p) => (
-              <View key={p.key} style={[styles.prefRow, { borderTopColor: theme.border }]}>
-                <Ionicons name={p.icon} size={18} color={theme.text} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.prefLabel, { color: theme.text }]}>{p.label}</Text>
-                  <Text style={[styles.note, { color: theme.textMuted }]}>{p.note}</Text>
-                </View>
-                <Switch
-                  value={!!prefs[p.key]}
-                  onValueChange={() => onToggle(p.key, p.label)}
-                  trackColor={{ false: theme.border, true: theme.mode === 'dark' ? '#FDD78B' : '#4B1D6F' }}
-                  thumbColor={theme.mode === 'dark' ? '#24152C' : '#FBF5A7'}
-                />
-              </View>
-            ))}
-        </Animated.View>
 
         {/* Filter pills + Mark all read */}
         <View style={styles.filterHeader}>
@@ -263,7 +222,7 @@ export default function NotificationsScreen() {
           <View style={styles.empty}>
             <Ionicons name="notifications-off-outline" size={34} color={theme.textMuted} />
             <Text style={[styles.prefLabel, { color: theme.text }]}>Nothing here yet</Text>
-            <Text style={[styles.note, { color: theme.textMuted }]}>Tap “Send Test Alert” to preview a smart alert.</Text>
+            <Text style={[styles.note, { color: theme.textMuted }]}>Smart alerts for weather, laundry, outfits, and eco-tips will appear here.</Text>
           </View>
         ) : (
           visible.map((n) => {
@@ -293,7 +252,7 @@ export default function NotificationsScreen() {
                     </View>
                     <Text style={[styles.note, { color: theme.textMuted }]}>{n.body}</Text>
                     <View style={styles.notifBottom}>
-                      <Text style={[styles.time, { color: theme.textMuted }]}>{n.time}</Text>
+                      <Text style={[styles.time, { color: theme.textMuted }]}>{formatRelativeTime(n.createdAt)}</Text>
                       <View style={[styles.tag, { backgroundColor: theme.mode === 'dark' ? '#4B1D6F' : '#DECFE8' }]}>
                         <Text style={[styles.tagText, { color: theme.mode === 'dark' ? '#FDF3D2' : '#24152C' }]}>
                           {n.target === 'Planner' ? 'Open Planner' : `Open ${n.target}`}
@@ -314,31 +273,7 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 40, gap: 12 },
-  testBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, height: 34, borderRadius: 17 },
-  testBtnText: { fontSize: 11.5, fontWeight: '800', letterSpacing: 0.2 },
-  card: {
-    borderRadius: 18,
-    borderWidth: 1,
-    overflow: 'hidden',
-    shadowColor: '#24152C',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  prefsHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
-  iconBubble: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   sectionTitle: { fontSize: 11, fontWeight: '800', letterSpacing: 1.3 },
-  prefRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-  },
-  prefLabel: { fontSize: 14.5, fontWeight: '700' },
-  note: { fontSize: 12.5, lineHeight: 17 },
   filterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
   markAll: { fontSize: 12.5, fontWeight: '700', textDecorationLine: 'underline' },
   filterScroll: { flexGrow: 0, maxHeight: 44 },
@@ -353,6 +288,8 @@ const styles = StyleSheet.create({
   time: { fontSize: 11.5 },
   tag: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999 },
   tagText: { fontSize: 10.5, fontWeight: '800' },
+  prefLabel: { fontSize: 15, fontWeight: '700' },
+  note: { fontSize: 13, lineHeight: 18 },
   empty: { alignItems: 'center', gap: 6, paddingTop: 40 },
 });
 
