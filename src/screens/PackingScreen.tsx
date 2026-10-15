@@ -64,12 +64,12 @@ export default function PackingScreen() {
             >
               <View style={styles.tripHeaderRow}>
                 <View style={styles.destWrap}>
-                  <Ionicons name="location" size={16} color={theme.secondaryAccent} />
+                  <Ionicons name="location" size={16} color={theme.accent} />
                   <Text style={[styles.tripDestination, { color: theme.text }]}>{item.destination}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <View style={[styles.percentBadge, { backgroundColor: percent === 100 ? '#2F8F5B20' : theme.secondaryAccent + '20' }]}>
-                    <Text style={[styles.percentText, { color: percent === 100 ? '#2F8F5B' : theme.secondaryAccent }]}>
+                  <View style={[styles.percentBadge, { backgroundColor: percent === 100 ? '#2F8F5B20' : theme.badgeBg }]}>
+                    <Text style={[styles.percentText, { color: percent === 100 ? '#2F8F5B' : theme.highlightText }]}>
                       {percent}% Packed
                     </Text>
                   </View>
@@ -98,7 +98,7 @@ export default function PackingScreen() {
                   <Text
                     style={[
                       styles.badgePillText,
-                      { color: item.packingMode === 'heavy' ? theme.secondaryAccent : '#2F8F5B' },
+                      { color: item.packingMode === 'heavy' ? theme.accent : '#2F8F5B' },
                     ]}
                   >
                     {item.packingMode === 'heavy' ? 'Heavy Mode' : 'Light Capsule'}

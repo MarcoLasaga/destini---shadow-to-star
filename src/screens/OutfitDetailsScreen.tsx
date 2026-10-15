@@ -84,8 +84,8 @@ export default function OutfitDetailsScreen() {
           {/* Hybrid Recommendation Score Breakdown */}
           <View style={styles.statsRow}>
             <View style={[styles.statBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <Ionicons name="analytics-outline" size={17} color={theme.secondaryAccent} />
-              <Text style={[styles.statValue, { color: theme.secondaryAccent }]}>{hybrid}%</Text>
+              <Ionicons name="analytics-outline" size={17} color={theme.statIconColor} />
+              <Text style={[styles.statValue, { color: theme.highlightText }]}>{hybrid}%</Text>
               <Text style={[styles.statLabel, { color: theme.textMuted }]}>Hybrid Score</Text>
             </View>
             <View style={[styles.statBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -244,8 +244,8 @@ export default function OutfitDetailsScreen() {
           {/* Explainability Reasons */}
           <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <View style={styles.sectionHeader}>
-              <View style={[styles.sparkleIcon, { backgroundColor: theme.secondaryAccent + '20' }]}>
-                <Ionicons name="sparkles" size={14} color={theme.secondaryAccent} />
+              <View style={[styles.sparkleIcon, { backgroundColor: theme.accent + '20' }]}>
+                <Ionicons name="sparkles" size={14} color={theme.accent} />
               </View>
               <Text style={[styles.sectionTitle, { color: theme.text }]}>
                 Why was this outfit recommended?
@@ -253,8 +253,8 @@ export default function OutfitDetailsScreen() {
             </View>
             {outfit.whyReasons.map((reason) => (
               <View key={reason.id} style={styles.reasonRow}>
-                <View style={[styles.reasonIcon, { backgroundColor: theme.secondaryAccent + '15' }]}>
-                  <Ionicons name={reason.icon as any} size={15} color={theme.secondaryAccent} />
+                <View style={[styles.reasonIcon, { backgroundColor: theme.accent + '15' }]}>
+                  <Ionicons name={reason.icon as any} size={15} color={theme.accent} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.reasonTitle, { color: theme.text }]}>{reason.title}</Text>

@@ -25,7 +25,7 @@ export default function HomeScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={refresh} tintColor={theme.secondaryAccent} />
+          <RefreshControl refreshing={loading} onRefresh={refresh} tintColor={theme.accent} />
         }
       >
         <GreetingHeader name={profile.firstName || profile.displayName || 'there'} hasNotifications={false} />

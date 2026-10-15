@@ -5,6 +5,10 @@
 <filter id="Card_Shadow" x="-10%" y="-10%" width="120%" height="135%" color-interpolation-filters="sRGB">
 <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#24152C" flood-opacity="0.05"/>
 </filter>
+<linearGradient id="Welcome_Grad" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0%" stop-color="#DECFE8"/>
+<stop offset="100%" stop-color="#FDF3D2"/>
+</linearGradient>
 <clipPath id="Screen_Clip"><rect width="375" height="812"/></clipPath>
 </defs>
 <g id="07_Community_Light" clip-path="url(#Screen_Clip)">
@@ -30,7 +34,7 @@
 </g>
 <g id="Header_Bar">
 <text id="Screen_Title" x="20" y="88" font-family="Arial, sans-serif" font-size="28" font-weight="900" fill="#24152C" letter-spacing="-0.6">Community</text>
-<text id="Subtitle" x="20" y="110" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#4B1D6F">Find and share your favorite looks</text>
+<text id="Subtitle" x="20" y="110" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#5E4B6B">Find and share your favorite looks</text>
 <g id="Post_Look_Header_Button">
 <rect id="Button_Surface" x="245" y="74" width="110" height="38" rx="19" fill="#FBF5A7" stroke="none" stroke-width="1"/>
 <g id="Icon_Plus" transform="translate(256.25 86) scale(0.5833)">
@@ -55,7 +59,7 @@
 <circle id="Avatar" cx="44" cy="198" r="16" fill="#FDD78B"/>
 <text id="Avatar_Init" x="44" y="203" font-family="Arial, sans-serif" font-size="11" font-weight="800" fill="#24152C" text-anchor="middle">S</text>
 <text id="User_Name" x="68" y="195" font-family="Arial, sans-serif" font-size="13.5" font-weight="800" fill="#24152C">Sophia Reyes</text>
-<text id="User_Handle" x="68" y="210" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">@sophia.fits · 2h · Academic</text>
+<text id="User_Handle" x="68" y="210" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#5E4B6B">@sophia.fits · 2h · Academic</text>
 </g>
 <g id="AI_Moderation_Shield_Badge">
 <rect id="Badge_Surface" x="233" y="186" width="102" height="22" rx="11" fill="#DECFE8" stroke="#DECFE8" stroke-width="1"/>
@@ -65,7 +69,7 @@
 <text id="Badge_Label" x="259" y="201" font-family="Arial, sans-serif" font-size="10" font-weight="800" fill="#24152C">AI Moderated</text>
 </g>
 <text id="Outfit_Title" x="36" y="240" font-family="Arial, sans-serif" font-size="13.5" font-weight="800" fill="#24152C">Casual Academic Layers</text>
-<text id="Caption" x="36" y="256" font-family="Arial, sans-serif" font-size="11.5" font-weight="400" fill="#4B1D6F"><tspan x="36">Light lilac knit paired with relaxed denim.</tspan><tspan x="36" dy="15">Comfortable for campus walking all day!</tspan></text>
+<text id="Caption" x="36" y="256" font-family="Arial, sans-serif" font-size="11.5" font-weight="400" fill="#5E4B6B"><tspan x="36">Light lilac knit paired with relaxed denim.</tspan><tspan x="36" dy="15">Comfortable for campus walking all day!</tspan></text>
 <g id="Garments_Preview_Row">
 <g id="Garment_1">
 <rect id="Tile_Background" x="36" y="288" width="70" height="58" rx="10" fill="#F4F1EA"/>
@@ -98,7 +102,7 @@
 </g>
 <rect id="Divider" x="36" y="360" width="303" height="1" fill="#DECFE8"/>
 <g id="Rating_Row">
-<text id="Rate_Label" x="36" y="380" font-family="Arial, sans-serif" font-size="11" font-weight="600" fill="#4B1D6F">Community Rating:</text>
+<text id="Rate_Label" x="36" y="380" font-family="Arial, sans-serif" font-size="11" font-weight="600" fill="#5E4B6B">Community Rating:</text>
 <g id="Star_Rating">
 <g id="Icon_Star" transform="translate(142 368) scale(0.5833)">
 <path id="Vector_3" d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z" fill="#FDD78B" stroke="#FDD78B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -144,7 +148,7 @@
 <circle id="Avatar_2" cx="44" cy="464" r="16" fill="#FDD78B"/>
 <text id="Avatar_Init_2" x="44" y="469" font-family="Arial, sans-serif" font-size="11" font-weight="800" fill="#24152C" text-anchor="middle">M</text>
 <text id="User_Name_2" x="68" y="461" font-family="Arial, sans-serif" font-size="13.5" font-weight="800" fill="#24152C">Marco Tan</text>
-<text id="User_Handle_2" x="68" y="476" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">@marco.style · 6h · Office</text>
+<text id="User_Handle_2" x="68" y="476" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#5E4B6B">@marco.style · 6h · Office</text>
 </g>
 <g id="AI_Moderation_Shield_Badge_2">
 <rect id="Badge_Surface_2" x="233" y="452" width="102" height="22" rx="11" fill="#DECFE8" stroke="#DECFE8" stroke-width="1"/>
@@ -154,7 +158,7 @@
 <text id="Badge_Label_2" x="259" y="467" font-family="Arial, sans-serif" font-size="10" font-weight="800" fill="#24152C">AI Moderated</text>
 </g>
 <text id="Outfit_Title_2" x="36" y="506" font-family="Arial, sans-serif" font-size="13.5" font-weight="800" fill="#24152C">Smart Casual Office Rotation</text>
-<text id="Caption_2" x="36" y="522" font-family="Arial, sans-serif" font-size="11.5" font-weight="400" fill="#4B1D6F"><tspan x="36">Earth tones with peach outerwear layer.</tspan><tspan x="36" dy="15">Re-wearing wardrobe staples sustainably.</tspan></text>
+<text id="Caption_2" x="36" y="522" font-family="Arial, sans-serif" font-size="11.5" font-weight="400" fill="#5E4B6B"><tspan x="36">Earth tones with peach outerwear layer.</tspan><tspan x="36" dy="15">Re-wearing wardrobe staples sustainably.</tspan></text>
 <g id="Garments_Preview_Row_2">
 <g id="Garment_1_2">
 <rect id="Tile_Background_5" x="36" y="554" width="70" height="58" rx="10" fill="#F4F1EA"/>
@@ -187,7 +191,7 @@
 </g>
 <rect id="Divider_2" x="36" y="626" width="303" height="1" fill="#DECFE8"/>
 <g id="Rating_Row_2">
-<text id="Rate_Label_2" x="36" y="646" font-family="Arial, sans-serif" font-size="11" font-weight="600" fill="#4B1D6F">Community Rating:</text>
+<text id="Rate_Label_2" x="36" y="646" font-family="Arial, sans-serif" font-size="11" font-weight="600" fill="#5E4B6B">Community Rating:</text>
 <g id="Star_Rating_2">
 <g id="Icon_Star_6" transform="translate(142 634) scale(0.5833)">
 <path id="Vector_12" d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z" fill="#FDD78B" stroke="#FDD78B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -202,7 +206,7 @@
 <path id="Vector_15" d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z" fill="#FDD78B" stroke="#FDD78B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="Icon_Star_10" transform="translate(214 634) scale(0.5833)">
-<path id="Vector_16" d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z" fill="none" stroke="#4B1D6F" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector_16" d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z" fill="none" stroke="#5E4B6B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 </g>
 <text id="Rate_Score_2" x="242" y="646" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#24152C">4.8 (32)</text>

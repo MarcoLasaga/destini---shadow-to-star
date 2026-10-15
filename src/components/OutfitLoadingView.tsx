@@ -19,7 +19,7 @@ export default function OutfitLoadingView() {
   return (
     <Animated.View entering={FadeIn.duration(300)} style={styles.container}>
       <Animated.View style={[styles.iconCircle, { backgroundColor: theme.mode === 'dark' ? '#2A2A31' : '#EDEAF6' }, spinStyle]}>
-        <Ionicons name="sparkles" size={26} color={theme.secondaryAccent} />
+        <Ionicons name="sparkles" size={26} color={theme.accent} />
       </Animated.View>
 
       <Text style={[styles.title, { color: theme.text }]}>Generating your perfect outfit...</Text>

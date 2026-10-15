@@ -168,7 +168,7 @@ export default function SettingsScreen() {
 
         <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="color-palette-outline" size={17} color={theme.secondaryAccent} />
+            <Ionicons name="color-palette-outline" size={17} color={theme.accent} />
             <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.appearance}</Text>
           </View>
           <View style={styles.themeRow}>
@@ -198,7 +198,7 @@ export default function SettingsScreen() {
 
         <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="options-outline" size={17} color={theme.secondaryAccent} />
+            <Ionicons name="options-outline" size={17} color={theme.accent} />
             <View style={{ flex: 1 }}>
               <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.alertPreferences}</Text>
               <Text style={[styles.sectionSubtitle, { color: theme.textMuted }]}>
@@ -234,7 +234,7 @@ export default function SettingsScreen() {
 
         <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="globe-outline" size={17} color={theme.secondaryAccent} />
+            <Ionicons name="globe-outline" size={17} color={theme.accent} />
             <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.language}</Text>
           </View>
           <View style={styles.themeRow}>
@@ -251,7 +251,7 @@ export default function SettingsScreen() {
 
         <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="shield-checkmark-outline" size={17} color={theme.secondaryAccent} />
+            <Ionicons name="shield-checkmark-outline" size={17} color={theme.accent} />
             <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.privacy}</Text>
           </View>
           <View style={[styles.privacyNote, { backgroundColor: theme.mode === 'dark' ? '#232329' : '#F4F1EA' }]}>
@@ -295,7 +295,7 @@ export default function SettingsScreen() {
                         styles.languageOptionRow,
                         {
                           backgroundColor: isSelected ? (theme.mode === 'dark' ? '#4B1D6F' : '#DECFE8') : theme.surface,
-                          borderColor: isSelected ? theme.secondaryAccent : theme.border,
+                          borderColor: isSelected ? theme.activeCardBorder : theme.border,
                         },
                       ]}
                     >

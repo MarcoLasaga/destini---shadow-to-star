@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="375" height="812" viewBox="0 0 375 812" fill="none">
+<title>00d_Onboarding_Step3_Colours_Light</title>
+<defs>
+<filter id="Card_Shadow" x="-10%" y="-10%" width="120%" height="135%" color-interpolation-filters="sRGB">
+<feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#24152C" flood-opacity="0.05"/>
+</filter>
+<linearGradient id="Welcome_Grad" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0%" stop-color="#DECFE8"/>
+<stop offset="100%" stop-color="#FDF3D2"/>
+</linearGradient>
+<clipPath id="Screen_Clip"><rect width="375" height="812"/></clipPath>
+</defs>
+<g id="00d_Onboarding_Step3_Colours_Light" clip-path="url(#Screen_Clip)">
+<rect id="Background" x="0" y="0" width="375" height="812" fill="#FAF7F0"/>
+<g id="Status_Bar">
+<text id="Time" x="32" y="31" font-family="Arial, sans-serif" font-size="15" font-weight="600" fill="#24152C">9:41</text>
+<g id="Cellular_Signal">
+<rect id="Signal_Bar_1" x="289" y="26" width="3" height="4" rx="1" fill="#24152C"/>
+<rect id="Signal_Bar_2" x="294" y="24" width="3" height="6" rx="1" fill="#24152C"/>
+<rect id="Signal_Bar_3" x="299" y="22" width="3" height="8" rx="1" fill="#24152C"/>
+<rect id="Signal_Bar_4" x="304" y="20" width="3" height="10" rx="1" fill="#24152C"/>
+</g>
+<g id="WiFi">
+<path id="Wifi_Arc_Outer" d="M311.5 22a10.5 10.5 0 0 1 14 0" fill="none" stroke="#24152C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Wifi_Arc_Inner" d="M314.7 25.4a5.5 5.5 0 0 1 7.6 0" fill="none" stroke="#24152C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<circle id="Wifi_Dot" cx="318.5" cy="28.8" r="1.6" fill="#24152C"/>
+</g>
+<g id="Battery">
+<rect id="Battery_Body" x="332" y="20" width="25" height="12" rx="3.5" fill="none" stroke="#24152C" stroke-width="1" opacity="0.5"/>
+<rect id="Battery_Level" x="334" y="22" width="19" height="8" rx="2" fill="#24152C"/>
+<rect id="Battery_Cap" x="358.5" y="24" width="1.8" height="4" rx="0.9" fill="#24152C" opacity="0.5"/>
+</g>
+</g>
+<g id="Header_Bar">
+<g id="Brand_Logo">
+<rect id="Brand_Mark" x="20" y="56" width="32" height="32" rx="10" fill="#FDD78B"/>
+<text id="Brand_Mark_Letter" x="36" y="78" font-family="Arial, sans-serif" font-size="17" font-weight="900" fill="#24152C" text-anchor="middle">S</text>
+<text id="Brand_Wordmark" x="60" y="78" font-family="Arial, sans-serif" font-size="20" font-weight="400" fill="#24152C"><tspan fill="#24152C" font-weight="800">Style</tspan><tspan fill="#4B1D6F" font-weight="800">Sense</tspan></text>
+</g>
+<text id="Skip_Link" x="355" y="77" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#5E4B6B" text-anchor="end">Skip for now</text>
+</g>
+<g id="Progress_Bar">
+<rect id="Track" x="20" y="100" width="335" height="4" rx="2" fill="#DECFE8"/>
+<rect id="Fill" x="20" y="100" width="223.33" height="4" rx="2" fill="#4B1D6F"/>
+</g>
+<g id="Intro_Block">
+<text id="Eyebrow" x="20" y="138" font-family="Arial, sans-serif" font-size="11.5" font-weight="800" fill="#4B1D6F" letter-spacing="1.4">A LITTLE COLOUR CONTEXT</text>
+<text id="Title" x="20" y="166" font-family="Arial, sans-serif" font-size="21" font-weight="900" fill="#24152C" letter-spacing="-0.4">What colours do you reach for?</text>
+<text id="Subtitle" x="20" y="188" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#5E4B6B">We’ll use this to make recommendations feel like home.</text>
+</g>
+<g id="Colours_List">
+<g id="Colour_Choice_1">
+<rect id="Choice_Surface" x="20" y="214" width="335" height="72" rx="16" fill="#DECFE8" stroke="#4B1D6F" stroke-width="1.5"/>
+<rect id="Checkbox" x="34" y="240" width="20" height="20" rx="6" fill="#4B1D6F" stroke="#4B1D6F" stroke-width="1.5"/>
+<g id="Icon_Check" transform="translate(37 243) scale(0.5833)">
+<path id="Vector" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#FFFFFF" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Colour_Label" x="66" y="248" font-family="Arial, sans-serif" font-size="14" font-weight="800" fill="#24152C">Neutrals</text>
+<text id="Colour_Note" x="66" y="266" font-family="Arial, sans-serif" font-size="11.5" font-weight="400" fill="#5E4B6B">Black, white, beige</text>
+<g id="Swatches_Pill">
+<circle id="Swatch_1" cx="275" cy="250" r="7" fill="#24152C" stroke="#DECFE8" stroke-width="1"/>
+<circle id="Swatch_2" cx="293" cy="250" r="7" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<circle id="Swatch_3" cx="311" cy="250" r="7" fill="#E8DCB8" stroke="#DECFE8" stroke-width="1"/>
+</g>
+</g>
+<g id="Colour_Choice_2">
+<rect id="Choice_Surface_2" x="20" y="296" width="335" height="72" rx="16" fill="#DECFE8" stroke="#4B1D6F" stroke-width="1.5"/>
+<rect id="Checkbox_2" x="34" y="322" width="20" height="20" rx="6" fill="#4B1D6F" stroke="#4B1D6F" stroke-width="1.5"/>
+<g id="Icon_Check_2" transform="translate(37 325) scale(0.5833)">
+<path id="Vector_2" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#FFFFFF" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Colour_Label_2" x="66" y="330" font-family="Arial, sans-serif" font-size="14" font-weight="800" fill="#24152C">Earth tones</text>
+<text id="Colour_Note_2" x="66" y="348" font-family="Arial, sans-serif" font-size="11.5" font-weight="400" fill="#5E4B6B">Olive, rust, brown</text>
+<g id="Swatches_Pill_2">
+<circle id="Swatch_1_2" cx="275" cy="332" r="7" fill="#5E6D4E" stroke="#DECFE8" stroke-width="1"/>
+<circle id="Swatch_2_2" cx="293" cy="332" r="7" fill="#B75D38" stroke="#DECFE8" stroke-width="1"/>
+<circle id="Swatch_3_2" cx="311" cy="332" r="7" fill="#6A4E38" stroke="#DECFE8" stroke-width="1"/>
+</g>
+</g>
+<g id="Colour_Choice_3">
+<rect id="Choice_Surface_3" x="20" y="378" width="335" height="72" rx="16" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<rect id="Checkbox_3" x="34" y="404" width="20" height="20" rx="6" fill="none" stroke="#DECFE8" stroke-width="1.5"/>
+<text id="Colour_Label_3" x="66" y="412" font-family="Arial, sans-serif" font-size="14" font-weight="800" fill="#24152C">Soft pastels</text>
+<text id="Colour_Note_3" x="66" y="430" font-family="Arial, sans-serif" font-size="11.5" font-weight="400" fill="#5E4B6B">Powder blue, blush, lilac</text>
+<g id="Swatches_Pill_3">
+<circle id="Swatch_1_3" cx="275" cy="414" r="7" fill="#B4D3E5" stroke="#DECFE8" stroke-width="1"/>
+<circle id="Swatch_2_3" cx="293" cy="414" r="7" fill="#F5C9C9" stroke="#DECFE8" stroke-width="1"/>
+<circle id="Swatch_3_3" cx="311" cy="414" r="7" fill="#DECFE8" stroke="#DECFE8" stroke-width="1"/>
+</g>
+</g>
+<g id="Colour_Choice_4">
+<rect id="Choice_Surface_4" x="20" y="460" width="335" height="72" rx="16" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
+<rect id="Checkbox_4" x="34" y="486" width="20" height="20" rx="6" fill="none" stroke="#DECFE8" stroke-width="1.5"/>
+<text id="Colour_Label_4" x="66" y="494" font-family="Arial, sans-serif" font-size="14" font-weight="800" fill="#24152C">Bold colour</text>
+<text id="Colour_Note_4" x="66" y="512" font-family="Arial, sans-serif" font-size="11.5" font-weight="400" fill="#5E4B6B">Bright, confident accents</text>
+<g id="Swatches_Pill_4">
+<circle id="Swatch_1_4" cx="275" cy="496" r="7" fill="#D9383A" stroke="#DECFE8" stroke-width="1"/>
+<circle id="Swatch_2_4" cx="293" cy="496" r="7" fill="#2B6CB0" stroke="#DECFE8" stroke-width="1"/>
+<circle id="Swatch_3_4" cx="311" cy="496" r="7" fill="#D69E2E" stroke="#DECFE8" stroke-width="1"/>
+</g>
+</g>
+</g>
+<g id="Footer_Bar">
+<rect id="Footer_Divider" x="20" y="712" width="335" height="1" fill="#DECFE8"/>
+<g id="Back_Action">
+<g id="Icon_ArrowLeft" transform="translate(20 742) scale(0.7500)">
+<path id="Vector_3" d="M19 12H5 M12 19l-7-7 7-7" fill="none" stroke="#5E4B6B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Back_Label" x="44" y="756" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#5E4B6B">Back</text>
+</g>
+<text id="Step_Counter" x="187.5" y="756" font-family="Arial, sans-serif" font-size="12.5" font-weight="600" fill="#5E4B6B" text-anchor="middle">3 of 4</text>
+<g id="Continue_Button">
+<rect id="Button_Surface" x="225" y="730" width="130" height="44" rx="22" fill="#FBF5A7" stroke="none" stroke-width="1"/>
+<g id="Icon_ArrowRight" transform="translate(246.85 744.25) scale(0.6458)">
+<path id="Vector_4" d="M5 12h14 M12 5l7 7-7 7" fill="none" stroke="#24152C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text id="Button_Label" x="268.35" y="756.86" font-family="Arial, sans-serif" font-size="13.5" font-weight="800" fill="#24152C">Continue</text>
+</g>
+</g>
+<rect id="Home_Indicator" x="120.5" y="799" width="134" height="5" rx="2.5" fill="#24152C"/>
+</g>
+</svg>

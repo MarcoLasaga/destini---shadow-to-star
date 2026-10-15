@@ -242,7 +242,7 @@ export default function OutfitPreviewCard({ outfit }: { outfit: GeneratedOutfit 
                 { backgroundColor: theme.mode === 'dark' ? '#2A2A31' : '#F4F1EA' },
               ]}
             >
-              <Ionicons name={reason.icon as any} size={15} color={theme.secondaryAccent} />
+              <Ionicons name={reason.icon as any} size={15} color={theme.accent} />
               <Text style={[styles.reasonText, { color: theme.text }]}>{reason.description}</Text>
             </View>
           ))}

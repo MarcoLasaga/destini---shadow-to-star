@@ -14,16 +14,20 @@ export const lightTheme = {
   mode: 'light' as const,
   background: brand.alabaster,
   surface: '#FFFFFF',
+  primary: brand.darkPlum,
+  accent: brand.mediumPlum, // link / eyebrow / brandHighlight / progressFill: #4B1D6F Medium Plum (high contrast on light backgrounds)
   primaryAccent: brand.peachGold,
-  secondaryAccent: brand.paleYellow, // primary CTA fill: bright Pale Yellow
+  secondaryAccent: brand.paleYellow, // primary CTA fill: bright Pale Yellow (for button background)
+  buttonBg: brand.paleYellow, // used ONLY for button backgroundColor, NEVER for text
+  buttonText: brand.darkPlum,
+  buttonBorder: brand.softLilac,
   onAccent: brand.darkPlum, // text/icons on CTA fill: Dark Plum
   highlightText: brand.darkPlum, // crisp high-contrast highlight text
   statIconColor: brand.mediumPlum, // crisp visible icon color
   badgeBg: brand.softLilac,
   badgeAlt: brand.peachGold,
-  buttonBg: brand.paleYellow,
-  buttonText: brand.darkPlum,
-  buttonBorder: brand.softLilac,
+  activeCardBg: brand.softLilac,
+  activeCardBorder: brand.mediumPlum,
   activePillBg: brand.softLilac,
   activePillText: brand.darkPlum,
   navSurface: '#FFFFFF',
@@ -31,7 +35,7 @@ export const lightTheme = {
   navActiveIcon: brand.darkPlum,
   navInactiveIcon: brand.mediumPlum,
   text: brand.darkPlum,
-  textMuted: brand.mediumPlum,
+  textMuted: '#5E4B6B',
   border: brand.softLilac,
 };
 
@@ -39,16 +43,20 @@ export const darkTheme = {
   mode: 'dark' as const,
   background: brand.darkPlum,
   surface: brand.darkCard,
+  primary: brand.softCream,
+  accent: brand.paleYellow, // link / eyebrow / brandHighlight / progressFill: #FBF5A7 Pale Yellow in dark mode
   primaryAccent: brand.peachGold,
   secondaryAccent: brand.paleYellow, // primary CTA fill: bright Pale Yellow
+  buttonBg: brand.paleYellow,
+  buttonText: brand.darkPlum,
+  buttonBorder: 'transparent',
   onAccent: brand.darkPlum,
   highlightText: brand.paleYellow,
   statIconColor: brand.paleYellow,
   badgeBg: brand.mediumPlum,
   badgeAlt: brand.peachGold,
-  buttonBg: brand.paleYellow,
-  buttonText: brand.darkPlum,
-  buttonBorder: 'transparent',
+  activeCardBg: brand.mediumPlum,
+  activeCardBorder: brand.paleYellow,
   activePillBg: brand.paleYellow,
   activePillText: brand.darkPlum,
   navSurface: brand.darkPlum,

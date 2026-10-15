@@ -5,6 +5,10 @@
 <filter id="Card_Shadow" x="-10%" y="-10%" width="120%" height="135%" color-interpolation-filters="sRGB">
 <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#24152C" flood-opacity="0.35"/>
 </filter>
+<linearGradient id="Welcome_Grad" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0%" stop-color="#DECFE8"/>
+<stop offset="100%" stop-color="#FDF3D2"/>
+</linearGradient>
 <clipPath id="Screen_Clip"><rect width="375" height="812"/></clipPath>
 </defs>
 <g id="10_Account_Dark" clip-path="url(#Screen_Clip)">
@@ -67,7 +71,7 @@
 </g>
 </g>
 </g>
-<text id="Section_Appearance" x="20" y="290" font-family="Arial, sans-serif" font-size="11" font-weight="800" fill="#DECFE8" letter-spacing="1.3">APPEARANCE</text>
+<text id="Section_Appearance" x="20" y="290" font-family="Arial, sans-serif" font-size="11" font-weight="800" fill="#FBF5A7" letter-spacing="1.3">APPEARANCE</text>
 <g id="Appearance_Card">
 <rect id="Card_Surface_2" x="20" y="300" width="335" height="54" rx="18" fill="#2E1B38" stroke="#4B1D6F" stroke-width="1" filter="url(#Card_Shadow)"/>
 <g id="Icon_Moon" transform="translate(36 317) scale(0.7500)">
@@ -84,7 +88,7 @@
 </g>
 </g>
 </g>
-<text id="Section_Alert_Prefs" x="20" y="376" font-family="Arial, sans-serif" font-size="11" font-weight="800" fill="#DECFE8" letter-spacing="1.3">ALERT PREFERENCES</text>
+<text id="Section_Alert_Prefs" x="20" y="376" font-family="Arial, sans-serif" font-size="11" font-weight="800" fill="#FBF5A7" letter-spacing="1.3">ALERT PREFERENCES</text>
 <text id="Alert_Count" x="355" y="376" font-family="Arial, sans-serif" font-size="11.5" font-weight="700" fill="#DECFE8" text-anchor="end">3 of 4 active</text>
 <g id="Alert_Prefs_Card">
 <rect id="Card_Surface_3" x="20" y="386" width="335" height="216" rx="18" fill="#2E1B38" stroke="#4B1D6F" stroke-width="1" filter="url(#Card_Shadow)"/>

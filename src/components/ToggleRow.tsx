@@ -18,8 +18,8 @@ export default function ToggleRow({
       <Switch
         value={value}
         onValueChange={onToggle}
-        trackColor={{ false: theme.border, true: theme.secondaryAccent }}
-        thumbColor="#FFFFFF"
+        trackColor={{ false: theme.border, true: theme.mode === 'dark' ? '#FDD78B' : '#4B1D6F' }}
+        thumbColor={theme.mode === 'dark' ? '#24152C' : '#FBF5A7'}
       />
     </View>
   );

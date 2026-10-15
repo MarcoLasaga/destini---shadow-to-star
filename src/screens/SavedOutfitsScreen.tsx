@@ -64,7 +64,7 @@ export default function SavedOutfitsScreen() {
       {savedOutfits.length === 0 ? (
         <Animated.View entering={FadeInDown.duration(400)} style={styles.empty}>
           <View style={[styles.emptyIcon, { backgroundColor: theme.primaryAccent + '26' }]}>
-            <Ionicons name="shirt-outline" size={34} color={theme.secondaryAccent} />
+            <Ionicons name="shirt-outline" size={34} color={theme.accent} />
           </View>
           <Text style={[styles.emptyTitle, { color: theme.text }]}>No Saved Outfits</Text>
           <Text style={[styles.emptySubtitle, { color: theme.textMuted }]}>
@@ -119,7 +119,7 @@ export default function SavedOutfitsScreen() {
                             },
                           ]}
                         >
-                          <Text style={[styles.badgeText, { color: theme.secondaryAccent }]}>
+                          <Text style={[styles.badgeText, { color: theme.accent, fontWeight: '700' }]}>
                             {outfit.occasionLabel || 'Casual'}
                           </Text>
                         </View>
@@ -217,7 +217,7 @@ export default function SavedOutfitsScreen() {
           <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <View style={styles.modalHeader}>
               <View style={[styles.modalIconWrap, { backgroundColor: theme.primaryAccent + '26' }]}>
-                <Ionicons name="pencil" size={18} color={theme.secondaryAccent} />
+                <Ionicons name="pencil" size={18} color={theme.accent} />
               </View>
               <Text style={[styles.modalTitle, { color: theme.text }]}>Rename Saved Outfit</Text>
             </View>

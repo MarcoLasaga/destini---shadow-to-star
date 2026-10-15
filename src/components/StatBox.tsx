@@ -17,7 +17,7 @@ export default function StatBox({
   const theme = useAppTheme();
   return (
     <View style={[styles.box, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-      <Ionicons name={icon} size={17} color={tone ?? theme.secondaryAccent} />
+      <Ionicons name={icon} size={17} color={tone ?? theme.statIconColor} />
       <Text style={[styles.value, { color: theme.text }]}>{value}</Text>
       <Text style={[styles.label, { color: theme.textMuted }]}>{label}</Text>
     </View>

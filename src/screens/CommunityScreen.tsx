@@ -109,7 +109,7 @@ export default function CommunityScreen() {
           <RefreshControl
             refreshing={community.refreshing}
             onRefresh={community.refresh}
-            tintColor={theme.secondaryAccent}
+            tintColor={theme.accent}
           />
         }
         ListHeaderComponent={

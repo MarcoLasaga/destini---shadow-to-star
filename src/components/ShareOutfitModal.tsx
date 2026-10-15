@@ -109,7 +109,7 @@ export default function ShareOutfitModal({
     }
   };
 
-  const activeAccent = theme.secondaryAccent;
+  const activeAccent = theme.accent;
 
   return (
     <>
@@ -169,7 +169,7 @@ export default function ShareOutfitModal({
                   >
                     {/* Selected Badge */}
                     {isSelected && (
-                      <View style={[styles.checkBadge, { backgroundColor: activeAccent }]}>
+                      <View style={[styles.checkBadge, { backgroundColor: theme.secondaryAccent }]}>
                         <Ionicons name="checkmark" size={12} color={theme.onAccent} />
                       </View>
                     )}

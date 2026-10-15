@@ -123,13 +123,25 @@ export default function AddClothesScreen() {
 
         setIsImageVerified(true);
 
-        setConfidence(
+        const detectedConfidence =
           typeof prediction.categoryConfidence === 'number'
             ? prediction.categoryConfidence
             : typeof prediction.confidence === 'number'
             ? prediction.confidence
-            : null
-        );
+            : null;
+
+        // Thesis Chapter 2 Eq. 3: Garment detection & classification confidence threshold tau >= 0.55
+        if (detectedConfidence !== null && detectedConfidence < 0.55) {
+          setConfidence(detectedConfidence);
+          setModerationModal({
+            visible: true,
+            title: 'Low Garment Confidence',
+            message: `The image could only be identified with ${Math.round(detectedConfidence * 100)}% confidence (<55% threshold). Please upload a clear, well-lit photo of a clothing item.`,
+          });
+          return;
+        }
+
+        setConfidence(detectedConfidence);
 
         const suggestedCategory = prediction.category ? CATEGORY_FROM_API[prediction.category] : undefined;
         if (suggestedCategory && ALLOWED_CATEGORIES.includes(suggestedCategory)) {
@@ -303,14 +315,18 @@ export default function AddClothesScreen() {
         </View>
 
         {analyzing && (
-          <Text style={[styles.analyzingText, { color: theme.secondaryAccent }]}>
-            Analyzing garment with ResNet-50 & CIELAB K-Means…
-          </Text>
+          <View style={[styles.statusPill, { backgroundColor: theme.mode === 'dark' ? '#3A2447' : '#DECFE8', borderColor: theme.border }]}>
+            <Text style={[styles.statusPillText, { color: theme.mode === 'dark' ? '#FDF3D2' : '#24152C' }]}>
+              Analyzing garment with ResNet-50 & CIELAB K-Means…
+            </Text>
+          </View>
         )}
         {!analyzing && confidence !== null && (
-          <Text style={[styles.analyzingText, { color: theme.secondaryAccent }]}>
-            Classified as {category} with {Math.round(confidence * 100)}% AI confidence
-          </Text>
+          <View style={[styles.statusPill, { backgroundColor: theme.mode === 'dark' ? '#3A2447' : '#DECFE8', borderColor: theme.border }]}>
+            <Text style={[styles.statusPillText, { color: theme.mode === 'dark' ? '#FDF3D2' : '#24152C' }]}>
+              Classified as {category} with {Math.round(confidence * 100)}% AI confidence
+            </Text>
+          </View>
         )}
 
         <TextField label="Name *" value={name} onChangeText={setName} placeholder="e.g. Linen Camp Shirt" />
@@ -380,6 +396,8 @@ const styles = StyleSheet.create({
   photoImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   photoActions: { flexDirection: 'row', gap: 12 },
   photoButton: { flex: 1, minHeight: 48, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 8 },
+  statusPill: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginVertical: 4 },
+  statusPillText: { fontSize: 13, fontWeight: '700', textAlign: 'center' },
   analyzingText: { textAlign: 'center', fontSize: 13, fontWeight: '600' },
   row: { flexDirection: 'row' },
   gap: { width: 12 },

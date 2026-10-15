@@ -80,7 +80,7 @@ export default function PackingTripDetailScreen() {
             {/* Trip Summary Card */}
             <View style={[styles.tripCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
               <View style={styles.tripHeaderRow}>
-                <Ionicons name="location" size={17} color={theme.secondaryAccent} />
+                <Ionicons name="location" size={17} color={theme.accent} />
                 <Text style={[styles.tripDestination, { color: theme.text }]}>{trip.destination}</Text>
               </View>
 
@@ -99,7 +99,7 @@ export default function PackingTripDetailScreen() {
                   <Text
                     style={[
                       styles.badgePillText,
-                      { color: trip.packingMode === 'heavy' ? theme.secondaryAccent : '#2F8F5B' },
+                      { color: trip.packingMode === 'heavy' ? theme.accent : '#2F8F5B' },
                     ]}
                   >
                     {trip.packingMode === 'heavy' ? 'Heavy Mode' : 'Light Capsule'}
@@ -122,12 +122,12 @@ export default function PackingTripDetailScreen() {
                   <Text style={[styles.tripProgress, { color: theme.text }]}>
                     {packedCount} / {trip.checklist.length} packed
                   </Text>
-                  <Text style={[styles.tripProgressPercent, { color: theme.secondaryAccent }]}>
+                  <Text style={[styles.tripProgressPercent, { color: theme.highlightText }]}>
                     {progressPercent}%
                   </Text>
                 </View>
                 <View style={[styles.progressBarTrack, { backgroundColor: theme.border }]}>
-                  <View style={[styles.progressBarFill, { width: `${progressPercent}%`, backgroundColor: theme.secondaryAccent }]} />
+                  <View style={[styles.progressBarFill, { width: `${progressPercent}%`, backgroundColor: theme.statIconColor }]} />
                 </View>
               </View>
             </View>
@@ -139,7 +139,7 @@ export default function PackingTripDetailScreen() {
               return (
                 <View style={[styles.weatherCard, { backgroundColor: theme.mode === 'dark' ? '#171D22' : '#F2ECE4', borderColor: theme.border, borderWidth: 1 }]}>
                   <View style={styles.weatherHeader}>
-                    <Ionicons name="partly-sunny-outline" size={16} color={theme.secondaryAccent} />
+                    <Ionicons name="partly-sunny-outline" size={16} color={theme.accent} />
                     <Text style={[styles.weatherTitle, { color: theme.text }]}>OpenWeatherMap Forecast (PH Metric)</Text>
                   </View>
                   <View style={styles.weatherRow}>

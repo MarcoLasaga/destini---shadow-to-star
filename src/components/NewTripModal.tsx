@@ -209,7 +209,7 @@ export default function NewTripModal({ visible, onClose }: { visible: boolean; o
                     onPress={() => setShowStartPicker(true)}
                     style={[styles.dateButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
                   >
-                    <Ionicons name="calendar-outline" size={15} color={theme.secondaryAccent} />
+                    <Ionicons name="calendar-outline" size={15} color={theme.accent} />
                     <Text style={{ color: theme.text, fontSize: 13, fontWeight: '600' }}>
                       {startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                     </Text>
@@ -224,7 +224,7 @@ export default function NewTripModal({ visible, onClose }: { visible: boolean; o
                     onPress={() => setShowEndPicker(true)}
                     style={[styles.dateButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
                   >
-                    <Ionicons name="calendar-outline" size={15} color={theme.secondaryAccent} />
+                    <Ionicons name="calendar-outline" size={15} color={theme.accent} />
                     <Text style={{ color: theme.text, fontSize: 13, fontWeight: '600' }}>
                       {endDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                     </Text>
@@ -276,8 +276,8 @@ export default function NewTripModal({ visible, onClose }: { visible: boolean; o
                   style={[
                     styles.modeChoiceCard,
                     {
-                      borderColor: packingMode === 'light' ? theme.secondaryAccent : theme.border,
-                      backgroundColor: packingMode === 'light' ? theme.secondaryAccent + '15' : theme.surface,
+                      borderColor: packingMode === 'light' ? theme.activeCardBorder : theme.border,
+                      backgroundColor: packingMode === 'light' ? theme.activeCardBg : theme.surface,
                     },
                   ]}
                 >
@@ -285,12 +285,12 @@ export default function NewTripModal({ visible, onClose }: { visible: boolean; o
                     <Ionicons
                       name="leaf-outline"
                       size={18}
-                      color={packingMode === 'light' ? theme.secondaryAccent : theme.textMuted}
+                      color={packingMode === 'light' ? theme.accent : theme.textMuted}
                     />
                     <Text
                       style={[
                         styles.modeChoiceTitle,
-                        { color: packingMode === 'light' ? theme.secondaryAccent : theme.text },
+                        { color: packingMode === 'light' ? theme.text : theme.text },
                       ]}
                     >
                       Light Mode
@@ -306,8 +306,8 @@ export default function NewTripModal({ visible, onClose }: { visible: boolean; o
                   style={[
                     styles.modeChoiceCard,
                     {
-                      borderColor: packingMode === 'heavy' ? theme.secondaryAccent : theme.border,
-                      backgroundColor: packingMode === 'heavy' ? theme.secondaryAccent + '15' : theme.surface,
+                      borderColor: packingMode === 'heavy' ? theme.activeCardBorder : theme.border,
+                      backgroundColor: packingMode === 'heavy' ? theme.activeCardBg : theme.surface,
                     },
                   ]}
                 >
@@ -315,12 +315,12 @@ export default function NewTripModal({ visible, onClose }: { visible: boolean; o
                     <Ionicons
                       name="briefcase-outline"
                       size={18}
-                      color={packingMode === 'heavy' ? theme.secondaryAccent : theme.textMuted}
+                      color={packingMode === 'heavy' ? theme.accent : theme.textMuted}
                     />
                     <Text
                       style={[
                         styles.modeChoiceTitle,
-                        { color: packingMode === 'heavy' ? theme.secondaryAccent : theme.text },
+                        { color: packingMode === 'heavy' ? theme.text : theme.text },
                       ]}
                     >
                       Heavy Mode

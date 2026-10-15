@@ -85,7 +85,7 @@ export default function OnboardingScreen({ onComplete }: { onComplete: () => voi
   const intro = (eyebrow: string, title: string, body: string, icon: keyof typeof Ionicons.glyphMap) => (
     <View style={styles.intro}>
       <View style={[styles.iconBubble, { backgroundColor: theme.primaryAccent }]}><Ionicons name={icon} size={22} color={'#24152C'} /></View>
-      <Text style={[styles.eyebrow, { color: theme.secondaryAccent }]}>{eyebrow}</Text>
+      <Text style={[styles.eyebrow, { color: theme.accent }]}>{eyebrow}</Text>
       <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
       <Text style={[styles.body, { color: theme.textMuted }]}>{body}</Text>
     </View>
@@ -94,8 +94,8 @@ export default function OnboardingScreen({ onComplete }: { onComplete: () => voi
   const choices = (items: Choice[], selected: string[], setSelected: React.Dispatch<React.SetStateAction<string[]>>) => (
     <View style={styles.choiceGrid}>{items.map(item => {
       const active = selected.includes(item.id);
-      return <Pressable key={item.id} onPress={() => toggle(item.id, setSelected)} style={[styles.choice, { backgroundColor: active ? theme.badgeBg : theme.surface, borderColor: active ? theme.secondaryAccent : theme.border }]}>
-        <View style={[styles.check, { borderColor: active ? theme.secondaryAccent : theme.border, backgroundColor: active ? theme.secondaryAccent : 'transparent' }]}>{active && <Ionicons name="checkmark" size={14} color={theme.onAccent} />}</View>
+      return <Pressable key={item.id} onPress={() => toggle(item.id, setSelected)} style={[styles.choice, { backgroundColor: active ? theme.activeCardBg : theme.surface, borderColor: active ? theme.activeCardBorder : theme.border }]}>
+        <View style={[styles.check, { borderColor: active ? theme.activeCardBorder : theme.border, backgroundColor: active ? theme.activeCardBorder : 'transparent' }]}>{active && <Ionicons name="checkmark" size={14} color={theme.mode === 'dark' ? '#24152C' : '#FFFFFF'} />}</View>
         <View style={styles.choiceCopy}><Text style={[styles.choiceLabel, { color: theme.text }]}>{item.label}</Text><Text style={[styles.choiceNote, { color: theme.textMuted }]}>{item.note}</Text></View>
       </Pressable>;
     })}</View>
@@ -112,7 +112,7 @@ export default function OnboardingScreen({ onComplete }: { onComplete: () => voi
             <Text style={styles.brandMarkText}>S</Text>
           </View>
           <Text style={[styles.brandText, { color: theme.text }]}>
-            Style<Text style={{ color: theme.secondaryAccent }}>Sense</Text>
+            Style<Text style={{ color: theme.accent }}>Sense</Text>
           </Text>
         </View>
         {step > 0 && step < lastStep && (
@@ -125,7 +125,7 @@ export default function OnboardingScreen({ onComplete }: { onComplete: () => voi
         <View
           style={[
             styles.progress,
-            { width: `${((step + 1) / 6) * 100}%`, backgroundColor: theme.secondaryAccent },
+            { width: `${((step + 1) / 6) * 100}%`, backgroundColor: theme.accent },
           ]}
         />
       </View>
@@ -220,8 +220,8 @@ export default function OnboardingScreen({ onComplete }: { onComplete: () => voi
                     style={[
                       styles.choice,
                       {
-                        backgroundColor: active ? theme.badgeBg : theme.surface,
-                        borderColor: active ? theme.secondaryAccent : theme.border,
+                        backgroundColor: active ? theme.activeCardBg : theme.surface,
+                        borderColor: active ? theme.activeCardBorder : theme.border,
                       },
                     ]}
                   >
@@ -229,12 +229,12 @@ export default function OnboardingScreen({ onComplete }: { onComplete: () => voi
                       style={[
                         styles.check,
                         {
-                          borderColor: active ? theme.secondaryAccent : theme.border,
-                          backgroundColor: active ? theme.secondaryAccent : 'transparent',
+                          borderColor: active ? theme.activeCardBorder : theme.border,
+                          backgroundColor: active ? theme.activeCardBorder : 'transparent',
                         },
                       ]}
                     >
-                      {active && <Ionicons name="checkmark" size={14} color={theme.onAccent} />}
+                      {active && <Ionicons name="checkmark" size={14} color={theme.mode === 'dark' ? '#24152C' : '#FFFFFF'} />}
                     </View>
                     <View style={styles.choiceCopy}>
                       <Text style={[styles.choiceLabel, { color: theme.text }]}>{item.label}</Text>
@@ -273,7 +273,7 @@ export default function OnboardingScreen({ onComplete }: { onComplete: () => voi
               </View>
             </View>
             <Text style={[styles.helper, { color: theme.textMuted }]}>
-              <Ionicons name="checkmark-circle" size={15} color={theme.secondaryAccent} /> You can change these preferences any time.
+              <Ionicons name="checkmark-circle" size={15} color={theme.accent} /> You can change these preferences any time.
             </Text>
           </>
         )}

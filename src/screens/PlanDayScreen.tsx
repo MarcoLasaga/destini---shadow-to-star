@@ -216,7 +216,7 @@ export default function PlanDayScreen() {
             <View style={styles.cardHeader}>
               <View>
                 <Text style={[styles.plannedTitle, { color: theme.text }]}>{activePlan.outfit.name}</Text>
-                <Text style={[styles.plannedMatch, { color: theme.secondaryAccent }]}>
+                <Text style={[styles.plannedMatch, { color: theme.highlightText }]}>
                   {activePlan.outfit.hybridScore ?? activePlan.outfit.matchPercent}% Hybrid Match
                 </Text>
               </View>
@@ -226,8 +226,8 @@ export default function PlanDayScreen() {
                   <Text style={styles.wornTagText}>Worn</Text>
                 </View>
               ) : (
-                <View style={[styles.scheduledTag, { backgroundColor: theme.secondaryAccent + '20' }]}>
-                  <Text style={[styles.scheduledTagText, { color: theme.secondaryAccent }]}>Scheduled</Text>
+                <View style={[styles.scheduledTag, { backgroundColor: theme.accent + '20' }]}>
+                  <Text style={[styles.scheduledTagText, { color: theme.accent }]}>Scheduled</Text>
                 </View>
               )}
             </View>
@@ -281,7 +281,7 @@ export default function PlanDayScreen() {
         ) : (
           <View style={[styles.emptyCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <View style={[styles.emptyIconWrap, { backgroundColor: theme.primaryAccent + '25' }]}>
-              <Ionicons name="calendar-outline" size={32} color={theme.secondaryAccent} />
+              <Ionicons name="calendar-outline" size={32} color={theme.accent} />
             </View>
             <Text style={[styles.emptyTitle, { color: theme.text }]}>No Outfit Planned</Text>
             <Text style={[styles.emptySubtitle, { color: theme.textMuted }]}>
@@ -336,7 +336,7 @@ export default function PlanDayScreen() {
                       <Text style={[styles.pickOccasion, { color: theme.textMuted }]}>
                         {item.occasionLabel} · {item.hybridScore ?? item.matchPercent}% Match
                       </Text>
-                      <Text style={[styles.pickItemsCount, { color: theme.secondaryAccent }]}>
+                      <Text style={[styles.pickItemsCount, { color: theme.accent }]}>
                         {item.clothingItems.length} Garments
                       </Text>
                     </View>

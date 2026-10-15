@@ -61,8 +61,8 @@ export default function ProfileScreen() {
             {profile.avatarUri ? (
               <Image source={{ uri: profile.avatarUri }} style={styles.avatarImage} />
             ) : (
-              <View style={[styles.avatarPlaceholder, { backgroundColor: theme.mode === 'dark' ? '#3A3A42' : '#E4E1EC' }]}>
-                <Text style={[styles.avatarInitial, { color: theme.secondaryAccent }]}>{initial}</Text>
+              <View style={[styles.avatarPlaceholder, { backgroundColor: theme.mode === 'dark' ? '#3A3A42' : '#DECFE8' }]}>
+                <Text style={[styles.avatarInitial, { color: theme.mode === 'dark' ? theme.accent : theme.primary }]}>{initial}</Text>
               </View>
             )}
             <Pressable onPress={handleAvatarPress} style={[styles.cameraBadge, { backgroundColor: theme.secondaryAccent }]}>
@@ -104,7 +104,7 @@ export default function ProfileScreen() {
               onPress={() => navigation.navigate(item.key)}
               style={[styles.menuRow, index !== MENU_ITEMS.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border }]}
             >
-              <Ionicons name={item.icon} size={19} color={theme.textMuted} />
+              <Ionicons name={item.icon} size={19} color={theme.accent} />
               <Text style={[styles.menuLabel, { color: theme.text }]}>{item.label}</Text>
               <Ionicons name="chevron-forward" size={17} color={theme.textMuted} />
             </Pressable>

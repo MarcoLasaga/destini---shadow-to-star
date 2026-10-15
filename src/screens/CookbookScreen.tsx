@@ -28,7 +28,7 @@ export default function CookbookScreen() {
 
         <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="bulb-outline" size={17} color={theme.secondaryAccent} />
+            <Ionicons name="bulb-outline" size={17} color={theme.accent} />
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Suggestions</Text>
           </View>
           {data.suggestions.map((s) => (
@@ -46,8 +46,8 @@ export default function CookbookScreen() {
 
         {data.sustainabilityTips.map((tip) => (
           <View key={tip.title} style={[styles.tipCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={[styles.tipIcon, { backgroundColor: theme.mode === 'dark' ? '#2A2A31' : '#F4F1EA' }]}>
-              <Ionicons name={tip.icon} size={17} color={theme.secondaryAccent} />
+            <View style={[styles.tipIcon, { backgroundColor: theme.mode === 'dark' ? '#2A2A31' : '#DECFE8' }]}>
+              <Ionicons name={tip.icon} size={17} color={theme.accent} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.tipTitle, { color: theme.text }]}>{tip.title}</Text>

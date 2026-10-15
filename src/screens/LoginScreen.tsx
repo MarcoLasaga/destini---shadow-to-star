@@ -64,7 +64,7 @@ export default function LoginScreen() {
         {/* App Logo / Greeting */}
         <Animated.View entering={FadeInUp.duration(600).delay(100)} style={styles.header}>
           <View style={[styles.logoContainer, { backgroundColor: theme.primaryAccent }]}>
-            <Ionicons name="shirt" size={32} color={theme.secondaryAccent} />
+            <Ionicons name="shirt" size={32} color={theme.mode === 'dark' ? theme.accent : '#24152C'} />
           </View>
           <Text style={[styles.title, { color: theme.text }]}>Welcome Back</Text>
           <Text style={[styles.subtitle, { color: theme.textMuted }]}>Sign in to your digital closet</Text>
@@ -148,7 +148,7 @@ export default function LoginScreen() {
               style={[styles.submitButton, { backgroundColor: theme.secondaryAccent }]}
             >
               {loading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color="#24152C" />
               ) : (
                 <Text style={[styles.submitButtonText, { color: theme.onAccent }]}>Sign In</Text>
               )}
@@ -162,7 +162,7 @@ export default function LoginScreen() {
             Don't have an account?{' '}
             <Text
               onPress={() => navigation.navigate('Signup')}
-              style={[styles.linkText, { color: theme.secondaryAccent }]}
+              style={[styles.linkText, { color: theme.accent, fontWeight: '700' }]}
             >
               Sign Up
             </Text>

@@ -5,6 +5,10 @@
 <filter id="Card_Shadow" x="-10%" y="-10%" width="120%" height="135%" color-interpolation-filters="sRGB">
 <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#24152C" flood-opacity="0.05"/>
 </filter>
+<linearGradient id="Welcome_Grad" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0%" stop-color="#DECFE8"/>
+<stop offset="100%" stop-color="#FDF3D2"/>
+</linearGradient>
 <clipPath id="Screen_Clip"><rect width="375" height="812"/></clipPath>
 </defs>
 <g id="03_Wardrobe_Light" clip-path="url(#Screen_Clip)">
@@ -30,7 +34,7 @@
 </g>
 <g id="Header_Bar">
 <text id="Screen_Title" x="20" y="88" font-family="Arial, sans-serif" font-size="28" font-weight="900" fill="#24152C" letter-spacing="-0.6">Wardrobe</text>
-<text id="Subtitle" x="20" y="110" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#4B1D6F">13 items · 9 clean</text>
+<text id="Subtitle" x="20" y="110" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#5E4B6B">13 items · 9 clean</text>
 <g id="Add_Clothes_Header_Button">
 <rect id="Button_Surface" x="225" y="74" width="130" height="38" rx="19" fill="#FBF5A7" stroke="none" stroke-width="1"/>
 <text id="Button_Label" x="290" y="97.5" font-family="Arial, sans-serif" font-size="12.5" font-weight="800" fill="#24152C" text-anchor="middle">+ Add Clothes</text>
@@ -48,7 +52,7 @@
 </g>
 </g>
 <g id="Sort_Menu">
-<text id="Sort_Label" x="355" y="148" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#4B1D6F" text-anchor="end">Sort: Recent ▼</text>
+<text id="Sort_Label" x="355" y="148" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#5E4B6B" text-anchor="end">Sort: Recent ▼</text>
 </g>
 </g>
 <g id="Active_Filter_Chips_Row">
@@ -84,7 +88,7 @@
 </g>
 </g>
 <text id="Garment_Title" x="32" y="388" font-family="Arial, sans-serif" font-size="14" font-weight="800" fill="#24152C">White Jeans</text>
-<text id="Garment_Cat" x="32" y="406" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">BOTTOM · Casual</text>
+<text id="Garment_Cat" x="32" y="406" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#5E4B6B">BOTTOM · Casual</text>
 <g id="Wear_Count_Pill">
 <text id="Wear_Count" x="32" y="428" font-family="Arial, sans-serif" font-size="10.5" font-weight="600" fill="#4B1D6F">Worn 6 times</text>
 </g>
@@ -101,11 +105,11 @@
 <g id="Fav_Heart_2">
 <circle id="Heart_Circle_2" cx="331" cy="240" r="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
 <g id="Icon_Heart_2" transform="translate(324 233) scale(0.5833)">
-<path id="Vector_6" d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" fill="none" stroke="#4B1D6F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector_6" d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" fill="none" stroke="#5E4B6B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 </g>
 <text id="Garment_Title_2" x="205.5" y="388" font-family="Arial, sans-serif" font-size="14" font-weight="800" fill="#24152C">Black SHOES</text>
-<text id="Garment_Cat_2" x="205.5" y="406" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">SHOES · Workout</text>
+<text id="Garment_Cat_2" x="205.5" y="406" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#5E4B6B">SHOES · Workout</text>
 <g id="Wear_Count_Pill_2">
 <text id="Wear_Count_2" x="205.5" y="428" font-family="Arial, sans-serif" font-size="10.5" font-weight="600" fill="#4B1D6F">Worn 6 times</text>
 </g>
@@ -122,11 +126,11 @@
 <g id="Fav_Heart_3">
 <circle id="Heart_Circle_3" cx="157.5" cy="482" r="14" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
 <g id="Icon_Heart_3" transform="translate(150.5 475) scale(0.5833)">
-<path id="Vector_7" d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" fill="none" stroke="#4B1D6F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector_7" d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" fill="none" stroke="#5E4B6B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 </g>
 <text id="Garment_Title_3" x="32" y="630" font-family="Arial, sans-serif" font-size="14" font-weight="800" fill="#24152C">Corduroy Jacket</text>
-<text id="Garment_Cat_3" x="32" y="648" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">OUTERWEAR · Academic</text>
+<text id="Garment_Cat_3" x="32" y="648" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#5E4B6B">OUTERWEAR · Academic</text>
 <g id="Wear_Count_Pill_3">
 <text id="Wear_Count_3" x="32" y="670" font-family="Arial, sans-serif" font-size="10.5" font-weight="600" fill="#4B1D6F">Worn 6 times</text>
 </g>
@@ -151,7 +155,7 @@
 <text id="Badge_Text" x="247.5" y="592" font-family="Arial, sans-serif" font-size="9" font-weight="800" fill="#24152C" text-anchor="middle">NEEDS WASH</text>
 </g>
 <text id="Garment_Title_4" x="205.5" y="630" font-family="Arial, sans-serif" font-size="14" font-weight="800" fill="#24152C">Black Smartwatch</text>
-<text id="Garment_Cat_4" x="205.5" y="648" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#4B1D6F">ACCESSORIES · Office</text>
+<text id="Garment_Cat_4" x="205.5" y="648" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#5E4B6B">ACCESSORIES · Office</text>
 <g id="Wear_Count_Pill_4">
 <text id="Wear_Count_4" x="205.5" y="670" font-family="Arial, sans-serif" font-size="10.5" font-weight="600" fill="#4B1D6F">Worn 6 times</text>
 </g>

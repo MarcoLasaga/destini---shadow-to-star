@@ -1,6 +1,6 @@
 /* eslint-disable */
 // StyleSense — High-Precision Layered SVG Generator for Figma
-// Generates 10 standalone, Figma-ready 375x812 SVGs mirroring the real StyleSense app 1:1
+// Generates 17 standalone, Figma-ready 375x812 SVGs mirroring the real StyleSense app 1:1
 // Run: node figma-layered-screens/generate-svgs.js
 
 const fs = require('fs');
@@ -30,13 +30,16 @@ const THEMES = {
     surface: B.white,
     border: B.softLilac,
     text: B.darkPlum,
-    muted: B.mediumPlum,
-    accent: B.paleYellow, // CTA button fill: pale yellow
-    onAccent: B.darkPlum,  // text/icon on pale yellow CTA: dark plum
-    highlightText: B.darkPlum, // NEVER pale yellow in light mode
+    muted: '#5E4B6B',
+    accent: B.mediumPlum, // eyebrow, link, progressFill, logo highlight in light mode: #4B1D6F (high contrast)
+    ctaFill: B.paleYellow, // button fill ONLY: #FBF5A7
+    onCta: B.darkPlum,     // text/icon on CTA: #24152C
+    highlightText: B.darkPlum, // NEVER pale yellow on light backgrounds
     statIconColor: B.mediumPlum, // crisp visible plum in light mode
     badge: B.softLilac,
     badgeText: B.darkPlum,
+    activeCardBg: B.softLilac,
+    activeCardBorder: B.mediumPlum,
     tileBg: '#F4F1EA',
     navSurface: B.white,
     navActiveIcon: B.darkPlum,
@@ -50,12 +53,15 @@ const THEMES = {
     border: B.mediumPlum,
     text: B.softCream,
     muted: B.softLilac,
-    accent: B.paleYellow, // CTA button fill: pale yellow
-    onAccent: B.darkPlum,  // text/icon on pale yellow CTA: dark plum
-    highlightText: B.paleYellow, // high-contrast yellow in dark mode
-    statIconColor: B.paleYellow, // high-contrast yellow in dark mode
+    accent: B.paleYellow, // eyebrow, link, progressFill, logo highlight in dark mode: #FBF5A7
+    ctaFill: B.paleYellow,
+    onCta: B.darkPlum,
+    highlightText: B.paleYellow,
+    statIconColor: B.paleYellow,
     badge: B.mediumPlum,
     badgeText: B.softCream,
+    activeCardBg: B.mediumPlum,
+    activeCardBorder: B.paleYellow,
     tileBg: B.darkTile,
     navSurface: B.darkPlum,
     navActiveIcon: B.paleYellow,
@@ -150,6 +156,9 @@ const ICON = {
   help: 'M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3 M12 17h.01 M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z',
   logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9',
   thumbDown: 'M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17',
+  palette: 'M12 2C6.49 2 2 6.49 2 12s4.49 10 10 10a2.5 2.5 0 0 0 2.5-2.5c0-.61-.23-1.2-.64-1.67-.4-.46-.64-.99-.64-1.58 0-1.38 1.12-2.5 2.5-2.5H18c3.31 0 6-2.69 6-6 0-4.96-5.37-9-12-9zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 8 6.5 8 8 8.67 8 9.5 7.33 11 6.5 11zm3-4C8.67 7 8 6.33 8 5.5S8.67 4 9.5 4s1.5.67 1.5 1.5S10.33 7 9.5 7zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 4 14.5 4s1.5.67 1.5 1.5S15.33 7 14.5 7zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 8 17.5 8s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z',
+  google: 'M21.35 11.1h-9.17v2.73h5.27c-.23 1.2-.91 2.22-1.92 2.9v2.41h3.11c1.82-1.68 2.87-4.15 2.87-7.04 0-.68-.06-1.34-.16-2z',
+  facebook: 'M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z',
 };
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const I = (name, x, y, size, color, o = {}) =>
@@ -240,7 +249,7 @@ const bottomNav = (t, active) => {
 };
 
 const sec = (id, x, y, label, t, o = {}) =>
-  T(id, x, y, label, { size: 11, weight: 800, fill: t.muted, ls: 1.3, anchor: o.anchor });
+  T(id, x, y, label, { size: 11, weight: 800, fill: t.accent, ls: 1.3, anchor: o.anchor });
 
 const card = (id, x, y, w, h, t, kids, o = {}) =>
   G(id, [R('Card_Surface', x, y, w, h, { rx: o.rx || 18, fill: o.fill || t.surface, stroke: o.stroke || t.border, shadow: o.shadow !== false }), kids]);
@@ -250,7 +259,7 @@ const btn = (id, x, y, w, h, label, o = {}) => {
   const v = o.variant || 'primary';
   const size = o.size || 13;
   const sty = {
-    primary: { fill: B.paleYellow, stroke: 'none', txt: B.darkPlum },
+    primary: { fill: t.ctaFill, stroke: 'none', txt: t.onCta },
     secondary: { fill: t.surface, stroke: t.border, txt: t.text },
     soft: { fill: t.badge, stroke: 'none', txt: t.badgeText },
     ghostDark: { fill: 'none', stroke: B.softLilac, txt: B.softCream },
@@ -294,6 +303,10 @@ const svgDoc = (screenId, t, body) => `<?xml version="1.0" encoding="UTF-8"?>
 <filter id="Card_Shadow" x="-10%" y="-10%" width="120%" height="135%" color-interpolation-filters="sRGB">
 <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="${B.darkPlum}" flood-opacity="${t.mode === 'dark' ? 0.35 : 0.05}"/>
 </filter>
+<linearGradient id="Welcome_Grad" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0%" stop-color="#DECFE8"/>
+<stop offset="100%" stop-color="#FDF3D2"/>
+</linearGradient>
 <clipPath id="Screen_Clip"><rect width="375" height="812"/></clipPath>
 </defs>
 <g id="${screenId}" clip-path="url(#Screen_Clip)">
@@ -301,6 +314,304 @@ ${flat(body)}
 </g>
 </svg>
 `;
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ONBOARDING HEADER & FOOTER HELPERS
+// ═════════════════════════════════════════════════════════════════════════════
+const onboardingHeader = (t, showSkip = true) => G('Header_Bar', [
+  G('Brand_Logo', [
+    R('Brand_Mark', 20, 56, 32, 32, { rx: 10, fill: B.peachGold }),
+    T('Brand_Mark_Letter', 36, 78, 'S', { size: 17, weight: 900, fill: B.darkPlum, anchor: 'middle' }),
+    T('Brand_Wordmark', 60, 78, [['Style', t.text, 800], ['Sense', t.accent, 800]], { size: 20 }),
+  ]),
+  showSkip && T('Skip_Link', 355, 77, 'Skip for now', { size: 13, weight: 600, fill: t.muted, anchor: 'end' }),
+]);
+
+const onboardingProgress = (t, stepNum, totalSteps = 6) => G('Progress_Bar', [
+  R('Track', 20, 100, 335, 4, { rx: 2, fill: t.border }),
+  R('Fill', 20, 100, (335 * stepNum) / totalSteps, 4, { rx: 2, fill: t.accent }),
+]);
+
+const onboardingFooter = (t, stepText, canContinue = true, btnText = 'Continue') => G('Footer_Bar', [
+  R('Footer_Divider', 20, 712, 335, 1, { fill: t.border }),
+  stepText
+    ? G('Back_Action', [
+        I('arrowLeft', 20, 742, 18, t.muted),
+        T('Back_Label', 44, 756, 'Back', { size: 14, weight: 700, fill: t.muted }),
+      ])
+    : G('Empty_Back', []),
+  stepText && T('Step_Counter', 187.5, 756, stepText, { size: 12.5, weight: 600, fill: t.muted, anchor: 'middle' }),
+  btn('Continue_Button', 225, 730, 130, 44, btnText, { t, icon: 'arrowRight', size: 13.5, rx: 22 }),
+]);
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 00a — Onboarding Welcome (Light)
+// ═════════════════════════════════════════════════════════════════════════════
+function buildOnboardingWelcomeLight() {
+  const t = THEMES.light;
+  return [
+    R('Background', 0, 0, 375, 812, { fill: t.bg }),
+    statusBar(t),
+    onboardingHeader(t, false),
+    onboardingProgress(t, 1, 6),
+    // Hero Visual
+    G('Hero_Card_Wrap', [
+      R('Visual_Surface', 20, 134, 335, 230, { rx: 28, fill: 'url(#Welcome_Grad)', shadow: true }),
+      garment('Hero_Garment_Tee', 'tee', 115, 166, 145, B.white, { line: B.darkPlum }),
+      C('Sparkle_Badge', 246, 172, 18, { fill: B.white, stroke: B.softLilac }),
+      I('sparkles', 237, 163, 18, B.darkPlum),
+    ]),
+    G('Intro_Content', [
+      T('Eyebrow', 187.5, 412, 'WELCOME TO STYLESENSE', { size: 11.5, weight: 800, fill: t.accent, ls: 1.4, anchor: 'middle' }),
+      T('Hero_Title', 187.5, 448, "Let's make getting dressed", { size: 24, weight: 900, fill: t.text, ls: -0.6, anchor: 'middle' }),
+      T('Hero_Title_2', 187.5, 474, 'feel easy.', { size: 24, weight: 900, fill: t.text, ls: -0.6, anchor: 'middle' }),
+      TM('Hero_Body', 187.5, 514, [
+        'A little about your style helps us turn your',
+        'wardrobe into outfits you’ll actually want to wear.',
+      ], 19, { size: 13.5, fill: t.muted, anchor: 'middle' }),
+    ]),
+    btn('Get_Started_CTA', 20, 726, 335, 50, "Let's get started", { t, icon: 'arrowRight', size: 14.5, rx: 25 }),
+    homeIndicator(t),
+  ];
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 00b — Onboarding Step 1: Name (Light)
+// ═════════════════════════════════════════════════════════════════════════════
+function buildOnboardingStep1NameLight() {
+  const t = THEMES.light;
+  return [
+    R('Background', 0, 0, 375, 812, { fill: t.bg }),
+    statusBar(t),
+    onboardingHeader(t, true),
+    onboardingProgress(t, 2, 6),
+    G('Intro_Block', [
+      C('Icon_Circle', 187.5, 154, 24, { fill: B.peachGold }),
+      I('person', 175.5, 142, 24, B.darkPlum),
+      T('Eyebrow', 187.5, 206, 'FIRST THINGS FIRST', { size: 11.5, weight: 800, fill: t.accent, ls: 1.4, anchor: 'middle' }),
+      T('Title', 187.5, 240, 'What should we call you?', { size: 24, weight: 900, fill: t.text, ls: -0.5, anchor: 'middle' }),
+      TM('Body', 187.5, 266, [
+        'Your StyleSense space should feel personal',
+        'from the very beginning.',
+      ], 19, { size: 13.5, fill: t.muted, anchor: 'middle' }),
+    ]),
+    G('Name_Field_Wrap', [
+      T('Input_Label', 20, 342, 'Your name', { size: 13, weight: 700, fill: t.text }),
+      R('Input_Surface', 20, 354, 335, 52, { rx: 14, fill: t.surface, stroke: B.darkPlum, sw: 1.5 }),
+      T('Input_Value', 36, 386, 'Alex', { size: 16.5, weight: 500, fill: t.text }),
+      R('Caret', 76, 369, 1.5, 22, { fill: B.mediumPlum }),
+      C('Check_Bubble', 331, 380, 11, { fill: B.peachGold }),
+      I('check', 324, 373, 14, B.darkPlum, { sw: 2.6 }),
+    ]),
+    onboardingFooter(t, '1 of 4', true, 'Continue'),
+    homeIndicator(t),
+  ];
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 00c — Onboarding Step 2: Style (Light)
+// ═════════════════════════════════════════════════════════════════════════════
+function buildOnboardingStep2StyleLight() {
+  const t = THEMES.light;
+  const styles = [
+    { label: 'Easy & casual', note: 'Relaxed, everyday pieces', active: true },
+    { label: 'Clean & minimal', note: 'Simple, considered outfits', active: true },
+    { label: 'Streetwear', note: 'Statement layers and sneakers', active: false },
+    { label: 'Classic', note: 'Timeless shapes and polish', active: true },
+    { label: 'Creative', note: 'Colour, texture, and play', active: false },
+    { label: 'Soft & romantic', note: 'Feminine details and flow', active: false },
+  ];
+
+  return [
+    R('Background', 0, 0, 375, 812, { fill: t.bg }),
+    statusBar(t),
+    onboardingHeader(t, true),
+    onboardingProgress(t, 3, 6),
+    G('Intro_Block', [
+      T('Eyebrow', 20, 134, 'YOUR STYLE, YOUR WAY', { size: 11.5, weight: 800, fill: t.accent, ls: 1.4 }),
+      T('Title', 20, 160, 'What feels most like you, Alex?', { size: 21, weight: 900, fill: t.text, ls: -0.4 }),
+      T('Subtitle', 20, 180, 'Pick as many as you like. There are no wrong answers.', { size: 12.5, fill: t.muted }),
+    ]),
+    G('Styles_List', styles.map((st, i) => {
+      const y = 200 + i * 56;
+      return G(`Style_Choice_${i + 1}`, [
+        R('Choice_Surface', 20, y, 335, 48, {
+          rx: 14,
+          fill: st.active ? t.activeCardBg : t.surface,
+          stroke: st.active ? t.activeCardBorder : t.border,
+          sw: st.active ? 1.5 : 1,
+        }),
+        R('Checkbox', 34, y + 14, 20, 20, {
+          rx: 6,
+          fill: st.active ? t.activeCardBorder : 'none',
+          stroke: st.active ? t.activeCardBorder : t.border,
+          sw: 1.5,
+        }),
+        st.active && I('check', 37, y + 17, 14, B.white, { sw: 2.8 }),
+        T('Style_Label', 66, y + 26, st.label, { size: 13.5, weight: 800, fill: t.text }),
+        T('Style_Note', 66, y + 40, st.note, { size: 11, fill: t.muted }),
+      ]);
+    })),
+    onboardingFooter(t, '2 of 4', true, 'Continue'),
+    homeIndicator(t),
+  ];
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 00d — Onboarding Step 3: Colours (Light)
+// ═════════════════════════════════════════════════════════════════════════════
+function buildOnboardingStep3ColoursLight() {
+  const t = THEMES.light;
+  const colours = [
+    { label: 'Neutrals', note: 'Black, white, beige', active: true, swatches: [B.darkPlum, B.white, '#E8DCB8'] },
+    { label: 'Earth tones', note: 'Olive, rust, brown', active: true, swatches: ['#5E6D4E', '#B75D38', '#6A4E38'] },
+    { label: 'Soft pastels', note: 'Powder blue, blush, lilac', active: false, swatches: ['#B4D3E5', '#F5C9C9', B.softLilac] },
+    { label: 'Bold colour', note: 'Bright, confident accents', active: false, swatches: ['#D9383A', '#2B6CB0', '#D69E2E'] },
+  ];
+
+  return [
+    R('Background', 0, 0, 375, 812, { fill: t.bg }),
+    statusBar(t),
+    onboardingHeader(t, true),
+    onboardingProgress(t, 4, 6),
+    G('Intro_Block', [
+      T('Eyebrow', 20, 138, 'A LITTLE COLOUR CONTEXT', { size: 11.5, weight: 800, fill: t.accent, ls: 1.4 }),
+      T('Title', 20, 166, 'What colours do you reach for?', { size: 21, weight: 900, fill: t.text, ls: -0.4 }),
+      T('Subtitle', 20, 188, 'We’ll use this to make recommendations feel like home.', { size: 12.5, fill: t.muted }),
+    ]),
+    G('Colours_List', colours.map((c, i) => {
+      const y = 214 + i * 82;
+      return G(`Colour_Choice_${i + 1}`, [
+        R('Choice_Surface', 20, y, 335, 72, {
+          rx: 16,
+          fill: c.active ? t.activeCardBg : t.surface,
+          stroke: c.active ? t.activeCardBorder : t.border,
+          sw: c.active ? 1.5 : 1,
+        }),
+        R('Checkbox', 34, y + 26, 20, 20, {
+          rx: 6,
+          fill: c.active ? t.activeCardBorder : 'none',
+          stroke: c.active ? t.activeCardBorder : t.border,
+          sw: 1.5,
+        }),
+        c.active && I('check', 37, y + 29, 14, B.white, { sw: 2.8 }),
+        T('Colour_Label', 66, y + 34, c.label, { size: 14, weight: 800, fill: t.text }),
+        T('Colour_Note', 66, y + 52, c.note, { size: 11.5, fill: t.muted }),
+        G('Swatches_Pill', c.swatches.map((hex, si) =>
+          C(`Swatch_${si + 1}`, 275 + si * 18, y + 36, 7, { fill: hex, stroke: B.softLilac, sw: 1 }))),
+      ]);
+    })),
+    onboardingFooter(t, '3 of 4', true, 'Continue'),
+    homeIndicator(t),
+  ];
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 00e — Onboarding Step 4: Occasions (Light)
+// ═════════════════════════════════════════════════════════════════════════════
+function buildOnboardingStep4OccasionsLight() {
+  const t = THEMES.light;
+  const occasions = [
+    { label: 'Everyday dressing', note: 'Make getting dressed easier and repeatable', icon: 'shirt', active: true },
+    { label: 'Work & school', note: 'Look put-together on repeat without overthinking', icon: 'calendar', active: false },
+    { label: 'Weekends & going out', note: 'Fresh, expressive styling ideas for your free time', icon: 'sparkles', active: false },
+  ];
+
+  return [
+    R('Background', 0, 0, 375, 812, { fill: t.bg }),
+    statusBar(t),
+    onboardingHeader(t, true),
+    onboardingProgress(t, 5, 6),
+    G('Intro_Block', [
+      T('Eyebrow', 20, 142, 'ONE LAST THING', { size: 11.5, weight: 800, fill: t.accent, ls: 1.4 }),
+      T('Title', 20, 170, 'Where do you need the most help?', { size: 21, weight: 900, fill: t.text, ls: -0.4 }),
+      T('Subtitle', 20, 192, 'We’ll start your feed with ideas that fit your real routine.', { size: 12.5, fill: t.muted }),
+    ]),
+    G('Occasions_List', occasions.map((occ, i) => {
+      const y = 224 + i * 104;
+      return G(`Occasion_Choice_${i + 1}`, [
+        R('Choice_Surface', 20, y, 335, 92, {
+          rx: 18,
+          fill: occ.active ? t.activeCardBg : t.surface,
+          stroke: occ.active ? t.activeCardBorder : t.border,
+          sw: occ.active ? 1.5 : 1,
+        }),
+        C('Icon_Circle', 52, y + 46, 20, { fill: occ.active ? B.white : t.tileBg }),
+        I(occ.icon, 42, y + 36, 20, t.text),
+        T('Occasion_Label', 84, y + 38, occ.label, { size: 15, weight: 800, fill: t.text }),
+        TM('Occasion_Note', 84, y + 56, [occ.note], 16, { size: 12, fill: t.muted }),
+        R('Radio', 320, y + 36, 20, 20, { rx: 10, fill: 'none', stroke: occ.active ? t.activeCardBorder : t.border, sw: 1.5 }),
+        occ.active && C('Radio_Dot', 330, y + 46, 6, { fill: t.activeCardBorder }),
+      ]);
+    })),
+    onboardingFooter(t, '4 of 4', true, 'Finish Setup'),
+    homeIndicator(t),
+  ];
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 00f & 00g — Sign In Screen (Light & Dark)
+// Mirrors LoginScreen.tsx 1:1
+// ═════════════════════════════════════════════════════════════════════════════
+function buildSignInScreen(t) {
+  return [
+    R('Background', 0, 0, 375, 812, { fill: t.bg }),
+    statusBar(t),
+    G('Header_Greeting', [
+      C('Logo_Badge', 187.5, 110, 32, { fill: B.peachGold }),
+      I('shirt', 171.5, 94, 32, t.mode === 'dark' ? B.paleYellow : B.darkPlum),
+      T('Welcome_Title', 187.5, 172, 'Welcome Back', { size: 26, weight: 900, fill: t.text, ls: -0.5, anchor: 'middle' }),
+      T('Welcome_Sub', 187.5, 194, 'Sign in to your digital closet', { size: 13.5, fill: t.muted, anchor: 'middle' }),
+    ]),
+    card('Auth_Form_Card', 20, 222, 335, 412, t, [
+      // Social login buttons
+      G('Social_Buttons_Row', [
+        G('Google_Btn', [
+          R('G_Surface', 36, 242, 145, 44, { rx: 12, fill: t.surface, stroke: t.border }),
+          I('google', 68, 254, 18, '#EA4335', { fill: '#EA4335' }),
+          T('G_Label', 94, 269, 'Google', { size: 13, weight: 700, fill: t.text }),
+        ]),
+        G('Facebook_Btn', [
+          R('FB_Surface', 194, 242, 145, 44, { rx: 12, fill: t.surface, stroke: t.border }),
+          I('facebook', 222, 254, 18, '#1877F2', { fill: '#1877F2' }),
+          T('FB_Label', 248, 269, 'Facebook', { size: 13, weight: 700, fill: t.text }),
+        ]),
+      ]),
+      // OR divider
+      G('Divider_Row', [
+        R('Line_L', 36, 312, 126, 1, { fill: t.border }),
+        T('OR_Text', 187.5, 316, 'OR', { size: 11, weight: 700, fill: t.muted, anchor: 'middle' }),
+        R('Line_R', 213, 312, 126, 1, { fill: t.border }),
+      ]),
+      // Email field
+      G('Field_Email', [
+        T('Email_Label', 36, 342, 'Email', { size: 12.5, weight: 700, fill: t.text }),
+        R('Email_Input', 36, 352, 303, 46, { rx: 12, fill: t.tileBg, stroke: t.border }),
+        T('Email_Value', 50, 380, 'alex@stylesense.app', { size: 14, fill: t.text }),
+      ]),
+      // Password field
+      G('Field_Password', [
+        T('Pass_Label', 36, 420, 'Password', { size: 12.5, weight: 700, fill: t.text }),
+        R('Pass_Input', 36, 430, 303, 46, { rx: 12, fill: t.tileBg, stroke: t.border }),
+        T('Pass_Mask', 50, 460, '••••••••••••', { size: 16, fill: t.text }),
+      ]),
+      // Sign In CTA button (Pale Yellow solid background with Dark Plum text)
+      G('Submit_Action', [
+        R('CTA_Surface', 36, 502, 303, 48, { rx: 14, fill: t.ctaFill }),
+        T('CTA_Label', 187.5, 532, 'Sign In', { size: 14.5, weight: 800, fill: t.onCta, anchor: 'middle' }),
+      ]),
+      // Forgot password link
+      T('Forgot_Link', 187.5, 584, 'Forgot password?', { size: 12, weight: 600, fill: t.muted, anchor: 'middle' }),
+    ]),
+    G('Footer_Signup_Prompt', [
+      T('Signup_Prompt', 187.5, 680, [
+        ["Don't have an account?  ", t.muted, 400],
+        ['Sign Up', t.accent, 800],
+      ], { size: 13.5, anchor: 'middle' }),
+    ]),
+    homeIndicator(t),
+  ];
+}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // 1. HOME SCREEN (01_Home_Light & 02_Home_Dark)
@@ -528,7 +839,7 @@ function buildOutfitScreen(t) {
       toggle('No_New_Clothes_Switch', 295, 204, true, t),
     ]),
     G('Top3_Choice_Header', [
-      T('Top3_Label', 20, 260, 'TOP-3 CURATED OUTFITS', { size: 11, weight: 800, fill: t.muted, ls: 1.2 }),
+      sec('Top3_Label', 20, 260, 'TOP-3 CURATED OUTFITS', t),
       G('Choice_Row', [
         R('Choice_Pill', 20, 270, 78, 26, { rx: 13, fill: t.mode === 'dark' ? B.darkTile : B.softLilac }),
         T('Choice_Text', 59, 287, 'Choice #1', { size: 11, weight: 800, fill: t.text, anchor: 'middle' }),
@@ -758,8 +1069,18 @@ function buildAccountScreen(t) {
   ];
 }
 
-// ── Screen Catalog & Generator Execution ─────────────────────────────────────
+// ── Complete Screen Catalog (17 Standalone Screens) ──────────────────────────
 const screens = [
+  // Onboarding Flow (Intro + Steps 1-4)
+  ['00a_Onboarding_Welcome_Light.svg', THEMES.light, buildOnboardingWelcomeLight],
+  ['00b_Onboarding_Step1_Name_Light.svg', THEMES.light, buildOnboardingStep1NameLight],
+  ['00c_Onboarding_Step2_Style_Light.svg', THEMES.light, buildOnboardingStep2StyleLight],
+  ['00d_Onboarding_Step3_Colours_Light.svg', THEMES.light, buildOnboardingStep3ColoursLight],
+  ['00e_Onboarding_Step4_Occasions_Light.svg', THEMES.light, buildOnboardingStep4OccasionsLight],
+  // Auth Screens (Sign In Light & Dark)
+  ['00f_Sign_In_Light.svg', THEMES.light, buildSignInScreen],
+  ['00g_Sign_In_Dark.svg', THEMES.dark, buildSignInScreen],
+  // 5 Main Tabs (Light & Dark)
   ['01_Home_Light.svg', THEMES.light, buildHomeScreen],
   ['02_Home_Dark.svg', THEMES.dark, buildHomeScreen],
   ['03_Wardrobe_Light.svg', THEMES.light, buildWardrobeScreen],
@@ -772,7 +1093,7 @@ const screens = [
   ['10_Account_Dark.svg', THEMES.dark, buildAccountScreen],
 ];
 
-console.log('Generating 10 standalone, Figma-ready 375x812 SVGs...');
+console.log(`Generating ${screens.length} standalone, Figma-ready 375x812 SVGs...`);
 
 for (const [file, theme, builder] of screens) {
   ids = new Map();
@@ -783,7 +1104,7 @@ for (const [file, theme, builder] of screens) {
   fs.writeFileSync(path.join(OUT, file), svg, 'utf8');
   const groups = (svg.match(/<g /g) || []).length;
   const texts = (svg.match(/<text /g) || []).length;
-  console.log(`${file.padEnd(28)} ${String(groups).padStart(4)} groups  ${String(texts).padStart(3)} text  ${(svg.length / 1024).toFixed(1)} KB`);
+  console.log(`${file.padEnd(38)} ${String(groups).padStart(4)} groups  ${String(texts).padStart(3)} text  ${(svg.length / 1024).toFixed(1)} KB`);
 }
 
-console.log('Done! All 10 SVGs successfully generated in figma-layered-screens/.');
+console.log(`Done! All ${screens.length} SVGs successfully generated in figma-layered-screens/.`);

@@ -51,14 +51,14 @@ export default function SelectField({
                     style={[
                       styles.optionText,
                       {
-                        color: item === value ? theme.secondaryAccent : theme.text,
+                        color: item === value ? theme.accent : theme.text,
                         fontWeight: item === value ? '700' : '400',
                       },
                     ]}
                   >
                     {item}
                   </Text>
-                  {item === value && <Ionicons name="checkmark" size={18} color={theme.secondaryAccent} />}
+                  {item === value && <Ionicons name="checkmark" size={18} color={theme.accent} />}
                 </Pressable>
               )}
             />

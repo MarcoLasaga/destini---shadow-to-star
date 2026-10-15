@@ -5,6 +5,10 @@
 <filter id="Card_Shadow" x="-10%" y="-10%" width="120%" height="135%" color-interpolation-filters="sRGB">
 <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#24152C" flood-opacity="0.05"/>
 </filter>
+<linearGradient id="Welcome_Grad" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0%" stop-color="#DECFE8"/>
+<stop offset="100%" stop-color="#FDF3D2"/>
+</linearGradient>
 <clipPath id="Screen_Clip"><rect width="375" height="812"/></clipPath>
 </defs>
 <g id="09_Account_Light" clip-path="url(#Screen_Clip)">
@@ -30,7 +34,7 @@
 </g>
 <g id="Header_Bar">
 <text id="Screen_Title" x="20" y="88" font-family="Arial, sans-serif" font-size="28" font-weight="900" fill="#24152C" letter-spacing="-0.6">Account</text>
-<text id="Subtitle" x="20" y="110" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#4B1D6F">Profile, settings &amp; alert preferences</text>
+<text id="Subtitle" x="20" y="110" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#5E4B6B">Profile, settings &amp; alert preferences</text>
 <g id="Notifications_Bell">
 <circle id="Button_Circle" cx="335" cy="86" r="20" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
 <g id="Icon_Bell" transform="translate(325 76) scale(0.8333)">
@@ -43,8 +47,8 @@
 <circle id="Avatar_Circle" cx="56" cy="160" r="24" fill="#FDD78B"/>
 <text id="Avatar_Initial" x="56" y="167" font-family="Arial, sans-serif" font-size="18" font-weight="800" fill="#24152C" text-anchor="middle">J</text>
 <text id="Profile_Name" x="92" y="154" font-family="Arial, sans-serif" font-size="16" font-weight="800" fill="#24152C">Jdyy</text>
-<text id="Profile_Email" x="92" y="171" font-family="Arial, sans-serif" font-size="11.5" font-weight="400" fill="#4B1D6F">jdyy@stylesense.app</text>
-<text id="Member_Since" x="92" y="186" font-family="Arial, sans-serif" font-size="10.5" font-weight="400" fill="#4B1D6F">Member since 2026</text>
+<text id="Profile_Email" x="92" y="171" font-family="Arial, sans-serif" font-size="11.5" font-weight="400" fill="#5E4B6B">jdyy@stylesense.app</text>
+<text id="Member_Since" x="92" y="186" font-family="Arial, sans-serif" font-size="10.5" font-weight="400" fill="#5E4B6B">Member since 2026</text>
 <g id="Edit_Profile_Btn">
 <rect id="Button_Surface" x="242" y="146" width="96" height="30" rx="15" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1"/>
 <text id="Button_Label" x="290" y="164.96" font-family="Arial, sans-serif" font-size="11" font-weight="800" fill="#24152C" text-anchor="middle">Edit Profile</text>
@@ -53,17 +57,17 @@
 <rect id="Stats_Surface" x="36" y="198" width="303" height="56" rx="14" fill="#F4F1EA" stroke="#DECFE8" stroke-width="1"/>
 <g id="Stat_1">
 <text id="S1_Val" x="86" y="224" font-family="Arial, sans-serif" font-size="17" font-weight="900" fill="#24152C" text-anchor="middle">13</text>
-<text id="S1_Lbl" x="86" y="240" font-family="Arial, sans-serif" font-size="10.5" font-weight="400" fill="#4B1D6F" text-anchor="middle">Items</text>
+<text id="S1_Lbl" x="86" y="240" font-family="Arial, sans-serif" font-size="10.5" font-weight="400" fill="#5E4B6B" text-anchor="middle">Items</text>
 </g>
 <rect id="S_Div_1" x="137" y="208" width="1" height="36" fill="#DECFE8"/>
 <g id="Stat_2">
 <text id="S2_Val" x="188" y="224" font-family="Arial, sans-serif" font-size="17" font-weight="900" fill="#24152C" text-anchor="middle">1</text>
-<text id="S2_Lbl" x="188" y="240" font-family="Arial, sans-serif" font-size="10.5" font-weight="400" fill="#4B1D6F" text-anchor="middle">Favorites</text>
+<text id="S2_Lbl" x="188" y="240" font-family="Arial, sans-serif" font-size="10.5" font-weight="400" fill="#5E4B6B" text-anchor="middle">Favorites</text>
 </g>
 <rect id="S_Div_2" x="239" y="208" width="1" height="36" fill="#DECFE8"/>
 <g id="Stat_3">
 <text id="S3_Val" x="289" y="224" font-family="Arial, sans-serif" font-size="17" font-weight="900" fill="#24152C" text-anchor="middle">24</text>
-<text id="S3_Lbl" x="289" y="240" font-family="Arial, sans-serif" font-size="10.5" font-weight="400" fill="#4B1D6F" text-anchor="middle">Wears</text>
+<text id="S3_Lbl" x="289" y="240" font-family="Arial, sans-serif" font-size="10.5" font-weight="400" fill="#5E4B6B" text-anchor="middle">Wears</text>
 </g>
 </g>
 </g>
@@ -74,18 +78,18 @@
 <path id="Vector_2" d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" fill="none" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <text id="Theme_Title" x="62" y="326" font-family="Arial, sans-serif" font-size="13.5" font-weight="800" fill="#24152C">Theme</text>
-<text id="Theme_Sub" x="62" y="342" font-family="Arial, sans-serif" font-size="10.5" font-weight="400" fill="#4B1D6F">Light and Dark mode switching</text>
+<text id="Theme_Sub" x="62" y="342" font-family="Arial, sans-serif" font-size="10.5" font-weight="400" fill="#5E4B6B">Light and Dark mode switching</text>
 <g id="Theme_Selector">
 <rect id="Track" x="223" y="311" width="116" height="32" rx="16" fill="#F4F1EA" stroke="#DECFE8" stroke-width="1"/>
 <g id="Light_Active">
 <rect id="Pill_Light" x="225" y="313" width="56" height="28" rx="14" fill="#24152C"/>
 <text id="Lbl_L" x="253" y="331" font-family="Arial, sans-serif" font-size="11" font-weight="800" fill="#FBF5A7" text-anchor="middle">Light</text>
-<text id="Lbl_D" x="309" y="331" font-family="Arial, sans-serif" font-size="11" font-weight="600" fill="#4B1D6F" text-anchor="middle">Dark</text>
+<text id="Lbl_D" x="309" y="331" font-family="Arial, sans-serif" font-size="11" font-weight="600" fill="#5E4B6B" text-anchor="middle">Dark</text>
 </g>
 </g>
 </g>
 <text id="Section_Alert_Prefs" x="20" y="376" font-family="Arial, sans-serif" font-size="11" font-weight="800" fill="#4B1D6F" letter-spacing="1.3">ALERT PREFERENCES</text>
-<text id="Alert_Count" x="355" y="376" font-family="Arial, sans-serif" font-size="11.5" font-weight="700" fill="#4B1D6F" text-anchor="end">3 of 4 active</text>
+<text id="Alert_Count" x="355" y="376" font-family="Arial, sans-serif" font-size="11.5" font-weight="700" fill="#5E4B6B" text-anchor="end">3 of 4 active</text>
 <g id="Alert_Prefs_Card">
 <rect id="Card_Surface_3" x="20" y="386" width="335" height="216" rx="18" fill="#FFFFFF" stroke="#DECFE8" stroke-width="1" filter="url(#Card_Shadow)"/>
 <g id="Alert_Row_Weather_Alerts">
@@ -93,7 +97,7 @@
 <path id="Vector_3" d="M10 2v2 M3.5 4.5l1.4 1.4 M1.5 11h2 M16.5 4.5l-1.4 1.4 M13.9 9.6A4 4 0 0 0 6.2 11 M17.5 21H9a5 5 0 1 1 4.6-7h3.9a3.5 3.5 0 0 1 0 7z" fill="none" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <text id="Alert_Label" x="62" y="411" font-family="Arial, sans-serif" font-size="13" font-weight="800" fill="#24152C">Weather Alerts</text>
-<text id="Alert_Note" x="62" y="427" font-family="Arial, sans-serif" font-size="10.5" font-weight="400" fill="#4B1D6F">Live conditions for your outfit</text>
+<text id="Alert_Note" x="62" y="427" font-family="Arial, sans-serif" font-size="10.5" font-weight="400" fill="#5E4B6B">Live conditions for your outfit</text>
 <g id="Switch_Weather_Alerts">
 <rect id="Switch_Track" x="295" y="400" width="44" height="26" rx="13" fill="#FBF5A7"/>
 <circle id="Switch_Thumb" cx="326" cy="413" r="10" fill="#24152C"/>
@@ -105,7 +109,7 @@
 <path id="Vector_4" d="M11 20A7 7 0 0 1 4 13c0-6 6-10 16-10 0 10-4 16-9 17z M4 21c4-6 8-9 12-11" fill="none" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <text id="Alert_Label_2" x="62" y="465" font-family="Arial, sans-serif" font-size="13" font-weight="800" fill="#24152C">Sustainability Tips</text>
-<text id="Alert_Note_2" x="62" y="481" font-family="Arial, sans-serif" font-size="10.5" font-weight="400" fill="#4B1D6F">Re-wear and care nudges</text>
+<text id="Alert_Note_2" x="62" y="481" font-family="Arial, sans-serif" font-size="10.5" font-weight="400" fill="#5E4B6B">Re-wear and care nudges</text>
 <g id="Switch_Sustainability_Tips">
 <rect id="Switch_Track_2" x="295" y="454" width="44" height="26" rx="13" fill="#FBF5A7"/>
 <circle id="Switch_Thumb_2" cx="326" cy="467" r="10" fill="#24152C"/>
@@ -117,7 +121,7 @@
 <path id="Vector_5" d="M8 3L3 6l2 4.5 2-1V21h10V9.5l2 1L21 6l-5-3a4 4 0 0 1-8 0z" fill="none" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <text id="Alert_Label_3" x="62" y="519" font-family="Arial, sans-serif" font-size="13" font-weight="800" fill="#24152C">Outfit Reminders</text>
-<text id="Alert_Note_3" x="62" y="535" font-family="Arial, sans-serif" font-size="10.5" font-weight="400" fill="#4B1D6F">Planned looks for tomorrow</text>
+<text id="Alert_Note_3" x="62" y="535" font-family="Arial, sans-serif" font-size="10.5" font-weight="400" fill="#5E4B6B">Planned looks for tomorrow</text>
 <g id="Switch_Outfit_Reminders">
 <rect id="Switch_Track_3" x="295" y="508" width="44" height="26" rx="13" fill="#FBF5A7"/>
 <circle id="Switch_Thumb_3" cx="326" cy="521" r="10" fill="#24152C"/>
@@ -129,7 +133,7 @@
 <path id="Vector_6" d="M12 2.7l5.7 5.6a8 8 0 1 1-11.3 0z" fill="none" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <text id="Alert_Label_4" x="62" y="573" font-family="Arial, sans-serif" font-size="13" font-weight="800" fill="#24152C">Laundry Reminders</text>
-<text id="Alert_Note_4" x="62" y="589" font-family="Arial, sans-serif" font-size="10.5" font-weight="400" fill="#4B1D6F">When pieces need washing</text>
+<text id="Alert_Note_4" x="62" y="589" font-family="Arial, sans-serif" font-size="10.5" font-weight="400" fill="#5E4B6B">When pieces need washing</text>
 <g id="Switch_Laundry_Reminders">
 <rect id="Switch_Track_4" x="295" y="562" width="44" height="26" rx="13" fill="#DECFE8"/>
 <circle id="Switch_Thumb_4" cx="308" cy="575" r="10" fill="#FFFFFF"/>
@@ -143,9 +147,9 @@
 <path id="Vector_7" d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" fill="none" stroke="#24152C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <text id="Lang_Label" x="62" y="638" font-family="Arial, sans-serif" font-size="13" font-weight="800" fill="#24152C">Language</text>
-<text id="Lang_Val" x="320" y="638" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#4B1D6F" text-anchor="end">English (US)</text>
+<text id="Lang_Val" x="320" y="638" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#5E4B6B" text-anchor="end">English (US)</text>
 <g id="Icon_ChevronRight" transform="translate(326 627) scale(0.6667)">
-<path id="Vector_8" d="M9 6l6 6-6 6" fill="none" stroke="#4B1D6F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector_8" d="M9 6l6 6-6 6" fill="none" stroke="#5E4B6B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 </g>
 <rect id="Menu_Div" x="62" y="658" width="277" height="1" fill="#DECFE8"/>

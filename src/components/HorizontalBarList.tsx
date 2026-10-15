@@ -15,7 +15,7 @@ export default function HorizontalBarList({ data }: { data: { label: string; val
             <View
               style={[
                 styles.fill,
-                { width: `${(item.value / max) * 100}%`, backgroundColor: theme.secondaryAccent },
+                { width: `${(item.value / max) * 100}%`, backgroundColor: theme.accent },
               ]}
             />
           </View>

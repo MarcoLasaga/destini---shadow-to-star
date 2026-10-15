@@ -61,7 +61,7 @@ export default function OutfitScreen() {
         </Text>
         <Animated.View entering={FadeInDown.duration(400)} style={styles.emptyState}>
           <View style={[styles.emptyIcon, { backgroundColor: theme.primaryAccent + '33' }]}>
-            <Ionicons name="shirt-outline" size={30} color={theme.secondaryAccent} />
+            <Ionicons name="shirt-outline" size={30} color={theme.accent} />
           </View>
           <Text style={[styles.emptyTitle, { color: theme.text }]}>Not Enough Clean Clothes</Text>
           <Text style={[styles.emptySubtitle, { color: theme.textMuted }]}>
@@ -134,13 +134,13 @@ export default function OutfitScreen() {
             <View
               style={[
                 styles.leafIconWrap,
-                { backgroundColor: noNewClothesMode ? '#2F8F5B' : theme.secondaryAccent + '22' },
+                { backgroundColor: noNewClothesMode ? '#2F8F5B' : theme.badgeBg },
               ]}
             >
               <Ionicons
                 name="leaf-outline"
                 size={18}
-                color={noNewClothesMode ? theme.onAccent : theme.secondaryAccent}
+                color={noNewClothesMode ? '#FFFFFF' : theme.accent}
               />
             </View>
             <View style={{ flex: 1 }}>

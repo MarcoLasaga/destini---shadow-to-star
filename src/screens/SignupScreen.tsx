@@ -203,7 +203,7 @@ export default function SignupScreen() {
             Already have an account?{' '}
             <Text
               onPress={() => navigation.navigate('Login')}
-              style={[styles.linkText, { color: theme.secondaryAccent }]}
+              style={[styles.linkText, { color: theme.accent, fontWeight: '700' }]}
             >
               Sign In
             </Text>
