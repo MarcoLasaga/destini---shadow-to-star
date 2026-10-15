@@ -10,7 +10,7 @@ type PreferenceProfile = { style_weights: Record<string, number>; color_weights:
 const NEUTRALS = new Set(['black', 'white', 'gray', 'grey', 'navy', 'beige', 'brown', 'cream', 'khaki'])
 
 function scoreCombination(items: WardrobeRow[], occasion?: string, preferences?: PreferenceProfile) {
-  let score = 55
+  let score = 65
   const reasons: string[] = []
   const styles = items.map((item) => item.style).filter(Boolean)
   if (styles.length > 1 && new Set(styles).size === 1) { score += 18; reasons.push('Matching style') }
@@ -25,9 +25,9 @@ function scoreCombination(items: WardrobeRow[], occasion?: string, preferences?:
   if (occasionWeight > 0) { score += Math.min(occasionWeight, 10); reasons.push('Fits your occasion preference') }
   if (items.some((item) => NEUTRALS.has(item.color?.toLowerCase() || ''))) { score += 10; reasons.push('Neutral color anchor') }
   const recentlyWorn = items.some((item) => item.last_worn_at && Date.now() - new Date(item.last_worn_at).getTime() < 7 * 86400000)
-  if (recentlyWorn) { score -= 18; reasons.push('Includes a recently worn item') } else reasons.push('Avoids recently worn items')
+  if (recentlyWorn) { score -= 14; reasons.push('Includes a recently worn item') } else reasons.push('Avoids recently worn items')
   const disliked = new Set(preferences?.disliked_items || [])
-  if (items.some((item) => disliked.has(item.id))) { score -= 30; reasons.push('Avoids items you disliked less effectively') }
+  if (items.some((item) => disliked.has(item.id))) { score -= 25; reasons.push('Avoids items you disliked less effectively') }
   return { score: Math.max(0, Math.min(score, 100)), reasons }
 }
 
@@ -37,13 +37,39 @@ function combinations(items: WardrobeRow[], occasion?: string, preferences?: Pre
   const bottoms = clean.filter((item) => item.category === 'BOTTOM')
   const shoes = clean.filter((item) => item.category === 'SHOES')
   const accessories = clean.filter((item) => item.category === 'ACCESSORIES')
+  const outerwears = clean.filter((item) => item.category === 'OUTERWEAR')
   const results: { items: WardrobeRow[]; score: number; reasons: string[] }[] = []
-  for (const top of tops) for (const bottom of bottoms) {
-    const base = [top, bottom, shoes.find((shoe) => shoe.style === top.style) || shoes[0], accessories[0]].filter(Boolean) as WardrobeRow[]
-    const result = scoreCombination(base, occasion, preferences)
-    results.push({ items: base, ...result, reasons: [...new Set(result.reasons)] })
+
+  for (let tIdx = 0; tIdx < tops.length; tIdx++) {
+    const top = tops[tIdx]
+    for (let bIdx = 0; bIdx < bottoms.length; bIdx++) {
+      const bottom = bottoms[bIdx]
+      const shoe = shoes.length > 0 ? (shoes[(tIdx + bIdx) % shoes.length] || shoes[0]) : undefined
+      const acc = accessories.length > 0 ? (accessories[(tIdx + bIdx) % accessories.length] || accessories[0]) : undefined
+      const outer = (occasion === 'FORMAL' || occasion === 'ACADEMIC') && outerwears.length > 0
+        ? outerwears[(tIdx + bIdx) % outerwears.length]
+        : undefined
+      const base = [top, outer, bottom, shoe, acc].filter(Boolean) as WardrobeRow[]
+      const result = scoreCombination(base, occasion, preferences)
+      results.push({ items: base, ...result, reasons: [...new Set(result.reasons)] })
+    }
   }
-  return results.sort((a, b) => b.score - a.score).slice(0, 3)
+
+  const sorted = results.sort((a, b) => b.score - a.score)
+  const selected: typeof sorted = []
+  const usedTops = new Set<string>()
+
+  for (const cand of sorted) {
+    const topId = cand.items.find((i) => i.category === 'TOP')?.id
+    if (selected.length < 3) {
+      if (!topId || !usedTops.has(topId) || tops.length <= selected.length) {
+        selected.push(cand)
+        if (topId) usedTops.add(topId)
+      }
+    }
+  }
+
+  return selected.length >= 3 ? selected : sorted.slice(0, 3)
 }
 
 export const outfitService = {

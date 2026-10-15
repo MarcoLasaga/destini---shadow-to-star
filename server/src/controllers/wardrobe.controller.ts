@@ -35,6 +35,17 @@ function normalizeLaundryStatus(raw?: string | null): 'CLEAN' | 'DIRTY' | 'LAUND
   return 'CLEAN'
 }
 
+const PROFANITY_REGEX = /\b(fuck|shit|bitch|nigger|nigga|faggot|cunt|whore|slut|retard|nsfw|nude|porn)\b/i
+
+function containsProfanity(...fields: (unknown | undefined)[]): boolean {
+  for (const field of fields) {
+    if (typeof field === 'string' && PROFANITY_REGEX.test(field)) {
+      return true
+    }
+  }
+  return false
+}
+
 export const wardrobeController = {
   async getAll(req: AuthRequest, res: Response, next: NextFunction) {
     try {
@@ -61,6 +72,24 @@ export const wardrobeController = {
 
   async create(req: AuthRequest, res: Response, next: NextFunction) {
     try {
+      const { clothingName, clothing_name, brand, notes } = req.body || {}
+      if (containsProfanity(clothingName, clothing_name, brand, notes)) {
+        sendError(res, 'Item name or notes contain prohibited language.', 422)
+        return
+      }
+      if (req.file) {
+        const moderation = await imageAnalysisService.inspectModeration(req.file.buffer)
+        if (!moderation.is_safe_garment) {
+          sendError(
+            res,
+            moderation.moderation_reason ||
+              'Inappropriate or skin-dominant image detected (e.g., hand gesture or body photo). Please upload a clear photo of a clothing item or wearable accessory.',
+            422,
+            moderation
+          )
+          return
+        }
+      }
       const item = await wardrobeService.create(req.user!.userId, req.body, req.file, req.user!.token)
       sendSuccess(res, item, 'Clothing added successfully', 201)
     } catch (err) {
@@ -78,7 +107,8 @@ export const wardrobeController = {
       if (prediction.is_safe_garment === false) {
         sendError(
           res,
-          prediction.moderation_reason || 'Image rejected by AI Safety Gate: Potential NSFW or non-garment photo detected.',
+          prediction.moderation_reason ||
+            'Inappropriate or skin-dominant image detected (e.g., hand gesture or body photo). Please upload a clear photo of a clothing item or wearable accessory.',
           422,
           prediction
         )
@@ -266,6 +296,24 @@ export const wardrobeController = {
 
   async update(req: AuthRequest, res: Response, next: NextFunction) {
     try {
+      const { clothingName, clothing_name, brand, notes } = req.body || {}
+      if (containsProfanity(clothingName, clothing_name, brand, notes)) {
+        sendError(res, 'Item name or notes contain prohibited language.', 422)
+        return
+      }
+      if (req.file) {
+        const moderation = await imageAnalysisService.inspectModeration(req.file.buffer)
+        if (!moderation.is_safe_garment) {
+          sendError(
+            res,
+            moderation.moderation_reason ||
+              'Inappropriate or skin-dominant image detected (e.g., hand gesture or body photo). Please upload a clear photo of a clothing item or wearable accessory.',
+            422,
+            moderation
+          )
+          return
+        }
+      }
       const item = await wardrobeService.update(req.params.id as string, req.user!.userId, req.body, req.file, req.user!.token)
       sendSuccess(res, item, 'Clothing updated successfully')
     } catch (err) {
