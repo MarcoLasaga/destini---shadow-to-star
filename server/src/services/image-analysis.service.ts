@@ -39,6 +39,7 @@ export interface ClothingPrediction {
   is_safe_garment?: boolean
   moderation_reason?: string | null
   attributes?: Record<string, unknown> | null
+  class_probabilities?: Record<string, number>
 }
 
 export type AnalysisResult = ClothingPrediction
@@ -515,45 +516,45 @@ export const imageAnalysisService = {
           timeout: 12_000,
         })
         const result = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>
-        const rawConfidence = typeof result.confidence === 'number' && result.confidence >= 0 && result.confidence <= 1 ? result.confidence : 0.88
-        const confidence = Number(Math.min(0.96, Math.max(0.68, rawConfidence)).toFixed(4))
-        const resolvedCat = optionalEnum(result.category, CATEGORIES) ?? defaultCategoryForColor
+        const rawConfidence = typeof result.confidence === 'number' && result.confidence >= 0 && result.confidence <= 1 ? result.confidence : 0.0
+        const confidence = Number(rawConfidence.toFixed(4))
+        const resolvedCat = optionalEnum(result.category, CATEGORIES)
         const resolvedColor = typeof result.color === 'string' && result.color.length <= 50 ? result.color : moderation.dominantColor
-        const inferred = inferFromFilename(file.originalname, resolvedCat)
+        const inferred = resolvedCat ? inferFromFilename(file.originalname, resolvedCat) : null
 
         const subCategory =
           typeof result.subCategory === 'string' && result.subCategory.trim()
             ? result.subCategory.trim()
-            : (inferred?.subCategory ?? 'Shirt')
+            : (resolvedCat ? (inferred?.subCategory ?? 'Shirt') : null)
         const suggestedName =
           typeof result.suggestedName === 'string' && result.suggestedName.trim()
             ? result.suggestedName.trim()
-            : `${resolvedColor} ${subCategory}`
-        const style = optionalEnum(result.style, STYLES) ?? inferred?.style ?? 'CASUAL'
+            : (subCategory ? `${resolvedColor} ${subCategory}` : null)
+        const style = optionalEnum(result.style, STYLES) ?? (resolvedCat ? (inferred?.style ?? 'CASUAL') : undefined)
         const suggestedBrand =
           typeof result.suggestedBrand === 'string' && result.suggestedBrand.trim()
             ? result.suggestedBrand.trim()
-            : (['FORMAL', 'CLASSIC', 'MINIMALIST'].includes(style) ? 'Studio Basics' : 'Everyday Essentials')
+            : null
         const layerRole =
-          optionalEnum(result.layerRole, LAYER_ROLES) ?? inferred?.layerRole ?? 'INNER_BASE'
+          optionalEnum(result.layerRole, LAYER_ROLES) ?? (resolvedCat ? (inferred?.layerRole ?? 'INNER_BASE') : null)
         const colorHex =
           typeof result.colorHex === 'string' && /^#[0-9a-f]{6}$/i.test(result.colorHex)
             ? result.colorHex
             : moderation.colorHex
         const occasion =
           optionalEnum(result.occasion, OCCASIONS) ??
-          (typeof result.occasion === 'string' ? result.occasion : (inferred?.occasion ?? 'EVERYDAY'))
+          (typeof result.occasion === 'string' ? result.occasion : (resolvedCat ? (inferred?.occasion ?? 'EVERYDAY') : null))
         const material =
           typeof result.material === 'string' && result.material.trim()
             ? result.material.trim()
-            : (inferred?.material ?? 'Cotton')
+            : (resolvedCat ? (inferred?.material ?? 'Cotton') : null)
         const cutoutDataUri =
           typeof result.cutoutDataUri === 'string' && result.cutoutDataUri.startsWith('data:image/png;base64,')
             ? result.cutoutDataUri
             : moderation.cutoutDataUri
 
         return {
-          category: resolvedCat ?? inferred?.category,
+          category: resolvedCat,
           categoryConfidence: confidence,
           subCategory,
           suggestedName,
@@ -569,6 +570,9 @@ export const imageAnalysisService = {
           occasion,
           material,
           confidence,
+          class_probabilities: result.class_probabilities && typeof result.class_probabilities === 'object'
+            ? (result.class_probabilities as Record<string, number>)
+            : undefined,
           cutoutDataUri,
           is_safe_garment: typeof result.is_safe_garment === 'boolean' ? result.is_safe_garment : true,
           moderation_reason: typeof result.moderation_reason === 'string'
@@ -600,7 +604,7 @@ export const imageAnalysisService = {
       categoryConfidence: 0.88,
       subCategory: fallbackMeta.subCategory,
       suggestedName: `${moderation.dominantColor} ${fallbackMeta.subCategory}`,
-      suggestedBrand: fallbackBrand,
+      suggestedBrand: null,
       layerRole: fallbackMeta.layerRole,
       color: moderation.dominantColor,
       colorHex: moderation.colorHex,
