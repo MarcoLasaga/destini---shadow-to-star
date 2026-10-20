@@ -67,6 +67,7 @@ export interface ClothingPrediction {
   category?: CreateItemPayload['category']
   subCategory?: string | null
   suggestedName?: string | null
+  suggestedBrand?: string | null
   layerRole?: 'INNER_BASE' | 'OUTER_LAYER' | 'LOWER_BODY' | 'FOOTWEAR' | 'ACCESSORY' | null
   color?: string
   colorHex?: string | null

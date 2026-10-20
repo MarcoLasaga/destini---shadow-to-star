@@ -130,6 +130,9 @@ export default function AddClothes() {
       if (prediction.occasion && (OCCASIONS as readonly string[]).includes(prediction.occasion.toUpperCase())) {
         setOccasion(prediction.occasion.toUpperCase() as (typeof OCCASIONS)[number])
       }
+      if (prediction.suggestedBrand && !brand.trim()) {
+        setBrand(prediction.suggestedBrand)
+      }
 
       const generatedName =
         prediction.suggestedName?.trim() ||
