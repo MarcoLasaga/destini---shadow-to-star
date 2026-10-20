@@ -2,17 +2,47 @@ import { supabase } from '../integrations/supabase/client';
 import type { GeneratedOutfit } from '../types';
 import type { Database, Json } from '../integrations/supabase/types';
 import { getApiUrl } from './apiConfig';
+import { resolveDatasetGarmentPhoto } from '../data/datasetGarmentCatalog';
 
 type SharedOutfitRow = Database['public']['Tables']['shared_outfits']['Row'];
 export type CommunityItem = { id: string; name: string; category: string; image: string; color?: string };
-export type CommunityOutfit = SharedOutfitRow & {
+export type CommunityOutfit = Omit<SharedOutfitRow, 'items'> & {
   creatorName: string;
   creatorAvatar: string | null;
   items: CommunityItem[];
   liked: boolean;
   saved: boolean;
   myRating: number | null;
+  genderProfile?: 'mens' | 'womens' | 'unisex';
 };
+
+const FEMALE_PROFILE_NAMES = /\b(shae|maria|sarah|anna|emma|chloe|sophia|ella|grace|lily|bea|camille|angela|nikki|trisha|hannah|claire|kaye|denise|jasmine)\b/i;
+const WOMENS_GARMENT_KEYWORDS = /\b(women|womens|woman|blouse|skirt|dress|vest|crop top|heels|stiletto|bralette|camisole|cardigan vest)\b/i;
+
+export function detectUserGenderProfile(displayName?: string | null, email?: string | null): 'mens' | 'womens' {
+  const combined = `${displayName || ''} ${email || ''}`.toLowerCase();
+  if (FEMALE_PROFILE_NAMES.test(combined)) {
+    return 'womens';
+  }
+  return 'mens';
+}
+
+export function classifyCommunityPostGender(post: {
+  creatorName?: string | null;
+  name?: string | null;
+  caption?: string | null;
+  items?: CommunityItem[];
+}): 'mens' | 'womens' | 'unisex' {
+  const creator = (post.creatorName || '').trim();
+  if (FEMALE_PROFILE_NAMES.test(creator)) {
+    return 'womens';
+  }
+  const textBlob = `${post.name || ''} ${post.caption || ''} ${(post.items || []).map((i) => i.name).join(' ')}`;
+  if (WOMENS_GARMENT_KEYWORDS.test(textBlob)) {
+    return 'womens';
+  }
+  return 'mens';
+}
 
 const pageSize = 10;
 
@@ -90,7 +120,8 @@ function snapshot(outfit: GeneratedOutfit): CommunityItem[] {
     id: item.id,
     name: item.name,
     category: item.category,
-    image: item.image,
+    image: resolveDatasetGarmentPhoto(item.name, item.category, item.image),
+    color: item.color,
   }));
 }
 
@@ -98,12 +129,18 @@ function parseItems(value: Json): CommunityItem[] {
   if (!Array.isArray(value)) return [];
   return value
     .filter((item): item is Record<string, Json> => !!item && typeof item === 'object' && !Array.isArray(item))
-    .map((item) => ({
-      id: String(item.id ?? ''),
-      name: String(item.name ?? 'Clothing item'),
-      category: String(item.category ?? 'Item'),
-      image: typeof item.image === 'string' ? item.image : '',
-    }));
+    .map((item) => {
+      const name = String(item.name ?? 'Clothing item');
+      const category = String(item.category ?? 'Item');
+      const rawImage = typeof item.image === 'string' ? item.image : '';
+      return {
+        id: String(item.id ?? ''),
+        name,
+        category,
+        image: resolveDatasetGarmentPhoto(name, category, rawImage),
+        color: typeof item.color === 'string' ? item.color : undefined,
+      };
+    });
 }
 
 export async function fetchCommunityFeed(
@@ -140,16 +177,29 @@ export async function fetchCommunityFeed(
   const liked = new Set((likes.data ?? []).map((row) => row.outfit_id));
   const saved = new Set((saves.data ?? []).map((row) => row.outfit_id));
   const myRatings = new Map((ratings.data ?? []).map((row) => [row.outfit_id, row.rating]));
-  return {
-    items: rows.map((row) => ({
+
+  const mappedDbItems: CommunityOutfit[] = rows.map((row) => {
+    const parsed = parseItems(row.items);
+    const creatorName = row.creator_name || 'StyleSense member';
+    return {
       ...row,
-      items: parseItems(row.items),
-      creatorName: row.creator_name || 'StyleSense member',
+      items: parsed,
+      creatorName,
       creatorAvatar: row.creator_avatar_url,
       liked: liked.has(row.id),
       saved: saved.has(row.id),
       myRating: myRatings.get(row.id) ?? null,
-    })),
+      genderProfile: classifyCommunityPostGender({
+        creatorName,
+        name: row.name,
+        caption: row.caption,
+        items: parsed,
+      }),
+    };
+  });
+
+  return {
+    items: mappedDbItems,
     hasMore: rows.length === limit,
   };
 }

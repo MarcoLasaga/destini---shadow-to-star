@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { CommunityOutfit } from '../services/communityService';
 import StarRating from './StarRating';
+import { resolveDatasetGarmentPhoto } from '../data/datasetGarmentCatalog';
 
 export default function CommunityOutfitCard({
   outfit,
@@ -19,10 +20,24 @@ export default function CommunityOutfitCard({
 }) {
   const theme = useAppTheme();
 
+  const coverUri =
+    outfit.cover_image &&
+    !outfit.cover_image.startsWith('illustration://') &&
+    !outfit.cover_image.includes('picsum.photos')
+      ? outfit.cover_image
+      : outfit.items[0]?.image
+      ? resolveDatasetGarmentPhoto(outfit.items[0].name, outfit.items[0].category, outfit.items[0].image)
+      : null;
+
   return (
     <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
       <View style={styles.creator}>
-        <View style={[styles.avatar, { backgroundColor: theme.primaryAccent + '40', borderColor: theme.border, borderWidth: 1 }]}>
+        <View
+          style={[
+            styles.avatar,
+            { backgroundColor: theme.primaryAccent + '40', borderColor: theme.border, borderWidth: 1 },
+          ]}
+        >
           {outfit.creatorAvatar ? (
             <Image source={{ uri: outfit.creatorAvatar }} style={styles.avatarImage} />
           ) : (
@@ -39,8 +54,8 @@ export default function CommunityOutfitCard({
         </View>
       </View>
 
-      {outfit.cover_image ? (
-        <Image source={{ uri: outfit.cover_image }} style={styles.cover} contentFit="cover" />
+      {coverUri ? (
+        <Image source={{ uri: coverUri }} style={styles.cover} contentFit="cover" />
       ) : (
         <View style={[styles.cover, styles.noImage, { backgroundColor: theme.background }]}>
           <Ionicons name="shirt-outline" size={30} color={theme.textMuted} />
@@ -49,12 +64,18 @@ export default function CommunityOutfitCard({
 
       <View style={styles.body}>
         <Text style={[styles.title, { color: theme.text }]}>{outfit.name}</Text>
-        {outfit.caption ? <Text style={[styles.caption, { color: theme.textMuted }]}>{outfit.caption}</Text> : null}
+        {outfit.caption ? (
+          <Text style={[styles.caption, { color: theme.textMuted }]}>{outfit.caption}</Text>
+        ) : null}
 
         <View style={styles.items}>
           {outfit.items.map((item) => (
             <View key={item.id} style={styles.item}>
-              <Image source={{ uri: item.image }} style={styles.itemImage} />
+              <Image
+                source={{ uri: resolveDatasetGarmentPhoto(item.name, item.category, item.image) }}
+                style={styles.itemImage}
+                contentFit="cover"
+              />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>
                   {item.name}
@@ -91,7 +112,12 @@ export default function CommunityOutfitCard({
           </Pressable>
 
           <View style={styles.rating}>
-            <StarRating rating={outfit.myRating ?? outfit.rating_avg} size={15} editable onChange={onRate} />
+            <StarRating
+              rating={outfit.myRating ?? outfit.rating_avg}
+              size={15}
+              editable
+              onChange={onRate}
+            />
             <Text style={[styles.meta, { color: theme.textMuted }]}>
               {outfit.rating_avg ? outfit.rating_avg.toFixed(1) : '—'} ({outfit.rating_count})
             </Text>
@@ -115,7 +141,14 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   creator: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14 },
-  avatar: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
   avatarImage: { width: '100%', height: '100%' },
   creatorName: { fontSize: 14, fontWeight: '700' },
   meta: { fontSize: 11, letterSpacing: 0.3 },

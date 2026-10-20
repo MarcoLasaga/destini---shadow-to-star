@@ -12,7 +12,6 @@ import AddClothesScreen from '../screens/AddClothesScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import SavedOutfitsScreen from '../screens/SavedOutfitsScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
-import CookbookScreen from '../screens/CookbookScreen';
 import PackingScreen from '../screens/PackingScreen';
 import PackingTripDetailScreen from '../screens/PackingTripDetailScreen';
 import SettingsScreen from '../screens/SettingsScreen';
@@ -77,7 +76,6 @@ export default function RootNavigator() {
             <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: false }} />
             <Stack.Screen name="SavedOutfits" component={SavedOutfitsScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Analytics" component={AnalyticsScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="Cookbook" component={CookbookScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Packing" component={PackingScreen} options={{ headerShown: false }} />
             <Stack.Screen name="PackingTripDetail" component={PackingTripDetailScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />

@@ -15,7 +15,6 @@ import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
 const MENU_ITEMS = [
   { key: 'SavedOutfits', label: 'Saved Outfits', icon: 'bookmark-outline' as const },
   { key: 'Analytics', label: 'Analytics', icon: 'bar-chart-outline' as const },
-  { key: 'Cookbook', label: 'Cookbook', icon: 'book-outline' as const },
   { key: 'Packing', label: 'Packing Assistant', icon: 'shirt-outline' as const },
   { key: 'Settings', label: 'Settings', icon: 'settings-outline' as const },
   { key: 'Help', label: 'Help & Support', icon: 'help-circle-outline' as const },

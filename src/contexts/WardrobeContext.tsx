@@ -24,14 +24,30 @@ const STYLE_TO_DATABASE: Record<string, string> = { Casual: 'CASUAL', Formal: 'F
 const SEASON_TO_DATABASE: Record<string, string> = { Spring: 'SPRING', Summer: 'SUMMER', Fall: 'AUTUMN', Winter: 'WINTER', All: 'ALL_SEASONS' };
 const OCCASION_TO_DATABASE: Record<string, string> = { Academic: 'ACADEMIC', Office: 'WORK', Work: 'WORK', Formal: 'FORMAL', Casual: 'CASUAL', Workout: 'SPORT', Sport: 'SPORT' };
 
+export const ACCESSORY_NAME_REGEX = /\b(watch|smartwatch|casio|bag|tote|belt|cap|hat|glasses|sunglasses|necklace|ring|bracelet|jewelry|earring|wallet|backpack|purse)\b/i;
+
+export function isAccessoryItem(category?: string | null, name?: string | null): boolean {
+  const cat = (category || '').toUpperCase().trim();
+  if (cat === 'ACCESSORIES' || cat === 'ACCESSORY' || cat.startsWith('ACCESSOR')) {
+    return true;
+  }
+  if (name && ACCESSORY_NAME_REGEX.test(name)) {
+    return true;
+  }
+  return false;
+}
+
 function mapSupabaseToMobile(row: any): ClothingItem {
   const timesWorn = row.wear_count || 0;
   const price = row.estimated_price ? parseFloat(row.estimated_price) : 0;
-  
+  const displayCategory = CATEGORY_TO_DISPLAY[row.category] || row.category || '';
+  const itemName = row.clothing_name || '';
+  const isAccessory = isAccessoryItem(displayCategory, itemName);
+
   return {
     id: row.id,
-    name: row.clothing_name || '',
-    category: CATEGORY_TO_DISPLAY[row.category] || row.category || '',
+    name: itemName,
+    category: isAccessory && !displayCategory ? 'Accessories' : displayCategory,
     color: row.color || '',
     brand: row.brand || '',
     material: row.material || '',
@@ -39,12 +55,12 @@ function mapSupabaseToMobile(row: any): ClothingItem {
     seasons: row.seasons || (row.season ? [row.season] : []),
     occasions: row.occasions || (row.occasion ? [row.occasion] : []),
     image: row.image_url || '',
-    status: (row.laundry_status === 'CLEAN' ? 'clean' : 'needs-washing') as LaundryStatus,
+    status: (isAccessory ? 'clean' : row.laundry_status === 'CLEAN' ? 'clean' : 'needs-washing') as LaundryStatus,
     favorite: row.is_favorite || false,
     timesWorn,
     lastWorn: row.last_worn_at ? new Date(row.last_worn_at).toISOString().split('T')[0] : '',
     costPerWear: timesWorn > 0 ? price / timesWorn : price,
-    wearCountSinceWash: row.wear_count_since_wash || 0,
+    wearCountSinceWash: isAccessory ? 0 : row.wear_count_since_wash || 0,
     washThreshold: row.wash_threshold || 5,
     avgWearsPerMonth: row.avg_wears_per_month || 0,
     sinceLast: row.last_worn_at 
@@ -57,6 +73,7 @@ function mapSupabaseToMobile(row: any): ClothingItem {
 
 function mapMobileToSupabase(item: Partial<ClothingItem>): any {
   const row: any = {};
+  const isAccessory = isAccessoryItem(item.category, item.name);
   
   if (item.name !== undefined) row.clothing_name = item.name;
   if (item.category !== undefined) row.category = CATEGORY_TO_DATABASE[item.category] || item.category;
@@ -76,7 +93,11 @@ function mapMobileToSupabase(item: Partial<ClothingItem>): any {
   }
   
   if (item.image !== undefined) row.image_url = item.image;
-  if (item.status !== undefined) row.laundry_status = item.status === 'clean' ? 'CLEAN' : 'NEEDS_WASHING';
+  if (isAccessory) {
+    row.laundry_status = 'CLEAN';
+  } else if (item.status !== undefined) {
+    row.laundry_status = item.status === 'clean' ? 'CLEAN' : 'NEEDS_WASHING';
+  }
   if (item.favorite !== undefined) row.is_favorite = item.favorite;
   if (item.timesWorn !== undefined) row.wear_count = item.timesWorn;
   
@@ -122,6 +143,17 @@ export function WardrobeProvider({ children }: { children: React.ReactNode }) {
         console.error('Error fetching wardrobe items from Supabase:', error);
       } else if (data) {
         setItems(data.map(mapSupabaseToMobile));
+        // Sanitize any existing accessory rows that were accidentally marked NEEDS_WASHING in DB
+        const dirtyAccessoryIds = data
+          .filter((row: any) => row.laundry_status !== 'CLEAN' && isAccessoryItem(row.category, row.clothing_name))
+          .map((row: any) => row.id);
+        if (dirtyAccessoryIds.length > 0) {
+          supabase
+            .from('wardrobe_items')
+            .update({ laundry_status: 'CLEAN' })
+            .in('id', dirtyAccessoryIds)
+            .then(() => {});
+        }
       }
     } catch (err) {
       console.error('Unexpected error fetching wardrobe items:', err);
@@ -262,17 +294,19 @@ export function WardrobeProvider({ children }: { children: React.ReactNode }) {
     const nowISO = new Date().toISOString();
     const todayStr = nowISO.split('T')[0];
 
-    // Optimistically increment wear count and update laundry status if wash threshold reached
+    // Optimistically increment wear count and update laundry status if wash threshold reached (never mark Accessories as needing wash!)
     setItems((prev) =>
       prev.map((item) => {
         if (!itemIds.includes(item.id)) return item;
         const nextTimesWorn = item.timesWorn + 1;
-        const nextWearSinceWash = item.wearCountSinceWash + 1;
+        const isAccessory = isAccessoryItem(item.category, item.name);
+        const nextWearSinceWash = isAccessory ? 0 : item.wearCountSinceWash + 1;
         const threshold = item.washThreshold || 3;
-        const nextStatus: LaundryStatus =
-          nextWearSinceWash >= threshold || nextTimesWorn % 3 === 0
-            ? 'needs-washing'
-            : item.status;
+        const nextStatus: LaundryStatus = isAccessory
+          ? 'clean'
+          : nextWearSinceWash >= threshold || nextTimesWorn % 3 === 0
+          ? 'needs-washing'
+          : item.status;
 
         return {
           ...item,
@@ -285,9 +319,10 @@ export function WardrobeProvider({ children }: { children: React.ReactNode }) {
       })
     );
 
-    // Trigger smart alert for items transitioning to needs-washing
+    // Trigger smart alert for items transitioning to needs-washing (excluding Accessories)
     const newlyNeedingWash = items.filter((item) => {
       if (!itemIds.includes(item.id)) return false;
+      if (isAccessoryItem(item.category, item.name)) return false;
       if (item.status === 'needs-washing') return false;
       const nextTimesWorn = item.timesWorn + 1;
       const nextWearSinceWash = item.wearCountSinceWash + 1;
@@ -308,13 +343,15 @@ export function WardrobeProvider({ children }: { children: React.ReactNode }) {
       await Promise.all(
         itemIds.map(async (id) => {
           const current = items.find((i) => i.id === id);
+          const isAccessory = isAccessoryItem(current?.category, current?.name);
           const nextTimesWorn = (current?.timesWorn || 0) + 1;
-          const nextWearSinceWash = (current?.wearCountSinceWash || 0) + 1;
+          const nextWearSinceWash = isAccessory ? 0 : (current?.wearCountSinceWash || 0) + 1;
           const threshold = current?.washThreshold || 3;
-          const laundryStatus =
-            nextWearSinceWash >= threshold || nextTimesWorn % 3 === 0
-              ? 'NEEDS_WASHING'
-              : 'CLEAN';
+          const laundryStatus = isAccessory
+            ? 'CLEAN'
+            : nextWearSinceWash >= threshold || nextTimesWorn % 3 === 0
+            ? 'NEEDS_WASHING'
+            : 'CLEAN';
 
           return supabase
             .from('wardrobe_items')

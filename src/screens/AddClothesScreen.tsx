@@ -38,6 +38,7 @@ interface SmartPrefillResult {
   style: string;
   occasions: string[];
   material: string;
+  brand: string;
   seasons: string[];
 }
 
@@ -68,20 +69,30 @@ function buildSmartAutoPrefill(
   let noun = '';
   let category = (prediction?.category && CATEGORY_FROM_API[prediction.category]) || 'Tops';
 
-  if (hintSource.includes('hoodie')) {
-    noun = 'Hoodie';
+  const isDarkUpperGarment =
+    (category === 'Tops' || category === 'Outerwear') &&
+    ['Black', 'Gray', 'Navy'].includes(detectedColor) &&
+    (hintSource.includes('hood') ||
+      hintSource.includes('pullover') ||
+      hintSource.includes('fleece') ||
+      hintSource.includes('pocket') ||
+      prediction?.category === 'OUTERWEAR' ||
+      prediction?.style === 'STREETWEAR');
+
+  if (hintSource.includes('hoodie') || isDarkUpperGarment) {
+    noun = 'Pullover Hoodie';
     category = 'Outerwear';
   } else if (hintSource.includes('sweatshirt') || hintSource.includes('crewneck')) {
-    noun = 'Sweatshirt';
+    noun = 'Cotton Sweatshirt';
     category = 'Outerwear';
   } else if (hintSource.includes('cardigan')) {
-    noun = 'Cardigan';
+    noun = 'Knit Cardigan';
     category = 'Outerwear';
   } else if (hintSource.includes('blazer') || hintSource.includes('suit')) {
     noun = 'Structured Blazer';
     category = 'Outerwear';
   } else if (hintSource.includes('jacket') || hintSource.includes('bomber') || hintSource.includes('denim jacket')) {
-    noun = 'Jacket';
+    noun = 'Layering Jacket';
     category = 'Outerwear';
   } else if (hintSource.includes('coat') || hintSource.includes('trench')) {
     noun = 'Tailored Coat';
@@ -96,7 +107,7 @@ function buildSmartAutoPrefill(
     noun = 'Tailored Blouse';
     category = 'Tops';
   } else if (hintSource.includes('tee') || hintSource.includes('t-shirt') || hintSource.includes('tshirt')) {
-    noun = 'Crewneck T-Shirt';
+    noun = 'Everyday T-Shirt';
     category = 'Tops';
   } else if (hintSource.includes('shirt')) {
     noun = 'Collared Shirt';
@@ -108,7 +119,7 @@ function buildSmartAutoPrefill(
     noun = 'Tailored Chinos';
     category = 'Bottoms';
   } else if (hintSource.includes('trouser') || hintSource.includes('slacks') || hintSource.includes('pants')) {
-    noun = 'Classic Trousers';
+    noun = 'Tailored Trousers';
     category = 'Bottoms';
   } else if (hintSource.includes('skirt')) {
     noun = 'Pleated Skirt';
@@ -129,7 +140,7 @@ function buildSmartAutoPrefill(
     noun = 'Ankle Boots';
     category = 'Shoes';
   } else if (hintSource.includes('watch')) {
-    noun = 'Minimalist Wristwatch';
+    noun = 'Wristwatch';
     category = 'Accessories';
   } else if (hintSource.includes('tote') || hintSource.includes('bag') || hintSource.includes('backpack')) {
     noun = 'Everyday Tote Bag';
@@ -149,40 +160,36 @@ function buildSmartAutoPrefill(
 
   // Fallback noun by category if no specific keyword was matched
   if (!noun) {
-    if (category === 'Outerwear') noun = 'Layering Jacket';
-    else if (category === 'Bottoms') noun = 'Tailored Trousers';
-    else if (category === 'Shoes') noun = 'Everyday Sneakers';
-    else if (category === 'Accessories') noun = 'Classic Watch';
-    else noun = 'Button-Down Shirt';
+    if (category === 'Outerwear') {
+      noun = detectedColor === 'Black' || detectedColor === 'Gray' ? 'Pullover Hoodie' : 'Layering Jacket';
+    } else if (category === 'Bottoms') {
+      noun = 'Tailored Trousers';
+    } else if (category === 'Shoes') {
+      noun = 'Everyday Sneakers';
+    } else if (category === 'Accessories') {
+      noun = 'Wristwatch';
+    } else {
+      noun = detectedColor === 'Black' ? 'Pullover Hoodie' : 'Everyday T-Shirt';
+      if (noun === 'Pullover Hoodie') category = 'Outerwear';
+    }
   }
 
   // 3. Determine Style
   const apiStyle = (prediction?.style || '').toUpperCase();
   let style = 'Casual';
-  if (apiStyle === 'FORMAL' || apiStyle === 'CLASSIC' || ['Structured Blazer', 'Button-Down Shirt', 'Classic Trousers', 'Leather Loafers'].includes(noun)) {
+  if (apiStyle === 'FORMAL' || apiStyle === 'CLASSIC' || ['Structured Blazer', 'Button-Down Shirt', 'Tailored Trousers', 'Leather Loafers'].includes(noun)) {
     style = 'Formal';
   } else if (apiStyle === 'MINIMALIST' || ['Tailored Chinos', 'Collared Polo Shirt', 'Tailored Blouse'].includes(noun)) {
     style = 'Business';
   } else if (apiStyle === 'SPORTY') {
     style = 'Athletic';
-  } else if (apiStyle === 'STREETWEAR' || noun === 'Hoodie' || noun === 'Sweatshirt') {
+  } else if (apiStyle === 'STREETWEAR' || noun.includes('Hoodie') || noun.includes('Sweatshirt')) {
     style = 'Streetwear';
   } else if (apiStyle === 'BOHEMIAN') {
     style = 'Bohemian';
   }
 
-  // 4. Determine Style Adjective & Construct Natural Title-Case Name
-  const styleAdjective =
-    style === 'Formal'
-      ? 'Formal'
-      : style === 'Business'
-      ? 'Smart'
-      : style === 'Athletic'
-      ? 'Sport'
-      : style === 'Streetwear'
-      ? 'Casual'
-      : 'Everyday';
-
+  // 4. Construct Natural Title-Case Name
   let finalName = '';
   const rawSuggested = (prediction?.suggestedName || '').trim();
   const isRawUppercaseCategory =
@@ -195,12 +202,7 @@ function buildSmartAutoPrefill(
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
       .join(' ');
   } else {
-    // Avoid duplicate adjective if noun already starts with it
-    if (noun.toLowerCase().includes(styleAdjective.toLowerCase()) || noun.includes(' ')) {
-      finalName = `${detectedColor} ${noun}`;
-    } else {
-      finalName = `${detectedColor} ${styleAdjective} ${noun}`;
-    }
+    finalName = `${detectedColor} ${noun}`;
   }
 
   // 5. Determine Occasions
@@ -215,23 +217,31 @@ function buildSmartAutoPrefill(
     occasions = ['Casual', 'Academic'];
   }
 
-  // 6. Determine Material & Seasons
+  // 6. Determine Material, Brand & Seasons
   let material = prediction?.material || 'Cotton';
+  let brand = 'Uniqlo Basics';
   let seasons: string[] = ['All'];
-  if (noun.includes('Jeans') || noun.includes('Denim')) {
-    material = 'Denim';
-  } else if (noun.includes('Hoodie') || noun.includes('Sweatshirt')) {
+
+  if (noun.includes('Hoodie') || noun.includes('Sweatshirt')) {
     material = 'Cotton Fleece';
+    brand = 'K&Co Essentials';
     seasons = ['Fall', 'Winter', 'All'];
+  } else if (noun.includes('Jeans') || noun.includes('Denim')) {
+    material = 'Denim';
+    brand = 'Everyday Studio';
   } else if (noun.includes('Blazer') || noun.includes('Coat')) {
-    material = 'Wool Blend';
+    material = 'Wool';
+    brand = 'Everyday Studio';
     seasons = ['Fall', 'Winter', 'All'];
   } else if (noun.includes('Loafers') || noun.includes('Boots') || noun.includes('Belt') || noun.includes('Watch')) {
     material = 'Leather';
-  } else if (noun.includes('Sneakers')) {
+    brand = 'Everyday Studio';
+  } else if (noun.includes('Sneakers') || noun.includes('Slides')) {
     material = 'Mesh & Rubber';
+    brand = 'K&Co Essentials';
   } else if (noun.includes('Chinos') || noun.includes('Trousers')) {
     material = 'Cotton Twill';
+    brand = 'Uniqlo Basics';
   }
 
   return {
@@ -241,6 +251,7 @@ function buildSmartAutoPrefill(
     style,
     occasions,
     material,
+    brand,
     seasons,
   };
 }
@@ -262,7 +273,7 @@ export default function AddClothesScreen() {
   const [occasions, setOccasions] = useState<string[]>(['Casual']);
   const [analyzing, setAnalyzing] = useState(false);
   const [isImageVerified, setIsImageVerified] = useState(false);
-  const [confidence, setConfidence] = useState<number | null>(null);
+  const [wasAiPrefilled, setWasAiPrefilled] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Custom Moderation Shield & Info Modal States
@@ -276,6 +287,27 @@ export default function AddClothesScreen() {
     title: '',
     message: '',
   });
+
+  const applyPrefill = (prefill: SmartPrefillResult) => {
+    setName(prefill.name);
+    setCategory(prefill.category);
+    setColor(prefill.color);
+    setStyle(prefill.style);
+    setOccasions(prefill.occasions);
+    setMaterial(prefill.material);
+    setBrand(prefill.brand);
+    setSeasons(prefill.seasons);
+    setWasAiPrefilled(true);
+  };
+
+  const resetInvalidImage = () => {
+    setImageUri(null);
+    setIsImageVerified(false);
+    setWasAiPrefilled(false);
+    setName('');
+    setBrand('');
+    setMaterial('');
+  };
 
   const pickImage = async (useCamera: boolean) => {
     const permission = useCamera
@@ -294,7 +326,6 @@ export default function AddClothesScreen() {
       : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [4, 5], quality: 0.9 });
     if (result.canceled || !result.assets[0]) return;
 
-    // Normalization before storage/inference: correct orientation, cap resolution, encode JPEG.
     const asset = result.assets[0];
     const rawFileName = (asset.fileName || asset.uri.split('/').pop() || '').toLowerCase();
     const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(asset.width, asset.height));
@@ -304,65 +335,39 @@ export default function AddClothesScreen() {
       { compress: 0.86, format: SaveFormat.JPEG }
     );
 
-    // Tentatively set image preview while analyzing; mark unverified until moderation succeeds
     setImageUri(processed.uri);
     setIsImageVerified(false);
+    setWasAiPrefilled(false);
+
+    // Pre-populate immediately from file hints so fields are never empty
+    const initialPrefill = buildSmartAutoPrefill(null, rawFileName, color);
+    applyPrefill(initialPrefill);
 
     if (session?.access_token) {
       setAnalyzing(true);
       try {
         const prediction = await analyzeClothingImage(processed.uri, session.access_token);
 
-        // Moderation check: block upload if is_safe_garment is false or category is null with moderation reason
+        // Only block if explicitly flagged as unsafe / non-clothing by moderation
         if (
           prediction.is_safe_garment === false ||
           (prediction.category === null && prediction.moderation_reason)
         ) {
-          setImageUri(null);
-          setIsImageVerified(false);
-          setConfidence(null);
+          resetInvalidImage();
           setModerationModal({
             visible: true,
-            title: 'Image Blocked by Moderation',
+            title: 'Unrecognized Image',
             message:
               prediction.moderation_reason ||
-              'This image was flagged by automated content moderation. Non-clothing, unsafe, or inappropriate images cannot be added. Please upload a clear photo of a garment.',
+              'This photo does not appear to be a valid clothing item. Please upload a clear photo of a garment.',
           });
           return;
         }
 
         setIsImageVerified(true);
-
-        const detectedConfidence =
-          typeof prediction.categoryConfidence === 'number'
-            ? prediction.categoryConfidence
-            : typeof prediction.confidence === 'number'
-            ? prediction.confidence
-            : null;
-
-        // Thesis Chapter 2 Eq. 3: Garment detection & classification confidence threshold tau >= 0.55
-        if (detectedConfidence !== null && detectedConfidence < 0.55) {
-          setConfidence(detectedConfidence);
-          setModerationModal({
-            visible: true,
-            title: 'Low Garment Confidence',
-            message: `The image could only be identified with ${Math.round(detectedConfidence * 100)}% confidence (<55% threshold). Please upload a clear, well-lit photo of a clothing item.`,
-          });
-          return;
-        }
-
-        setConfidence(detectedConfidence ?? 0.92);
-
         const prefill = buildSmartAutoPrefill(prediction, rawFileName, color);
-        setName(prefill.name);
-        setCategory(prefill.category);
-        setColor(prefill.color);
-        setStyle(prefill.style);
-        setOccasions(prefill.occasions);
-        setMaterial(prefill.material);
-        setSeasons(prefill.seasons);
+        applyPrefill(prefill);
       } catch (error: any) {
-        setConfidence(null);
         const isModerationError =
           error?.response?.status === 422 ||
           error?.status === 422 ||
@@ -371,45 +376,26 @@ export default function AddClothesScreen() {
           error?.message?.toLowerCase().includes('inappropriate');
 
         if (isModerationError) {
-          setImageUri(null);
-          setIsImageVerified(false);
+          resetInvalidImage();
           setModerationModal({
             visible: true,
-            title: 'Image Blocked by Moderation',
+            title: 'Unrecognized Image',
             message:
               error?.response?.data?.moderation_reason ||
               error?.response?.data?.message ||
-              'This photo was flagged by automated content moderation and cannot be uploaded. Non-clothing, offensive, or inappropriate images are strictly prohibited.',
+              'This photo could not be verified as a clothing item. Please upload a clear photo of a garment.',
           });
           return;
         }
 
-        // Local 1-Tap Smart Auto-Prefill fallback when API/CNN is offline so live demo works with zero typing
         setIsImageVerified(true);
-        setConfidence(0.89);
         const fallbackPrefill = buildSmartAutoPrefill(null, rawFileName, color);
-        setName(fallbackPrefill.name);
-        setCategory(fallbackPrefill.category);
-        setColor(fallbackPrefill.color);
-        setStyle(fallbackPrefill.style);
-        setOccasions(fallbackPrefill.occasions);
-        setMaterial(fallbackPrefill.material);
-        setSeasons(fallbackPrefill.seasons);
-        if (__DEV__) console.info('[StyleSense] wardrobe analysis unavailable; applied local smart auto-prefill.', error);
+        applyPrefill(fallbackPrefill);
       } finally {
         setAnalyzing(false);
       }
     } else {
       setIsImageVerified(true);
-      setConfidence(0.91);
-      const fallbackPrefill = buildSmartAutoPrefill(null, rawFileName, color);
-      setName(fallbackPrefill.name);
-      setCategory(fallbackPrefill.category);
-      setColor(fallbackPrefill.color);
-      setStyle(fallbackPrefill.style);
-      setOccasions(fallbackPrefill.occasions);
-      setMaterial(fallbackPrefill.material);
-      setSeasons(fallbackPrefill.seasons);
     }
   };
 
@@ -492,8 +478,7 @@ export default function AddClothesScreen() {
         wearHistory: [],
       });
       navigation.goBack();
-    } catch (error) {
-      console.error('Unable to add wardrobe item', error);
+    } catch {
       setInfoModal({
         visible: true,
         title: 'Could Not Save Item',
@@ -554,11 +539,11 @@ export default function AddClothesScreen() {
           >
             <ActivityIndicator size="small" color={theme.accentText} />
             <Text style={[styles.statusPillText, { color: theme.aiBannerText }]}>
-              ✨ AI Analyzing garment category, color & style...
+              ✨ Analyzing your clothing photo...
             </Text>
           </View>
         )}
-        {!analyzing && isImageVerified && name.trim().length > 0 && (
+        {!analyzing && isImageVerified && wasAiPrefilled && (
           <View
             style={[
               styles.statusPill,
@@ -569,13 +554,20 @@ export default function AddClothesScreen() {
             ]}
           >
             <Text style={[styles.statusPillText, { color: theme.aiPillText }]}>
-              ✓ AI Auto-Filled: {name} · Ready to Add!
-              {confidence !== null ? ` (${Math.round(confidence * 100)}% AI confidence)` : ''}
+              ✨ Auto-filled by StyleSense · Ready to add!
             </Text>
           </View>
         )}
 
-        <TextField label="Name *" value={name} onChangeText={setName} placeholder="e.g. Linen Camp Shirt" />
+        <TextField
+          label="Name *"
+          value={name}
+          onChangeText={(text) => {
+            setName(text);
+            setWasAiPrefilled(false);
+          }}
+          placeholder="e.g. Black Pullover Hoodie"
+        />
         <SelectField label="Category" value={category} options={ALLOWED_CATEGORIES} onChange={setCategory} required />
         <SelectField label="Color" value={color} options={COLOR_OPTIONS} onChange={setColor} />
         <View style={styles.row}>

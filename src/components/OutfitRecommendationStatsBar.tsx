@@ -8,15 +8,14 @@ export default function OutfitRecommendationStatsBar({ outfit }: { outfit: Gener
   const theme = useAppTheme();
 
   const baseScore = outfit.hybridScore ?? outfit.matchPercent;
-  const content = outfit.contentScore ?? Math.min(99, Math.round(baseScore * 0.95));
-  const collaborative = outfit.collaborativeScore ?? Math.min(99, Math.round(baseScore * 1.02));
-  const hybrid = Math.round(0.55 * content + 0.45 * collaborative);
+  const colorHarmony = outfit.contentScore ?? Math.min(99, Math.round(baseScore * 0.96));
+  const creativity = outfit.collaborativeScore ?? Math.min(99, Math.round(baseScore * 0.94));
+  const styleMatch = Math.round(0.55 * colorHarmony + 0.45 * creativity);
 
   const stats = [
-    { value: `${hybrid}%`, label: 'Hybrid Score', highlight: true },
-    { value: `${content}%`, label: 'Content', highlight: false },
-    { value: `${collaborative}%`, label: 'Collab', highlight: false },
-    { value: `${outfit.sustainPercent}%`, label: 'Reuse', highlight: false },
+    { value: `${styleMatch}%`, label: 'Style Match', highlight: true },
+    { value: `${colorHarmony}%`, label: 'Color Harmony', highlight: false },
+    { value: `${creativity}%`, label: 'Creativity', highlight: false },
   ];
 
   const isDark = theme.mode === 'dark';
@@ -26,10 +25,10 @@ export default function OutfitRecommendationStatsBar({ outfit }: { outfit: Gener
     <View style={[styles.card, { backgroundColor: theme.aiBannerBg, borderColor: theme.aiBannerBorder }]}>
       <View style={styles.header}>
         <View style={styles.titleWrap}>
-          <Ionicons name="analytics-outline" size={16} color={accentColor} />
-          <Text style={[styles.title, { color: theme.aiBannerText }]}>Hybrid Recommendation Breakdown</Text>
+          <Ionicons name="sparkles-outline" size={16} color={accentColor} />
+          <Text style={[styles.title, { color: theme.aiBannerText }]}>Making Sense of Your Style</Text>
         </View>
-        <Text style={[styles.badgeText, { color: accentColor }]}>Top-3 Outfit</Text>
+        <Text style={[styles.badgeText, { color: accentColor }]}>Top-3 Look</Text>
       </View>
       <View style={styles.statsRow}>
         {stats.map((stat) => (
@@ -37,7 +36,11 @@ export default function OutfitRecommendationStatsBar({ outfit }: { outfit: Gener
             key={stat.label}
             style={[
               styles.statBlock,
-              stat.highlight && { backgroundColor: isDark ? '#FBF5A718' : '#24152C12', borderRadius: 10, paddingVertical: 4 },
+              stat.highlight && {
+                backgroundColor: isDark ? '#FBF5A718' : '#24152C12',
+                borderRadius: 10,
+                paddingVertical: 4,
+              },
             ]}
           >
             <Text

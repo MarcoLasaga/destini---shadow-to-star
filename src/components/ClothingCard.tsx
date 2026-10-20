@@ -7,6 +7,8 @@ import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { ClothingItem } from '../types';
+import { isAccessoryItem } from '../contexts/WardrobeContext';
+import { resolveDatasetGarmentPhoto } from '../data/datasetGarmentCatalog';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 20 * 2 - 12) / 2;
@@ -88,13 +90,12 @@ export default function ClothingCard({
         ]}
       >
         <View style={styles.imageWrap}>
-          {item.image ? (
-            <Image source={{ uri: item.image }} style={styles.image} contentFit="cover" transition={200} />
-          ) : (
-            <View style={[styles.image, styles.fallback, { backgroundColor: theme.background }]}>
-              <Ionicons name="shirt-outline" size={28} color={theme.textMuted} />
-            </View>
-          )}
+          <Image
+            source={{ uri: resolveDatasetGarmentPhoto(item.name, item.category, item.image) }}
+            style={styles.image}
+            contentFit="cover"
+            transition={200}
+          />
 
           {/* Selection Checkmark / Empty Circle Badge */}
           {selectionMode && (
@@ -110,7 +111,7 @@ export default function ClothingCard({
             </View>
           )}
 
-          {item.status === 'needs-washing' && !selectionMode && (
+          {item.status === 'needs-washing' && !isAccessoryItem(item.category, item.name) && !selectionMode && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>Needs Wash</Text>
             </View>

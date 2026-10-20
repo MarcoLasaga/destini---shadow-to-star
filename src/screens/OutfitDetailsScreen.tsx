@@ -1,5 +1,15 @@
-import React, { useState } from 'react';
-import { View, Text, Pressable, ScrollView, TextInput, StyleSheet, Dimensions } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  Pressable,
+  ScrollView,
+  TextInput,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+} from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,10 +19,15 @@ import { useOutfit } from '../contexts/OutfitContext';
 import { RootStackParamList } from '../types';
 import StarRating from '../components/StarRating';
 import ShareOutfitModal from '../components/ShareOutfitModal';
+import OutfitCollageBoard from '../components/OutfitCollageBoard';
+import { resolveDatasetGarmentPhoto } from '../data/datasetGarmentCatalog';
+import {
+  buildColorHarmonyExplanation,
+  classifyAnatomicalSlot,
+  colorNameToHex,
+} from '../services/outfitRecommendationService';
 import { useCommunity } from '../contexts/CommunityContext';
 import { useToast } from '../contexts/ToastContext';
-
-const { width } = Dimensions.get('window');
 
 export default function OutfitDetailsScreen() {
   const theme = useAppTheme();
@@ -23,9 +38,23 @@ export default function OutfitDetailsScreen() {
   const { showToast } = useToast();
   const [shareVisible, setShareVisible] = useState(false);
 
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [notesFocused, setNotesFocused] = useState(false);
+
   const outfit = getOutfit(route.params.outfitId);
   const [wearRating, setWearRating] = useState(outfit?.wearRating ?? 0);
   const [wearNotes, setWearNotes] = useState(outfit?.wearNotes ?? '');
+
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidShow', () => {
+      if (notesFocused) {
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 120);
+      }
+    });
+    return () => sub.remove();
+  }, [notesFocused]);
 
   if (!outfit) {
     return (
@@ -37,30 +66,95 @@ export default function OutfitDetailsScreen() {
     );
   }
 
-  const hybrid = outfit.hybridScore ?? outfit.matchPercent;
-  const content = outfit.contentScore ?? Math.min(99, Math.round(hybrid * 0.95));
-  const collaborative = outfit.collaborativeScore ?? Math.min(99, Math.round(hybrid * 1.02));
+  const styleMatch = outfit.hybridScore ?? outfit.matchPercent;
+  const colorHarmony = outfit.contentScore ?? Math.min(99, Math.round(styleMatch * 0.96));
+  const creativity = outfit.collaborativeScore ?? Math.min(99, Math.round(styleMatch * 0.94));
+  const tempC =
+    outfit.weatherTempF != null ? Math.round((outfit.weatherTempF - 32) * (5 / 9)) : 29;
+  const conditionText = outfit.weatherCondition || 'Clear Sky';
+
+  // Dynamically derive title, colors, and color harmony from actual items in outfit.clothingItems
+  const dynamicTitle = useMemo(() => {
+    const inner = outfit.clothingItems.find(
+      (i) => (i.slotType || classifyAnatomicalSlot(i.name, i.category)) === 'innerTop'
+    );
+    const outer = outfit.clothingItems.find(
+      (i) => (i.slotType || classifyAnatomicalSlot(i.name, i.category)) === 'outerLayer'
+    );
+    const bottom = outfit.clothingItems.find(
+      (i) => (i.slotType || classifyAnatomicalSlot(i.name, i.category)) === 'bottom'
+    );
+    const occPrefix = `${outfit.occasionLabel || 'Curated'} Look`;
+    if (inner && outer) return `${occPrefix} · ${inner.name} + ${outer.name}`;
+    if (inner && bottom) return `${occPrefix} · ${inner.name} & ${bottom.name}`;
+    if (inner) return `${occPrefix} · ${inner.name}`;
+    return outfit.name;
+  }, [outfit.clothingItems, outfit.occasionLabel, outfit.name]);
+
+  const dynamicPalette = useMemo(
+    () =>
+      outfit.clothingItems.length > 0
+        ? outfit.clothingItems.slice(0, 4).map((it) => ({
+            name: `${it.color || 'Neutral'} (${it.category})`,
+            hex: it.hexColor || colorNameToHex(it.color),
+          }))
+        : outfit.colorPalette || [],
+    [outfit.clothingItems, outfit.colorPalette]
+  );
+
+  const dynamicHarmonyExplanation = useMemo(
+    () => buildColorHarmonyExplanation(dynamicPalette),
+    [dynamicPalette]
+  );
 
   const handleSaveFeedback = () => {
     submitWearFeedback(outfit.id, wearRating, wearNotes);
-    showToast('Wear feedback and rating saved!');
+    Keyboard.dismiss();
+    showToast('👍 Saved to your style preferences!');
+  };
+
+  const handleLike = () => {
+    submitPreferenceEvent(outfit.id, 'LIKE');
+    showToast('👍 Saved to your style preferences!');
+  };
+
+  const handleDislike = () => {
+    submitPreferenceEvent(outfit.id, 'DISLIKE');
+    showToast('👎 Preference saved! We will adjust future looks.');
+  };
+
+  const handleSave = () => {
+    const wasSaved = !!outfit.saved;
+    toggleSave(outfit.id);
+    showToast(wasSaved ? 'Removed from saved outfits.' : '🔖 Outfit saved to your collection!');
   };
 
   const handleWear = async () => {
+    const wasWorn = !!outfit.worn;
     await markAsWorn(outfit.id);
-    showToast('Outfit marked as worn! Wardrobe laundry status updated.');
+    showToast(wasWorn ? 'Outfit unmarked as worn.' : '👕 Marked as worn! Laundry status updated.');
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: theme.background }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 24}
+    >
       <SafeAreaView edges={['top']} style={[styles.header, { backgroundColor: theme.background }]}>
-        <Pressable onPress={() => navigation.goBack()} style={[styles.circleButton, { backgroundColor: theme.surface }]}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={[styles.circleButton, { backgroundColor: theme.surface }]}
+        >
           <Ionicons name="arrow-back" size={19} color={theme.text} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>
-          {outfit.name}
+          {dynamicTitle}
         </Text>
-        <Pressable onPress={() => toggleSave(outfit.id)} style={[styles.circleButton, { backgroundColor: theme.surface }]}>
+        <Pressable
+          onPress={handleSave}
+          style={[styles.circleButton, { backgroundColor: theme.surface }]}
+        >
           <Ionicons
             name={outfit.saved ? 'bookmark' : 'bookmark-outline'}
             size={19}
@@ -69,46 +163,46 @@ export default function OutfitDetailsScreen() {
         </Pressable>
       </SafeAreaView>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.imageWrap}>
-          <Image source={{ uri: outfit.image }} style={styles.image} contentFit="cover" transition={250} />
-          <View style={styles.weatherBadge}>
-            <Ionicons name="partly-sunny-outline" size={13} color="#FFD586" />
-            <Text style={styles.weatherBadgeText}>
-              OpenWeatherMap Live: {outfit.weatherTempF ?? 75}°F {outfit.weatherCondition ?? 'Clear'}
-            </Text>
-          </View>
-        </View>
-
+      <ScrollView
+        ref={scrollViewRef}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
+        contentContainerStyle={styles.scrollContent}
+      >
         <View style={styles.body}>
-          {/* Hybrid Recommendation Score Breakdown */}
+          {/* EDITORIAL FLAT-LAY OUTFIT COLLAGE CANVAS & TAP-TO-SWAP TRAY */}
+          <OutfitCollageBoard outfit={outfit} />
+
+          {/* 3 Real Algorithmic Score Cards in a Clean 3-Column Row */}
           <View style={styles.statsRow}>
-            <View style={[styles.statBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <Ionicons name="analytics-outline" size={17} color={theme.statIconColor} />
-              <Text style={[styles.statValue, { color: theme.highlightText }]}>{hybrid}%</Text>
-              <Text style={[styles.statLabel, { color: theme.textMuted }]}>Hybrid Score</Text>
+            <View
+              style={[styles.statBox, { backgroundColor: theme.surface, borderColor: theme.border }]}
+            >
+              <Ionicons name="sparkles-outline" size={17} color={theme.statIconColor} />
+              <Text style={[styles.statValue, { color: theme.highlightText }]}>{styleMatch}%</Text>
+              <Text style={[styles.statLabel, { color: theme.textMuted }]}>Style Match</Text>
             </View>
-            <View style={[styles.statBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <Ionicons name="sparkles-outline" size={17} color={theme.text} />
-              <Text style={[styles.statValue, { color: theme.text }]}>{content}%</Text>
-              <Text style={[styles.statLabel, { color: theme.textMuted }]}>Content-Based</Text>
+            <View
+              style={[styles.statBox, { backgroundColor: theme.surface, borderColor: theme.border }]}
+            >
+              <Ionicons name="color-palette-outline" size={17} color={theme.text} />
+              <Text style={[styles.statValue, { color: theme.text }]}>{colorHarmony}%</Text>
+              <Text style={[styles.statLabel, { color: theme.textMuted }]}>Color Harmony</Text>
             </View>
-            <View style={[styles.statBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <Ionicons name="people-outline" size={17} color={theme.text} />
-              <Text style={[styles.statValue, { color: theme.text }]}>{collaborative}%</Text>
-              <Text style={[styles.statLabel, { color: theme.textMuted }]}>Collaborative</Text>
-            </View>
-            <View style={[styles.statBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <Ionicons name="leaf-outline" size={17} color="#2F8F5B" />
-              <Text style={[styles.statValue, { color: '#2F8F5B' }]}>{outfit.sustainPercent}%</Text>
-              <Text style={[styles.statLabel, { color: theme.textMuted }]}>Reuse</Text>
+            <View
+              style={[styles.statBox, { backgroundColor: theme.surface, borderColor: theme.border }]}
+            >
+              <Ionicons name="bulb-outline" size={17} color={theme.text} />
+              <Text style={[styles.statValue, { color: theme.text }]}>{creativity}%</Text>
+              <Text style={[styles.statLabel, { color: theme.textMuted }]}>Creativity</Text>
             </View>
           </View>
 
           {/* 4 Required Action Buttons: Like, Dislike, Save, Wear */}
           <View style={styles.mainActionRow}>
             <Pressable
-              onPress={() => submitPreferenceEvent(outfit.id, 'LIKE')}
+              onPress={handleLike}
               style={[
                 styles.mainActionBtn,
                 {
@@ -122,13 +216,18 @@ export default function OutfitDetailsScreen() {
                 size={16}
                 color={outfit.favorited ? '#2F8F5B' : theme.text}
               />
-              <Text style={[styles.mainActionBtnText, { color: outfit.favorited ? '#2F8F5B' : theme.text }]}>
-                Like
+              <Text
+                style={[
+                  styles.mainActionBtnText,
+                  { color: outfit.favorited ? '#2F8F5B' : theme.text },
+                ]}
+              >
+                {outfit.favorited ? 'Liked' : 'Like'}
               </Text>
             </Pressable>
 
             <Pressable
-              onPress={() => submitPreferenceEvent(outfit.id, 'DISLIKE')}
+              onPress={handleDislike}
               style={[
                 styles.mainActionBtn,
                 {
@@ -142,13 +241,18 @@ export default function OutfitDetailsScreen() {
                 size={16}
                 color={outfit.disliked ? '#E5484D' : theme.text}
               />
-              <Text style={[styles.mainActionBtnText, { color: outfit.disliked ? '#E5484D' : theme.text }]}>
-                Dislike
+              <Text
+                style={[
+                  styles.mainActionBtnText,
+                  { color: outfit.disliked ? '#E5484D' : theme.text },
+                ]}
+              >
+                {outfit.disliked ? 'Disliked' : 'Dislike'}
               </Text>
             </Pressable>
 
             <Pressable
-              onPress={() => toggleSave(outfit.id)}
+              onPress={handleSave}
               style={[
                 styles.mainActionBtn,
                 {
@@ -162,7 +266,12 @@ export default function OutfitDetailsScreen() {
                 size={16}
                 color={outfit.saved ? '#A36814' : theme.text}
               />
-              <Text style={[styles.mainActionBtnText, { color: outfit.saved ? '#A36814' : theme.text }]}>
+              <Text
+                style={[
+                  styles.mainActionBtnText,
+                  { color: outfit.saved ? '#A36814' : theme.text },
+                ]}
+              >
                 {outfit.saved ? 'Saved' : 'Save'}
               </Text>
             </Pressable>
@@ -182,67 +291,140 @@ export default function OutfitDetailsScreen() {
                 size={16}
                 color={outfit.worn ? theme.onAccent : theme.text}
               />
-              <Text style={[styles.mainActionBtnText, { color: outfit.worn ? theme.onAccent : theme.text }]}>
+              <Text
+                style={[
+                  styles.mainActionBtnText,
+                  { color: outfit.worn ? theme.onAccent : theme.text },
+                ]}
+              >
                 {outfit.worn ? 'Worn' : 'Wear'}
               </Text>
             </Pressable>
           </View>
 
           <View style={styles.infoGrid}>
-            <View style={[styles.infoBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View
+              style={[styles.infoBox, { backgroundColor: theme.surface, borderColor: theme.border }]}
+            >
               <View style={styles.infoLabelRow}>
                 <Ionicons name="pricetag-outline" size={14} color={theme.textMuted} />
                 <Text style={[styles.infoLabel, { color: theme.textMuted }]}>Occasion</Text>
               </View>
               <Text style={[styles.infoValue, { color: theme.text }]}>{outfit.occasionLabel}</Text>
             </View>
-            <View style={[styles.infoBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View
+              style={[styles.infoBox, { backgroundColor: theme.surface, borderColor: theme.border }]}
+            >
               <View style={styles.infoLabelRow}>
                 <Ionicons name="sunny-outline" size={14} color={theme.textMuted} />
-                <Text style={[styles.infoLabel, { color: theme.textMuted }]}>OpenWeatherMap</Text>
+                <Text style={[styles.infoLabel, { color: theme.textMuted }]}>Weather Today</Text>
               </View>
               <Text style={[styles.infoValue, { color: theme.text }]}>
-                {outfit.weatherCondition && outfit.weatherTempF !== null
-                  ? `${outfit.weatherCondition} · ${outfit.weatherTempF}°F`
-                  : '75°F Clear'}
+                {conditionText} · {tempC}°C
               </Text>
             </View>
-            <View style={[styles.infoBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View
+              style={[styles.infoBox, { backgroundColor: theme.surface, borderColor: theme.border }]}
+            >
               <View style={styles.infoLabelRow}>
                 <Ionicons name="sparkles-outline" size={14} color={theme.textMuted} />
-                <Text style={[styles.infoLabel, { color: theme.textMuted }]}>Style Preference</Text>
+                <Text style={[styles.infoLabel, { color: theme.textMuted }]}>Style Vibe</Text>
               </View>
               <Text style={[styles.infoValue, { color: theme.text }]}>{outfit.occasionLabel}</Text>
             </View>
-            <View style={[styles.infoBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View
+              style={[styles.infoBox, { backgroundColor: theme.surface, borderColor: theme.border }]}
+            >
               <View style={styles.infoLabelRow}>
                 <Ionicons name="color-palette-outline" size={14} color={theme.textMuted} />
-                <Text style={[styles.infoLabel, { color: theme.textMuted }]}>Color Palette</Text>
+                <Text style={[styles.infoLabel, { color: theme.textMuted }]}>Color Match</Text>
               </View>
               <Text style={[styles.infoValue, { color: theme.text }]} numberOfLines={1}>
-                {outfit.colorPalette.map((c) => c.name).join(', ')}
+                {dynamicPalette
+                  .map((c) => c.name.replace(/\s*\([^)]*\)/g, ''))
+                  .filter(Boolean)
+                  .join(', ')}
               </Text>
             </View>
           </View>
 
-          {/* Garment Breakdown */}
-          <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          {/* "Making Sense of Your Style" Summary Banner */}
+          <View
+            style={[
+              styles.senseBanner,
+              { backgroundColor: theme.aiBannerBg, borderColor: theme.aiBannerBorder },
+            ]}
+          >
+            <Text style={[styles.senseBannerTitle, { color: theme.aiBannerText }]}>
+              ✨ Making Sense of Your Style
+            </Text>
+            <Text style={[styles.senseBannerBody, { color: theme.aiBannerText }]}>
+              <Text style={{ fontWeight: '800' }}>🎨 Why the Colors Work: </Text>
+              {dynamicHarmonyExplanation}
+            </Text>
+            <Text style={[styles.senseBannerBody, { color: theme.aiBannerText }]}>
+              <Text style={{ fontWeight: '800' }}>👕 How to Wear It: </Text>
+              Wear your shirt inside first, layer the jacket open on top, and wear your watch on the left wrist.
+            </Text>
+          </View>
+
+          {/* Garment Breakdown (Each slot renders its own real garment photo!) */}
+          <View
+            style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}
+          >
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Garment Breakdown</Text>
             <View style={styles.breakdownGrid}>
-              {outfit.clothingItems.map((item) => (
-                <View key={item.id} style={styles.breakdownTile}>
-                  <Image source={{ uri: item.image }} style={styles.breakdownImage} contentFit="cover" />
-                  <Text style={[styles.breakdownName, { color: theme.text }]} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                  <Text style={[styles.breakdownCategory, { color: theme.textMuted }]}>{item.category}</Text>
-                </View>
-              ))}
+              {outfit.clothingItems.map((item) => {
+                const realPhotoUri = resolveDatasetGarmentPhoto(
+                  item.name,
+                  item.category,
+                  item.image
+                );
+                return (
+                  <View key={item.id} style={styles.breakdownTile}>
+                    <View style={styles.breakdownImageWrap}>
+                      <Image
+                        source={{ uri: realPhotoUri }}
+                        style={styles.breakdownImage}
+                        contentFit="cover"
+                      />
+                      {item.isSuggested && (
+                        <View
+                          style={[
+                            styles.breakdownDatasetBadge,
+                            { backgroundColor: theme.aiPillBg },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.breakdownDatasetText,
+                              { color: theme.aiPillText },
+                            ]}
+                          >
+                            Dataset Pick
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text
+                      style={[styles.breakdownName, { color: theme.text }]}
+                      numberOfLines={1}
+                    >
+                      {item.name}
+                    </Text>
+                    <Text style={[styles.breakdownCategory, { color: theme.textMuted }]}>
+                      {item.category} · {item.color || 'Neutral'}
+                    </Text>
+                  </View>
+                );
+              })}
             </View>
           </View>
 
-          {/* Explainability Reasons */}
-          <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          {/* Why was this outfit recommended? */}
+          <View
+            style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}
+          >
             <View style={styles.sectionHeader}>
               <View style={[styles.sparkleIcon, { backgroundColor: theme.accent + '20' }]}>
                 <Ionicons name="sparkles" size={14} color={theme.accent} />
@@ -251,38 +433,76 @@ export default function OutfitDetailsScreen() {
                 Why was this outfit recommended?
               </Text>
             </View>
-            {outfit.whyReasons.map((reason) => (
-              <View key={reason.id} style={styles.reasonRow}>
-                <View style={[styles.reasonIcon, { backgroundColor: theme.accent + '15' }]}>
-                  <Ionicons name={reason.icon as any} size={15} color={theme.accent} />
+            {outfit.whyReasons.map((reason) => {
+              let cleanDesc = reason.description || '';
+              if (
+                reason.title &&
+                cleanDesc.toLowerCase().startsWith(reason.title.toLowerCase() + ':')
+              ) {
+                cleanDesc = cleanDesc.slice(reason.title.length + 1).trim();
+              }
+              return (
+                <View key={reason.id} style={styles.reasonRow}>
+                  <View style={[styles.reasonIcon, { backgroundColor: theme.accent + '15' }]}>
+                    <Ionicons name={reason.icon as any} size={15} color={theme.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.reasonTitle, { color: theme.text }]}>{reason.title}</Text>
+                    <Text style={[styles.reasonDescription, { color: theme.textMuted }]}>
+                      {cleanDesc}
+                    </Text>
+                  </View>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.reasonTitle, { color: theme.text }]}>{reason.title}</Text>
-                  <Text style={[styles.reasonDescription, { color: theme.textMuted }]}>{reason.description}</Text>
-                </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
 
           {/* Wear Notes & Feedback */}
-          <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Fit Score & Wear Notes</Text>
-            <Text style={[styles.fieldLabel, { color: theme.textMuted, marginTop: 8 }]}>How did this outfit feel?</Text>
+          <View
+            style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}
+          >
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>
+              Fit Score & Wear Notes
+            </Text>
+            <Text style={[styles.fieldLabel, { color: theme.textMuted, marginTop: 8 }]}>
+              How did this outfit feel?
+            </Text>
             <StarRating rating={wearRating} size={24} editable onChange={setWearRating} />
 
-            <Text style={[styles.fieldLabel, { color: theme.textMuted, marginTop: 14 }]}>Wear notes</Text>
+            <Text style={[styles.fieldLabel, { color: theme.textMuted, marginTop: 14 }]}>
+              Wear notes
+            </Text>
             <TextInput
               value={wearNotes}
               onChangeText={setWearNotes}
+              onFocus={() => {
+                setNotesFocused(true);
+                setTimeout(() => {
+                  scrollViewRef.current?.scrollToEnd({ animated: true });
+                }, 180);
+              }}
+              onBlur={() => setNotesFocused(false)}
               placeholder="Record comfort notes throughout your day..."
               placeholderTextColor={theme.textMuted}
               multiline
-              style={[styles.notesInput, { borderColor: theme.border, backgroundColor: theme.background, color: theme.text }]}
+              style={[
+                styles.notesInput,
+                {
+                  borderColor: theme.border,
+                  backgroundColor: theme.background,
+                  color: theme.text,
+                },
+              ]}
             />
 
-            <Pressable onPress={handleSaveFeedback} style={[styles.saveFeedbackButton, { backgroundColor: theme.secondaryAccent }]}>
+            <Pressable
+              onPress={handleSaveFeedback}
+              style={[styles.saveFeedbackButton, { backgroundColor: theme.secondaryAccent }]}
+            >
               <Ionicons name="save-outline" size={16} color={theme.onAccent} />
-              <Text style={[styles.saveFeedbackLabel, { color: theme.onAccent }]}>Save Feedback</Text>
+              <Text style={[styles.saveFeedbackLabel, { color: theme.onAccent }]}>
+                Save Feedback
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -293,37 +513,42 @@ export default function OutfitDetailsScreen() {
         onClose={() => setShareVisible(false)}
         onPublished={() => refresh()}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   notFound: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, gap: 12 },
-  circleButton: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, fontSize: 16, fontWeight: '800', textAlign: 'center' },
-  scrollContent: { paddingBottom: 40 },
-  imageWrap: { width, height: width * 0.85, position: 'relative' },
-  image: { width: '100%', height: '100%' },
-  weatherBadge: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(27, 27, 31, 0.85)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 12,
   },
-  weatherBadgeText: { color: '#FFFFFF', fontSize: 11.5, fontWeight: '600' },
-  body: { paddingHorizontal: 20, paddingTop: 18, gap: 16 },
-  statsRow: { flexDirection: 'row', gap: 8 },
-  statBox: { flex: 1, borderRadius: 14, borderWidth: 1, alignItems: 'center', paddingVertical: 12, gap: 3 },
-  statValue: { fontSize: 14, fontWeight: '800' },
-  statLabel: { fontSize: 9.5, textAlign: 'center', fontWeight: '600' },
+  circleButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: { flex: 1, fontSize: 16, fontWeight: '800', textAlign: 'center' },
+  scrollContent: { paddingBottom: 260 },
+  body: { paddingHorizontal: 20, paddingTop: 10, gap: 16 },
+  statsRow: { flexDirection: 'row', gap: 10 },
+  statBox: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 3,
+  },
+  statValue: { fontSize: 15, fontWeight: '800' },
+  statLabel: { fontSize: 10.5, textAlign: 'center', fontWeight: '600' },
   mainActionRow: { flexDirection: 'row', gap: 8 },
   mainActionBtn: {
     flex: 1,
@@ -341,21 +566,82 @@ const styles = StyleSheet.create({
   infoLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   infoLabel: { fontSize: 11.5 },
   infoValue: { fontSize: 13, fontWeight: '700' },
+  senseBanner: {
+    borderRadius: 16,
+    borderWidth: 1.5,
+    padding: 14,
+    gap: 6,
+  },
+  senseBannerTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  senseBannerBody: {
+    fontSize: 12.5,
+    lineHeight: 18,
+  },
   section: { borderRadius: 18, borderWidth: 1, padding: 16, gap: 12 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   sectionTitle: { fontSize: 15, fontWeight: '700' },
   breakdownGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   breakdownTile: { width: '47%', gap: 4 },
-  breakdownImage: { width: '100%', aspectRatio: 1, borderRadius: 14 },
+  breakdownImageWrap: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 14,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#E5E0D8',
+  },
+  breakdownImage: { width: '100%', height: '100%' },
+  breakdownDatasetBadge: {
+    position: 'absolute',
+    bottom: 6,
+    right: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 999,
+  },
+  breakdownDatasetText: {
+    fontSize: 9,
+    fontWeight: '800',
+  },
   breakdownName: { fontSize: 13, fontWeight: '700', marginTop: 4 },
   breakdownCategory: { fontSize: 11.5 },
-  sparkleIcon: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  sparkleIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   reasonRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-  reasonIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  reasonIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   reasonTitle: { fontSize: 13, fontWeight: '700' },
   reasonDescription: { fontSize: 12, marginTop: 2, lineHeight: 16 },
   fieldLabel: { fontSize: 13, fontWeight: '600' },
-  notesInput: { borderWidth: 1, borderRadius: 12, padding: 14, fontSize: 13.5, minHeight: 80, textAlignVertical: 'top' },
-  saveFeedbackButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, paddingVertical: 14, marginTop: 4 },
+  notesInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 13.5,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  saveFeedbackButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginTop: 4,
+  },
   saveFeedbackLabel: { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
 });

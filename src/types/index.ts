@@ -160,6 +160,8 @@ export interface OutfitClothingItem {
   placementBadge?: string;
   layerNote?: string;
   status?: LaundryStatus;
+  isSuggested?: boolean;
+  suggestedLabel?: string;
 }
 
 export interface ColorSwatch {

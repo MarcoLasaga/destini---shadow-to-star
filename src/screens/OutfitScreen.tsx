@@ -27,6 +27,8 @@ export default function OutfitScreen() {
     setOccasion,
     noNewClothesMode,
     toggleNoNewClothesMode,
+    outfitSourceMode,
+    setOutfitSourceMode,
     currentOutfit,
     currentOutfits,
     isLoading,
@@ -93,13 +95,13 @@ export default function OutfitScreen() {
         <View>
           <Text style={[styles.title, { color: theme.text }]}>Outfit Recommendations</Text>
           <Text style={[styles.subtitle, { color: theme.textMuted }]}>
-            Hybrid Content & Collaborative Filtering
+            Making Sense of Your Style · Confidence, Colors & Quick Decisions
           </Text>
         </View>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        {/* Live OpenWeatherMap Weather Banner */}
+        {/* Weather Today Banner (Always in Celsius) */}
         <View style={[styles.weatherCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.weatherLeft}>
             <View style={[styles.weatherIconWrap, { backgroundColor: theme.primaryAccent + '33' }]}>
@@ -111,7 +113,7 @@ export default function OutfitScreen() {
                   {weather.tempC ?? Math.round((weather.tempF - 32) * (5 / 9))}°C
                 </Text>
                 <View style={[styles.owmBadge, { backgroundColor: '#FFD586' }]}>
-                  <Text style={styles.owmBadgeText}>OpenWeatherMap Live</Text>
+                  <Text style={styles.owmBadgeText}>Weather Today</Text>
                 </View>
               </View>
               <Text style={[styles.weatherCondition, { color: theme.textMuted }]}>
@@ -175,9 +177,57 @@ export default function OutfitScreen() {
         <View style={[styles.occasionCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Text style={[styles.occasionLabel, { color: theme.text }]}>Target Occasion</Text>
           <OccasionDropdown value={occasion} onChange={setOccasion} />
+
+          {/* Advisor's 2-Pill Toggle: "👕 My Closet Only" vs "✨ Best for Occasion" */}
+          <View style={styles.sourceModeToggleWrap}>
+            <Pressable
+              onPress={() => setOutfitSourceMode('closet')}
+              style={[
+                styles.sourceModePill,
+                {
+                  backgroundColor: outfitSourceMode === 'closet' ? theme.secondaryAccent : theme.background,
+                  borderColor: outfitSourceMode === 'closet' ? theme.secondaryAccent : theme.border,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.sourceModePillText,
+                  { color: outfitSourceMode === 'closet' ? theme.onAccent : theme.text },
+                ]}
+              >
+                👕 My Closet Only
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => setOutfitSourceMode('bestForOccasion')}
+              style={[
+                styles.sourceModePill,
+                {
+                  backgroundColor: outfitSourceMode === 'bestForOccasion' ? theme.secondaryAccent : theme.background,
+                  borderColor: outfitSourceMode === 'bestForOccasion' ? theme.secondaryAccent : theme.border,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.sourceModePillText,
+                  { color: outfitSourceMode === 'bestForOccasion' ? theme.onAccent : theme.text },
+                ]}
+              >
+                ✨ Dataset Picks
+              </Text>
+            </Pressable>
+          </View>
+          <Text style={[styles.sourceModeHelper, { color: theme.textMuted }]}>
+            {outfitSourceMode === 'closet'
+              ? 'Builds outfits strictly from the clean clothes inside your closet.'
+              : `Mixes your closet with studio "Dataset Pick" garments for ${occasion === 'Any occasion' ? 'Office' : occasion}.`}
+          </Text>
         </View>
 
-        {/* "MOST-USED OCCASION ARCHETYPE" & CLOSET GAP BLUEPRINT CARD */}
+        {/* OCCASION FORMULA & CLOSET TIP CARD */}
         <View
           style={[
             styles.archetypeCard,
@@ -203,7 +253,7 @@ export default function OutfitScreen() {
 
           <View style={[styles.archetypeFormulaBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <Text style={[styles.archetypeSectionLabel, { color: theme.accentText }]}>
-              BENCHMARK FORMULA ("WHAT'S INSIDE FIRST")
+              WHAT TO WEAR FIRST (INSIDE → OUT)
             </Text>
             <Text style={[styles.archetypeFormulaText, { color: theme.text }]}>
               {archetypeBlueprint.benchmarkFormula}
@@ -213,7 +263,7 @@ export default function OutfitScreen() {
           <View style={styles.archetypeBulletRow}>
             <Ionicons name="checkmark-circle-outline" size={15} color={theme.accentText} style={{ marginTop: 1 }} />
             <Text style={[styles.archetypeBodyText, { color: theme.aiBannerText }]}>
-              <Text style={{ fontWeight: '800' }}>How to Wear What You Own Now: </Text>
+              <Text style={{ fontWeight: '800' }}>Quick Tip: </Text>
               {archetypeBlueprint.howToWearNow}
             </Text>
           </View>
@@ -221,7 +271,7 @@ export default function OutfitScreen() {
           <View style={styles.archetypeBulletRow}>
             <Ionicons name="trending-up-outline" size={15} color={theme.accentText} style={{ marginTop: 1 }} />
             <Text style={[styles.archetypeBodyText, { color: theme.aiBannerText }]}>
-              <Text style={{ fontWeight: '800' }}>Closet Blueprint Tip: </Text>
+              <Text style={{ fontWeight: '800' }}>Upgrade Your Match: </Text>
               {archetypeBlueprint.closetGapTip}
             </Text>
           </View>
@@ -259,9 +309,9 @@ export default function OutfitScreen() {
         {!isLoading && top3Outfits.length > 0 && (
           <View style={styles.recommendationsSection}>
             <View style={styles.resultsHeader}>
-              <Text style={[styles.resultsTitle, { color: theme.text }]}>Top-3 Curated Outfits</Text>
+              <Text style={[styles.resultsTitle, { color: theme.text }]}>Top-3 Outfits for You</Text>
               <Text style={[styles.resultsSubtitle, { color: theme.textMuted }]}>
-                Ranked by Hybrid Recommendation Score (0.55·S_cb + 0.45·S_cf)
+                Tap any garment card on the moodboard below to swap from your closet or dataset picks
               </Text>
             </View>
 
@@ -284,7 +334,7 @@ export default function OutfitScreen() {
                     </Text>
                   </View>
                   <Text style={[styles.rankScore, { color: theme.accentText }]}>
-                    {outfit.hybridScore ?? outfit.matchPercent}% Hybrid Match
+                    {outfit.hybridScore ?? outfit.matchPercent}% Style Match
                   </Text>
                 </View>
 
@@ -359,8 +409,30 @@ const styles = StyleSheet.create({
   },
   activePillText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' },
   modeSubtitle: { fontSize: 11.5, lineHeight: 15, marginTop: 2 },
-  occasionCard: { borderRadius: 16, borderWidth: 1, padding: 14, gap: 8 },
+  occasionCard: { borderRadius: 16, borderWidth: 1, padding: 14, gap: 10 },
   occasionLabel: { fontSize: 13.5, fontWeight: '700' },
+  sourceModeToggleWrap: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 2,
+  },
+  sourceModePill: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sourceModePillText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  sourceModeHelper: {
+    fontSize: 11.5,
+    lineHeight: 15,
+  },
   archetypeCard: {
     borderRadius: 16,
     borderWidth: 1.5,

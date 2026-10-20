@@ -9,7 +9,7 @@ import QuickShortcuts from '../components/QuickShortcuts';
 import WardrobeSummary from '../components/WardrobeSummary';
 import SustainabilityTip from '../components/SustainabilityTip';
 import WardrobeAnalyticsPreview from '../components/WardrobeAnalyticsPreview';
-import { useWardrobe } from '../contexts/WardrobeContext';
+import { useWardrobe, isAccessoryItem } from '../contexts/WardrobeContext';
 import { useProfile } from '../contexts/ProfileContext';
 
 export default function HomeScreen() {
@@ -17,7 +17,11 @@ export default function HomeScreen() {
   const { weather, loading, refresh } = useWeather();
   const { items } = useWardrobe();
   const { profile } = useProfile();
-  const stats = { items: items.length, favorites: items.filter((item) => item.favorite).length, toWash: items.filter((item) => item.status !== 'clean').length };
+  const stats = {
+    items: items.length,
+    favorites: items.filter((item) => item.favorite).length,
+    toWash: items.filter((item) => item.status !== 'clean' && !isAccessoryItem(item.category, item.name)).length,
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>

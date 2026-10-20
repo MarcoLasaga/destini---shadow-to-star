@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { useWardrobe } from '../contexts/WardrobeContext';
+import { useWardrobe, isAccessoryItem } from '../contexts/WardrobeContext';
 import { useToast } from '../contexts/ToastContext';
 import ClothingCard from '../components/ClothingCard';
 import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
@@ -158,9 +158,10 @@ export default function WardrobeScreen() {
         if (!matchesOccasion) return false;
       }
 
-      // 3. Laundry Status filter
+      // 3. Laundry Status filter (Accessories are always treated as Clean)
       if (selectedLaundry !== 'ALL') {
-        const itemStatus = (item.status || '').toLowerCase();
+        const isAcc = isAccessoryItem(item.category, item.name);
+        const itemStatus = isAcc ? 'clean' : (item.status || '').toLowerCase();
         if (selectedLaundry === 'CLEAN' && itemStatus !== 'clean') return false;
         if (selectedLaundry === 'NEEDS_WASHING' && itemStatus !== 'needs-washing') return false;
       }

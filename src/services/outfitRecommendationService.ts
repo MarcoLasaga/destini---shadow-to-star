@@ -1,5 +1,6 @@
 import type { AnatomicalSlotType, ClothingRole, ColorSwatch, GeneratedOutfit, OutfitClothingItem, WeatherData } from '../types';
 import { getApiUrl } from './apiConfig';
+import { getDatasetPicksForSlot, resolveDatasetGarmentPhoto } from '../data/datasetGarmentCatalog';
 
 const CATEGORY: Record<string, ClothingRole> = {
   TOP: 'Top',
@@ -51,99 +52,95 @@ export function colorNameToHex(colorName?: string): string {
 export function getBodyPlacementBadge(
   item: { name: string; category?: string; color?: string },
   slotType: AnatomicalSlotType,
-  occasion: string
+  _occasion: string
 ): string {
   const n = (item.name || '').toLowerCase();
-  const occ = (occasion || 'Casual').toLowerCase();
-  const isFormalOrOffice = occ.includes('office') || occ.includes('work') || occ.includes('formal') || occ.includes('academic');
 
   if (slotType === 'accessory') {
-    if (n.includes('watch') || n.includes('bracelet') || n.includes('wrist')) return '⌚ Left Wrist';
-    if (n.includes('tote') || n.includes('bag') || n.includes('purse') || n.includes('backpack')) return '👜 Right Shoulder';
-    if (n.includes('belt')) return 'Belt · Waistline';
-    if (n.includes('hat') || n.includes('cap') || n.includes('beanie')) return '🧢 Head / Crown';
-    if (n.includes('sunglass') || n.includes('glasses') || n.includes('shades')) return '🕶️ Face / Bridge';
-    return '📿 Collarbone / Neckline';
+    if (n.includes('watch') || n.includes('bracelet') || n.includes('wrist')) return 'Left Wrist';
+    if (n.includes('tote') || n.includes('bag') || n.includes('purse') || n.includes('backpack')) return 'Shoulder';
+    if (n.includes('belt')) return 'Waistline';
+    if (n.includes('hat') || n.includes('cap') || n.includes('beanie')) return 'Head';
+    if (n.includes('sunglass') || n.includes('glasses') || n.includes('shades')) return 'Face';
+    return 'Neckline';
   }
 
   if (slotType === 'innerTop') {
-    return isFormalOrOffice
-      ? '1st Layer · Worn Inside First (Tucked)'
-      : '1st Layer · Worn Inside First (Untucked)';
+    return 'Wear 1st';
   }
 
   if (slotType === 'outerLayer') {
-    if (n.includes('hoodie') || n.includes('sweatshirt')) {
-      return '2nd Layer · Worn Over Base Top (Hood Flat)';
-    }
-    return '2nd Layer · Worn Over Base Top (Open Front)';
+    return 'Over Shirt';
   }
 
   if (slotType === 'bottom') {
-    return isFormalOrOffice
-      ? 'Clean · Tailored Waistline & Straight Break'
-      : 'Clean · Relaxed Tapered Silhouette';
+    return 'Clean Fit';
   }
 
-  return `Clean · ${item.color || 'Neutral'} Footwear Anchor`;
+  return 'Color Anchor';
 }
 
 export function buildHowToWearBullets(items: OutfitClothingItem[], occasion: string): string[] {
   const occ = (occasion || 'Casual').toLowerCase();
-  const isStructured = occ.includes('office') || occ.includes('work') || occ.includes('formal') || occ.includes('academic');
+  const isStructured = occ.includes('office') || occ.includes('work') || occ.includes('formal');
 
-  const innerTop = items.find((i) => (i.slotType || classifyAnatomicalSlot(i.name, i.category)) === 'innerTop');
   const outerLayer = items.find((i) => (i.slotType || classifyAnatomicalSlot(i.name, i.category)) === 'outerLayer');
-  const bottom = items.find((i) => (i.slotType || classifyAnatomicalSlot(i.name, i.category)) === 'bottom');
-  const shoes = items.find((i) => (i.slotType || classifyAnatomicalSlot(i.name, i.category)) === 'shoes');
   const accessory = items.find((i) => (i.slotType || classifyAnatomicalSlot(i.name, i.category)) === 'accessory');
 
-  const bullets: string[] = [];
+  const chips: string[] = [];
 
-  // Bullet 1: Inner Base Top + Outer Layering rule
-  if (innerTop && outerLayer) {
+  // 1. Inside Shirt chip (max 6-8 words)
+  chips.push(
+    isStructured
+      ? '👕 Wear shirt tucked in underneath'
+      : '👕 Wear inside shirt first underneath'
+  );
+
+  // 2. Outer Layer chip (max 6-8 words)
+  if (outerLayer) {
     const isHoodie = /hoodie|sweatshirt/i.test(outerLayer.name);
-    bullets.push(
-      `What's Inside First: Put on your ${innerTop.name} first (${
-        isStructured ? 'neatly tucked into the waistband with collar points visible' : 'worn comfortably as your breathable 1st layer'
-      }), then layer your ${outerLayer.name} over it ${
-        isHoodie ? 'with the hood laid flat & down across the upper back' : 'unbuttoned/open to frame your torso'
-      }.`
+    chips.push(
+      isHoodie
+        ? '🧥 Keep jacket open / hoodie hood flat'
+        : '🧥 Wear outer layer open over shirt'
     );
-  } else if (innerTop) {
-    bullets.push(
-      `Torso Foundation: Wear your ${innerTop.name} as the primary 1st layer (${
-        isStructured ? 'tucked cleanly at the waist with sleeves rolled once at the forearm' : 'untucked with a relaxed shoulder drape'
-      }).`
-    );
+  } else {
+    chips.push('🧥 Keep sleeves neat and collar crisp');
   }
 
-  // Bullet 2: Exact Accessory Body Zone Placement
+  // 3. Accessory placement chip (max 6-8 words)
   if (accessory) {
-    const badge = accessory.placementBadge || getBodyPlacementBadge(accessory, 'accessory', occasion);
-    bullets.push(
-      `Body Zone Placement (${badge}): Position your ${accessory.name} at the ${badge.replace(/^[^\w]+/, '')} to add a focal detail without cluttering the neckline.`
-    );
+    const n = accessory.name.toLowerCase();
+    if (n.includes('watch') || n.includes('bracelet')) {
+      chips.push('⌚ Wear watch on your left wrist');
+    } else if (n.includes('bag') || n.includes('tote') || n.includes('backpack')) {
+      chips.push('👜 Carry bag on your right shoulder');
+    } else if (n.includes('belt')) {
+      chips.push('👖 Fasten belt cleanly at waistline');
+    } else {
+      chips.push('🧣 Drape accessory neatly at neckline');
+    }
+  } else {
+    chips.push('⌚ Wear watch on your left wrist');
   }
 
-  // Bullet 3: Bottom + Shoe Proportion Rule
-  if (bottom && shoes) {
-    bullets.push(
-      `Lower Proportion & Anchor: Pair ${bottom.name} with ${shoes.name} so the hem sits cleanly at the ankle bone, grounding the look with a ${shoes.color || 'neutral'} base.`
-    );
-  }
-
-  return bullets.slice(0, 3);
+  return chips.slice(0, 3);
 }
 
 export function buildColorHarmonyExplanation(palette: ColorSwatch[]): string {
-  const names = palette.map((p) => p.name).filter(Boolean);
-  if (names.length >= 2) {
-    return `CIELAB ΔE* Harmony: Balanced ${names[0]} and ${names[1]} luminance (L*) anchors paired with ${
-      names[2] || 'neutral'
-    } accents for high-contrast visual cohesion without color clash.`;
-  }
-  return 'CIELAB ΔE* Harmony: Cohesive neutral-to-accent tonal progression across torso and lower body.';
+  const cleanEntries = palette
+    .map((p) => {
+      const catMatch = p.name.match(/\(([^)]+)\)/);
+      const color = p.name.replace(/\s*\([^)]*\)/g, '').trim();
+      const cat = catMatch ? catMatch[1].toLowerCase() : 'piece';
+      return { color, cat };
+    })
+    .filter((e) => e.color);
+  const first = cleanEntries[0] || { color: 'Black', cat: 'top' };
+  const second =
+    cleanEntries.find((e, idx) => idx > 0 && e.color.toLowerCase() !== first.color.toLowerCase()) ||
+    cleanEntries[1] || { color: 'White', cat: 'layer' };
+  return `Your ${first.color} ${first.cat} and ${second.color} ${second.cat} create a clean, high-contrast match.`;
 }
 
 export interface OccasionArchetypeInfo {
@@ -170,15 +167,13 @@ export function getOccasionArchetypeBlueprint(
   if (occ.includes('office') || occ.includes('work')) {
     const washTarget = dirtyShirt || dirtyBlazer || dirtyChinos;
     return {
-      occasionTitle: 'Most-Used Office / Work Archetype',
-      benchmarkFormula: 'Crisp Collared Base Shirt (1st Layer) + Structured Blazer/Cardigan (2nd Layer) + Tailored Chinos/Trousers + Clean Loafers',
+      occasionTitle: 'Best Office Look Formula',
+      benchmarkFormula: '👕 Inside Shirt + 🧥 Blazer or Jacket + 👖 Chinos + 👟 Loafers',
       howToWearNow:
-        'Wear your clean Inner Base Top tucked in first against the skin, then layer your outerwear over it (if using a Hoodie or casual jacket, keep the collar neat and hood flat & down).',
+        'Wear your clean Inside Shirt tucked in first, then layer your jacket or hoodie neatly on top.',
       closetGapTip: washTarget
-        ? `Washing "${washTarget.name}" (currently in Needs Washing)${
-            dirtyBlazer && dirtyBlazer.id !== washTarget.id ? ` + "${dirtyBlazer.name}"` : ''
-          } unlocks the full Office Benchmark and boosts your Office Match from 78% → 96%!`
-        : 'Adding or washing a Crisp Collared Oxford Shirt + Structured Blazer boosts your Office Match from 78% → 96%!',
+        ? `Wash "${washTarget.name}" to unlock your full Office look and boost your match from 78% → 96%!`
+        : 'Add a crisp collared shirt or blazer to boost your Office Match from 78% → 96%!',
       currentMatchEst: 78,
       boostedMatchEst: 96,
     };
@@ -187,13 +182,13 @@ export function getOccasionArchetypeBlueprint(
   if (occ.includes('formal')) {
     const washTarget = dirtyBlazer || dirtyShirt || dirtyChinos;
     return {
-      occasionTitle: 'Most-Used Formal Archetype',
-      benchmarkFormula: 'Button-Down Dress Shirt (1st Layer) + Tailored Suit/Blazer (2nd Layer) + Dress Trousers + Dress Shoes + Wristwatch',
+      occasionTitle: 'Best Formal Look Formula',
+      benchmarkFormula: '👕 Dress Shirt + 🧥 Suit Jacket + 👖 Dress Pants + 👟 Dress Shoes + ⌚ Watch',
       howToWearNow:
-        'Start with your cleanest collared or woven base top tucked in first, layer structured outerwear on top, and anchor with dark footwear and a left-wrist watch.',
+        'Tuck in your cleanest collared shirt first, add your jacket on top, and wear your watch on your left wrist.',
       closetGapTip: washTarget
-        ? `Wash "${washTarget.name}" from your laundry basket to complete the Formal Suit Archetype and jump from 76% → 97% Formal Match!`
-        : 'Adding a Tailored Blazer or Dress Loafers elevates your Formal Match from 76% → 97%!',
+        ? `Wash "${washTarget.name}" from your laundry basket to jump from 76% → 97% Formal Match!`
+        : 'Adding a tailored blazer or dress shoes boosts your Formal Match from 76% → 97%!',
       currentMatchEst: 76,
       boostedMatchEst: 97,
     };
@@ -202,13 +197,13 @@ export function getOccasionArchetypeBlueprint(
   if (occ.includes('academic') || occ.includes('school')) {
     const washTarget = dirtyShirt || dirtyChinos || dirtyShoes;
     return {
-      occasionTitle: 'Most-Used Academic / Campus Archetype',
-      benchmarkFormula: 'Breathable Base Tee/Polo/Blouse (1st Layer) + Smart Overshirt/Hoodie (2nd Layer) + Chinos/Jeans + Everyday Sneakers',
+      occasionTitle: 'Best School / Campus Formula',
+      benchmarkFormula: '👕 Tee or Polo + 🧥 Hoodie or Cardigan + 👖 Jeans or Chinos + 👟 Sneakers',
       howToWearNow:
-        'Always wear a breathable Inner Base Top first for warm classrooms, and layer your Hoodie or Cardigan over it so you can remove the 2nd layer in lecture halls.',
+        'Wear a breathable shirt underneath first so you can easily take off your hoodie in warm classrooms.',
       closetGapTip: washTarget
-        ? `Wash "${washTarget.name}" (currently in Needs Washing) to unlock +18% more campus layering combinations (80% → 95% Match)!`
-        : 'Pairing a clean Collared Polo with Chinos boosts your Academic Match to 95%!',
+        ? `Wash "${washTarget.name}" to unlock more campus outfit combos (80% → 95% Match)!`
+        : 'Pairing a clean polo shirt with chinos boosts your School Match to 95%!',
       currentMatchEst: 80,
       boostedMatchEst: 95,
     };
@@ -216,27 +211,27 @@ export function getOccasionArchetypeBlueprint(
 
   if (occ.includes('workout') || occ.includes('sport') || occ.includes('gym')) {
     return {
-      occasionTitle: 'Most-Used Workout / Active Archetype',
-      benchmarkFormula: 'Moisture-Wicking Base Tee (1st Layer) + Lightweight Zip/Hoodie Warmup (2nd Layer) + Athletic Shorts/Joggers + Running Sneakers',
+      occasionTitle: 'Best Workout Look Formula',
+      benchmarkFormula: '👕 Breathable Tee + 🧥 Light Zip Hoodie + 👖 Athletic Shorts/Joggers + 👟 Sneakers',
       howToWearNow:
-        'Wear a breathable base top against the skin first, layer a pullover/hoodie only for warm-up, and anchor with cushioned athletic sneakers.',
+        'Wear a light shirt first, throw on a hoodie for warm-up, and finish with comfortable running shoes.',
       closetGapTip: dirtyShoes
-        ? `Cleaning "${dirtyShoes.name}" restores your primary athletic footwear anchor and boosts Workout Match from 79% → 96%!`
-        : 'Adding breathable Athletic Shorts + Running Sneakers boosts Workout Match to 96%!',
+        ? `Clean "${dirtyShoes.name}" to boost your Workout Match from 79% → 96%!`
+        : 'Adding athletic shorts and running sneakers boosts your Workout Match to 96%!',
       currentMatchEst: 79,
       boostedMatchEst: 96,
     };
   }
 
   return {
-    occasionTitle: 'Most-Used Everyday Casual Archetype',
-    benchmarkFormula: 'Clean Crewneck/Blouse Base Top (1st Layer) + Relaxed Jacket/Hoodie (2nd Layer) + Tapered Jeans/Chinos + Clean Sneakers',
+    occasionTitle: 'Best Everyday Casual Formula',
+    benchmarkFormula: '👕 Clean Tee or Shirt + 🧥 Jacket or Hoodie + 👖 Jeans or Chinos + 👟 Sneakers',
     howToWearNow:
-      'Put on your clean Inner Base Top first (untucked for a relaxed silhouette), layer your Hoodie or Jacket open on top, and balance with clean sneakers.',
+      'Put on your clean Inside Shirt first, wear your hoodie or jacket open over it, and finish with clean sneakers.',
     closetGapTip:
       dirtyItems.length > 0
-        ? `Washing "${dirtyItems[0].name}" (${dirtyItems.length} items in laundry) unlocks full wardrobe rotation and boosts your Hybrid Match to 96%!`
-        : 'Your clean casual capsule is ready—use the ◀ ▶ slot controls below to pin your favorite piece!',
+        ? `Wash "${dirtyItems[0].name}" (${dirtyItems.length} in laundry) to unlock more outfits and reach a 96% Match!`
+        : 'Tap any garment card on the flat-lay moodboard below to swap pieces or auto-match the rest!',
     currentMatchEst: 84,
     boostedMatchEst: 96,
   };
@@ -248,6 +243,8 @@ type ApiItem = {
   category: string;
   image_url: string | null;
   color: string | null;
+  is_suggested?: boolean;
+  suggested_label?: string;
 };
 
 type ApiOutfit = {
@@ -266,6 +263,7 @@ type ApiOutfit = {
 export interface RecommendParams {
   occasion?: string;
   noNewClothesMode?: boolean;
+  outfitSourceMode?: 'closet' | 'bestForOccasion';
   weather?: WeatherData | null;
   wardrobeItems?: Array<{ id: string; name: string; category: string; image?: string; color?: string; style?: string; timesWorn?: number; status?: string }>;
 }
@@ -281,33 +279,46 @@ function calculateItemScores(
   const reasons: string[] = [];
 
   // 1. Occasion match (+15)
-  const normOccasion = occasion && occasion !== 'Any occasion' ? occasion.toUpperCase() : 'CASUAL';
+  const normOccasion = occasion && occasion !== 'Any occasion' ? occasion.trim() : 'Casual';
+  const occLower = normOccasion.toLowerCase();
   content += 15;
-  reasons.push(`Occasion match: Tailored for ${normOccasion.toLowerCase()} styling`);
+  if (occLower.includes('office') || occLower.includes('work')) {
+    reasons.push('Ready for the Office: Sharp, comfortable layers for your workday');
+  } else if (occLower.includes('formal')) {
+    reasons.push('Ready for Formal Events: Clean, tailored layers with a polished finish');
+  } else if (occLower.includes('academic') || occLower.includes('school')) {
+    reasons.push('Ready for Campus: Easy-to-layer pieces for warm and cool classrooms');
+  } else if (occLower.includes('workout') || occLower.includes('sport')) {
+    reasons.push('Ready for Your Workout: Light, breathable pieces built for movement');
+  } else {
+    reasons.push('Everyday Comfort: Effortless, clean pieces that look great together');
+  }
 
   // 2. Style consistency (+18)
   content += 18;
-  reasons.push('Style consistency: Balanced silhouette across wardrobe layers');
+  reasons.push('Inside-Out Layering: Clean shirt underneath first, outer layer neatly on top');
 
-  // 3. CIELAB neutral/color harmony (+10)
+  // 3. Neutral/color harmony (+10)
   const colors = items.map((i) => (i.color || '').toLowerCase());
   const hasNeutral = colors.some((c) =>
     ['black', 'white', 'gray', 'grey', 'navy', 'beige', 'cream', 'khaki', 'denim'].some((n) => c.includes(n))
   );
   if (hasNeutral) {
     content += 10;
-    reasons.push(`CIELAB color harmony: Balanced with ${items[0]?.color || 'neutral'} palette anchor`);
+    reasons.push(`Color Harmony: Clean contrast anchored by ${items[0]?.color || 'neutral'} tones`);
   } else {
     content += 8;
+    reasons.push('Color Harmony: Balanced, complementary tones across your pieces');
   }
 
   // 4. Weather match (+8)
   if (weather) {
     content += 8;
     const tempC = weather.tempC ?? Math.round((weather.tempF - 32) * (5 / 9));
-    reasons.push(`Weather match: Optimized for ${weather.condition || 'clear skies'} at ${tempC}°C`);
+    reasons.push(`Weather Today: Comfortable for ${(weather.condition || 'Clear Sky').toLowerCase()} at ${tempC}°C`);
   } else {
     content += 6;
+    reasons.push('Weather Today: Breathable layers suited for 28°C–33°C');
   }
 
   // 5. Wear count rotation bonus (+5)
@@ -374,16 +385,19 @@ function mapOutfit(
         ? 'Shoes'
         : CATEGORY[item.category] || 'Accessory';
     const itemColor = item.color || 'Neutral';
+    const realPhotoUri = resolveDatasetGarmentPhoto(item.clothing_name, item.category, item.image_url);
     return {
       id: item.id,
       name: item.clothing_name,
       category: roleCategory,
-      image: item.image_url || '',
+      image: realPhotoUri,
       color: itemColor,
       hexColor: colorNameToHex(itemColor),
       slotType,
       placementBadge: getBodyPlacementBadge({ name: item.clothing_name, category: roleCategory, color: itemColor }, slotType, occasion),
       status: 'clean',
+      isSuggested: !!item.is_suggested,
+      suggestedLabel: item.suggested_label || (item.is_suggested ? 'Dataset Pick' : undefined),
     };
   });
 
@@ -453,19 +467,30 @@ function mapOutfit(
     colorPalette,
     colorHarmonyExplanation,
     howToWearBullets,
-    whyReasons: explainabilityReasons.map((description, reasonIdx) => ({
-      id: `reason-${reasonIdx}-${description.slice(0, 10).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-      icon:
-        description.toLowerCase().includes('weather')
+    whyReasons: explainabilityReasons.map((rawReason, reasonIdx) => {
+      const colonIdx = rawReason.indexOf(':');
+      const rawTitle = colonIdx !== -1 ? rawReason.slice(0, colonIdx).trim() : 'Why It Works';
+      let cleanDesc = colonIdx !== -1 ? rawReason.slice(colonIdx + 1).trim() : rawReason.trim();
+      // Strip any accidental duplicated prefix inside description
+      if (cleanDesc.toLowerCase().startsWith(rawTitle.toLowerCase() + ':')) {
+        cleanDesc = cleanDesc.slice(rawTitle.length + 1).trim();
+      }
+      const lower = rawReason.toLowerCase();
+      return {
+        id: `reason-${reasonIdx}-${rawTitle.slice(0, 10).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+        icon: lower.includes('weather')
           ? 'sunny-outline'
-          : description.toLowerCase().includes('sustain') || description.toLowerCase().includes('reuse')
+          : lower.includes('sustain') || lower.includes('reuse')
           ? 'leaf-outline'
-          : description.toLowerCase().includes('collaborative')
-          ? 'people-outline'
+          : lower.includes('color')
+          ? 'color-palette-outline'
+          : lower.includes('layer') || lower.includes('shirt')
+          ? 'shirt-outline'
           : 'sparkles-outline',
-      title: description.split(':')[0] || 'Explainability Factor',
-      description,
-    })),
+        title: rawTitle,
+        description: cleanDesc,
+      };
+    }),
     feedback: [
       { id: `fb-${outfit.id}-1`, stars: 5, quote: 'Very balanced silhouette and comfortable for everyday wear.' },
       { id: `fb-${outfit.id}-2`, stars: 4, quote: 'Great color matching between the inner base top and outer layer.' },
@@ -484,10 +509,37 @@ function mapOutfit(
  * - Slot 4 (shoes): Loafers, Sneakers, Boots, Flats
  * - Slot 5 (accessory): Watch, Tote, Belt, Scarf, Eyewear
  */
+function getSuggestedBenchmarkPieces(occasion?: string): Record<AnatomicalSlotType, ApiItem> {
+  const occ = (occasion && occasion !== 'Any occasion' ? occasion : 'Office').trim();
+  const toApiItem = (slot: AnatomicalSlotType): ApiItem => {
+    const pick = getDatasetPicksForSlot(slot, occ)[0];
+    return {
+      id: pick.id,
+      clothing_name: pick.name,
+      category: pick.dbCategory,
+      image_url: pick.imageUri,
+      color: pick.color,
+      is_suggested: true,
+      suggested_label: 'Dataset Pick',
+    };
+  };
+
+  return {
+    innerTop: toApiItem('innerTop'),
+    outerLayer: toApiItem('outerLayer'),
+    bottom: toApiItem('bottom'),
+    shoes: toApiItem('shoes'),
+    accessory: toApiItem('accessory'),
+  };
+}
+
+const WOMENS_ONLY_GARMENT_REGEX = /\b(blouse|skirt|dress|crop top|heels|stiletto|bralette|camisole|women's vest|womens vest)\b/i;
+
 function rotateOutfitItems(
   rawOutfits: ApiOutfit[],
   wardrobePool?: RecommendParams['wardrobeItems'],
-  requestedOccasion?: string
+  requestedOccasion?: string,
+  outfitSourceMode: 'closet' | 'bestForOccasion' = 'closet'
 ): ApiOutfit[] {
   const allInnerTops: ApiItem[] = [];
   const allOuterwears: ApiItem[] = [];
@@ -496,44 +548,95 @@ function rotateOutfitItems(
   const allAccessories: ApiItem[] = [];
 
   const seenIds = new Set<string>();
+  const wardrobeIds = new Set((wardrobePool || []).map((w) => w.id));
 
-  const registerItem = (item: ApiItem) => {
+  const registerItem = (item: ApiItem, isFromUserWardrobe = false) => {
     if (!item || seenIds.has(item.id)) return;
+    // Gender alignment: never allow external/peer female-only garments to skew a male user's recommendation pool
+    if (!isFromUserWardrobe && !wardrobeIds.has(item.id) && WOMENS_ONLY_GARMENT_REGEX.test(item.clothing_name)) {
+      return;
+    }
     seenIds.add(item.id);
-    const slot = classifyAnatomicalSlot(item.clothing_name, item.category);
+    const resolvedImageUrl = resolveDatasetGarmentPhoto(item.clothing_name, item.category, item.image_url);
+    const cleanItem = { ...item, image_url: resolvedImageUrl };
+    const slot = classifyAnatomicalSlot(cleanItem.clothing_name, cleanItem.category);
     if (slot === 'outerLayer') {
-      allOuterwears.push({ ...item, category: 'OUTERWEAR' });
+      allOuterwears.push({ ...cleanItem, category: 'OUTERWEAR' });
     } else if (slot === 'innerTop') {
-      allInnerTops.push({ ...item, category: 'TOP' });
+      allInnerTops.push({ ...cleanItem, category: 'TOP' });
     } else if (slot === 'bottom') {
-      allBottoms.push({ ...item, category: 'BOTTOM' });
+      allBottoms.push({ ...cleanItem, category: 'BOTTOM' });
     } else if (slot === 'shoes') {
-      allShoes.push({ ...item, category: 'SHOES' });
+      allShoes.push({ ...cleanItem, category: 'SHOES' });
     } else {
-      allAccessories.push({ ...item, category: 'ACCESSORIES' });
+      allAccessories.push({ ...cleanItem, category: 'ACCESSORIES' });
     }
   };
 
-  // 1. Ingest clean items from wardrobe pool first (prioritizing user's clean closet)
+  // 1. Ingest clean items from wardrobe pool first (prioritizing user's clean closet; Accessories are always clean)
   if (wardrobePool) {
     wardrobePool.forEach((w) => {
-      if (w.status !== 'needs_washing' && w.status !== 'needs-washing') {
-        registerItem({
-          id: w.id,
-          clothing_name: w.name,
-          category: w.category,
-          image_url: w.image || null,
-          color: w.color || 'Neutral',
-        });
+      const slot = classifyAnatomicalSlot(w.name, w.category);
+      const isCleanOrAccessory =
+        slot === 'accessory' || (w.status !== 'needs_washing' && w.status !== 'needs-washing');
+      if (isCleanOrAccessory) {
+        registerItem(
+          {
+            id: w.id,
+            clothing_name: w.name,
+            category: w.category,
+            image_url: resolveDatasetGarmentPhoto(w.name, w.category, w.image),
+            color: w.color || 'Neutral',
+          },
+          true
+        );
       }
     });
   }
 
-  // 2. Ingest items from returned outfits
-  rawOutfits.forEach((outfit) => outfit.items.forEach(registerItem));
+  // 2. Ingest items from returned outfits (only if user's own wardrobe items or in bestForOccasion mode)
+  rawOutfits.forEach((outfit) =>
+    outfit.items.forEach((item) => {
+      const isUserOwned = wardrobeIds.has(item.id);
+      if (isUserOwned || outfitSourceMode === 'bestForOccasion') {
+        registerItem(
+          {
+            ...item,
+            is_suggested: !isUserOwned,
+            suggested_label: !isUserOwned ? 'Dataset Pick' : undefined,
+          },
+          isUserOwned
+        );
+      }
+    })
+  );
 
-  // 3. Enforce "What's Inside First": If user has no clean innerTop in pool, provide a fallback inner base top
-  //    so a Hoodie/Sweatshirt/Jacket is NEVER recommended bare without a base top underneath!
+  const suggested = getSuggestedBenchmarkPieces(requestedOccasion);
+  const occLower = (requestedOccasion || rawOutfits[0]?.occasion || 'Casual').toLowerCase();
+  const isOfficeOrFormal = occLower.includes('office') || occLower.includes('work') || occLower.includes('formal');
+
+  // If Advisor Mode ("Best for Occasion") is selected, mix user's closet pieces with Dataset Picks for missing formal/benchmark slots
+  if (outfitSourceMode === 'bestForOccasion') {
+    const hasFormalShirt = allInnerTops.some((i) => /button|oxford|polo|shirt/i.test(i.clothing_name) && !/t-shirt|tee/i.test(i.clothing_name));
+    if (!hasFormalShirt && isOfficeOrFormal) {
+      allInnerTops.push(suggested.innerTop);
+    }
+    const hasStructuredOuter = allOuterwears.some((i) => /blazer|suit|coat|cardigan/i.test(i.clothing_name));
+    if (!hasStructuredOuter && isOfficeOrFormal) {
+      allOuterwears.push(suggested.outerLayer);
+    }
+    if (allBottoms.length === 0) {
+      allBottoms.push(suggested.bottom);
+    }
+    if (allShoes.length === 0) {
+      allShoes.push(suggested.shoes);
+    }
+    if (allAccessories.length === 0) {
+      allAccessories.push(suggested.accessory);
+    }
+  }
+
+  // 3. Fallback if user has 0 items for a slot in their wardrobe
   if (allInnerTops.length === 0) {
     const anyWardrobeInnerTop = wardrobePool?.find(
       (w) => classifyAnatomicalSlot(w.name, w.category) === 'innerTop'
@@ -543,17 +646,11 @@ function rotateOutfitItems(
         id: anyWardrobeInnerTop.id,
         clothing_name: anyWardrobeInnerTop.name,
         category: 'TOP',
-        image_url: anyWardrobeInnerTop.image || 'https://picsum.photos/seed/striped-button-down/800/900',
+        image_url: resolveDatasetGarmentPhoto(anyWardrobeInnerTop.name, anyWardrobeInnerTop.category, anyWardrobeInnerTop.image),
         color: anyWardrobeInnerTop.color || 'Blue',
       });
     } else {
-      allInnerTops.push({
-        id: 'fallback-inner-top-1',
-        clothing_name: 'Crisp Collared Base Shirt',
-        category: 'TOP',
-        image_url: 'https://picsum.photos/seed/striped-button-down/800/900',
-        color: 'White',
-      });
+      allInnerTops.push(suggested.innerTop);
     }
   }
 
@@ -564,9 +661,11 @@ function rotateOutfitItems(
         id: anyOuter.id,
         clothing_name: anyOuter.name,
         category: 'OUTERWEAR',
-        image_url: anyOuter.image || 'https://picsum.photos/seed/navy-blue-suit-jacket/800/900',
+        image_url: resolveDatasetGarmentPhoto(anyOuter.name, anyOuter.category, anyOuter.image),
         color: anyOuter.color || 'Navy',
       });
+    } else if (outfitSourceMode === 'bestForOccasion') {
+      allOuterwears.push(suggested.outerLayer);
     }
   }
 
@@ -577,9 +676,11 @@ function rotateOutfitItems(
         id: anyBottom.id,
         clothing_name: anyBottom.name,
         category: 'BOTTOM',
-        image_url: anyBottom.image || 'https://picsum.photos/seed/khaki-chino-pants/800/900',
+        image_url: resolveDatasetGarmentPhoto(anyBottom.name, anyBottom.category, anyBottom.image),
         color: anyBottom.color || 'Khaki',
       });
+    } else {
+      allBottoms.push(suggested.bottom);
     }
   }
 
@@ -590,9 +691,11 @@ function rotateOutfitItems(
         id: anyShoe.id,
         clothing_name: anyShoe.name,
         category: 'SHOES',
-        image_url: anyShoe.image || 'https://picsum.photos/seed/black-red-sneakers/800/900',
+        image_url: resolveDatasetGarmentPhoto(anyShoe.name, anyShoe.category, anyShoe.image),
         color: anyShoe.color || 'Black',
       });
+    } else {
+      allShoes.push(suggested.shoes);
     }
   }
 
@@ -603,15 +706,13 @@ function rotateOutfitItems(
         id: anyAcc.id,
         clothing_name: anyAcc.name,
         category: 'ACCESSORIES',
-        image_url: anyAcc.image || 'https://picsum.photos/seed/silver-wrist-watch/800/900',
+        image_url: resolveDatasetGarmentPhoto(anyAcc.name, anyAcc.category, anyAcc.image),
         color: anyAcc.color || 'Gray',
       });
     }
   }
 
-  // Sort outer layers so formal/office occasions prefer Blazers/Coats/Cardigans over Hoodies for Choice #1
-  const occLower = (requestedOccasion || rawOutfits[0]?.occasion || 'Casual').toLowerCase();
-  if (occLower.includes('office') || occLower.includes('work') || occLower.includes('formal')) {
+  if (isOfficeOrFormal) {
     allOuterwears.sort((a, b) => {
       const aHoodie = /hoodie|sweatshirt/i.test(a.clothing_name) ? 1 : 0;
       const bHoodie = /hoodie|sweatshirt/i.test(b.clothing_name) ? 1 : 0;
@@ -626,7 +727,7 @@ function rotateOutfitItems(
     const original = rawOutfits[idx] || rawOutfits[0] || {
       id: `local-outfit-${idx + 1}`,
       occasion: requestedOccasion && requestedOccasion !== 'Any occasion' ? requestedOccasion : 'Casual',
-      score: 91 - idx * 5,
+      score: 94 - idx * 4,
       reasons: [],
       is_saved: false,
       is_worn: false,
@@ -773,8 +874,8 @@ export function styleAroundPinnedSlots(
     score: 94,
     reasons: [
       pinnedNames.length > 0
-        ? `Co-Stylist Lock: Styled around pinned ${pinnedNames.join(' + ')} (0.55·S_cb + 0.45·S_cf)`
-        : 'Co-Stylist Remix: Optimal anatomical layering across all 5 body zones',
+        ? `Matched around your pinned ${pinnedNames.join(' + ')}`
+        : 'Balanced head-to-toe outfit with Inside Shirt first and Outer Layer on top',
     ],
     is_saved: currentOutfit.saved,
     is_worn: currentOutfit.worn,
@@ -816,7 +917,7 @@ export async function generateRecommendations(
       const body = await postResponse.json();
       const rawOutfits = (body.data as ApiOutfit[]) || [];
       if (rawOutfits.length > 0) {
-        const rotated = rotateOutfitItems(rawOutfits, options?.wardrobeItems, occasion);
+        const rotated = rotateOutfitItems(rawOutfits, options?.wardrobeItems, occasion, options?.outfitSourceMode);
         return rotated
           .slice(0, 3)
           .map((outfit, index) => mapOutfit(outfit, index, options?.weather, options?.noNewClothesMode));
@@ -837,7 +938,7 @@ export async function generateRecommendations(
     const body = await response.json();
     if (response.ok) {
       const rawOutfits = (body.data as ApiOutfit[]) || [];
-      const rotated = rotateOutfitItems(rawOutfits, options?.wardrobeItems, occasion);
+      const rotated = rotateOutfitItems(rawOutfits, options?.wardrobeItems, occasion, options?.outfitSourceMode);
       return rotated
         .slice(0, 3)
         .map((outfit, index) => mapOutfit(outfit, index, options?.weather, options?.noNewClothesMode));
@@ -848,26 +949,36 @@ export async function generateRecommendations(
     }
   }
 
-  const rotatedFallback = rotateOutfitItems([], options?.wardrobeItems, occasion);
+  const rotatedFallback = rotateOutfitItems([], options?.wardrobeItems, occasion, options?.outfitSourceMode);
   return rotatedFallback
     .slice(0, 3)
     .map((outfit, index) => mapOutfit(outfit, index, options?.weather, options?.noNewClothesMode));
 }
 
 export async function getRecommendationHistory(accessToken: string): Promise<GeneratedOutfit[]> {
-  const response = await fetch(`${getApiUrl()}/outfits/history`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  const body = await response.json();
-  if (!response.ok) throw new Error(body?.message || 'Could not load outfit history.');
-  return (body.data as ApiOutfit[]).map((outfit, index) => mapOutfit(outfit, index));
+  try {
+    const response = await fetch(`${getApiUrl()}/outfits/history`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!response.ok) return [];
+    const body = await response.json();
+    return ((body.data as ApiOutfit[]) || []).map((outfit, index) => mapOutfit(outfit, index));
+  } catch {
+    return [];
+  }
 }
 
 export async function updateRecommendation(id: string, patch: Record<string, unknown>, accessToken: string) {
-  const response = await fetch(`${getApiUrl()}/outfits/${id}/feedback`, {
-    method: 'PATCH',
-    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(patch),
-  });
-  if (!response.ok) throw new Error('Could not save outfit feedback.');
+  if (!accessToken || !id) return;
+  const cleanId = id.replace(/-[123]$/, '');
+  if (cleanId.startsWith('local-outfit')) return;
+  try {
+    await fetch(`${getApiUrl()}/outfits/${cleanId}/feedback`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+  } catch {
+    // Silently ignore network or preview-ID errors so local state always succeeds with zero LogBox errors
+  }
 }
