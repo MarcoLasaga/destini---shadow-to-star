@@ -117,6 +117,16 @@ export type RootStackParamList = {
   MainTabs: undefined;
   Notifications: undefined;
   AddClothes: undefined;
+  BatchAddClothes:
+    | {
+        initialAssets?: Array<{
+          uri: string;
+          width?: number;
+          height?: number;
+          fileName?: string | null;
+        }>;
+      }
+    | undefined;
   GenerateOutfit: undefined;
   PlanDay: undefined;
   ClothingDetails: { id: string };

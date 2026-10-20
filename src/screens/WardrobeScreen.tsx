@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, FlatList, Pressable, StyleSheet, Modal, ScrollView, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -41,6 +42,31 @@ export default function WardrobeScreen() {
   // Multi-select & Batch Delete State
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [addMenuVisible, setAddMenuVisible] = useState(false);
+
+  const handleOpenBatchPicker = async () => {
+    setAddMenuVisible(false);
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      showToast('Please allow photo library access to select multiple images.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: true,
+      selectionLimit: 10,
+      quality: 0.9,
+    });
+    if (result.canceled || !result.assets?.length) return;
+    navigation.navigate('BatchAddClothes', {
+      initialAssets: result.assets.map((a) => ({
+        uri: a.uri,
+        width: a.width,
+        height: a.height,
+        fileName: a.fileName,
+      })),
+    });
+  };
 
   // Unified Filter State
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -209,11 +235,12 @@ export default function WardrobeScreen() {
             </Pressable>
           ) : (
             <Pressable
-              onPress={() => navigation.navigate('AddClothes')}
+              onPress={() => setAddMenuVisible(true)}
               style={[styles.addButton, { backgroundColor: theme.secondaryAccent }]}
             >
               <Ionicons name="add" size={16} color={theme.onAccent} />
               <Text style={[styles.addLabel, { color: theme.onAccent }]}>Add Clothes</Text>
+              <Ionicons name="chevron-down" size={13} color={theme.onAccent} />
             </Pressable>
           )}
         </View>
@@ -550,6 +577,100 @@ export default function WardrobeScreen() {
         </View>
       </Modal>
 
+      {/* Single Image vs. Multiple Images (Batch Add) Dropdown Modal */}
+      <Modal
+        visible={addMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAddMenuVisible(false)}
+      >
+        <View style={styles.addMenuBackdrop}>
+          <Pressable
+            style={StyleSheet.absoluteFillObject}
+            onPress={() => setAddMenuVisible(false)}
+          />
+          <View
+            style={[
+              styles.addMenuSheet,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <View style={styles.addMenuHeader}>
+              <Text style={[styles.addMenuTitle, { color: theme.text }]}>
+                Add Clothes to Wardrobe
+              </Text>
+              <Pressable
+                onPress={() => setAddMenuVisible(false)}
+                style={[styles.modalCloseButton, { backgroundColor: theme.background }]}
+              >
+                <Ionicons name="close" size={18} color={theme.text} />
+              </Pressable>
+            </View>
+
+            {/* Option 1: Single Image (1 Item) */}
+            <Pressable
+              onPress={() => {
+                setAddMenuVisible(false);
+                navigation.navigate('AddClothes');
+              }}
+              style={({ pressed }) => [
+                styles.addMenuOptionCard,
+                {
+                  backgroundColor: theme.background,
+                  borderColor: theme.border,
+                  opacity: pressed ? 0.8 : 1,
+                },
+              ]}
+            >
+              <View style={[styles.addMenuIconWrap, { backgroundColor: theme.aiPillBg }]}>
+                <Text style={{ fontSize: 20 }}>📷</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.addMenuOptionTitle, { color: theme.text }]}>
+                  Single Image (1 Item)
+                </Text>
+                <Text style={[styles.addMenuOptionDesc, { color: theme.textMuted }]}>
+                  Snap a photo or pick 1 item from your gallery
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+            </Pressable>
+
+            {/* Option 2: Multiple Images (Batch Pre-Fill) */}
+            <Pressable
+              onPress={handleOpenBatchPicker}
+              style={({ pressed }) => [
+                styles.addMenuOptionCard,
+                {
+                  backgroundColor: theme.background,
+                  borderColor: theme.secondaryAccent,
+                  borderWidth: 1.5,
+                  opacity: pressed ? 0.8 : 1,
+                },
+              ]}
+            >
+              <View style={[styles.addMenuIconWrap, { backgroundColor: theme.aiPillBg }]}>
+                <Text style={{ fontSize: 20 }}>🖼️</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={styles.batchTitleBadgeRow}>
+                  <Text style={[styles.addMenuOptionTitle, { color: theme.text }]}>
+                    Multiple Images (Batch Pre-Fill)
+                  </Text>
+                  <View style={[styles.newBadgePill, { backgroundColor: theme.secondaryAccent }]}>
+                    <Text style={[styles.newBadgeText, { color: theme.onAccent }]}>Up to 10</Text>
+                  </View>
+                </View>
+                <Text style={[styles.addMenuOptionDesc, { color: theme.textMuted }]}>
+                  Select up to 10 clothing photos at once (TikTok-style) with automatic AI pre-fill
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.accentText} />
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
       {/* Batch Delete Confirmation Dialog */}
       <ConfirmDialogModal
         visible={deleteConfirmModal.visible}
@@ -767,5 +888,68 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12.5,
     fontWeight: '700',
+  },
+  addMenuBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  addMenuSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 32,
+    gap: 12,
+  },
+  addMenuHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  addMenuTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  addMenuOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+  },
+  addMenuIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addMenuOptionTitle: {
+    fontSize: 14.5,
+    fontWeight: '800',
+  },
+  addMenuOptionDesc: {
+    fontSize: 12,
+    lineHeight: 16.5,
+    marginTop: 2,
+  },
+  batchTitleBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  newBadgePill: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  newBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
   },
 });

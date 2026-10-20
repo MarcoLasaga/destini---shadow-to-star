@@ -348,23 +348,30 @@ export default function OutfitDetailsScreen() {
             </View>
           </View>
 
-          {/* "Making Sense of Your Style" Summary Banner */}
+          {/* Compact Visual Color Harmony Swatch Bar */}
           <View
             style={[
-              styles.senseBanner,
-              { backgroundColor: theme.aiBannerBg, borderColor: theme.aiBannerBorder },
+              styles.swatchBarCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <Text style={[styles.senseBannerTitle, { color: theme.aiBannerText }]}>
-              ✨ Making Sense of Your Style
-            </Text>
-            <Text style={[styles.senseBannerBody, { color: theme.aiBannerText }]}>
-              <Text style={{ fontWeight: '800' }}>🎨 Why the Colors Work: </Text>
+            <View style={styles.swatchBarTopRow}>
+              <Text style={[styles.swatchBarTitle, { color: theme.text }]}>
+                Color Harmony Swatch Bar
+              </Text>
+              <View style={styles.swatchDotsRow}>
+                {dynamicPalette.map((swatch, idx) => (
+                  <View key={`${swatch.name}-${idx}`} style={styles.swatchChipItem}>
+                    <View style={[styles.swatchDot, { backgroundColor: swatch.hex }]} />
+                    <Text style={[styles.swatchDotLabel, { color: theme.textMuted }]}>
+                      {swatch.name.replace(/\s*\([^)]*\)/g, '')}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            <Text style={[styles.swatchBarDesc, { color: theme.textMuted }]}>
               {dynamicHarmonyExplanation}
-            </Text>
-            <Text style={[styles.senseBannerBody, { color: theme.aiBannerText }]}>
-              <Text style={{ fontWeight: '800' }}>👕 How to Wear It: </Text>
-              Wear your shirt inside first, layer the jacket open on top, and wear your watch on the left wrist.
             </Text>
           </View>
 
@@ -386,7 +393,7 @@ export default function OutfitDetailsScreen() {
                       <Image
                         source={{ uri: realPhotoUri }}
                         style={styles.breakdownImage}
-                        contentFit="cover"
+                        contentFit="contain"
                       />
                       {item.isSuggested && (
                         <View
@@ -401,7 +408,7 @@ export default function OutfitDetailsScreen() {
                               { color: theme.aiPillText },
                             ]}
                           >
-                            Dataset Pick
+                            Style Suggestion
                           </Text>
                         </View>
                       )}
@@ -566,19 +573,48 @@ const styles = StyleSheet.create({
   infoLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   infoLabel: { fontSize: 11.5 },
   infoValue: { fontSize: 13, fontWeight: '700' },
-  senseBanner: {
+  swatchBarCard: {
     borderRadius: 16,
-    borderWidth: 1.5,
+    borderWidth: 1,
     padding: 14,
-    gap: 6,
+    gap: 8,
   },
-  senseBannerTitle: {
-    fontSize: 14,
+  swatchBarTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  swatchBarTitle: {
+    fontSize: 13.5,
     fontWeight: '800',
   },
-  senseBannerBody: {
+  swatchDotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  swatchChipItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  swatchDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.18)',
+  },
+  swatchDotLabel: {
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+  swatchBarDesc: {
     fontSize: 12.5,
-    lineHeight: 18,
+    lineHeight: 17,
   },
   section: { borderRadius: 18, borderWidth: 1, padding: 16, gap: 12 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -591,7 +627,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
     position: 'relative',
-    backgroundColor: '#E5E0D8',
+    backgroundColor: '#FFFFFF',
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#ECE8DF',
   },
   breakdownImage: { width: '100%', height: '100%' },
   breakdownDatasetBadge: {

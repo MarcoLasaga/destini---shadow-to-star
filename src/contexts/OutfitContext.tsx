@@ -47,7 +47,7 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
   const { weather } = useWeather();
 
   const [occasion, setOccasionState] = useState('Any occasion');
-  const [noNewClothesMode, setNoNewClothesMode] = useState(false);
+  const [noNewClothesMode, setNoNewClothesMode] = useState(true);
   const [outfitSourceMode, setOutfitSourceModeState] = useState<'closet' | 'bestForOccasion'>('closet');
   const [currentOutfit, setCurrentOutfit] = useState<GeneratedOutfit | null>(null);
   const [currentOutfits, setCurrentOutfits] = useState<GeneratedOutfit[]>([]);
@@ -145,7 +145,9 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
   const toggleNoNewClothesMode = useCallback(() => {
     setNoNewClothesMode((prev) => {
       const next = !prev;
-      runWithLoading(occasion, next, outfitSourceMode);
+      const nextSource: 'closet' | 'bestForOccasion' = next ? 'closet' : 'bestForOccasion';
+      setOutfitSourceModeState(nextSource);
+      runWithLoading(occasion, next, nextSource);
       if (next) {
         triggerSmartAlert({
           type: 'Sustainability',
@@ -156,7 +158,7 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
       }
       return next;
     });
-  }, [occasion, outfitSourceMode, runWithLoading]);
+  }, [occasion, runWithLoading]);
 
   const generateOutfit = useCallback(() => {
     return runWithLoading(occasion);

@@ -9,6 +9,7 @@ import NotificationsScreen from '../screens/NotificationsScreen';
 import ClothingDetailsScreen from '../screens/ClothingDetailsScreen';
 import EditClothingScreen from '../screens/EditClothingScreen';
 import AddClothesScreen from '../screens/AddClothesScreen';
+import BatchAddClothesScreen from '../screens/BatchAddClothesScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import SavedOutfitsScreen from '../screens/SavedOutfitsScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
@@ -67,6 +68,7 @@ export default function RootNavigator() {
             <Stack.Screen name="MainTabs" component={BottomTabNavigator} options={{ headerShown: false }} />
             <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
             <Stack.Screen name="AddClothes" component={AddClothesScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="BatchAddClothes" component={BatchAddClothesScreen} options={{ headerShown: false }} />
             <Stack.Screen name="GenerateOutfit" options={{ headerShown: false }}>
               {() => <OutfitScreen />}
             </Stack.Screen>

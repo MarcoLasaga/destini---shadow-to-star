@@ -33,7 +33,10 @@ export interface ClothingPrediction {
   is_safe_garment?: boolean;
   moderation_reason?: string | null;
   attributes?: Record<string, unknown> | null;
+  cutoutDataUri?: string | null;
 }
+
+export type AIAnalysisResult = ClothingPrediction;
 
 export async function analyzeClothingImage(uri: string, accessToken: string): Promise<ClothingPrediction> {
   const form = new FormData();
@@ -45,7 +48,20 @@ export async function analyzeClothingImage(uri: string, accessToken: string): Pr
   });
   const body = await response.json();
   if (!response.ok) throw new Error(body?.message || 'Image analysis failed.');
-  const prediction = body.data as ClothingPrediction;
+  const rawData = (body.data || {}) as ClothingPrediction & {
+    cutout_data_uri?: string | null;
+    cutout_url?: string | null;
+    cutout_image?: string | null;
+  };
+  const prediction: ClothingPrediction = {
+    ...rawData,
+    cutoutDataUri:
+      rawData.cutoutDataUri ??
+      rawData.cutout_data_uri ??
+      rawData.cutout_url ??
+      rawData.cutout_image ??
+      null,
+  };
   // Calibrate confidence for valid clothing detections into 0.88–0.96 so real garments never fail a raw softmax threshold
   if (prediction && prediction.is_safe_garment !== false && prediction.category) {
     const rawConf = prediction.categoryConfidence ?? prediction.confidence ?? 0.88;
@@ -55,3 +71,5 @@ export async function analyzeClothingImage(uri: string, accessToken: string): Pr
   }
   return prediction;
 }
+
+export const analyzeImage = analyzeClothingImage;

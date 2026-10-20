@@ -1,5 +1,12 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  View,
+  Text,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Modal,
+} from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -7,7 +14,12 @@ import { useWardrobe } from '../contexts/WardrobeContext';
 import { useOutfit } from '../contexts/OutfitContext';
 import { useWeather } from '../hooks/useWeather';
 import { useToast } from '../contexts/ToastContext';
-import { AnatomicalSlotType, ClothingRole, GeneratedOutfit, OutfitClothingItem } from '../types';
+import {
+  AnatomicalSlotType,
+  ClothingRole,
+  GeneratedOutfit,
+  OutfitClothingItem,
+} from '../types';
 import {
   buildColorHarmonyExplanation,
   buildHowToWearBullets,
@@ -16,17 +28,36 @@ import {
   getBodyPlacementBadge,
   styleAroundPinnedSlots,
 } from '../services/outfitRecommendationService';
-import { getDatasetPicksForSlot, resolveDatasetGarmentPhoto } from '../data/datasetGarmentCatalog';
+import {
+  getDatasetPicksForSlot,
+  resolveDatasetGarmentPhoto,
+} from '../data/datasetGarmentCatalog';
 
-const SLOT_LABELS: Record<AnatomicalSlotType, { title: string; role: ClothingRole }> = {
-  innerTop: { title: 'Base Top', role: 'Top' },
-  outerLayer: { title: 'Outerwear / Layer', role: 'Outerwear' },
-  bottom: { title: 'Bottom / Pants', role: 'Bottom' },
-  shoes: { title: 'Shoes', role: 'Shoes' },
-  accessory: { title: 'Accessory', role: 'Accessory' },
+const SLOT_LABELS: Record<AnatomicalSlotType, { title: string; shortTab: string; role: ClothingRole }> = {
+  innerTop: { title: 'Inner Shirt / Top', shortTab: 'Top', role: 'Top' },
+  bottom: { title: 'Pants / Bottom', shortTab: 'Bottom', role: 'Bottom' },
+  outerLayer: { title: 'Outerwear / Layer', shortTab: 'Outerwear', role: 'Outerwear' },
+  accessory: { title: 'Accessory', shortTab: 'Accessory', role: 'Accessory' },
+  shoes: { title: 'Shoes / Footwear', shortTab: 'Shoes', role: 'Shoes' },
 };
 
-export default function OutfitCollageBoard({ outfit }: { outfit: GeneratedOutfit }) {
+const SLOT_ORDER: AnatomicalSlotType[] = ['innerTop', 'bottom', 'outerLayer', 'accessory', 'shoes'];
+
+interface OutfitCollageBoardProps {
+  outfit: GeneratedOutfit;
+  index?: number;
+  totalCount?: number;
+  editTrigger?: number;
+  readOnly?: boolean;
+}
+
+export default function OutfitCollageBoard({
+  outfit,
+  index = 0,
+  totalCount = 3,
+  editTrigger = 0,
+  readOnly = false,
+}: OutfitCollageBoardProps) {
   const theme = useAppTheme();
   const { items: wardrobeItems } = useWardrobe();
   const { occasion, noNewClothesMode, updateOutfitEverywhere } = useOutfit();
@@ -34,18 +65,22 @@ export default function OutfitCollageBoard({ outfit }: { outfit: GeneratedOutfit
   const { showToast } = useToast();
 
   const [selectedSlot, setSelectedSlot] = useState<AnatomicalSlotType | null>(null);
-  const [trayTab, setTrayTab] = useState<'closet' | 'dataset'>('closet');
+  const [drawerSourceTab, setDrawerSourceTab] = useState<'closet' | 'suggestions'>('closet');
 
-  const isDark = theme.mode === 'dark';
-  const boardBg = isDark ? '#23172B' : '#FAF7F0';
-  const activeSlotBorder = isDark ? '#FBF5A7' : '#4B1D6F';
+  // Open drawer when parent triggers edit button (✏️)
+  useEffect(() => {
+    if (editTrigger > 0 && !readOnly) {
+      openSlotDrawer('innerTop');
+    }
+  }, [editTrigger]);
 
-  const baseScore = outfit.hybridScore ?? outfit.matchPercent;
-  const colorHarmony = outfit.contentScore ?? Math.min(99, Math.round(baseScore * 0.96));
-  const creativity = outfit.collaborativeScore ?? Math.min(99, Math.round(baseScore * 0.94));
-  const styleMatch = Math.round(0.55 * colorHarmony + 0.45 * creativity);
+  const tempC =
+    outfit.weatherTempF != null
+      ? Math.round((outfit.weatherTempF - 32) * (5 / 9))
+      : weather?.tempC ?? 29;
+  const isWarmWeather = tempC >= 27;
 
-  // Map current outfit items into the 5 spatial flat-lay slots (preserving exact wardrobe names, colors, and photos!)
+  // Map current outfit items into the 5 spatial slots (strictly binding each item's real name, color, hexColor, and image)
   const slotItemsMap = useMemo(() => {
     const map: Partial<Record<AnatomicalSlotType, OutfitClothingItem>> = {};
     outfit.clothingItems.forEach((item) => {
@@ -58,6 +93,7 @@ export default function OutfitCollageBoard({ outfit }: { outfit: GeneratedOutfit
           slotType: detectedSlot,
           color: item.color || 'Neutral',
           hexColor: item.hexColor || colorNameToHex(item.color),
+          suggestedLabel: item.isSuggested ? 'Style Suggestion' : undefined,
           placementBadge:
             item.placementBadge ||
             getBodyPlacementBadge(item, detectedSlot, outfit.occasionLabel || occasion),
@@ -65,8 +101,8 @@ export default function OutfitCollageBoard({ outfit }: { outfit: GeneratedOutfit
       }
     });
 
-    // Ensure Base Top (innerTop) is always populated — prefer user's actual clean wardrobe top first!
-    if (!map.innerTop) {
+    // Ensure Inner Shirt / Top (innerTop) is populated from user's clean closet first
+    if (!map.innerTop && !readOnly) {
       const userTop =
         wardrobeItems.find(
           (w) => w.status === 'clean' && classifyAnatomicalSlot(w.name, w.category) === 'innerTop'
@@ -94,15 +130,134 @@ export default function OutfitCollageBoard({ outfit }: { outfit: GeneratedOutfit
           hexColor: dsPick.colorHex,
           slotType: 'innerTop',
           isSuggested: true,
-          suggestedLabel: 'Dataset Pick',
+          suggestedLabel: 'Style Suggestion',
+        };
+      }
+    }
+
+    // Ensure Bottom is populated
+    if (!map.bottom && !readOnly) {
+      const userBottom =
+        wardrobeItems.find(
+          (w) => w.status === 'clean' && classifyAnatomicalSlot(w.name, w.category) === 'bottom'
+        ) || wardrobeItems.find((w) => classifyAnatomicalSlot(w.name, w.category) === 'bottom');
+
+      if (userBottom) {
+        map.bottom = {
+          id: userBottom.id,
+          name: userBottom.name,
+          category: 'Bottom',
+          image: resolveDatasetGarmentPhoto(userBottom.name, userBottom.category, userBottom.image),
+          color: userBottom.color || 'Neutral',
+          hexColor: colorNameToHex(userBottom.color),
+          slotType: 'bottom',
+          isSuggested: false,
+        };
+      } else {
+        const dsPick = getDatasetPicksForSlot('bottom', outfit.occasionLabel || occasion)[0];
+        map.bottom = {
+          id: dsPick.id,
+          name: dsPick.name,
+          category: 'Bottom',
+          image: dsPick.imageUri,
+          color: dsPick.color,
+          hexColor: dsPick.colorHex,
+          slotType: 'bottom',
+          isSuggested: true,
+          suggestedLabel: 'Style Suggestion',
+        };
+      }
+    }
+
+    // Ensure Shoes is populated
+    if (!map.shoes && !readOnly) {
+      const userShoes =
+        wardrobeItems.find(
+          (w) => w.status === 'clean' && classifyAnatomicalSlot(w.name, w.category) === 'shoes'
+        ) || wardrobeItems.find((w) => classifyAnatomicalSlot(w.name, w.category) === 'shoes');
+
+      if (userShoes) {
+        map.shoes = {
+          id: userShoes.id,
+          name: userShoes.name,
+          category: 'Shoes',
+          image: resolveDatasetGarmentPhoto(userShoes.name, userShoes.category, userShoes.image),
+          color: userShoes.color || 'Neutral',
+          hexColor: colorNameToHex(userShoes.color),
+          slotType: 'shoes',
+          isSuggested: false,
+        };
+      } else {
+        const dsPick = getDatasetPicksForSlot('shoes', outfit.occasionLabel || occasion)[0];
+        map.shoes = {
+          id: dsPick.id,
+          name: dsPick.name,
+          category: 'Shoes',
+          image: dsPick.imageUri,
+          color: dsPick.color,
+          hexColor: dsPick.colorHex,
+          slotType: 'shoes',
+          isSuggested: true,
+          suggestedLabel: 'Style Suggestion',
+        };
+      }
+    }
+
+    // Ensure Accessory is populated
+    if (!map.accessory && !readOnly) {
+      const userAcc = wardrobeItems.find(
+        (w) => classifyAnatomicalSlot(w.name, w.category) === 'accessory'
+      );
+      if (userAcc) {
+        map.accessory = {
+          id: userAcc.id,
+          name: userAcc.name,
+          category: 'Accessory',
+          image: resolveDatasetGarmentPhoto(userAcc.name, userAcc.category, userAcc.image),
+          color: userAcc.color || 'Neutral',
+          hexColor: colorNameToHex(userAcc.color),
+          slotType: 'accessory',
+          isSuggested: false,
+        };
+      } else {
+        const dsPick = getDatasetPicksForSlot('accessory', outfit.occasionLabel || occasion)[0];
+        map.accessory = {
+          id: dsPick.id,
+          name: dsPick.name,
+          category: 'Accessory',
+          image: dsPick.imageUri,
+          color: dsPick.color,
+          hexColor: dsPick.colorHex,
+          slotType: 'accessory',
+          isSuggested: true,
+          suggestedLabel: 'Style Suggestion',
+        };
+      }
+    }
+
+    // For Outerwear: if not warm weather and no outerwear in outfit, populate from user's closet or suggestion
+    if (!map.outerLayer && !isWarmWeather && !readOnly) {
+      const userOuter = wardrobeItems.find(
+        (w) => w.status === 'clean' && classifyAnatomicalSlot(w.name, w.category) === 'outerLayer'
+      );
+      if (userOuter) {
+        map.outerLayer = {
+          id: userOuter.id,
+          name: userOuter.name,
+          category: 'Outerwear',
+          image: resolveDatasetGarmentPhoto(userOuter.name, userOuter.category, userOuter.image),
+          color: userOuter.color || 'Neutral',
+          hexColor: colorNameToHex(userOuter.color),
+          slotType: 'outerLayer',
+          isSuggested: false,
         };
       }
     }
 
     return map;
-  }, [outfit.clothingItems, outfit.occasionLabel, occasion, wardrobeItems]);
+  }, [outfit.clothingItems, outfit.occasionLabel, occasion, wardrobeItems, isWarmWeather, readOnly]);
 
-  // Build candidate lists for the selected slot: (1) My Closet vs (2) Dataset Picks
+  // All clean garments uploaded by the user for the currently selected slot
   const closetCandidates = useMemo(() => {
     if (!selectedSlot) return [];
     const role = SLOT_LABELS[selectedSlot].role;
@@ -127,7 +282,8 @@ export default function OutfitCollageBoard({ outfit }: { outfit: GeneratedOutfit
       );
   }, [selectedSlot, wardrobeItems]);
 
-  const datasetCandidates = useMemo(() => {
+  // Optional Style Suggestions for the selected slot
+  const suggestionCandidates = useMemo(() => {
     if (!selectedSlot) return [];
     const picks = getDatasetPicksForSlot(selectedSlot, outfit.occasionLabel || occasion);
     return picks.map(
@@ -141,15 +297,33 @@ export default function OutfitCollageBoard({ outfit }: { outfit: GeneratedOutfit
         slotType: selectedSlot,
         status: 'clean',
         isSuggested: true,
-        suggestedLabel: 'Dataset Pick',
+        suggestedLabel: 'Style Suggestion',
       })
     );
   }, [selectedSlot, outfit.occasionLabel, occasion]);
 
+  const openSlotDrawer = (slot: AnatomicalSlotType) => {
+    if (readOnly) return;
+    setSelectedSlot(slot);
+    const hasClosetForSlot = wardrobeItems.some(
+      (w) =>
+        classifyAnatomicalSlot(w.name, w.category) === slot &&
+        (slot === 'accessory' || w.status === 'clean')
+    );
+    setDrawerSourceTab(hasClosetForSlot ? 'closet' : 'suggestions');
+  };
+
+  // Recalculate match scores in real time when any garment is swapped
   const applyUpdatedMap = (nextMap: Partial<Record<AnatomicalSlotType, OutfitClothingItem>>) => {
-    const orderedSlots: AnatomicalSlotType[] = ['accessory', 'innerTop', 'outerLayer', 'bottom', 'shoes'];
+    const orderedSlots: AnatomicalSlotType[] = [
+      'accessory',
+      'innerTop',
+      'outerLayer',
+      'bottom',
+      'shoes',
+    ];
     const nextItems = orderedSlots.map((s) => nextMap[s]).filter(Boolean) as OutfitClothingItem[];
-    const nextPalette = nextItems.slice(0, 4).map((it) => ({
+    const nextPalette = nextItems.map((it) => ({
       name: `${it.color || 'Neutral'} (${it.category})`,
       hex: it.hexColor || colorNameToHex(it.color),
     }));
@@ -169,6 +343,18 @@ export default function OutfitCollageBoard({ outfit }: { outfit: GeneratedOutfit
       nextName = `${occPrefix} · ${inner.name}`;
     }
 
+    // Real-time score recalculation based on color harmony + closet ownership
+    const hasNeutralAnchor = nextItems.some((i) =>
+      /black|white|navy|gray|grey|beige|khaki|cream|denim/i.test(i.color || '')
+    );
+    const closetOwnedCount = nextItems.filter((i) => !i.isSuggested).length;
+    const nextContentScore = Math.min(
+      98,
+      Math.max(78, 82 + (hasNeutralAnchor ? 7 : 3) + closetOwnedCount * 2)
+    );
+    const nextCollabScore = Math.min(96, Math.max(75, nextContentScore - 2));
+    const nextHybridScore = Math.round(0.55 * nextContentScore + 0.45 * nextCollabScore);
+
     updateOutfitEverywhere(outfit.id, {
       name: nextName,
       image: inner?.image || outer?.image || outfit.image,
@@ -176,14 +362,27 @@ export default function OutfitCollageBoard({ outfit }: { outfit: GeneratedOutfit
       colorPalette: nextPalette,
       howToWearBullets: nextBullets,
       colorHarmonyExplanation: nextHarmony,
+      contentScore: nextContentScore,
+      collaborativeScore: nextCollabScore,
+      hybridScore: nextHybridScore,
+      matchPercent: nextHybridScore,
     });
   };
 
-  const handleSelectTrayItem = (candidate: OutfitClothingItem) => {
+  const handleSelectDrawerItem = (candidate: OutfitClothingItem) => {
     if (!selectedSlot) return;
     const nextMap = { ...slotItemsMap, [selectedSlot]: candidate };
     applyUpdatedMap(nextMap);
-    showToast(`Swapped ${SLOT_LABELS[selectedSlot].title} to ${candidate.name}`);
+    showToast(`Swapped ${SLOT_LABELS[selectedSlot].shortTab} to ${candidate.name}`);
+    setSelectedSlot(null);
+  };
+
+  const handleRemoveOuterLayer = () => {
+    const nextMap = { ...slotItemsMap };
+    delete nextMap.outerLayer;
+    applyUpdatedMap(nextMap);
+    showToast('Removed outer layer for warm weather');
+    setSelectedSlot(null);
   };
 
   const handleAutoMatchRest = () => {
@@ -218,683 +417,670 @@ export default function OutfitCollageBoard({ outfit }: { outfit: GeneratedOutfit
     });
 
     const anchorName =
-      (selectedSlot && slotItemsMap[selectedSlot]?.name) || slotItemsMap.innerTop?.name || 'your piece';
-    showToast(`✨ Auto-matched rest of outfit around ${anchorName}!`);
+      (selectedSlot && slotItemsMap[selectedSlot]?.name) ||
+      slotItemsMap.innerTop?.name ||
+      'your piece';
+    showToast(`✨ Auto-matched outfit around ${anchorName}!`);
+    setSelectedSlot(null);
   };
-
-  const handleTapSlot = (slot: AnatomicalSlotType) => {
-    if (selectedSlot === slot) {
-      setSelectedSlot(null);
-      return;
-    }
-    setSelectedSlot(slot);
-    // Default to 'closet' tab if user has clean closet items for this slot, otherwise 'dataset'
-    const hasClosetForSlot = wardrobeItems.some(
-      (w) =>
-        classifyAnatomicalSlot(w.name, w.category) === slot &&
-        (slot === 'accessory' || w.status === 'clean')
-    );
-    setTrayTab(hasClosetForSlot ? 'closet' : 'dataset');
-  };
-
-  const activePalette = useMemo(
-    () =>
-      outfit.colorPalette && outfit.colorPalette.length > 0
-        ? outfit.colorPalette
-        : (Object.values(slotItemsMap).filter(Boolean) as OutfitClothingItem[]).slice(0, 4).map((it) => ({
-            name: `${it.color || 'Neutral'} (${it.category})`,
-            hex: it.hexColor || colorNameToHex(it.color),
-          })),
-    [outfit.colorPalette, slotItemsMap]
-  );
 
   const innerTop = slotItemsMap.innerTop;
-  const outerLayer = slotItemsMap.outerLayer;
   const bottom = slotItemsMap.bottom;
-  const shoes = slotItemsMap.shoes;
+  const outerLayer = slotItemsMap.outerLayer;
   const accessory = slotItemsMap.accessory;
+  const shoes = slotItemsMap.shoes;
 
-  const activeTrayItems = trayTab === 'closet' ? closetCandidates : datasetCandidates;
+  const displayOccasionTitle = useMemo(() => {
+    const raw = outfit.occasionLabel || occasion || 'Casual';
+    if (raw === 'Any occasion') return 'Casual';
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+  }, [outfit.occasionLabel, occasion]);
 
-  const renderCollageTile = (
+  const activeDrawerItems =
+    drawerSourceTab === 'closet' ? closetCandidates : suggestionCandidates;
+
+  const renderSpatialCutoutSlot = (
     slot: AnatomicalSlotType,
     item: OutfitClothingItem | undefined,
-    extraBadge?: string,
-    compact = false
+    heightPercent: `${number}%`
   ) => {
-    const isSelected = selectedSlot === slot;
-    const fallbackPick = getDatasetPicksForSlot(slot, outfit.occasionLabel || occasion)[0];
-    const displayItem = item || {
-      id: fallbackPick.id,
-      name: fallbackPick.name,
-      category: fallbackPick.category,
-      image: fallbackPick.imageUri,
-      color: fallbackPick.color,
-      hexColor: fallbackPick.colorHex,
-      isSuggested: true,
-      suggestedLabel: 'Dataset Pick',
-    };
+    if (!item && slot === 'outerLayer') {
+      return (
+        <Pressable
+          onPress={() => openSlotDrawer('outerLayer')}
+          disabled={readOnly}
+          style={[styles.spatialSlot, { height: heightPercent }]}
+        >
+          <View style={styles.emptyLayerPlaceholder}>
+            <Ionicons name="add-circle-outline" size={18} color="#94A3B8" />
+            <Text style={styles.emptyLayerText}>+ Layer</Text>
+          </View>
+        </Pressable>
+      );
+    }
 
     return (
       <Pressable
-        onPress={() => handleTapSlot(slot)}
-        style={[
-          styles.collageCard,
-          compact && styles.collageCardCompact,
-          {
-            backgroundColor: theme.surface,
-            borderColor: isSelected ? activeSlotBorder : theme.border,
-            borderWidth: isSelected ? 2.5 : 1,
-          },
+        onPress={() => openSlotDrawer(slot)}
+        disabled={readOnly}
+        style={({ pressed }) => [
+          styles.spatialSlot,
+          { height: heightPercent, opacity: pressed && !readOnly ? 0.82 : 1 },
         ]}
       >
-        <View style={[styles.tileImageWrap, compact && styles.tileImageWrapCompact]}>
+        {item?.image ? (
           <Image
-            source={{ uri: displayItem.image }}
-            style={styles.tileImage}
-            contentFit="cover"
-            transition={200}
+            source={{ uri: item.image }}
+            style={styles.cutoutImage}
+            contentFit="contain"
+            transition={180}
           />
-          {extraBadge && (
-            <View style={[styles.layerOverlayBadge, { backgroundColor: theme.secondaryAccent }]}>
-              <Text style={[styles.layerOverlayBadgeText, { color: theme.onAccent }]}>
-                {extraBadge}
-              </Text>
-            </View>
-          )}
-          {displayItem.isSuggested && (
-            <View style={[styles.datasetPickPill, { backgroundColor: theme.aiPillBg }]}>
-              <Text style={[styles.datasetPickPillText, { color: theme.aiPillText }]}>
-                Dataset Pick
-              </Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.tileFooter}>
-          <Text style={[styles.tileCategoryLabel, { color: theme.accentText }]}>
-            {SLOT_LABELS[slot].title}
-          </Text>
-          <Text style={[styles.tileItemName, { color: theme.text }]} numberOfLines={1}>
-            {displayItem.name}
-          </Text>
-          <View style={styles.tileColorRow}>
-            <View
-              style={[
-                styles.colorDot,
-                { backgroundColor: displayItem.hexColor || colorNameToHex(displayItem.color) },
-              ]}
-            />
-            <Text style={[styles.tileColorText, { color: theme.textMuted }]} numberOfLines={1}>
-              {displayItem.color || 'Neutral'}
-            </Text>
+        ) : (
+          <View style={styles.emptyLayerPlaceholder}>
+            <Ionicons name="shirt-outline" size={22} color="#CBD5E1" />
           </View>
-        </View>
+        )}
+
+        {item?.isSuggested && (
+          <View style={styles.styleSuggestionCornerPill}>
+            <Text style={styles.styleSuggestionCornerText}>Style Suggestion</Text>
+          </View>
+        )}
       </Pressable>
     );
   };
 
   return (
-    <View style={styles.wrapper}>
-      {/* EDITORIAL FLAT-LAY OUTFIT COLLAGE CANVAS */}
-      <View
-        style={[
-          styles.collageBoard,
-          {
-            backgroundColor: boardBg,
-            borderColor: theme.border,
-          },
-        ]}
-      >
-        {/* Top Bar inside Moodboard: Floating Swatch Dots + 94% Style Match Badge */}
-        <View style={styles.boardTopBar}>
-          <View style={[styles.swatchFloatingPill, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            {activePalette.map((swatch, idx) => (
-              <View
-                key={`${swatch.name}-${idx}`}
-                style={[styles.floatingSwatchCircle, { backgroundColor: swatch.hex }]}
-              />
-            ))}
-            <Text style={[styles.swatchPillLabel, { color: theme.textMuted }]}>Palette</Text>
-          </View>
+    <View style={styles.container}>
+      {/* WHITE SPATIAL OUTFIT BOARD CARD (Advisor Target Output Visualization) */}
+      <View style={styles.whiteBoardCard}>
+        {/* a) Card Header Above the Board */}
+        <View style={styles.boardHeaderRow}>
+          <Text style={styles.occasionHeaderTitle}>{displayOccasionTitle}</Text>
 
-          <View
-            style={[
-              styles.matchCornerBadge,
-              { backgroundColor: isDark ? '#FBF5A7' : '#24152C' },
-            ]}
-          >
-            <Ionicons
-              name="sparkles"
-              size={12}
-              color={isDark ? '#24152C' : '#FBF5A7'}
-            />
-            <Text
-              style={[
-                styles.matchCornerBadgeText,
-                { color: isDark ? '#24152C' : '#FBF5A7' },
-              ]}
-            >
-              {styleMatch}% Style Match
-            </Text>
-          </View>
-        </View>
-
-        {/* Upper Row: Upper-Left Base Top + Upper-Right Overlapping Outerwear/Layer */}
-        <View style={styles.upperCollageRow}>
-          <View style={styles.upperLeftCol}>
-            {renderCollageTile('innerTop', innerTop, 'Wear 1st')}
-          </View>
-          <View style={styles.upperRightOverlapCol}>
-            {renderCollageTile('outerLayer', outerLayer, 'Layered Over Top')}
-          </View>
-        </View>
-
-        {/* Lower Row: Lower-Left Bottom/Pants + Lower-Right Shoes */}
-        <View style={styles.lowerCollageRow}>
-          <View style={styles.lowerLeftCol}>
-            {renderCollageTile('bottom', bottom)}
-          </View>
-          <View style={styles.lowerRightCol}>
-            {renderCollageTile('shoes', shoes)}
-          </View>
-        </View>
-
-        {/* Side Floating Accessory Badge + Tap-to-Swap Hint */}
-        <View style={styles.accessoryFloatingRow}>
-          <Pressable
-            onPress={() => handleTapSlot('accessory')}
-            style={[
-              styles.accessoryBadgeCard,
-              {
-                backgroundColor: theme.surface,
-                borderColor: selectedSlot === 'accessory' ? activeSlotBorder : theme.border,
-                borderWidth: selectedSlot === 'accessory' ? 2.5 : 1,
-              },
-            ]}
-          >
-            <Image
-              source={{
-                uri:
-                  accessory?.image ||
-                  getDatasetPicksForSlot('accessory', outfit.occasionLabel || occasion)[0].imageUri,
-              }}
-              style={styles.accessoryThumb}
-              contentFit="cover"
-            />
-            <View style={{ flex: 1 }}>
-              <View style={styles.accTitleRow}>
-                <Text style={[styles.tileCategoryLabel, { color: theme.accentText }]}>
-                  ⌚ Accessory
-                </Text>
-                {(accessory?.isSuggested || !accessory) && (
-                  <View style={[styles.miniDatasetPill, { backgroundColor: theme.aiPillBg }]}>
-                    <Text style={[styles.miniDatasetPillText, { color: theme.aiPillText }]}>
-                      Dataset Pick
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <Text style={[styles.tileItemName, { color: theme.text }]} numberOfLines={1}>
-                {accessory?.name ||
-                  getDatasetPicksForSlot('accessory', outfit.occasionLabel || occasion)[0].name}
-              </Text>
-              <Text style={[styles.tileColorText, { color: theme.textMuted }]}>
-                {accessory?.color || 'Gray'} · Tap to swap
+          <View style={styles.boardHeaderRight}>
+            {!readOnly && (
+              <Pressable
+                onPress={() => openSlotDrawer(outerLayer ? 'outerLayer' : 'innerTop')}
+                style={styles.quickAddSwapButton}
+                hitSlop={6}
+              >
+                <Text style={styles.quickAddSwapText}>🧥+</Text>
+              </Pressable>
+            )}
+            <View style={styles.countBadgePill}>
+              <Text style={styles.countBadgeText}>
+                {index + 1}/{Math.max(1, totalCount)}
               </Text>
             </View>
-            <Ionicons name="swap-horizontal-outline" size={16} color={theme.accentText} />
-          </Pressable>
+          </View>
         </View>
 
-        <Text style={[styles.tapHintText, { color: theme.textMuted }]}>
-          👆 Tap any garment card on the moodboard to swap pieces
-        </Text>
+        {/* b) 2-Column Spatial Garment Cutout Canvas (Exact Top-to-Bottom Body Proportions) */}
+        <View style={styles.spatialCanvas}>
+          {/* Left Column (flex: 1.05): Top-Left (44%) Inner Shirt/Top + Bottom-Left (54%) Pants/Bottom */}
+          <View style={styles.leftColumn}>
+            {renderSpatialCutoutSlot('innerTop', innerTop, '44%')}
+            {renderSpatialCutoutSlot('bottom', bottom, '54%')}
+          </View>
+
+          {/* Right Column (flex: 0.95): Top-Right (42%) Outerwear + Middle-Right (26%) Accessory + Bottom-Right (30%) Shoes */}
+          <View style={styles.rightColumn}>
+            {renderSpatialCutoutSlot('outerLayer', outerLayer, '42%')}
+            {renderSpatialCutoutSlot('accessory', accessory, '26%')}
+            {renderSpatialCutoutSlot('shoes', shoes, '30%')}
+          </View>
+        </View>
+
+        {/* c) Pagination Dots (• • •) centered at the bottom of the white card */}
+        <View style={styles.paginationDotsRow}>
+          {Array.from({ length: Math.max(1, totalCount) }).map((_, dotIdx) => (
+            <View
+              key={`dot-${dotIdx}`}
+              style={[
+                styles.paginationDot,
+                dotIdx === index ? styles.paginationDotActive : styles.paginationDotInactive,
+              ]}
+            />
+          ))}
+        </View>
       </View>
 
-      {/* INTERACTIVE TAP-TO-SWAP BOTTOM CLOSET TRAY (CO-STYLIST) */}
-      {selectedSlot && (
-        <View
-          style={[
-            styles.swapperTray,
-            {
-              backgroundColor: theme.surface,
-              borderColor: activeSlotBorder,
-            },
-          ]}
-        >
-          <View style={styles.trayHeaderRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.trayTitle, { color: theme.text }]}>
-                Swap {SLOT_LABELS[selectedSlot].title}
-              </Text>
-              <Text style={[styles.traySubtitle, { color: theme.textMuted }]}>
-                Tap a thumbnail to swap onto the board
-              </Text>
+      {/* TAP-TO-SWAP BOTTOM CLOSET DRAWER MODAL */}
+      <Modal
+        visible={!!selectedSlot && !readOnly}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedSlot(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable style={styles.backdropDismissArea} onPress={() => setSelectedSlot(null)} />
+          <View
+            style={[
+              styles.bottomDrawerSheet,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <View style={styles.drawerHandleBar} />
+
+            {/* Drawer Header */}
+            <View style={styles.drawerHeaderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.drawerTitle, { color: theme.text }]}>
+                  Swap {selectedSlot ? SLOT_LABELS[selectedSlot].title : 'Garment'}
+                </Text>
+                <Text style={[styles.drawerSubtitle, { color: theme.textMuted }]}>
+                  Tap any garment below to swap onto the Spatial Outfit Board
+                </Text>
+              </View>
+
+              <Pressable
+                onPress={handleAutoMatchRest}
+                style={[styles.autoMatchButton, { backgroundColor: theme.secondaryAccent }]}
+              >
+                <Text style={[styles.autoMatchButtonText, { color: theme.onAccent }]}>
+                  ✨ Auto-Match
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => setSelectedSlot(null)}
+                style={[styles.drawerCloseButton, { backgroundColor: theme.background }]}
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={18} color={theme.text} />
+              </Pressable>
             </View>
 
-            <Pressable
-              onPress={handleAutoMatchRest}
-              style={[styles.autoMatchBtn, { backgroundColor: theme.secondaryAccent }]}
-            >
-              <Text style={[styles.autoMatchBtnText, { color: theme.onAccent }]}>
-                ✨ Auto-Match Rest
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => setSelectedSlot(null)}
-              style={[styles.closeTrayBtn, { backgroundColor: theme.background }]}
-              hitSlop={8}
-            >
-              <Ionicons name="close" size={16} color={theme.text} />
-            </Pressable>
-          </View>
-
-          {/* 2 Small Pill Tabs: 👕 My Closet vs ✨ Dataset Picks */}
-          <View style={styles.trayTabsRow}>
-            <Pressable
-              onPress={() => setTrayTab('closet')}
-              style={[
-                styles.trayTabPill,
-                {
-                  backgroundColor: trayTab === 'closet' ? theme.secondaryAccent : theme.background,
-                  borderColor: trayTab === 'closet' ? theme.secondaryAccent : theme.border,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.trayTabPillText,
-                  { color: trayTab === 'closet' ? theme.onAccent : theme.text },
-                ]}
-              >
-                👕 My Closet ({closetCandidates.length})
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => setTrayTab('dataset')}
-              style={[
-                styles.trayTabPill,
-                {
-                  backgroundColor: trayTab === 'dataset' ? theme.secondaryAccent : theme.background,
-                  borderColor: trayTab === 'dataset' ? theme.secondaryAccent : theme.border,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.trayTabPillText,
-                  { color: trayTab === 'dataset' ? theme.onAccent : theme.text },
-                ]}
-              >
-                ✨ Dataset Picks ({datasetCandidates.length})
-              </Text>
-            </Pressable>
-          </View>
-
-          {activeTrayItems.length > 0 ? (
+            {/* Category Slot Switcher Pills (Top · Bottom · Outerwear · Accessory · Shoes) */}
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.trayScrollContent}
+              contentContainerStyle={styles.slotCategoryTabsRow}
             >
-              {activeTrayItems.map((candidate) => {
-                const isCurrent = slotItemsMap[selectedSlot]?.id === candidate.id;
+              {SLOT_ORDER.map((slotKey) => {
+                const active = selectedSlot === slotKey;
                 return (
                   <Pressable
-                    key={candidate.id}
-                    onPress={() => handleSelectTrayItem(candidate)}
+                    key={slotKey}
+                    onPress={() => openSlotDrawer(slotKey)}
                     style={[
-                      styles.trayItemCard,
+                      styles.slotCategoryChip,
                       {
-                        backgroundColor: theme.background,
-                        borderColor: isCurrent ? activeSlotBorder : theme.border,
-                        borderWidth: isCurrent ? 2 : 1,
+                        backgroundColor: active ? theme.secondaryAccent : theme.background,
+                        borderColor: active ? theme.secondaryAccent : theme.border,
                       },
                     ]}
                   >
-                    <Image
-                      source={{ uri: candidate.image }}
-                      style={styles.trayItemImage}
-                      contentFit="cover"
-                    />
-                    {candidate.isSuggested && (
-                      <View style={[styles.trayDatasetTag, { backgroundColor: theme.aiPillBg }]}>
-                        <Text style={[styles.trayDatasetTagText, { color: theme.aiPillText }]}>
-                          Dataset Pick
-                        </Text>
-                      </View>
-                    )}
                     <Text
-                      style={[styles.trayItemName, { color: theme.text }]}
-                      numberOfLines={1}
+                      style={[
+                        styles.slotCategoryChipText,
+                        { color: active ? theme.onAccent : theme.text },
+                      ]}
                     >
-                      {candidate.name}
-                    </Text>
-                    <Text
-                      style={[styles.trayItemColor, { color: theme.textMuted }]}
-                      numberOfLines={1}
-                    >
-                      {candidate.color}
+                      {SLOT_LABELS[slotKey].shortTab}
                     </Text>
                   </Pressable>
                 );
               })}
             </ScrollView>
-          ) : (
-            <View style={styles.emptyClosetTray}>
-              <Text style={[styles.emptyClosetText, { color: theme.textMuted }]}>
-                No clean {SLOT_LABELS[selectedSlot].title.toLowerCase()} in your closet yet.
-              </Text>
+
+            {/* Source Toggle: My Closet vs Style Suggestions */}
+            <View style={styles.sourceSwitchRow}>
               <Pressable
-                onPress={() => setTrayTab('dataset')}
-                style={[styles.switchDatasetBtn, { backgroundColor: theme.aiPillBg }]}
+                onPress={() => setDrawerSourceTab('closet')}
+                style={[
+                  styles.sourceSwitchPill,
+                  {
+                    backgroundColor:
+                      drawerSourceTab === 'closet' ? theme.aiPillBg : theme.background,
+                    borderColor:
+                      drawerSourceTab === 'closet' ? theme.secondaryAccent : theme.border,
+                  },
+                ]}
               >
-                <Text style={[styles.switchDatasetBtnText, { color: theme.aiPillText }]}>
-                  Browse ✨ Dataset Picks
+                <Text
+                  style={[
+                    styles.sourceSwitchText,
+                    { color: drawerSourceTab === 'closet' ? theme.aiPillText : theme.textMuted },
+                  ]}
+                >
+                  👕 My Closet ({closetCandidates.length})
                 </Text>
               </Pressable>
+
+              <Pressable
+                onPress={() => setDrawerSourceTab('suggestions')}
+                style={[
+                  styles.sourceSwitchPill,
+                  {
+                    backgroundColor:
+                      drawerSourceTab === 'suggestions' ? theme.aiPillBg : theme.background,
+                    borderColor:
+                      drawerSourceTab === 'suggestions' ? theme.secondaryAccent : theme.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.sourceSwitchText,
+                    {
+                      color:
+                        drawerSourceTab === 'suggestions' ? theme.aiPillText : theme.textMuted,
+                    },
+                  ]}
+                >
+                  ✨ Style Suggestions ({suggestionCandidates.length})
+                </Text>
+              </Pressable>
+
+              {selectedSlot === 'outerLayer' && outerLayer && (
+                <Pressable
+                  onPress={handleRemoveOuterLayer}
+                  style={[styles.removeLayerPill, { borderColor: theme.border }]}
+                >
+                  <Text style={[styles.removeLayerPillText, { color: theme.textMuted }]}>
+                    No Layer
+                  </Text>
+                </Pressable>
+              )}
             </View>
-          )}
+
+            {/* Garment Grid / Horizontal Scroller */}
+            {activeDrawerItems.length === 0 ? (
+              <View style={styles.emptyDrawerState}>
+                <Text style={[styles.emptyDrawerText, { color: theme.textMuted }]}>
+                  No clean {selectedSlot ? SLOT_LABELS[selectedSlot].shortTab.toLowerCase() : ''}{' '}
+                  items in your closet yet.
+                </Text>
+                <Pressable
+                  onPress={() => setDrawerSourceTab('suggestions')}
+                  style={[styles.trySuggestionBtn, { backgroundColor: theme.secondaryAccent }]}
+                >
+                  <Text style={[styles.trySuggestionBtnText, { color: theme.onAccent }]}>
+                    Browse Style Suggestions
+                  </Text>
+                </Pressable>
+              </View>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.drawerItemsScroll}
+              >
+                {activeDrawerItems.map((candidate) => {
+                  const currentInSlot = selectedSlot ? slotItemsMap[selectedSlot] : undefined;
+                  const isCurrent =
+                    currentInSlot?.id === candidate.id ||
+                    currentInSlot?.name === candidate.name;
+                  return (
+                    <Pressable
+                      key={candidate.id}
+                      onPress={() => handleSelectDrawerItem(candidate)}
+                      style={[
+                        styles.drawerItemCard,
+                        {
+                          backgroundColor: theme.background,
+                          borderColor: isCurrent ? theme.secondaryAccent : theme.border,
+                          borderWidth: isCurrent ? 2 : 1,
+                        },
+                      ]}
+                    >
+                      <View style={styles.drawerItemImageBox}>
+                        <Image
+                          source={{ uri: candidate.image }}
+                          style={styles.drawerItemImage}
+                          contentFit="contain"
+                        />
+                        {isCurrent && (
+                          <View
+                            style={[
+                              styles.activeCheckBadge,
+                              { backgroundColor: theme.secondaryAccent },
+                            ]}
+                          >
+                            <Ionicons name="checkmark" size={11} color={theme.onAccent} />
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        style={[styles.drawerItemName, { color: theme.text }]}
+                        numberOfLines={1}
+                      >
+                        {candidate.name}
+                      </Text>
+                      <View style={styles.drawerItemColorRow}>
+                        <View
+                          style={[
+                            styles.drawerColorDot,
+                            {
+                              backgroundColor:
+                                candidate.hexColor || colorNameToHex(candidate.color),
+                            },
+                          ]}
+                        />
+                        <Text
+                          style={[styles.drawerItemColor, { color: theme.textMuted }]}
+                          numberOfLines={1}
+                        >
+                          {candidate.color || 'Neutral'}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
+          </View>
         </View>
-      )}
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    gap: 12,
+  container: {
+    width: '100%',
   },
-  collageBoard: {
-    borderRadius: 20,
-    borderWidth: 1.5,
-    padding: 14,
-    gap: 12,
+  whiteBoardCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 16,
+    height: 375,
+    justifyContent: 'space-between',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.07,
+    shadowRadius: 14,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#ECE8DF',
   },
-  boardTopBar: {
+  boardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 6,
   },
-  swatchFloatingPill: {
+  occasionHeaderTitle: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#1E1B24',
+    letterSpacing: -0.3,
+  },
+  boardHeaderRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 8,
+  },
+  quickAddSwapButton: {
+    backgroundColor: '#F4F1EA',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
     borderWidth: 1,
+    borderColor: '#E2DDD3',
   },
-  floatingSwatchCircle: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.18)',
-  },
-  swatchPillLabel: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    marginLeft: 2,
-  },
-  matchCornerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 11,
-    paddingVertical: 5,
-    borderRadius: 999,
-  },
-  matchCornerBadgeText: {
-    fontSize: 11.5,
-    fontWeight: '800',
-  },
-  upperCollageRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  upperLeftCol: {
-    flex: 1,
-    zIndex: 1,
-    marginRight: -8,
-  },
-  upperRightOverlapCol: {
-    flex: 1,
-    zIndex: 2,
-    marginTop: 12,
-    marginLeft: -6,
-  },
-  lowerCollageRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  lowerLeftCol: {
-    flex: 1,
-  },
-  lowerRightCol: {
-    flex: 1,
-  },
-  collageCard: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  collageCardCompact: {
-    borderRadius: 14,
-  },
-  tileImageWrap: {
-    width: '100%',
-    height: 132,
-    position: 'relative',
-    backgroundColor: '#E5E0D8',
-  },
-  tileImageWrapCompact: {
-    height: 100,
-  },
-  tileImage: {
-    width: '100%',
-    height: '100%',
-  },
-  layerOverlayBadge: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-  },
-  layerOverlayBadgeText: {
-    fontSize: 9.5,
-    fontWeight: '800',
-  },
-  datasetPickPill: {
-    position: 'absolute',
-    bottom: 6,
-    right: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 2.5,
-    borderRadius: 999,
-  },
-  datasetPickPillText: {
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  tileFooter: {
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    gap: 2,
-  },
-  tileCategoryLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  tileItemName: {
+  quickAddSwapText: {
     fontSize: 12.5,
-    fontWeight: '800',
+    fontWeight: '700',
+    color: '#24152C',
   },
-  tileColorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginTop: 1,
-  },
-  colorDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.2)',
-  },
-  tileColorText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  accessoryFloatingRow: {
-    marginTop: 2,
-  },
-  accessoryBadgeCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: 10,
-    borderRadius: 14,
-  },
-  accessoryThumb: {
-    width: 50,
-    height: 50,
-    borderRadius: 10,
-    backgroundColor: '#E5E0D8',
-  },
-  accTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  miniDatasetPill: {
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 999,
-  },
-  miniDatasetPillText: {
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  tapHintText: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  swapperTray: {
-    borderRadius: 18,
-    borderWidth: 2,
-    padding: 12,
-    gap: 10,
-  },
-  trayHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  trayTitle: {
-    fontSize: 13.5,
-    fontWeight: '800',
-  },
-  traySubtitle: {
-    fontSize: 11,
-  },
-  autoMatchBtn: {
+  countBadgePill: {
+    backgroundColor: '#F4F1EA',
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 4.5,
     borderRadius: 999,
   },
-  autoMatchBtnText: {
-    fontSize: 11,
+  countBadgeText: {
+    fontSize: 11.5,
     fontWeight: '800',
+    color: '#4B1D6F',
   },
-  closeTrayBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  trayTabsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  trayTabPill: {
+  spatialCanvas: {
     flex: 1,
-    paddingVertical: 7,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  trayTabPillText: {
-    fontSize: 11.5,
-    fontWeight: '800',
-  },
-  trayScrollContent: {
+    flexDirection: 'row',
     gap: 10,
     paddingVertical: 4,
   },
-  trayItemCard: {
-    width: 106,
-    borderRadius: 12,
-    padding: 6,
+  leftColumn: {
+    flex: 1.05,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  rightColumn: {
+    flex: 0.95,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  spatialSlot: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    padding: 4,
+  },
+  cutoutImage: {
+    width: '100%',
+    height: '100%',
+  },
+  emptyLayerPlaceholder: {
+    width: '88%',
+    height: '88%',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#CBD5E1',
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 3,
   },
-  trayItemImage: {
-    width: '100%',
-    height: 82,
-    borderRadius: 8,
-    backgroundColor: '#E5E0D8',
+  emptyLayerText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
   },
-  trayDatasetTag: {
+  styleSuggestionCornerPill: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    paddingHorizontal: 5,
-    paddingVertical: 1.5,
+    bottom: 4,
+    right: 4,
+    backgroundColor: 'rgba(36, 21, 44, 0.78)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 6,
   },
-  trayDatasetTagText: {
+  styleSuggestionCornerText: {
+    color: '#FFFFFF',
     fontSize: 8.5,
-    fontWeight: '800',
-  },
-  trayItemName: {
-    fontSize: 11.5,
     fontWeight: '700',
-    marginTop: 2,
+    letterSpacing: 0.2,
   },
-  trayItemColor: {
-    fontSize: 10.5,
-  },
-  emptyClosetTray: {
+  paginationDotsRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    justifyContent: 'center',
+    gap: 6,
+    paddingTop: 6,
+  },
+  paginationDot: {
+    height: 6,
+    borderRadius: 3,
+  },
+  paginationDotActive: {
+    width: 18,
+    backgroundColor: '#24152C',
+  },
+  paginationDotInactive: {
+    width: 6,
+    backgroundColor: '#D4CFC7',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  backdropDismissArea: {
+    flex: 1,
+  },
+  bottomDrawerSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 30,
+    gap: 12,
+  },
+  drawerHandleBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    alignSelf: 'center',
+    marginBottom: 4,
+  },
+  drawerHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
-  emptyClosetText: {
-    fontSize: 12,
-    textAlign: 'center',
+  drawerTitle: {
+    fontSize: 16,
+    fontWeight: '800',
   },
-  switchDatasetBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  drawerSubtitle: {
+    fontSize: 12,
+    marginTop: 1,
+  },
+  autoMatchButton: {
+    paddingHorizontal: 11,
+    paddingVertical: 7,
     borderRadius: 999,
   },
-  switchDatasetBtnText: {
+  autoMatchButtonText: {
     fontSize: 11.5,
     fontWeight: '800',
   },
+  drawerCloseButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  slotCategoryTabsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 2,
+  },
+  slotCategoryChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  slotCategoryChipText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  sourceSwitchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sourceSwitchPill: {
+    flex: 1,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  sourceSwitchText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+  },
+  removeLayerPill: {
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  removeLayerPillText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  drawerItemsScroll: {
+    gap: 10,
+    paddingVertical: 6,
+  },
+  drawerItemCard: {
+    width: 116,
+    borderRadius: 14,
+    padding: 8,
+    gap: 4,
+  },
+  drawerItemImageBox: {
+    width: '100%',
+    height: 92,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 4,
+    position: 'relative',
+  },
+  drawerItemImage: {
+    width: '100%',
+    height: '100%',
+  },
+  activeCheckBadge: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  drawerItemName: {
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  drawerItemColorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  drawerColorDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.15)',
+  },
+  drawerItemColor: {
+    fontSize: 10.5,
+    fontWeight: '600',
+  },
+  emptyDrawerState: {
+    paddingVertical: 18,
+    alignItems: 'center',
+    gap: 8,
+  },
+  emptyDrawerText: {
+    fontSize: 12.5,
+    textAlign: 'center',
+  },
+  trySuggestionBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  trySuggestionBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
 });
-

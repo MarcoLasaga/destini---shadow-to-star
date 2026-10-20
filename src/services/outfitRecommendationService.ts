@@ -397,7 +397,11 @@ function mapOutfit(
       placementBadge: getBodyPlacementBadge({ name: item.clothing_name, category: roleCategory, color: itemColor }, slotType, occasion),
       status: 'clean',
       isSuggested: !!item.is_suggested,
-      suggestedLabel: item.suggested_label || (item.is_suggested ? 'Dataset Pick' : undefined),
+      suggestedLabel: item.suggested_label
+        ? item.suggested_label.replace(/Dataset Pick/gi, 'Style Suggestion')
+        : item.is_suggested
+        ? 'Style Suggestion'
+        : undefined,
     };
   });
 
@@ -520,7 +524,7 @@ function getSuggestedBenchmarkPieces(occasion?: string): Record<AnatomicalSlotTy
       image_url: pick.imageUri,
       color: pick.color,
       is_suggested: true,
-      suggested_label: 'Dataset Pick',
+      suggested_label: 'Style Suggestion',
     };
   };
 
@@ -603,7 +607,7 @@ function rotateOutfitItems(
           {
             ...item,
             is_suggested: !isUserOwned,
-            suggested_label: !isUserOwned ? 'Dataset Pick' : undefined,
+            suggested_label: !isUserOwned ? 'Style Suggestion' : undefined,
           },
           isUserOwned
         );

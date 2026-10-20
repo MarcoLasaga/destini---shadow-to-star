@@ -2,10 +2,10 @@ import { GeneratedOutfit, OutfitClothingItem, ColorSwatch, WhyReasonDetail, Feed
 
 export const OCCASION_OPTIONS = [
   'Any occasion',
-  'Academic',
-  'Office',
-  'Formal',
   'Casual',
+  'Office',
+  'Academic',
+  'Formal',
   'Workout',
 ] as const;
 
