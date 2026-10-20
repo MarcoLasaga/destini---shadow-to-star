@@ -35,10 +35,13 @@ export interface ClothingPrediction {
   occasion?: OccasionType | string | null
   material?: MaterialType | string | null
   confidence?: number
+  cutoutDataUri?: string | null
   is_safe_garment?: boolean
   moderation_reason?: string | null
   attributes?: Record<string, unknown> | null
 }
+
+export type AnalysisResult = ClothingPrediction
 
 export interface ImageModerationResult {
   is_safe_garment: boolean
@@ -49,6 +52,7 @@ export interface ImageModerationResult {
   colorHex: string
   secondaryColor: string | null
   palette: ColorClusterInfo[]
+  cutoutDataUri: string | null
 }
 
 const REFERENCE_COLORS_LAB: Record<string, [number, number, number]> = {
@@ -103,7 +107,7 @@ const GARMENT_NOUN_MAP: Record<string, GarmentNounEntry> = {
   trousers: { subCategory: 'Tailored Bottoms', material: 'Cotton', style: 'CLASSIC', occasion: 'WORK', layerRole: 'LOWER_BODY', category: 'BOTTOM' },
   trouser: { subCategory: 'Tailored Bottoms', material: 'Cotton', style: 'CLASSIC', occasion: 'WORK', layerRole: 'LOWER_BODY', category: 'BOTTOM' },
   miniskirt: { subCategory: 'Tailored Bottoms', material: 'Cotton', style: 'CASUAL', occasion: 'EVERYDAY', layerRole: 'LOWER_BODY', category: 'BOTTOM' },
-  kilt: { subCategory: 'Tailored Bottoms', material: 'Cotton', style: 'CASUAL', occasion: 'EVERYDAY', layerRole: 'LOWER_BODY', category: 'BOTTOM' },
+  kilt: { subCategory: 'Tailored Bottoms', material: 'Wool', style: 'CASUAL', occasion: 'EVERYDAY', layerRole: 'LOWER_BODY', category: 'BOTTOM' },
   sarong: { subCategory: 'Tailored Bottoms', material: 'Cotton', style: 'CASUAL', occasion: 'EVERYDAY', layerRole: 'LOWER_BODY', category: 'BOTTOM' },
   loafer: { subCategory: 'Leather Loafers', material: 'Leather', style: 'FORMAL', occasion: 'WORK', layerRole: 'FOOTWEAR', category: 'SHOES' },
   'running shoe': { subCategory: 'Everyday Sneakers', material: 'Leather', style: 'SPORTY', occasion: 'EVERYDAY', layerRole: 'FOOTWEAR', category: 'SHOES' },
@@ -219,8 +223,77 @@ function rgbToHex(r: number, g: number, b: number): string {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`
 }
 
+async function generateNodeCutoutDataUri(buffer: Buffer, bgLab: [number, number, number]): Promise<string | null> {
+  try {
+    const size = 240
+    const rawRgb = await sharp(buffer)
+      .rotate()
+      .resize(size, size, { fit: 'inside' })
+      .removeAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true })
+
+    const w = rawRgb.info.width
+    const h = rawRgb.info.height
+    const rgba = Buffer.alloc(w * h * 4)
+    const b4Y = Math.max(1, Math.round(h * 0.04))
+    const b4X = Math.max(1, Math.round(w * 0.04))
+
+    let fgCount = 0
+    for (let r = 0; r < h; r++) {
+      const isOuterFrame = r < b4Y || r >= h - b4Y
+      for (let c = 0; c < w; c++) {
+        const isBorder = isOuterFrame || c < b4X || c >= w - b4X
+        const srcIdx = (r * w + c) * 3
+        const dstIdx = (r * w + c) * 4
+        const R = rawRgb.data[srcIdx]
+        const G = rawRgb.data[srcIdx + 1]
+        const B = rawRgb.data[srcIdx + 2]
+        rgba[dstIdx] = R
+        rgba[dstIdx + 1] = G
+        rgba[dstIdx + 2] = B
+
+        if (isBorder) {
+          rgba[dstIdx + 3] = 0
+          continue
+        }
+        const lab = rgbToLab(R, G, B)
+        const de = Math.sqrt(
+          Math.pow(lab[0] - bgLab[0], 2) +
+          Math.pow(lab[1] - bgLab[1], 2) +
+          Math.pow(lab[2] - bgLab[2], 2)
+        )
+        const isCore = r >= h * 0.22 && r <= h * 0.78 && c >= w * 0.22 && c <= w * 0.78
+        if (de >= 14.0 || (isCore && de >= 8.0)) {
+          rgba[dstIdx + 3] = 255
+          fgCount++
+        } else {
+          rgba[dstIdx + 3] = 0
+        }
+      }
+    }
+
+    if (fgCount < w * h * 0.08) {
+      for (let r = Math.floor(h * 0.12); r < Math.floor(h * 0.88); r++) {
+        for (let c = Math.floor(w * 0.12); c < Math.floor(w * 0.88); c++) {
+          rgba[(r * w + c) * 4 + 3] = 255
+        }
+      }
+    }
+
+    const pngBuf = await sharp(rgba, { raw: { width: w, height: h, channels: 4 } })
+      .resize(480, 480, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .png({ compressionLevel: 8 })
+      .toBuffer()
+
+    return `data:image/png;base64,${pngBuf.toString('base64')}`
+  } catch {
+    return null
+  }
+}
+
 /**
- * Built-in Node.js pixel inspection in YCbCr space + dominant color, hex & palette extraction.
+ * Built-in Node.js pixel inspection in YCbCr space + foreground-masked dominant color, hex & palette extraction.
  */
 export async function inspectImageModeration(buffer: Buffer): Promise<ImageModerationResult> {
   const rawRgb = await sharp(buffer)
@@ -237,11 +310,30 @@ export async function inspectImageModeration(buffer: Buffer): Promise<ImageModer
   let centerPixels = 0
   let centerSkinPixels = 0
 
+  // Estimate border median CIELAB color from outer 6% ring
+  const borderL: number[] = []
+  const borderA: number[] = []
+  const borderB: number[] = []
+  const bRing = 6
+  for (let r = 0; r < height; r++) {
+    for (let c = 0; c < width; c++) {
+      if (r < bRing || r >= height - bRing || c < bRing || c >= width - bRing) {
+        const idx = (r * width + c) * 3
+        const lab = rgbToLab(rawRgb[idx], rawRgb[idx + 1], rawRgb[idx + 2])
+        borderL.push(lab[0])
+        borderA.push(lab[1])
+        borderB.push(lab[2])
+      }
+    }
+  }
+  const bgLab: [number, number, number] = [median(borderL), median(borderA), median(borderB)]
+
   const colorCounts: Record<string, { count: number; labSum: [number, number, number]; rVals: number[]; gVals: number[]; bVals: number[] }> = {}
   for (const name of Object.keys(REFERENCE_COLORS_LAB)) {
     colorCounts[name] = { count: 0, labSum: [0, 0, 0], rVals: [], gVals: [], bVals: [] }
   }
 
+  let fgSampleCount = 0
   // Rows 19..77 (inclusive) and cols 19..77 (inclusive) define the central 60% ROI
   for (let r = 0; r < height; r++) {
     const isCenterRow = r >= 19 && r <= 77
@@ -267,9 +359,15 @@ export async function inspectImageModeration(buffer: Buffer): Promise<ImageModer
         if (isCenter) centerSkinPixels++
       }
 
-      // Collect color information in central ROI
-      if (isCenter) {
-        const lab = rgbToLab(R, G, B)
+      const lab = rgbToLab(R, G, B)
+      const deBg = Math.sqrt(
+        Math.pow(lab[0] - bgLab[0], 2) +
+        Math.pow(lab[1] - bgLab[1], 2) +
+        Math.pow(lab[2] - bgLab[2], 2)
+      )
+      const isForeground = (r >= 6 && r < 90 && c >= 6 && c < 90 && deBg >= 14.0) || isCenter
+      if (isForeground) {
+        fgSampleCount++
         const name = nearestFashionColor(lab)
         colorCounts[name].count++
         colorCounts[name].labSum[0] += lab[0]
@@ -298,11 +396,12 @@ export async function inspectImageModeration(buffer: Buffer): Promise<ImageModer
         median(dominantEntry[1].bVals)
       )
     : '#1a1a1a'
-  const secondaryColor = sortedColors[1] && sortedColors[1][1].count > (centerPixels * 0.1) ? sortedColors[1][0] : null
+  const denom = Math.max(1, fgSampleCount)
+  const secondaryColor = sortedColors[1] && sortedColors[1][1].count > denom * 0.1 ? sortedColors[1][0] : null
 
   const palette: ColorClusterInfo[] = sortedColors.slice(0, 2).map(([name, data]) => ({
     color_name: name,
-    proportion: Number((data.count / Math.max(1, centerPixels)).toFixed(4)),
+    proportion: Number((data.count / denom).toFixed(4)),
     lab: [
       Number((data.labSum[0] / data.count).toFixed(2)),
       Number((data.labSum[1] / data.count).toFixed(2)),
@@ -323,8 +422,11 @@ export async function inspectImageModeration(buffer: Buffer): Promise<ImageModer
       colorHex,
       secondaryColor,
       palette,
+      cutoutDataUri: null,
     }
   }
+
+  const cutoutDataUri = await generateNodeCutoutDataUri(buffer, bgLab)
 
   return {
     is_safe_garment: true,
@@ -335,6 +437,7 @@ export async function inspectImageModeration(buffer: Buffer): Promise<ImageModer
     colorHex,
     secondaryColor,
     palette,
+    cutoutDataUri,
   }
 }
 
@@ -354,7 +457,7 @@ async function preprocessForCnn(buffer: Buffer) {
 export const imageAnalysisService = {
   inspectModeration: inspectImageModeration,
 
-  async analyze(file: Express.Multer.File): Promise<ClothingPrediction> {
+  async analyze(file: Express.Multer.File): Promise<AnalysisResult> {
     // 1. Run direct Node.js Sharp pixel moderation and color extraction
     const moderation = await inspectImageModeration(file.buffer)
     if (!moderation.is_safe_garment) {
@@ -373,6 +476,7 @@ export const imageAnalysisService = {
         occasion: null,
         material: null,
         confidence: 0,
+        cutoutDataUri: null,
         is_safe_garment: false,
         moderation_reason: moderation.moderation_reason,
         attributes: null,
@@ -390,11 +494,11 @@ export const imageAnalysisService = {
         const normalized = await preprocessForCnn(file.buffer)
         const { data } = await axios.post<unknown>(analysisUrl, normalized, {
           headers: { 'Content-Type': 'image/jpeg', 'X-Source-Filename': encodeURIComponent(file.originalname) },
-          timeout: 10_000,
+          timeout: 12_000,
         })
         const result = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>
         const rawConfidence = typeof result.confidence === 'number' && result.confidence >= 0 && result.confidence <= 1 ? result.confidence : 0.88
-        const confidence = Number(Math.min(0.96, Math.max(0.82, rawConfidence)).toFixed(4))
+        const confidence = Number(Math.min(0.96, Math.max(0.68, rawConfidence)).toFixed(4))
         const resolvedCat = optionalEnum(result.category, CATEGORIES) ?? defaultCategoryForColor
         const resolvedColor = typeof result.color === 'string' && result.color.length <= 50 ? result.color : moderation.dominantColor
         const inferred = inferFromFilename(file.originalname, resolvedCat)
@@ -425,6 +529,10 @@ export const imageAnalysisService = {
           typeof result.material === 'string' && result.material.trim()
             ? result.material.trim()
             : (inferred?.material ?? 'Cotton')
+        const cutoutDataUri =
+          typeof result.cutoutDataUri === 'string' && result.cutoutDataUri.startsWith('data:image/png;base64,')
+            ? result.cutoutDataUri
+            : moderation.cutoutDataUri
 
         return {
           category: resolvedCat ?? inferred?.category,
@@ -443,6 +551,7 @@ export const imageAnalysisService = {
           occasion,
           material,
           confidence,
+          cutoutDataUri,
           is_safe_garment: typeof result.is_safe_garment === 'boolean' ? result.is_safe_garment : true,
           moderation_reason: typeof result.moderation_reason === 'string'
             ? result.moderation_reason
@@ -454,11 +563,12 @@ export const imageAnalysisService = {
           return {
             category: undefined,
             confidence: 0,
+            cutoutDataUri: null,
             is_safe_garment: false,
             moderation_reason: cnnErr.response.data.moderation_reason || moderation.moderation_reason,
           }
         }
-        // Fall back gracefully to Node.js color & filename extraction if CNN microservice is offline
+        // Fall back gracefully to Node.js color & cutout extraction if CNN microservice is offline
       }
     }
 
@@ -482,6 +592,7 @@ export const imageAnalysisService = {
       occasion: fallbackMeta.occasion,
       material: fallbackMeta.material,
       confidence: 0.88,
+      cutoutDataUri: moderation.cutoutDataUri,
       is_safe_garment: true,
       moderation_reason: null,
       attributes: null,

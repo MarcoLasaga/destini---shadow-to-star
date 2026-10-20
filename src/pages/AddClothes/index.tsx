@@ -121,6 +121,9 @@ export default function AddClothes() {
       if (prediction.colorHex) {
         setColorHex(prediction.colorHex)
       }
+      if (prediction.cutoutDataUri) {
+        setPreview(prediction.cutoutDataUri)
+      }
       if (prediction.style && (STYLES as readonly string[]).includes(prediction.style)) {
         setStyle(prediction.style as (typeof STYLES)[number])
       }

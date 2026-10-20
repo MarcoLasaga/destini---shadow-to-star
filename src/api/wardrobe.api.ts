@@ -76,6 +76,7 @@ export interface ClothingPrediction {
   occasion?: string | null
   material?: string | null
   confidence?: number
+  cutoutDataUri?: string | null
   is_safe_garment?: boolean
   moderation_reason?: string | null
 }

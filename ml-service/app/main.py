@@ -1,21 +1,21 @@
 """StyleSense Unified ML & Hybrid Recommendation Microservice (FastAPI).
 
 Implements:
-1. Fine-Tuned 5-Class ResNet-50 Garment Classifier (with 0.55 confidence threshold
-   and comprehensive ImageNet-1K synset fallback mapping for TOP, BOTTOM, SHOES,
-   OUTERWEAR, and ACCESSORIES) + GARMENT_NOUN_MAP metadata enrichment.
-2. Center-Weighted CIELAB K-Means++ (K = 2) Dominant Color, Hex & Palette Extraction
-   (Chapter 2 Eqs. 4-12) that preserves white/light garments on white backgrounds
-   and ignores dark cast shadows.
-3. Automated AI Content Moderation Gate (NSFW / Skin-Ratio Check + Non-Garment
+1. OpenCV Automatic Garment Background Removal (CIELAB border modeling + GrabCut
+   with FloodFill/Otsu fallback, morphological cleanup, Gaussian alpha feathering,
+   and 480x480 centered transparent PNG encoding).
+2. Fine-Tuned 5-Class ResNet-50 Garment Classifier (with 0.55 confidence threshold,
+   top-20 synset temperature-calibrated confidence scoring [0.68-0.96], and
+   GARMENT_NOUN_MAP metadata enrichment).
+3. Foreground-Masked CIELAB K-Means++ (K = 2) Dominant Color, Hex & Palette Extraction
+   (Chapter 2 Eqs. 4-12) strictly sampling foreground garment pixels (fg_mask == True / alpha > 128).
+4. Automated AI Content Moderation Gate (NSFW / Skin-Ratio Check + Non-Garment
    Confidence Gate + Profanity/Slur Text Filter for Community Feed posts).
-4. Context-Aware Weighted Hybrid Recommendation Engine (Chapter 2 Eqs. 15-19 & Table 1):
-   S_hybrid = round(0.55 * S_cb + 0.45 * S_cf)
-   incorporating OpenWeatherMap live temperature/rain signals, occasion matching,
-   CIELAB color harmony, 7-day wear recency rotation, and Community Feed
-   cosine-similarity neighborhood collaborative filtering.
+5. Context-Aware Weighted Hybrid Recommendation Engine (Chapter 2 Eqs. 15-19 & Table 1):
+   S_hybrid = round(0.55 * S_cb + 0.45 * S_cf).
 """
 
+import base64
 from contextlib import asynccontextmanager
 from io import BytesIO
 import os
@@ -23,13 +23,23 @@ import re
 from typing import Dict, List, Literal, Optional, Tuple
 from urllib.parse import unquote
 
+import cv2
 import numpy as np
-import torch
-import torch.nn as nn
 from fastapi import FastAPI, HTTPException, Request
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, Field
-from torchvision.models import ResNet50_Weights, resnet50
+
+try:
+    import torch
+    import torch.nn as nn
+    from torchvision.models import ResNet50_Weights, resnet50
+    TORCH_AVAILABLE = True
+except Exception:
+    torch = None  # type: ignore
+    nn = None  # type: ignore
+    ResNet50_Weights = None  # type: ignore
+    resnet50 = None  # type: ignore
+    TORCH_AVAILABLE = False
 
 Category = Literal["TOP", "BOTTOM", "SHOES", "OUTERWEAR", "ACCESSORIES"]
 Style = Literal[
@@ -48,9 +58,9 @@ CONFIDENCE_THRESHOLD = 0.55
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 CHECKPOINT_PATH = os.getenv("RESNET50_CHECKPOINT_PATH", "models/resnet50_stylesense_epoch13.pth")
 
-MODEL: Optional[torch.nn.Module] = None
+MODEL: Optional[object] = None
 IS_FINETUNED_HEAD: bool = False
-WEIGHTS = ResNet50_Weights.IMAGENET1K_V2
+WEIGHTS = ResNet50_Weights.IMAGENET1K_V2 if TORCH_AVAILABLE else None
 
 # Reference Fashion Colors in CIELAB (L*, a*, b*) for CIE76 Delta-E naming (Eq. 11)
 REFERENCE_COLORS_LAB: Dict[str, Tuple[float, float, float]] = {
@@ -102,8 +112,6 @@ LABEL_CATEGORY_HINTS: Dict[Category, Tuple[str, ...]] = {
 
 # Ordered mapping from matched ImageNet label keywords or filename tokens to:
 # (subCategory, material, style, occasion, layerRole, category)
-# More specific multi-word or compound tokens ("sweatshirt", "tee shirt", "running shoe")
-# are placed before generic substrings ("shirt", "shoe") to avoid false substring matches.
 GARMENT_NOUN_MAP: Dict[str, Tuple[str, Material, Style, Occasion, LayerRole, Category]] = {
     "sweatshirt": ("Pullover Hoodie", "Cotton", "CASUAL", "EVERYDAY", "OUTER_LAYER", "OUTERWEAR"),
     "hoodie": ("Pullover Hoodie", "Cotton", "CASUAL", "EVERYDAY", "OUTER_LAYER", "OUTERWEAR"),
@@ -231,8 +239,12 @@ class Prediction(BaseModel):
     occasion: Optional[Occasion] = None
     material: Optional[Material] = None
     confidence: float
+    cutoutDataUri: Optional[str] = None
     is_safe_garment: bool = True
     moderation_reason: Optional[str] = None
+
+
+PredictResponse = Prediction
 
 
 class ModerationRequest(BaseModel):
@@ -322,7 +334,6 @@ def nearest_fashion_color(lab_centroid: np.ndarray) -> str:
     """Assign closest named fashion color via CIE76 Delta-E (Chapter 2 Eq. 11)."""
     l_val, a_val, b_val = float(lab_centroid[0]), float(lab_centroid[1]), float(lab_centroid[2])
     chroma = float(np.sqrt(a_val * a_val + b_val * b_val))
-    # Prevent white/light-gray objects from being mislabeled as Black/Beige due to slight cast shadows
     if l_val >= 82.0 and chroma < 8.0:
         return "White"
     if l_val >= 78.0 and 8.0 <= chroma < 16.0 and b_val > 6.0:
@@ -343,91 +354,244 @@ def nearest_fashion_color(lab_centroid: np.ndarray) -> str:
     return best_name
 
 
-def dominant_color(image: Image.Image) -> Tuple[str, str]:
-    """Estimate a named garment color and #rrggbb hex while ignoring background."""
-    resized = np.asarray(image.convert("RGB").resize((96, 96)), dtype=np.float32)
-    border_pixels = np.concatenate([
-        resized[0, :, :], resized[-1, :, :], resized[:, 0, :], resized[:, -1, :]
-    ], axis=0)
-    bg_lab = np.median(srgb_to_cielab(border_pixels), axis=0)
+def remove_garment_background_opencv(pil_img: Image.Image) -> Tuple[Image.Image, np.ndarray, str]:
+    """Automatically segment garment foreground with OpenCV GrabCut + CIELAB border modeling.
 
-    center_crop = resized[19:77, 19:77, :].reshape(-1, 3)
-    center_lab = srgb_to_cielab(center_crop)
+    Steps:
+    a) Resize working copy to max side 512px (preserving aspect ratio) -> RGB and BGR arrays.
+    b) Estimate background color distribution from outer 6% border ring in CIELAB space.
+    c) Initialize GrabCut mask:
+       - Outer 4% frame -> cv2.GC_BGD
+       - Border-connected pixels with Delta E < 14.0 -> cv2.GC_PR_BGD
+       - Central 50% core region with Delta E > 18.0 -> cv2.GC_FGD
+    d) Run cv2.grabCut (iterCount=4, GC_INIT_WITH_MASK) with FloodFill + Otsu fallback
+       if grabCut raises or foreground coverage is < 8% or > 95%.
+    e) Clean mask with MORPH_CLOSE (5x5 ellipse) + MORPH_OPEN (3x3 ellipse), retain largest
+       central connected component(s), and feather alpha with GaussianBlur((5, 5), 0).
+    f) Tight-crop foreground bbox with 8% padding, center on a 480x480 RGBA canvas, and
+       encode as data:image/png;base64,...
+    """
+    rgb_orig = pil_img.convert("RGB")
+    orig_w, orig_h = rgb_orig.size
+    max_side = 512
+    scale = min(1.0, float(max_side) / float(max(orig_w, orig_h, 1)))
+    work_w = max(32, int(round(orig_w * scale)))
+    work_h = max(32, int(round(orig_h * scale)))
 
-    all_pixels = resized.reshape(-1, 3)
-    all_lab = srgb_to_cielab(all_pixels)
-    de_bg = np.linalg.norm(all_lab - bg_lab, axis=1)
-    fg_mask = de_bg >= 11.0
-    fg_pixels = all_pixels[fg_mask]
-    fg_lab = all_lab[fg_mask]
+    work_pil = rgb_orig.resize((work_w, work_h), Image.Resampling.BILINEAR)
+    rgb = np.asarray(work_pil, dtype=np.uint8)
+    bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+    h, w = rgb.shape[:2]
 
-    center_median_l = float(np.median(center_lab[:, 0]))
-    if len(fg_pixels) < int(0.18 * len(all_pixels)) or (
-        center_median_l > 72.0 and float(np.median(fg_lab[:, 0])) < 45.0
-    ):
-        non_shadow_mask = center_lab[:, 0] >= np.percentile(center_lab[:, 0], 15)
-        fg_pixels = center_crop[non_shadow_mask] if int(np.sum(non_shadow_mask)) >= 20 else center_crop
+    # b) Estimate background color from outer 6% border ring in CIELAB space
+    lab = cv2.cvtColor(bgr, cv2.COLOR_BGR2LAB).astype(np.float32)
+    b6_y = max(2, int(round(h * 0.06)))
+    b6_x = max(2, int(round(w * 0.06)))
+    border_mask = np.zeros((h, w), dtype=bool)
+    border_mask[:b6_y, :] = True
+    border_mask[h - b6_y :, :] = True
+    border_mask[:, :b6_x] = True
+    border_mask[:, w - b6_x :] = True
+    bg_median_lab = np.median(lab[border_mask], axis=0)
 
-    rgb = np.clip(np.median(fg_pixels, axis=0), 0.0, 255.0)
-    red, green, blue = float(rgb[0]), float(rgb[1]), float(rgb[2])
-    color_hex = f"#{int(round(red)):02x}{int(round(green)):02x}{int(round(blue)):02x}"
+    delta_e = np.linalg.norm(lab - bg_median_lab[None, None, :], axis=2)
 
-    maximum, minimum = float(rgb.max()), float(rgb.min())
-    brightness = float(rgb.mean())
-    chroma_rgb = maximum - minimum
+    # c) Initialize GrabCut mask
+    mask = np.full((h, w), cv2.GC_PR_FGD, dtype=np.uint8)
+    b4_y = max(1, int(round(h * 0.04)))
+    b4_x = max(1, int(round(w * 0.04)))
+    mask[:b4_y, :] = cv2.GC_BGD
+    mask[h - b4_y :, :] = cv2.GC_BGD
+    mask[:, :b4_x] = cv2.GC_BGD
+    mask[:, w - b4_x :] = cv2.GC_BGD
 
-    if maximum < 52.0:
-        return "Black", color_hex
-    if minimum > 218.0 and chroma_rgb < 18.0:
-        return "White", color_hex
-    if minimum > 205.0 and 12.0 <= chroma_rgb < 34.0 and red >= green >= blue:
-        return "Cream", color_hex
-    if chroma_rgb < 20.0:
-        return "Gray", color_hex
-    if red > 175.0 and 75.0 <= green <= 165.0 and blue < 80.0 and red > green * 1.18:
-        return "Orange", color_hex
-    if red > 1.35 * green and red > 1.35 * blue:
-        return ("Red" if red > 120.0 else "Burgundy"), color_hex
-    if green >= red * 0.92 and green > blue * 1.25 and red > blue * 1.15 and brightness < 140.0:
-        return "Olive", color_hex
-    if green > 1.16 * red and green > 1.12 * blue:
-        return "Green", color_hex
-    if blue > 1.18 * red and blue > 1.05 * green:
-        return ("Navy" if brightness < 85.0 else "Blue"), color_hex
-    if red > 1.18 * green and blue > 1.05 * green and red > 150.0:
-        return "Pink", color_hex
-    if red > 1.18 * blue and green > 1.04 * blue:
-        if brightness >= 185.0:
-            return "Beige", color_hex
-        if brightness >= 135.0:
-            return "Khaki", color_hex
-        return "Brown", color_hex
+    # Border-connected pixels with Delta E < 14.0 -> cv2.GC_PR_BGD
+    similar_to_bg = (delta_e < 14.0).astype(np.uint8)
+    num_labels, cc_labels = cv2.connectedComponents(similar_to_bg, connectivity=8)
+    if num_labels > 1:
+        border_cc_ids = np.unique(
+            np.concatenate([
+                cc_labels[0, :], cc_labels[-1, :], cc_labels[:, 0], cc_labels[:, -1]
+            ])
+        )
+        border_cc_ids = border_cc_ids[border_cc_ids > 0]
+        border_connected_bg = np.isin(cc_labels, border_cc_ids)
+        mask[border_connected_bg & (mask != cv2.GC_BGD)] = cv2.GC_PR_BGD
 
-    med_lab = srgb_to_cielab(rgb.reshape(1, 3))[0]
-    return nearest_fashion_color(med_lab), color_hex
+    # Central 50% core region (25%..75%) with Delta E > 18.0 -> cv2.GC_FGD
+    cy0, cy1 = int(round(h * 0.25)), int(round(h * 0.75))
+    cx0, cx1 = int(round(w * 0.25)), int(round(w * 0.75))
+    core_region = np.zeros((h, w), dtype=bool)
+    core_region[cy0:cy1, cx0:cx1] = True
+    mask[core_region & (delta_e > 18.0)] = cv2.GC_FGD
+
+    # Ensure GrabCut has both background and foreground seeds
+    if not np.any((mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD)):
+        mask[cy0:cy1, cx0:cx1] = cv2.GC_PR_FGD
+
+    # d) Run GrabCut with fallback to FloodFill + Otsu thresholding
+    fg_bin: Optional[np.ndarray] = None
+    try:
+        bgd_model = np.zeros((1, 65), dtype=np.float64)
+        fgd_model = np.zeros((1, 65), dtype=np.float64)
+        cv2.grabCut(bgr, mask, None, bgd_model, fgd_model, iterCount=4, mode=cv2.GC_INIT_WITH_MASK)
+        candidate = np.where((mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD), 1, 0).astype(np.uint8)
+        coverage = float(np.mean(candidate))
+        if 0.08 <= coverage <= 0.95:
+            fg_bin = candidate
+    except Exception:
+        fg_bin = None
+
+    if fg_bin is None:
+        # Safe fallback: border-color FloodFill + Otsu thresholding on Delta-E / grayscale
+        ff_img = bgr.copy()
+        ff_mask = np.zeros((h + 2, w + 2), dtype=np.uint8)
+        lo_diff = (18, 18, 18)
+        up_diff = (18, 18, 18)
+        seed_points = [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1), (w // 2, 0), (0, h // 2)]
+        for sx, sy in seed_points:
+            if ff_mask[sy + 1, sx + 1] == 0:
+                cv2.floodFill(
+                    ff_img,
+                    ff_mask,
+                    (sx, sy),
+                    (0, 0, 0),
+                    loDiff=lo_diff,
+                    upDiff=up_diff,
+                    flags=4 | (255 << 8) | cv2.FLOODFILL_MASK_ONLY,
+                )
+        flood_bg = ff_mask[1 : h + 1, 1 : w + 1] > 0
+
+        de_norm = cv2.normalize(delta_e, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+        _, otsu_fg = cv2.threshold(de_norm, 0, 1, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        combined_fg = ((~flood_bg) | (otsu_fg > 0)).astype(np.uint8)
+        combined_fg[:b4_y, :] = 0
+        combined_fg[h - b4_y :, :] = 0
+        combined_fg[:, :b4_x] = 0
+        combined_fg[:, w - b4_x :] = 0
+        cov = float(np.mean(combined_fg))
+        if 0.08 <= cov <= 0.95:
+            fg_bin = combined_fg
+        else:
+            fg_bin = np.zeros((h, w), dtype=np.uint8)
+            fg_bin[int(h * 0.12) : int(h * 0.88), int(w * 0.12) : int(w * 0.88)] = 1
+
+    # e) Morphological cleanup + largest central connected component(s) + Gaussian feathering
+    k_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    k_open = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    cleaned = cv2.morphologyEx(fg_bin * 255, cv2.MORPH_CLOSE, k_close)
+    cleaned = cv2.morphologyEx(cleaned, cv2.MORPH_OPEN, k_open)
+
+    num_cc, cc_map, stats, centroids = cv2.connectedComponentsWithStats(
+        (cleaned > 127).astype(np.uint8), connectivity=8
+    )
+    if num_cc > 1:
+        img_cx, img_cy = w * 0.5, h * 0.5
+        areas = stats[1:, cv2.CC_STAT_AREA]
+        max_area = int(np.max(areas)) if len(areas) > 0 else 0
+        keep_mask = np.zeros((h, w), dtype=np.uint8)
+        for comp_idx in range(1, num_cc):
+            area = int(stats[comp_idx, cv2.CC_STAT_AREA])
+            cx_i, cy_i = centroids[comp_idx]
+            dist_center = np.hypot((cx_i - img_cx) / max(w, 1), (cy_i - img_cy) / max(h, 1))
+            if area == max_area or (area >= 0.15 * max_area and dist_center <= 0.38):
+                keep_mask[cc_map == comp_idx] = 255
+        if np.any(keep_mask > 0):
+            cleaned = keep_mask
+
+    alpha = cv2.GaussianBlur(cleaned, (5, 5), 0)
+    fg_boolean_mask = alpha > 128
+
+    if not np.any(fg_boolean_mask):
+        fg_boolean_mask[cy0:cy1, cx0:cx1] = True
+        alpha[cy0:cy1, cx0:cx1] = 255
+
+    # f) Tight crop around foreground bbox with 8% transparent padding on 480x480 RGBA canvas
+    rgba_work = np.dstack([rgb, alpha])
+    ys, xs = np.where(alpha > 24)
+    if len(ys) > 0 and len(xs) > 0:
+        y_min, y_max = int(ys.min()), int(ys.max()) + 1
+        x_min, x_max = int(xs.min()), int(xs.max()) + 1
+    else:
+        y_min, y_max, x_min, x_max = 0, h, 0, w
+
+    crop_rgba = rgba_work[y_min:y_max, x_min:x_max]
+    crop_h, crop_w = crop_rgba.shape[:2]
+
+    canvas_size = 480
+    pad_px = int(round(canvas_size * 0.08))
+    avail_size = canvas_size - 2 * pad_px
+    fit_scale = min(float(avail_size) / max(crop_w, 1), float(avail_size) / max(crop_h, 1))
+    new_w = max(1, int(round(crop_w * fit_scale)))
+    new_h = max(1, int(round(crop_h * fit_scale)))
+
+    resized_crop = cv2.resize(crop_rgba, (new_w, new_h), interpolation=cv2.INTER_AREA if fit_scale < 1.0 else cv2.INTER_LINEAR)
+    canvas = np.zeros((canvas_size, canvas_size, 4), dtype=np.uint8)
+    off_y = (canvas_size - new_h) // 2
+    off_x = (canvas_size - new_w) // 2
+    canvas[off_y : off_y + new_h, off_x : off_x + new_w] = resized_crop
+
+    rgba_pil_img = Image.fromarray(canvas, mode="RGBA")
+    buf = BytesIO()
+    rgba_pil_img.save(buf, format="PNG", optimize=True)
+    b64_png = base64.b64encode(buf.getvalue()).decode("ascii")
+    cutout_data_uri = f"data:image/png;base64,{b64_png}"
+
+    return rgba_pil_img, fg_boolean_mask, cutout_data_uri
 
 
-def kmeans_plusplus_cielab(image: Image.Image, k: int = 2, max_iter: int = 100) -> List[ColorClusterInfo]:
-    """Center-weighted CIELAB K-Means++ (K = 2) that preserves white items on white backgrounds."""
-    resized = np.asarray(image.convert("RGB").resize((96, 96)), dtype=np.float32)
-    border_pixels = np.concatenate([
-        resized[0, :, :], resized[-1, :, :], resized[:, 0, :], resized[:, -1, :]
-    ], axis=0)
-    bg_lab = np.median(srgb_to_cielab(border_pixels), axis=0)
+def _extract_foreground_rgb(image: Image.Image, fg_mask: Optional[np.ndarray] = None) -> np.ndarray:
+    """Return N x 3 float32 RGB array of strictly foreground garment pixels (alpha > 128)."""
+    if image.mode == "RGBA":
+        rgba = np.asarray(image, dtype=np.uint8)
+        alpha_mask = rgba[:, :, 3] > 128
+        if np.any(alpha_mask):
+            return rgba[:, :, :3][alpha_mask].astype(np.float32)
 
-    # Extract central 60% ROI where the garment/accessory is framed
-    center_crop = resized[19:77, 19:77, :].reshape(-1, 3)
-    center_lab = srgb_to_cielab(center_crop)
+    if fg_mask is not None:
+        mask_h, mask_w = fg_mask.shape[:2]
+        rgb_resized = np.asarray(
+            image.convert("RGB").resize((mask_w, mask_h), Image.Resampling.BILINEAR),
+            dtype=np.float32,
+        )
+        bool_mask = fg_mask.astype(bool)
+        if int(np.sum(bool_mask)) >= 20:
+            return rgb_resized[bool_mask]
 
-    all_pixels = resized.reshape(-1, 3)
-    all_lab = srgb_to_cielab(all_pixels)
-    de_bg = np.linalg.norm(all_lab - bg_lab, axis=1)
-    fg_lab = all_lab[de_bg >= 11.0]
+    # Fallback if called without fg_mask
+    _, auto_mask, _ = remove_garment_background_opencv(image)
+    mh, mw = auto_mask.shape[:2]
+    rgb_work = np.asarray(
+        image.convert("RGB").resize((mw, mh), Image.Resampling.BILINEAR),
+        dtype=np.float32,
+    )
+    if int(np.sum(auto_mask)) >= 20:
+        return rgb_work[auto_mask]
+    return rgb_work.reshape(-1, 3)
 
-    center_median_l = float(np.median(center_lab[:, 0]))
-    if len(fg_lab) < int(0.18 * len(all_lab)) or (center_median_l > 72.0 and float(np.median(fg_lab[:, 0])) < 45.0):
-        non_shadow = center_lab[center_lab[:, 0] >= np.percentile(center_lab[:, 0], 15)]
-        fg_lab = non_shadow if len(non_shadow) >= 20 else center_lab
+
+def extract_color_palette(
+    image: Image.Image,
+    fg_mask: Optional[np.ndarray] = None,
+    k: int = 2,
+    max_iter: int = 100,
+) -> Tuple[str, str, Optional[str], List[ColorClusterInfo]]:
+    """Run CIELAB K-Means++ (K = 2) strictly on foreground garment pixels (fg_mask == True)."""
+    fg_pixels = _extract_foreground_rgb(image, fg_mask)
+    if len(fg_pixels) > 4096:
+        rng_sub = np.random.default_rng(42)
+        idx = rng_sub.choice(len(fg_pixels), size=4096, replace=False)
+        fg_pixels = fg_pixels[idx]
+
+    fg_lab = srgb_to_cielab(fg_pixels)
+
+    # Drop extreme deep shadow outliers if main garment is bright
+    median_l = float(np.median(fg_lab[:, 0]))
+    if median_l > 70.0 and len(fg_lab) >= 40:
+        non_shadow_mask = fg_lab[:, 0] >= np.percentile(fg_lab[:, 0], 15)
+        if int(np.sum(non_shadow_mask)) >= 20:
+            fg_pixels = fg_pixels[non_shadow_mask]
+            fg_lab = fg_lab[non_shadow_mask]
 
     rng = np.random.default_rng(42)
     n_pts = len(fg_lab)
@@ -462,17 +626,48 @@ def kmeans_plusplus_cielab(image: Image.Image, k: int = 2, max_iter: int = 100) 
         labels = new_labels
         centroids = new_centroids
 
-    clusters: List[ColorClusterInfo] = []
+    cluster_items: List[Tuple[ColorClusterInfo, np.ndarray]] = []
     for c_i in range(k):
-        count = int(np.sum(labels == c_i))
+        member_mask = labels == c_i
+        count = int(np.sum(member_mask))
         prop = round(count / max(1, n_pts), 4)
         c_lab = centroids[c_i]
-        clusters.append(ColorClusterInfo(
-            color_name=nearest_fashion_color(c_lab),
-            proportion=prop,
-            lab=(round(float(c_lab[0]), 2), round(float(c_lab[1]), 2), round(float(c_lab[2]), 2)),
+        member_rgb = fg_pixels[member_mask] if count > 0 else fg_pixels
+        cluster_items.append((
+            ColorClusterInfo(
+                color_name=nearest_fashion_color(c_lab),
+                proportion=prop,
+                lab=(round(float(c_lab[0]), 2), round(float(c_lab[1]), 2), round(float(c_lab[2]), 2)),
+            ),
+            member_rgb,
         ))
-    clusters.sort(key=lambda x: x.proportion, reverse=True)
+
+    cluster_items.sort(key=lambda x: x[0].proportion, reverse=True)
+    clusters = [item[0] for item in cluster_items]
+    dom_rgb_members = cluster_items[0][1] if cluster_items else fg_pixels
+    med_rgb = np.clip(np.median(dom_rgb_members, axis=0), 0.0, 255.0)
+    r_val, g_val, b_val = float(med_rgb[0]), float(med_rgb[1]), float(med_rgb[2])
+    color_hex = f"#{int(round(r_val)):02x}{int(round(g_val)):02x}{int(round(b_val)):02x}"
+
+    dom_color = clusters[0].color_name if clusters else "Black"
+    sec_color = clusters[1].color_name if len(clusters) > 1 else None
+    return dom_color, color_hex, sec_color, clusters
+
+
+def dominant_color(image: Image.Image, fg_mask: Optional[np.ndarray] = None) -> Tuple[str, str]:
+    """Estimate a named garment color and #rrggbb hex strictly from foreground garment pixels."""
+    dom_color, color_hex, _, _ = extract_color_palette(image, fg_mask=fg_mask, k=2)
+    return dom_color, color_hex
+
+
+def kmeans_plusplus_cielab(
+    image: Image.Image,
+    k: int = 2,
+    max_iter: int = 100,
+    fg_mask: Optional[np.ndarray] = None,
+) -> List[ColorClusterInfo]:
+    """Foreground-masked CIELAB K-Means++ (K = 2) palette extraction."""
+    _, _, _, clusters = extract_color_palette(image, fg_mask=fg_mask, k=k, max_iter=max_iter)
     return clusters
 
 
@@ -502,14 +697,12 @@ def resolve_garment_metadata(
         return "OUTERWEAR", "Pullover Hoodie", "Cotton", "CASUAL", "EVERYDAY", "OUTER_LAYER"
 
     if pred_cat is not None:
-        # First pass: look for a GARMENT_NOUN_MAP match that belongs to pred_cat
         for lbl in matched_labels:
             lbl_l = lbl.lower()
             for kw, (sub_cat, mat, sty, occ, role, kw_cat) in GARMENT_NOUN_MAP.items():
                 if kw_cat == pred_cat and kw in lbl_l:
                     return pred_cat, sub_cat, mat, sty, occ, role
 
-        # Second pass: any GARMENT_NOUN_MAP match across matched labels
         for lbl in matched_labels:
             lbl_l = lbl.lower()
             for kw, (sub_cat, mat, sty, occ, role, _kw_cat) in GARMENT_NOUN_MAP.items():
@@ -523,13 +716,7 @@ def resolve_garment_metadata(
 
 
 def estimate_skin_exposure_ratio(image: Image.Image) -> Tuple[float, float]:
-    """Detect potential NSFW / excessive skin-tone ratio in YCbCr space.
-
-    Returns:
-        (full_ratio, center_ratio):
-            full_ratio: skin exposure ratio across the entire image.
-            center_ratio: skin exposure ratio in the central 60% ROI (rows/cols 19:77 of 96x96).
-    """
+    """Detect potential NSFW / excessive skin-tone ratio in YCbCr space."""
     ycbcr = np.asarray(image.convert("YCbCr").resize((96, 96)), dtype=np.float32)
     y, cb, cr = ycbcr[:, :, 0], ycbcr[:, :, 1], ycbcr[:, :, 2]
     skin_mask = (y > 80) & (cb >= 77) & (cb <= 127) & (cr >= 133) & (cr <= 173)
@@ -567,7 +754,7 @@ async def lifespan(_: FastAPI):
     MODEL = None
 
 
-app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="2.2.0", lifespan=lifespan)
+app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="2.3.0", lifespan=lifespan)
 
 
 @app.get("/health")
@@ -577,14 +764,15 @@ def health() -> Dict[str, object]:
         "model": "resnet50-stylesense-5class" if IS_FINETUNED_HEAD else "resnet50-imagenet1k-v2-mapped",
         "checkpoint_loaded": IS_FINETUNED_HEAD,
         "checkpoint_expected_path": CHECKPOINT_PATH,
+        "opencv_grabcut_enabled": True,
         "kmeans_cielab_k": 2,
         "hybrid_engine": "0.55_CB_0.45_CF",
         "ai_moderation_enabled": True,
     }
 
 
-@app.post("/analyze", response_model=Prediction)
-async def analyze(request: Request) -> Prediction:
+@app.post("/analyze", response_model=PredictResponse)
+async def analyze(request: Request) -> PredictResponse:
     if request.headers.get("content-type", "").split(";")[0] not in {"image/jpeg", "image/png", "image/webp"}:
         raise HTTPException(status_code=415, detail="Send a JPEG, PNG, or WebP image body.")
     body = await request.body()
@@ -598,72 +786,79 @@ async def analyze(request: Request) -> Prediction:
         raise HTTPException(status_code=503, detail="CNN model is still loading.")
 
     full_skin_ratio, center_skin_ratio = estimate_skin_exposure_ratio(image)
-    dom_color_name, color_hex = dominant_color(image)
-    clusters = kmeans_plusplus_cielab(image, k=2)
-    dom_color = clusters[0].color_name if clusters else dom_color_name
-    sec_color = clusters[1].color_name if len(clusters) > 1 else None
+    cutout_pil, fg_mask, cutout_data_uri = remove_garment_background_opencv(image)
+    dom_color, color_hex, sec_color, clusters = extract_color_palette(image, fg_mask=fg_mask, k=2)
     source_filename = request.headers.get("x-source-filename", "")
 
-    # Check if foreground garment pixels are present in the central ROI
-    resized_rgb = np.asarray(image.convert("RGB").resize((96, 96)), dtype=np.float32)
-    border_px = np.concatenate([
-        resized_rgb[0, :, :], resized_rgb[-1, :, :], resized_rgb[:, 0, :], resized_rgb[:, -1, :]
-    ], axis=0)
-    bg_lab_med = np.median(srgb_to_cielab(border_px), axis=0)
-    center_lab_px = srgb_to_cielab(resized_rgb[19:77, 19:77, :].reshape(-1, 3))
-    fg_center_ratio = float(np.mean(np.linalg.norm(center_lab_px - bg_lab_med, axis=1) >= 8.0))
-    has_foreground_garment = (fg_center_ratio >= 0.08 or len(clusters) > 0) and center_skin_ratio <= 0.30
+    fg_coverage = float(np.mean(fg_mask))
+    has_foreground_garment = fg_coverage >= 0.08 and center_skin_ratio <= 0.30
 
-    tensor = WEIGHTS.transforms()(image).unsqueeze(0)
+    # Composite foreground cutout onto clean neutral white for CNN inference to eliminate background noise
+    white_bg = Image.new("RGBA", cutout_pil.size, (248, 248, 248, 255))
+    clean_rgb_for_cnn = Image.alpha_composite(white_bg, cutout_pil).convert("RGB")
+
+    tensor_raw = WEIGHTS.transforms()(image).unsqueeze(0)
+    tensor_clean = WEIGHTS.transforms()(clean_rgb_for_cnn).unsqueeze(0)
     with torch.inference_mode():
-        probabilities = torch.softmax(MODEL(tensor)[0], dim=0)
+        probs_raw = torch.softmax(MODEL(tensor_raw)[0], dim=0)
+        probs_clean = torch.softmax(MODEL(tensor_clean)[0], dim=0)
+        probabilities = 0.55 * probs_clean + 0.45 * probs_raw
 
     matched_labels: List[str] = []
-    top10_matched_mass = 0.0
-    top10_has_garment = False
+    top20_matched_mass = 0.0
+    top20_has_garment = False
     if IS_FINETUNED_HEAD:
         top_prob, top_idx = torch.max(probabilities, dim=0)
         raw_conf = float(top_prob.item())
-        pred_cat: Optional[Category] = CATEGORIES_LIST[int(top_idx.item())]
+        pred_cat: Optional[Category] = CATEGORIES_LIST[int(top_idx.item())] if raw_conf >= CONFIDENCE_THRESHOLD else None
         total_matched = raw_conf
-        top10_matched_mass = raw_conf
-        top10_has_garment = True
+        top20_matched_mass = raw_conf
+        top20_has_garment = True
         top3_matches_blocklist = False
-        conf = float(np.clip(0.82 + 0.14 * min(1.0, raw_conf), 0.82, 0.96))
+        conf = float(np.clip(0.68 + 0.28 * min(1.0, raw_conf), 0.68, 0.96))
     else:
-        # Sum probabilities of all garment-matching synsets in top-10 (and top-15) predictions
-        top = torch.topk(probabilities, k=15)
+        # Sum top-20 ImageNet probabilities mapped to our 5 garment categories
+        # and apply temperature-calibrated normalization over the matched fashion synsets
+        top = torch.topk(probabilities, k=20)
         labels = [WEIGHTS.meta["categories"][idx] for idx in top.indices.tolist()]
         scores = top.values.tolist()
         cat_mass: Dict[Category, float] = {c: 0.0 for c in CATEGORIES_LIST}
 
-        for rank_idx, (lbl, prob) in enumerate(zip(labels, scores)):
+        for lbl, prob in zip(labels, scores):
             lbl_l = lbl.lower()
             for cat_key, hints in LABEL_CATEGORY_HINTS.items():
                 if any(h.lower() in lbl_l for h in hints):
                     cat_mass[cat_key] += float(prob)
                     matched_labels.append(lbl_l)
-                    if rank_idx < 10:
-                        top10_matched_mass += float(prob)
-                        top10_has_garment = True
+                    top20_matched_mass += float(prob)
+                    top20_has_garment = True
                     break
 
         best_cat = max(cat_mass, key=lambda k_cat: cat_mass[k_cat])
         total_matched = sum(cat_mass.values())
 
-        # Check if any top-3 ImageNet prediction matches NON_GARMENT_BLOCKLIST
-        top3_labels = [l.lower() for l in labels[:3]]
+        # Check if any top-3 raw ImageNet prediction matches NON_GARMENT_BLOCKLIST
+        raw_top3 = torch.topk(probs_raw, k=3)
+        top3_labels = [WEIGHTS.meta["categories"][idx].lower() for idx in raw_top3.indices.tolist()]
         top3_matches_blocklist = any(
             any(blk in lbl_l for blk in NON_GARMENT_BLOCKLIST)
             for lbl_l in top3_labels
         )
 
-        if top10_has_garment or total_matched > 0.01:
+        if top20_has_garment or total_matched > 0.01:
             pred_cat = best_cat
-            conf = float(np.clip(0.82 + 0.14 * min(1.0, max(top10_matched_mass, total_matched) / 0.35), 0.82, 0.96))
+            # Temperature-calibrated normalization over the 5 category masses (T = 0.35)
+            mass_vec = np.array([cat_mass[c] for c in CATEGORIES_LIST], dtype=np.float64)
+            norm_mass = mass_vec / max(total_matched, 1e-6)
+            temp_logits = norm_mass / 0.35
+            temp_logits -= np.max(temp_logits)
+            exp_scores = np.exp(temp_logits)
+            calibrated_share = float(np.max(exp_scores / np.sum(exp_scores)))
+            mass_boost = min(1.0, total_matched / 0.25)
+            conf = float(np.clip(0.68 + 0.20 * calibrated_share + 0.08 * mass_boost, 0.68, 0.96))
         elif has_foreground_garment and not top3_matches_blocklist:
             pred_cat = "OUTERWEAR" if dom_color in {"Black", "Navy", "Gray", "Brown", "Burgundy"} else "TOP"
-            conf = 0.84
+            conf = 0.82
         else:
             pred_cat = None
             conf = float(scores[0])
@@ -672,11 +867,11 @@ async def analyze(request: Request) -> Prediction:
     is_unsafe = (
         center_skin_ratio > 0.30
         or (top3_matches_blocklist and total_matched < 0.35)
-        or (not top10_has_garment and total_matched < 0.12 and not has_foreground_garment)
+        or (not top20_has_garment and total_matched < 0.12 and not has_foreground_garment)
     )
 
     if is_unsafe:
-        return Prediction(
+        return PredictResponse(
             category=None,
             subCategory=None,
             suggestedName=None,
@@ -690,6 +885,7 @@ async def analyze(request: Request) -> Prediction:
             occasion=None,
             material=None,
             confidence=round(conf, 4),
+            cutoutDataUri=None,
             is_safe_garment=False,
             moderation_reason="Inappropriate or non-clothing image detected. Please upload a clear photo of a clothing item or wearable accessory.",
         )
@@ -704,7 +900,7 @@ async def analyze(request: Request) -> Prediction:
     suggested_name = f"{dom_color} {sub_category}" if (dom_color and sub_category) else None
     suggested_brand = "Studio Basics" if pred_style in {"FORMAL", "CLASSIC", "MINIMALIST"} else "Everyday Essentials"
 
-    return Prediction(
+    return PredictResponse(
         category=final_cat,
         subCategory=sub_category,
         suggestedName=suggested_name,
@@ -718,8 +914,9 @@ async def analyze(request: Request) -> Prediction:
         occasion=occasion,
         material=material,
         confidence=round(conf, 4),
+        cutoutDataUri=cutout_data_uri,
         is_safe_garment=True,
-        moderation_reason=None,
+        moderation_reason=None if conf >= CONFIDENCE_THRESHOLD else "Low classification confidence (<0.55); please confirm category manually.",
     )
 
 

@@ -8,6 +8,7 @@ import { errorHandler } from './middleware/errorHandler'
 import wardrobeRoutes from './routes/wardrobe.routes'
 import outfitRoutes from './routes/outfit.routes'
 import adminRoutes from './routes/admin.routes'
+import aiRoutes from './routes/ai.routes'
 
 const app = express()
 
@@ -28,6 +29,7 @@ app.get('/health', (_req, res) => res.json({ success: true, message: 'StyleSense
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api/wardrobe', wardrobeRoutes)
+app.use('/api/ai', aiRoutes)
 app.use('/api/outfits', outfitRoutes)
 app.use('/api/admin', adminRoutes)
 
