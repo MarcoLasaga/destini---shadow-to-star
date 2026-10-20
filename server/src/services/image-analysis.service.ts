@@ -83,22 +83,25 @@ interface GarmentNounEntry {
 }
 
 const GARMENT_NOUN_MAP: Record<string, GarmentNounEntry> = {
-  sweatshirt: { subCategory: 'Pullover Hoodie', material: 'Cotton', style: 'CASUAL', occasion: 'EVERYDAY', layerRole: 'OUTER_LAYER', category: 'OUTERWEAR' },
   hoodie: { subCategory: 'Pullover Hoodie', material: 'Cotton', style: 'CASUAL', occasion: 'EVERYDAY', layerRole: 'OUTER_LAYER', category: 'OUTERWEAR' },
   cardigan: { subCategory: 'Knit Cardigan', material: 'Knit', style: 'CLASSIC', occasion: 'WORK', layerRole: 'OUTER_LAYER', category: 'OUTERWEAR' },
   suit: { subCategory: 'Structured Blazer', material: 'Wool', style: 'FORMAL', occasion: 'WORK', layerRole: 'OUTER_LAYER', category: 'OUTERWEAR' },
   blazer: { subCategory: 'Structured Blazer', material: 'Wool', style: 'FORMAL', occasion: 'WORK', layerRole: 'OUTER_LAYER', category: 'OUTERWEAR' },
   trench: { subCategory: 'Tailored Coat', material: 'Cotton', style: 'CLASSIC', occasion: 'WORK', layerRole: 'OUTER_LAYER', category: 'OUTERWEAR' },
+  parka: { subCategory: 'Everyday Jacket', material: 'Nylon', style: 'CASUAL', occasion: 'OUTDOOR', layerRole: 'OUTER_LAYER', category: 'OUTERWEAR' },
   coat: { subCategory: 'Tailored Coat', material: 'Cotton', style: 'CLASSIC', occasion: 'WORK', layerRole: 'OUTER_LAYER', category: 'OUTERWEAR' },
   windbreaker: { subCategory: 'Everyday Jacket', material: 'Nylon', style: 'STREETWEAR', occasion: 'EVERYDAY', layerRole: 'OUTER_LAYER', category: 'OUTERWEAR' },
   jacket: { subCategory: 'Everyday Jacket', material: 'Nylon', style: 'STREETWEAR', occasion: 'EVERYDAY', layerRole: 'OUTER_LAYER', category: 'OUTERWEAR' },
-  jersey: { subCategory: 'Crewneck T-Shirt', material: 'Cotton', style: 'CASUAL', occasion: 'EVERYDAY', layerRole: 'INNER_BASE', category: 'TOP' },
+  'polo shirt': { subCategory: 'Polo Shirt', material: 'Cotton', style: 'CLASSIC', occasion: 'EVERYDAY', layerRole: 'INNER_BASE', category: 'TOP' },
+  polo: { subCategory: 'Polo Shirt', material: 'Cotton', style: 'CLASSIC', occasion: 'EVERYDAY', layerRole: 'INNER_BASE', category: 'TOP' },
+  collared: { subCategory: 'Polo Shirt', material: 'Cotton', style: 'CLASSIC', occasion: 'EVERYDAY', layerRole: 'INNER_BASE', category: 'TOP' },
+  jersey: { subCategory: 'Polo Shirt', material: 'Cotton', style: 'CASUAL', occasion: 'EVERYDAY', layerRole: 'INNER_BASE', category: 'TOP' },
   't-shirt': { subCategory: 'Crewneck T-Shirt', material: 'Cotton', style: 'CASUAL', occasion: 'EVERYDAY', layerRole: 'INNER_BASE', category: 'TOP' },
   tee: { subCategory: 'Crewneck T-Shirt', material: 'Cotton', style: 'CASUAL', occasion: 'EVERYDAY', layerRole: 'INNER_BASE', category: 'TOP' },
-  polo: { subCategory: 'Polo Shirt', material: 'Cotton', style: 'CLASSIC', occasion: 'EVERYDAY', layerRole: 'INNER_BASE', category: 'TOP' },
+  sweatshirt: { subCategory: 'Crewneck Sweatshirt', material: 'Cotton', style: 'CASUAL', occasion: 'EVERYDAY', layerRole: 'INNER_BASE', category: 'TOP' },
   oxford: { subCategory: 'Button-Down Shirt', material: 'Cotton', style: 'CLASSIC', occasion: 'WORK', layerRole: 'INNER_BASE', category: 'TOP' },
   blouse: { subCategory: 'Button-Down Shirt', material: 'Silk', style: 'CLASSIC', occasion: 'WORK', layerRole: 'INNER_BASE', category: 'TOP' },
-  shirt: { subCategory: 'Button-Down Shirt', material: 'Cotton', style: 'CLASSIC', occasion: 'WORK', layerRole: 'INNER_BASE', category: 'TOP' },
+  shirt: { subCategory: 'Shirt', material: 'Cotton', style: 'CASUAL', occasion: 'EVERYDAY', layerRole: 'INNER_BASE', category: 'TOP' },
   jeans: { subCategory: 'Denim Jeans', material: 'Denim', style: 'CASUAL', occasion: 'EVERYDAY', layerRole: 'LOWER_BODY', category: 'BOTTOM' },
   jean: { subCategory: 'Denim Jeans', material: 'Denim', style: 'CASUAL', occasion: 'EVERYDAY', layerRole: 'LOWER_BODY', category: 'BOTTOM' },
   denim: { subCategory: 'Denim Jeans', material: 'Denim', style: 'CASUAL', occasion: 'EVERYDAY', layerRole: 'LOWER_BODY', category: 'BOTTOM' },
@@ -127,8 +130,8 @@ const GARMENT_NOUN_MAP: Record<string, GarmentNounEntry> = {
 }
 
 const CATEGORY_DEFAULTS: Record<CategoryType, Omit<GarmentNounEntry, 'category'>> = {
-  TOP: { subCategory: 'Crewneck T-Shirt', material: 'Cotton', style: 'CASUAL', occasion: 'EVERYDAY', layerRole: 'INNER_BASE' },
-  OUTERWEAR: { subCategory: 'Pullover Hoodie', material: 'Cotton', style: 'CASUAL', occasion: 'EVERYDAY', layerRole: 'OUTER_LAYER' },
+  TOP: { subCategory: 'Shirt', material: 'Cotton', style: 'CASUAL', occasion: 'EVERYDAY', layerRole: 'INNER_BASE' },
+  OUTERWEAR: { subCategory: 'Everyday Jacket', material: 'Cotton', style: 'CASUAL', occasion: 'EVERYDAY', layerRole: 'OUTER_LAYER' },
   BOTTOM: { subCategory: 'Denim Jeans', material: 'Denim', style: 'CASUAL', occasion: 'EVERYDAY', layerRole: 'LOWER_BODY' },
   SHOES: { subCategory: 'Everyday Sneakers', material: 'Leather', style: 'SPORTY', occasion: 'EVERYDAY', layerRole: 'FOOTWEAR' },
   ACCESSORIES: { subCategory: 'Everyday Carry Bag', material: 'Cotton', style: 'CASUAL', occasion: 'EVERYDAY', layerRole: 'ACCESSORY' },
@@ -273,9 +276,26 @@ async function generateNodeCutoutDataUri(buffer: Buffer, bgLab: [number, number,
       }
     }
 
+    // Fill internal holes along each row between leftmost and rightmost foreground edges
+    for (let r = b4Y; r < h - b4Y; r++) {
+      let left = -1
+      let right = -1
+      for (let c = b4X; c < w - b4X; c++) {
+        if (rgba[(r * w + c) * 4 + 3] > 0) {
+          if (left === -1) left = c
+          right = c
+        }
+      }
+      if (left !== -1 && right > left) {
+        for (let c = left; c <= right; c++) {
+          rgba[(r * w + c) * 4 + 3] = 255
+        }
+      }
+    }
+
     if (fgCount < w * h * 0.08) {
-      for (let r = Math.floor(h * 0.12); r < Math.floor(h * 0.88); r++) {
-        for (let c = Math.floor(w * 0.12); c < Math.floor(w * 0.88); c++) {
+      for (let r = Math.floor(h * 0.08); r < Math.floor(h * 0.92); r++) {
+        for (let c = Math.floor(w * 0.08); c < Math.floor(w * 0.92); c++) {
           rgba[(r * w + c) * 4 + 3] = 255
         }
       }
@@ -483,9 +503,7 @@ export const imageAnalysisService = {
       }
     }
 
-    const defaultCategoryForColor: CategoryType = ['Black', 'Navy', 'Gray', 'Brown', 'Burgundy'].includes(moderation.dominantColor)
-      ? 'OUTERWEAR'
-      : 'TOP'
+    const defaultCategoryForColor: CategoryType = 'TOP'
 
     // 2. Query remote CNN microservice if configured
     const analysisUrl = ENV.CNN_ANALYSIS_URL
@@ -506,7 +524,7 @@ export const imageAnalysisService = {
         const subCategory =
           typeof result.subCategory === 'string' && result.subCategory.trim()
             ? result.subCategory.trim()
-            : (inferred?.subCategory ?? 'Pullover Hoodie')
+            : (inferred?.subCategory ?? 'Shirt')
         const suggestedName =
           typeof result.suggestedName === 'string' && result.suggestedName.trim()
             ? result.suggestedName.trim()
@@ -517,7 +535,7 @@ export const imageAnalysisService = {
             ? result.suggestedBrand.trim()
             : (['FORMAL', 'CLASSIC', 'MINIMALIST'].includes(style) ? 'Studio Basics' : 'Everyday Essentials')
         const layerRole =
-          optionalEnum(result.layerRole, LAYER_ROLES) ?? inferred?.layerRole ?? 'OUTER_LAYER'
+          optionalEnum(result.layerRole, LAYER_ROLES) ?? inferred?.layerRole ?? 'INNER_BASE'
         const colorHex =
           typeof result.colorHex === 'string' && /^#[0-9a-f]{6}$/i.test(result.colorHex)
             ? result.colorHex
