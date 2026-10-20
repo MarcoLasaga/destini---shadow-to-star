@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +13,7 @@ import OutfitRecommendationStatsBar from '../components/OutfitRecommendationStat
 import OutfitPreviewCard from '../components/OutfitPreviewCard';
 import OutfitLoadingView from '../components/OutfitLoadingView';
 import { triggerWeatherAlertOncePerSession } from '../services/notificationService';
+import { getOccasionArchetypeBlueprint } from '../services/outfitRecommendationService';
 
 const MIN_CLEAN_ITEMS = 2;
 
@@ -35,6 +36,11 @@ export default function OutfitScreen() {
 
   const cleanItemsCount = items.filter((i) => i.status === 'clean').length;
   const hasEnoughClothes = cleanItemsCount >= MIN_CLEAN_ITEMS;
+
+  const archetypeBlueprint = useMemo(
+    () => getOccasionArchetypeBlueprint(occasion, items),
+    [occasion, items]
+  );
 
   useEffect(() => {
     if (hasEnoughClothes && !currentOutfit && !isLoading) {
@@ -113,7 +119,7 @@ export default function OutfitScreen() {
               </Text>
             </View>
           </View>
-          <Text style={[styles.weatherTip, { color: theme.mode === 'dark' ? '#FBF5A7' : '#4B1D6F' }]}>{weather.tip}</Text>
+          <Text style={[styles.weatherTip, { color: theme.accentText }]}>{weather.tip}</Text>
         </View>
 
         {/* Working "No New Clothes Mode" Toggle Card */}
@@ -171,6 +177,56 @@ export default function OutfitScreen() {
           <OccasionDropdown value={occasion} onChange={setOccasion} />
         </View>
 
+        {/* "MOST-USED OCCASION ARCHETYPE" & CLOSET GAP BLUEPRINT CARD */}
+        <View
+          style={[
+            styles.archetypeCard,
+            {
+              backgroundColor: theme.aiBannerBg,
+              borderColor: theme.aiBannerBorder,
+            },
+          ]}
+        >
+          <View style={styles.archetypeHeader}>
+            <View style={styles.archetypeTitleRow}>
+              <Ionicons name="ribbon-outline" size={16} color={theme.accentText} />
+              <Text style={[styles.archetypeTitle, { color: theme.aiBannerText }]}>
+                {archetypeBlueprint.occasionTitle}
+              </Text>
+            </View>
+            <View style={[styles.archetypeBoostPill, { backgroundColor: theme.aiPillBg }]}>
+              <Text style={[styles.archetypeBoostText, { color: theme.aiPillText }]}>
+                {archetypeBlueprint.currentMatchEst}% → {archetypeBlueprint.boostedMatchEst}% Match
+              </Text>
+            </View>
+          </View>
+
+          <View style={[styles.archetypeFormulaBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Text style={[styles.archetypeSectionLabel, { color: theme.accentText }]}>
+              BENCHMARK FORMULA ("WHAT'S INSIDE FIRST")
+            </Text>
+            <Text style={[styles.archetypeFormulaText, { color: theme.text }]}>
+              {archetypeBlueprint.benchmarkFormula}
+            </Text>
+          </View>
+
+          <View style={styles.archetypeBulletRow}>
+            <Ionicons name="checkmark-circle-outline" size={15} color={theme.accentText} style={{ marginTop: 1 }} />
+            <Text style={[styles.archetypeBodyText, { color: theme.aiBannerText }]}>
+              <Text style={{ fontWeight: '800' }}>How to Wear What You Own Now: </Text>
+              {archetypeBlueprint.howToWearNow}
+            </Text>
+          </View>
+
+          <View style={styles.archetypeBulletRow}>
+            <Ionicons name="trending-up-outline" size={15} color={theme.accentText} style={{ marginTop: 1 }} />
+            <Text style={[styles.archetypeBodyText, { color: theme.aiBannerText }]}>
+              <Text style={{ fontWeight: '800' }}>Closet Blueprint Tip: </Text>
+              {archetypeBlueprint.closetGapTip}
+            </Text>
+          </View>
+        </View>
+
         {/* Generation Action Buttons */}
         <View style={styles.generateRow}>
           <Pressable
@@ -205,7 +261,7 @@ export default function OutfitScreen() {
             <View style={styles.resultsHeader}>
               <Text style={[styles.resultsTitle, { color: theme.text }]}>Top-3 Curated Outfits</Text>
               <Text style={[styles.resultsSubtitle, { color: theme.textMuted }]}>
-                Ranked by Hybrid Recommendation Score
+                Ranked by Hybrid Recommendation Score (0.55·S_cb + 0.45·S_cf)
               </Text>
             </View>
 
@@ -227,7 +283,7 @@ export default function OutfitScreen() {
                       Choice #{index + 1}
                     </Text>
                   </View>
-                  <Text style={[styles.rankScore, { color: theme.mode === 'dark' ? '#FBF5A7' : '#24152C' }]}>
+                  <Text style={[styles.rankScore, { color: theme.accentText }]}>
                     {outfit.hybridScore ?? outfit.matchPercent}% Hybrid Match
                   </Text>
                 </View>
@@ -305,6 +361,64 @@ const styles = StyleSheet.create({
   modeSubtitle: { fontSize: 11.5, lineHeight: 15, marginTop: 2 },
   occasionCard: { borderRadius: 16, borderWidth: 1, padding: 14, gap: 8 },
   occasionLabel: { fontSize: 13.5, fontWeight: '700' },
+  archetypeCard: {
+    borderRadius: 16,
+    borderWidth: 1.5,
+    padding: 14,
+    gap: 10,
+  },
+  archetypeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  archetypeTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  archetypeTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    flex: 1,
+  },
+  archetypeBoostPill: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  archetypeBoostText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+  },
+  archetypeFormulaBox: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 10,
+    gap: 4,
+  },
+  archetypeSectionLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.7,
+  },
+  archetypeFormulaText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    lineHeight: 17,
+  },
+  archetypeBulletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 7,
+  },
+  archetypeBodyText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 16.5,
+  },
   generateRow: { flexDirection: 'row', gap: 10 },
   generateButton: {
     flex: 2,

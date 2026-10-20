@@ -23,6 +23,12 @@ export const lightTheme = {
   buttonBorder: brand.softLilac,
   onAccent: brand.darkPlum, // text/icons on CTA fill: Dark Plum
   highlightText: brand.darkPlum, // crisp high-contrast highlight text
+  accentText: '#4B1D6F', // Deep Plum — NEVER use #FBF5A7 yellow as text color on light backgrounds
+  aiBannerBg: '#FDF3D2', // Warm Cream-Gold surface
+  aiBannerBorder: '#4B1D6F', // Deep Plum border
+  aiBannerText: '#24152C', // Ultra-crisp Dark Plum text — 13:1 AAA contrast for projectors/demos
+  aiPillBg: '#DECFE8', // Soft Lilac pill background
+  aiPillText: '#24152C', // Dark Plum pill text
   statIconColor: brand.mediumPlum, // crisp visible icon color
   badgeBg: brand.softLilac,
   badgeAlt: brand.peachGold,
@@ -52,6 +58,12 @@ export const darkTheme = {
   buttonBorder: 'transparent',
   onAccent: brand.darkPlum,
   highlightText: brand.paleYellow,
+  accentText: '#FBF5A7', // Soft Butter Yellow — high contrast on dark plum
+  aiBannerBg: '#2E1B38',
+  aiBannerBorder: '#FBF5A7',
+  aiBannerText: '#FBF5A7',
+  aiPillBg: '#4B1D6F',
+  aiPillText: '#FBF5A7',
   statIconColor: brand.paleYellow,
   badgeBg: brand.mediumPlum,
   badgeAlt: brand.peachGold,

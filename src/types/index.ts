@@ -147,11 +147,19 @@ export type CommunityFeedMode = 'recent' | 'trending';
 
 export type ClothingRole = 'Top' | 'Bottom' | 'Shoes' | 'Accessory' | 'Outerwear';
 
+export type AnatomicalSlotType = 'innerTop' | 'outerLayer' | 'bottom' | 'shoes' | 'accessory';
+
 export interface OutfitClothingItem {
   id: string;
   name: string;
   category: ClothingRole;
   image: string;
+  color?: string;
+  hexColor?: string;
+  slotType?: AnatomicalSlotType;
+  placementBadge?: string;
+  layerNote?: string;
+  status?: LaundryStatus;
 }
 
 export interface ColorSwatch {
@@ -189,6 +197,8 @@ export interface GeneratedOutfit {
   location: string | null;
   clothingItems: OutfitClothingItem[];
   colorPalette: ColorSwatch[];
+  colorHarmonyExplanation?: string;
+  howToWearBullets?: string[];
   whyReasons: WhyReasonDetail[];
   feedback: FeedbackReview[];
   favorited: boolean;

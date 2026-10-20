@@ -18,11 +18,11 @@ export default function OutfitLoadingView() {
 
   return (
     <Animated.View entering={FadeIn.duration(300)} style={styles.container}>
-      <Animated.View style={[styles.iconCircle, { backgroundColor: theme.mode === 'dark' ? '#2A2A31' : '#EDEAF6' }, spinStyle]}>
-        <Ionicons name="sparkles" size={26} color={theme.accent} />
+      <Animated.View style={[styles.iconCircle, { backgroundColor: theme.aiPillBg }, spinStyle]}>
+        <Ionicons name="sparkles" size={26} color={theme.accentText} />
       </Animated.View>
 
-      <Text style={[styles.title, { color: theme.text }]}>Generating your perfect outfit...</Text>
+      <Text style={[styles.title, { color: theme.aiBannerText }]}>Generating your perfect outfit...</Text>
       <Text style={[styles.subtitle, { color: theme.textMuted }]}>Analyzing weather, style & wardrobe</Text>
 
       <View style={styles.skeletonWrap}>

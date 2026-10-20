@@ -235,7 +235,7 @@ export default function NotificationsScreen() {
                     styles.notif,
                     {
                       backgroundColor: n.read ? cardBg : unreadBg,
-                      borderColor: n.read ? theme.border : theme.secondaryAccent,
+                      borderColor: n.read ? theme.border : theme.accentText,
                       opacity: pressed ? 0.8 : 1,
                     },
                   ]}

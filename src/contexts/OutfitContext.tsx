@@ -31,6 +31,7 @@ interface OutfitContextValue {
   renameSavedOutfit: (id: string, newName: string) => void;
   deleteSavedOutfit: (id: string) => void;
   getOutfit: (id: string) => GeneratedOutfit | undefined;
+  updateOutfitEverywhere: (id: string, updates: Partial<GeneratedOutfit>) => void;
 }
 
 const OutfitContext = createContext<OutfitContextValue | undefined>(undefined);
@@ -65,11 +66,10 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
 
   const runWithLoading = useCallback(
     async (selectedOccasion: string, modeOverride?: boolean) => {
-      if (!session?.access_token) return;
       setIsLoading(true);
       try {
         const activeNoNewClothes = modeOverride !== undefined ? modeOverride : noNewClothesMode;
-        const outfits = await generateRecommendations(selectedOccasion, session.access_token, {
+        const outfits = await generateRecommendations(selectedOccasion, session?.access_token || '', {
           noNewClothesMode: activeNoNewClothes,
           weather,
           wardrobeItems: wardrobe.items,
@@ -299,6 +299,7 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
         renameSavedOutfit,
         deleteSavedOutfit,
         getOutfit,
+        updateOutfitEverywhere,
       }}
     >
       {children}

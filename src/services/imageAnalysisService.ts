@@ -24,6 +24,10 @@ export interface ClothingPrediction {
   categoryConfidence?: number;
   color?: string;
   style?: 'CASUAL' | 'FORMAL' | 'SPORTY' | 'STREETWEAR' | 'MINIMALIST' | 'BOHEMIAN' | 'VINTAGE' | 'CLASSIC';
+  suggestedName?: string;
+  occasion?: string;
+  material?: string;
+  season?: string;
   confidence?: number;
   palette?: ClothingPalette;
   is_safe_garment?: boolean;
