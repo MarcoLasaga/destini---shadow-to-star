@@ -1,4 +1,5 @@
 import { Response, NextFunction } from 'express'
+import axios from 'axios'
 import { imageAnalysisService, type AnalysisResult } from '../services/image-analysis.service'
 import { sendSuccess, sendError } from '../utils/response'
 import type { AuthRequest } from '../types'
@@ -23,6 +24,34 @@ export const aiController = {
       }
       sendSuccess(res, analysisResult, 'Image analyzed successfully')
     } catch (err) {
+      next(err)
+    }
+  },
+
+  async analyzeBatch(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { images } = req.body || {}
+      if (!Array.isArray(images) || images.length === 0) {
+        sendError(res, 'An array of images (up to 15) is required.', 422)
+        return
+      }
+      if (images.length > 15) {
+        sendError(res, 'Batch size cannot exceed 15 images.', 422)
+        return
+      }
+      const mlUrl = process.env.ML_SERVICE_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8000')
+      if (!mlUrl) {
+        sendError(res, 'ML microservice is not configured. Set ML_SERVICE_URL to the deployed microservice.', 503)
+        return
+      }
+      const { data } = await axios.post(`${mlUrl}/analyze-batch`, { images }, { timeout: 60_000 })
+      const results = (data && Array.isArray((data as any).results)) ? (data as any).results : data
+      sendSuccess(res, results, 'Batch analysis completed')
+    } catch (err: any) {
+      if (err.response?.status) {
+        sendError(res, err.response.data?.detail || err.message, err.response.status)
+        return
+      }
       next(err)
     }
   },

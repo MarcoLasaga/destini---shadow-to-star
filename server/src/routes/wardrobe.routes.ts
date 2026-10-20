@@ -13,6 +13,7 @@ router.use(requireAuth)
 // CRUD
 router.get('/', wardrobeController.getAll)
 router.post('/analyze', uploadSingle('image'), wardrobeController.analyzeImage)
+router.post('/analyze-batch', wardrobeController.analyzeBatch)
 router.post('/moderate', wardrobeController.moderate)
 router.post('/recommend', wardrobeController.recommend)
 router.get('/:id', wardrobeController.getById)

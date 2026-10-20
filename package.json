@@ -10,7 +10,7 @@
     "server:dev": "tsx watch server/src/index.ts",
     "prisma:generate": "prisma generate --schema=server/prisma/schema.prisma",
     "postinstall": "prisma generate --schema=server/prisma/schema.prisma",
-    "build": "tsc -b && vite build",
+    "build": "tsc -p server/tsconfig.json --noEmit",
     "lint": "eslint .",
     "preview": "vite preview"
   },

@@ -1,11 +1,13 @@
-fastapi==0.115.12
-uvicorn[standard]==0.34.2
-pillow==11.2.1
+fastapi
+uvicorn[standard]
+python-multipart
+pillow
 numpy>=1.26.4
 torch>=2.2.0
 torchvision>=0.17.0
 rembg[cpu]>=2.0.50
+onnxruntime>=1.16.0
 opencv-python-headless>=4.10.0.84
-requests==2.32.3
+requests>=2.32.3
 scikit-learn>=1.4.0
 matplotlib>=3.8.0

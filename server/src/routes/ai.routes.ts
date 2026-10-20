@@ -7,6 +7,7 @@ const router = Router()
 
 router.use(requireAuth)
 router.post('/analyze', uploadSingle('image'), aiController.analyze)
+router.post('/analyze-batch', aiController.analyzeBatch)
 
 export default router
 
