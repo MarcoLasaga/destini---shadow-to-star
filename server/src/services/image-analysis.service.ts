@@ -277,29 +277,8 @@ async function generateNodeCutoutDataUri(buffer: Buffer, bgLab: [number, number,
       }
     }
 
-    // Fill internal holes along each row between leftmost and rightmost foreground edges
-    for (let r = b4Y; r < h - b4Y; r++) {
-      let left = -1
-      let right = -1
-      for (let c = b4X; c < w - b4X; c++) {
-        if (rgba[(r * w + c) * 4 + 3] > 0) {
-          if (left === -1) left = c
-          right = c
-        }
-      }
-      if (left !== -1 && right > left) {
-        for (let c = left; c <= right; c++) {
-          rgba[(r * w + c) * 4 + 3] = 255
-        }
-      }
-    }
-
     if (fgCount < w * h * 0.08) {
-      for (let r = Math.floor(h * 0.08); r < Math.floor(h * 0.92); r++) {
-        for (let c = Math.floor(w * 0.08); c < Math.floor(w * 0.92); c++) {
-          rgba[(r * w + c) * 4 + 3] = 255
-        }
-      }
+      return null
     }
 
     const pngBuf = await sharp(rgba, { raw: { width: w, height: h, channels: 4 } })
@@ -506,118 +485,95 @@ export const imageAnalysisService = {
 
     const defaultCategoryForColor: CategoryType = 'TOP'
 
-    // 2. Query remote CNN microservice if configured
-    const analysisUrl = ENV.CNN_ANALYSIS_URL
-    if (analysisUrl) {
-      try {
-        const normalized = await preprocessForCnn(file.buffer)
-        const { data } = await axios.post<unknown>(analysisUrl, normalized, {
-          headers: { 'Content-Type': 'image/jpeg', 'X-Source-Filename': encodeURIComponent(file.originalname) },
-          timeout: 12_000,
-        })
-        const result = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>
-        const rawConfidence = typeof result.confidence === 'number' && result.confidence >= 0 && result.confidence <= 1 ? result.confidence : 0.0
-        const confidence = Number(rawConfidence.toFixed(4))
-        const resolvedCat = optionalEnum(result.category, CATEGORIES)
-        const resolvedColor = typeof result.color === 'string' && result.color.length <= 50 ? result.color : moderation.dominantColor
-        const inferred = resolvedCat ? inferFromFilename(file.originalname, resolvedCat) : null
+    // 2. Query remote CNN microservice directly with raw image
+    const analysisUrl = ENV.CNN_ANALYSIS_URL || (ENV.ML_SERVICE_URL ? `${ENV.ML_SERVICE_URL}/analyze` : 'http://127.0.0.1:8000/analyze')
+    try {
+      const { data } = await axios.post<unknown>(analysisUrl, file.buffer, {
+        headers: {
+          'Content-Type': file.mimetype || 'image/jpeg',
+          'X-Source-Filename': encodeURIComponent(file.originalname),
+          'ngrok-skip-browser-warning': 'true',
+        },
+        timeout: 30_000,
+      })
+      const result = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>
+      const rawConfidence = typeof result.confidence === 'number' && result.confidence >= 0 && result.confidence <= 1 ? result.confidence : 0.0
+      const confidence = Number(rawConfidence.toFixed(4))
+      const resolvedCat = optionalEnum(result.category, CATEGORIES)
+      const resolvedColor = typeof result.color === 'string' && result.color.length <= 50 ? result.color : moderation.dominantColor
 
-        const subCategory =
-          typeof result.subCategory === 'string' && result.subCategory.trim()
-            ? result.subCategory.trim()
-            : (resolvedCat ? (inferred?.subCategory ?? 'Shirt') : null)
-        const suggestedName =
-          typeof result.suggestedName === 'string' && result.suggestedName.trim()
-            ? result.suggestedName.trim()
-            : (subCategory ? `${resolvedColor} ${subCategory}` : null)
-        const style = optionalEnum(result.style, STYLES) ?? (resolvedCat ? (inferred?.style ?? 'CASUAL') : undefined)
-        const suggestedBrand =
-          typeof result.suggestedBrand === 'string' && result.suggestedBrand.trim()
-            ? result.suggestedBrand.trim()
-            : null
-        const layerRole =
-          optionalEnum(result.layerRole, LAYER_ROLES) ?? (resolvedCat ? (inferred?.layerRole ?? 'INNER_BASE') : null)
-        const colorHex =
-          typeof result.colorHex === 'string' && /^#[0-9a-f]{6}$/i.test(result.colorHex)
-            ? result.colorHex
-            : moderation.colorHex
-        const occasion =
-          optionalEnum(result.occasion, OCCASIONS) ??
-          (typeof result.occasion === 'string' ? result.occasion : (resolvedCat ? (inferred?.occasion ?? 'EVERYDAY') : null))
-        const material =
-          typeof result.material === 'string' && result.material.trim()
-            ? result.material.trim()
-            : (resolvedCat ? (inferred?.material ?? 'Cotton') : null)
-        const cutoutDataUri =
-          typeof result.cutoutDataUri === 'string' && result.cutoutDataUri.startsWith('data:image/png;base64,')
-            ? result.cutoutDataUri
-            : moderation.cutoutDataUri
+      const subCategory =
+        typeof result.subCategory === 'string' && result.subCategory.trim()
+          ? result.subCategory.trim()
+          : (resolvedCat ? 'Shirt' : null)
+      const suggestedName =
+        typeof result.suggestedName === 'string' && result.suggestedName.trim()
+          ? result.suggestedName.trim()
+          : (subCategory ? `${resolvedColor} ${subCategory}` : null)
+      const style = optionalEnum(result.style, STYLES) ?? (resolvedCat ? 'CASUAL' : undefined)
+      const suggestedBrand =
+        typeof result.suggestedBrand === 'string' && result.suggestedBrand.trim()
+          ? result.suggestedBrand.trim()
+          : null
+      const layerRole =
+        optionalEnum(result.layerRole, LAYER_ROLES) ?? (resolvedCat ? 'INNER_BASE' : null)
+      const colorHex =
+        typeof result.colorHex === 'string' && /^#[0-9a-f]{6}$/i.test(result.colorHex)
+          ? result.colorHex
+          : moderation.colorHex
+      const occasion =
+        optionalEnum(result.occasion, OCCASIONS) ??
+        (typeof result.occasion === 'string' ? result.occasion : (resolvedCat ? 'EVERYDAY' : null))
+      const material =
+        typeof result.material === 'string' && result.material.trim()
+          ? result.material.trim()
+          : (resolvedCat ? 'Cotton' : null)
+      const cutoutDataUri =
+        typeof result.cutoutDataUri === 'string' && result.cutoutDataUri.startsWith('data:image/png;base64,')
+          ? result.cutoutDataUri
+          : moderation.cutoutDataUri
 
-        return {
-          category: resolvedCat,
-          categoryConfidence: confidence,
-          subCategory,
-          suggestedName,
-          suggestedBrand,
-          layerRole,
-          color: resolvedColor,
-          colorHex,
-          secondary_color: typeof result.secondary_color === 'string'
-            ? result.secondary_color
-            : (result.secondary_color === null ? null : moderation.secondaryColor),
-          palette: result.palette ? (result.palette as any) : moderation.palette,
-          style,
-          occasion,
-          material,
-          confidence,
-          class_probabilities: result.class_probabilities && typeof result.class_probabilities === 'object'
-            ? (result.class_probabilities as Record<string, number>)
-            : undefined,
-          cutoutDataUri,
-          is_safe_garment: typeof result.is_safe_garment === 'boolean' ? result.is_safe_garment : true,
-          moderation_reason: typeof result.moderation_reason === 'string'
-            ? result.moderation_reason
-            : (result.moderation_reason === null ? null : undefined),
-          attributes: result.attributes && typeof result.attributes === 'object' ? (result.attributes as Record<string, unknown>) : null,
-        }
-      } catch (cnnErr: any) {
-        if (cnnErr.response?.data?.is_safe_garment === false) {
-          return {
-            category: undefined,
-            confidence: 0,
-            cutoutDataUri: null,
-            is_safe_garment: false,
-            moderation_reason: cnnErr.response.data.moderation_reason || moderation.moderation_reason,
-          }
-        }
-        // Fall back gracefully to Node.js color & cutout extraction if CNN microservice is offline
+      return {
+        category: resolvedCat,
+        categoryConfidence: confidence,
+        subCategory,
+        suggestedName,
+        suggestedBrand,
+        layerRole,
+        color: resolvedColor,
+        colorHex,
+        secondary_color: typeof result.secondary_color === 'string'
+          ? result.secondary_color
+          : (result.secondary_color === null ? null : moderation.secondaryColor),
+        palette: result.palette ? (result.palette as any) : moderation.palette,
+        style,
+        occasion,
+        material,
+        confidence,
+        class_probabilities: result.class_probabilities && typeof result.class_probabilities === 'object'
+          ? (result.class_probabilities as Record<string, number>)
+          : undefined,
+        cutoutDataUri,
+        is_safe_garment: typeof result.is_safe_garment === 'boolean' ? result.is_safe_garment : true,
+        moderation_reason: typeof result.moderation_reason === 'string'
+          ? result.moderation_reason
+          : (result.moderation_reason === null ? null : undefined),
+        attributes: result.attributes && typeof result.attributes === 'object' ? (result.attributes as Record<string, unknown>) : null,
       }
-    }
-
-    // 3. Fallback when Python microservice is not reachable on Render
-    const fallbackMeta = inferFromFilename(file.originalname, defaultCategoryForColor)!
-    const fallbackBrand = ['FORMAL', 'CLASSIC', 'MINIMALIST'].includes(fallbackMeta.style)
-      ? 'Studio Basics'
-      : 'Everyday Essentials'
-    return {
-      category: fallbackMeta.category,
-      categoryConfidence: 0.88,
-      subCategory: fallbackMeta.subCategory,
-      suggestedName: `${moderation.dominantColor} ${fallbackMeta.subCategory}`,
-      suggestedBrand: null,
-      layerRole: fallbackMeta.layerRole,
-      color: moderation.dominantColor,
-      colorHex: moderation.colorHex,
-      secondary_color: moderation.secondaryColor,
-      palette: moderation.palette,
-      style: fallbackMeta.style,
-      occasion: fallbackMeta.occasion,
-      material: fallbackMeta.material,
-      confidence: 0.88,
-      cutoutDataUri: moderation.cutoutDataUri,
-      is_safe_garment: true,
-      moderation_reason: null,
-      attributes: null,
+    } catch (cnnErr: any) {
+      if (cnnErr.response?.data?.is_safe_garment === false) {
+        return {
+          category: undefined,
+          confidence: 0,
+          cutoutDataUri: null,
+          is_safe_garment: false,
+          moderation_reason: cnnErr.response.data.moderation_reason || moderation.moderation_reason,
+        }
+      }
+      throw Object.assign(
+        new Error(`ML service at ${analysisUrl} is unreachable (${cnnErr.message || 'connection failed'}). Ensure ml-service is running.`),
+        { statusCode: 503, isOperational: true }
+      )
     }
   },
 }

@@ -131,12 +131,17 @@ export const wardrobeController = {
         sendError(res, 'Batch size cannot exceed 15 images.', 422)
         return
       }
-      const mlUrl = process.env.ML_SERVICE_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8000')
-      if (!mlUrl) {
-        sendError(res, 'ML microservice is not configured. Set ML_SERVICE_URL to the deployed microservice.', 503)
-        return
-      }
-      const { data } = await axios.post(`${mlUrl}/analyze-batch`, { images }, { timeout: 60_000 })
+      const mlUrl = (process.env.ML_SERVICE_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '')
+      const { data } = await axios.post(
+        `${mlUrl}/analyze-batch`,
+        { images },
+        {
+          headers: {
+            'ngrok-skip-browser-warning': 'true',
+          },
+          timeout: 30_000,
+        }
+      )
       const results = (data && Array.isArray((data as any).results)) ? (data as any).results : data
       sendSuccess(res, results, 'Batch analysis completed')
     } catch (err: any) {
@@ -156,16 +161,17 @@ export const wardrobeController = {
         skin_exposure_ratio = 0.0,
       } = req.body || {}
 
-      const mlUrl = process.env.ML_SERVICE_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8000')
-      if (!mlUrl) {
-        sendError(res, 'ML microservice is not configured. Set ML_SERVICE_URL to the deployed microservice.', 503)
-        return
-      }
+      const mlUrl = (process.env.ML_SERVICE_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '')
       const { data } = await axios.post(`${mlUrl}/moderate`, {
         caption: typeof caption === 'string' ? caption : '',
         garment_confidence: typeof garment_confidence === 'number' ? garment_confidence : 1.0,
         skin_exposure_ratio: typeof skin_exposure_ratio === 'number' ? skin_exposure_ratio : 0.0,
-      }, { timeout: 10_000 })
+      }, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+        },
+        timeout: 10_000,
+      })
 
       const moderationResult = {
         approved: Boolean(data.approved),
@@ -295,12 +301,11 @@ export const wardrobeController = {
         alpha: typeof req.body?.alpha === 'number' ? req.body.alpha : 0.55,
       }
 
-      const mlUrl = process.env.ML_SERVICE_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8000')
-      if (!mlUrl) {
-        sendError(res, 'ML microservice is not configured. Set ML_SERVICE_URL to the deployed microservice.', 503)
-        return
-      }
+      const mlUrl = (process.env.ML_SERVICE_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '')
       const { data: recommendations } = await axios.post(`${mlUrl}/recommend`, mlPayload, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+        },
         timeout: 15_000,
       })
 

@@ -39,12 +39,17 @@ export const aiController = {
         sendError(res, 'Batch size cannot exceed 15 images.', 422)
         return
       }
-      const mlUrl = process.env.ML_SERVICE_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8000')
-      if (!mlUrl) {
-        sendError(res, 'ML microservice is not configured. Set ML_SERVICE_URL to the deployed microservice.', 503)
-        return
-      }
-      const { data } = await axios.post(`${mlUrl}/analyze-batch`, { images }, { timeout: 60_000 })
+      const mlUrl = (process.env.ML_SERVICE_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '')
+      const { data } = await axios.post(
+        `${mlUrl}/analyze-batch`,
+        { images },
+        {
+          headers: {
+            'ngrok-skip-browser-warning': 'true',
+          },
+          timeout: 30_000,
+        }
+      )
       const results = (data && Array.isArray((data as any).results)) ? (data as any).results : data
       sendSuccess(res, results, 'Batch analysis completed')
     } catch (err: any) {

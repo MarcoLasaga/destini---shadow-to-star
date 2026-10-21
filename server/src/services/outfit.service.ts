@@ -1,13 +1,32 @@
+import crypto from 'crypto'
 import { getSupabaseClient } from '../config/supabase'
 
 type WardrobeRow = {
-  id: string; category: string; clothing_name: string; color: string | null; style: string | null
-  occasion: string | null; image_url: string | null; laundry_status: string; last_worn_at: string | null
+  id: string
+  category: string
+  clothing_name: string
+  color: string | null
+  style: string | null
+  occasion: string | null
+  image_url: string | null
+  laundry_status: string
+  last_worn_at: string | null
 }
 
-type PreferenceProfile = { style_weights: Record<string, number>; color_weights: Record<string, number>; occasion_weights: Record<string, number>; category_weights: Record<string, number>; disliked_items: string[] }
+type PreferenceProfile = {
+  style_weights: Record<string, number>
+  color_weights: Record<string, number>
+  occasion_weights: Record<string, number>
+  category_weights: Record<string, number>
+  disliked_items: string[]
+}
 
 const NEUTRALS = new Set(['black', 'white', 'gray', 'grey', 'navy', 'beige', 'brown', 'cream', 'khaki'])
+
+function isUuid(str?: string | null): boolean {
+  if (!str) return false
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str)
+}
 
 function scoreCombination(items: WardrobeRow[], occasion?: string, preferences?: PreferenceProfile) {
   let score = 65
@@ -94,19 +113,194 @@ export const outfitService = {
     const ids = [...new Set(rows.flatMap((row) => row.item_ids || []))]
     const { data: items, error: itemsError } = await supabase.from('wardrobe_items').select('id, clothing_name, category, image_url, color').eq('user_id', userId).in('id', ids)
     if (itemsError) throw itemsError
-    return rows.map((row) => ({ ...row, items: (items || []).filter((item) => (row.item_ids || []).includes(item.id)) }))
+    return rows.map((row) => ({
+      ...row,
+      is_saved: Boolean(row.is_saved),
+      is_favorite: Boolean(row.is_saved),
+      items: (items || []).filter((item) => (row.item_ids || []).includes(item.id)),
+    }))
   },
 
-  async updateFeedback(id: string, userId: string, input: { isSaved?: boolean; isWorn?: boolean; rating?: number; note?: string; eventType?: string }, token?: string) {
+  async getSaved(userId: string, token?: string) {
     const supabase = await getSupabaseClient(token)
-    const { data: existing, error: existingError } = await supabase.from('outfit_recommendations').select('item_ids, is_worn, occasion').eq('id', id).eq('user_id', userId).maybeSingle()
+    const { data, error } = await supabase
+      .from('outfit_recommendations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_saved', true)
+      .order('created_at', { ascending: false })
+      .limit(100)
+    if (error) throw error
+    const rows = data || []
+    const ids = [...new Set(rows.flatMap((row) => row.item_ids || []))]
+    let items: any[] = []
+    if (ids.length > 0) {
+      const { data: itemData, error: itemsError } = await supabase
+        .from('wardrobe_items')
+        .select('id, clothing_name, category, image_url, color, style, occasion')
+        .eq('user_id', userId)
+        .in('id', ids)
+      if (!itemsError && itemData) {
+        items = itemData
+      }
+    }
+    return rows.map((row) => ({
+      ...row,
+      is_saved: true,
+      is_favorite: true,
+      items: (items || []).filter((item) => (row.item_ids || []).includes(item.id)),
+    }))
+  },
+
+  async saveOutfit(
+    userId: string,
+    input: {
+      id?: string
+      item_ids?: string[]
+      items?: any[]
+      occasion?: string
+      score?: number
+      reasons?: string[]
+      isSaved?: boolean
+    },
+    token?: string
+  ) {
+    const supabase = await getSupabaseClient(token)
+    const validId = input.id && isUuid(input.id) ? input.id : crypto.randomUUID()
+    const rawIds = Array.isArray(input.item_ids) && input.item_ids.length > 0
+      ? input.item_ids
+      : (Array.isArray(input.items) ? input.items.map((i: any) => i?.id).filter(Boolean) : [])
+    const itemIds = rawIds.filter((id) => isUuid(id))
+
+    // Check if outfit already exists
+    const { data: existing } = await supabase
+      .from('outfit_recommendations')
+      .select('id, item_ids')
+      .eq('id', validId)
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    let rowData
+    if (existing) {
+      const { data, error } = await supabase
+        .from('outfit_recommendations')
+        .update({
+          is_saved: input.isSaved !== false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', validId)
+        .eq('user_id', userId)
+        .select()
+        .single()
+      if (error) throw error
+      rowData = data
+    } else {
+      const { data, error } = await supabase
+        .from('outfit_recommendations')
+        .insert({
+          id: validId,
+          user_id: userId,
+          occasion: input.occasion || null,
+          item_ids: itemIds,
+          score: typeof input.score === 'number' ? input.score : 85.0,
+          reasons: Array.isArray(input.reasons) ? input.reasons : [],
+          is_saved: input.isSaved !== false,
+          is_worn: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single()
+      if (error) throw error
+      rowData = data
+    }
+
+    // Populate items
+    let items: any[] = []
+    const ids = rowData?.item_ids || []
+    if (ids.length > 0) {
+      const { data: itemData } = await supabase
+        .from('wardrobe_items')
+        .select('id, clothing_name, category, image_url, color, style, occasion')
+        .eq('user_id', userId)
+        .in('id', ids)
+      if (itemData) items = itemData
+    }
+
+    return {
+      ...rowData,
+      is_saved: true,
+      is_favorite: true,
+      items,
+    }
+  },
+
+  async deleteOutfit(id: string, userId: string, token?: string) {
+    const supabase = await getSupabaseClient(token)
+    if (!isUuid(id)) {
+      return { success: true, message: 'Outfit removed' }
+    }
+    const { error } = await supabase
+      .from('outfit_recommendations')
+      .update({ is_saved: false, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('user_id', userId)
+    if (error) throw error
+    return { success: true, message: 'Outfit removed' }
+  },
+
+  async updateFeedback(
+    id: string,
+    userId: string,
+    input: { isSaved?: boolean; isWorn?: boolean; rating?: number; note?: string; eventType?: string; item_ids?: string[]; items?: any[]; occasion?: string },
+    token?: string
+  ) {
+    const supabase = await getSupabaseClient(token)
+
+    // Handle temporary non-UUID recommendations (e.g. "rec-1")
+    if (!isUuid(id)) {
+      return this.saveOutfit(
+        userId,
+        {
+          id: crypto.randomUUID(),
+          item_ids: input.item_ids,
+          items: input.items,
+          occasion: input.occasion,
+          isSaved: input.isSaved ?? true,
+        },
+        token
+      )
+    }
+
+    const { data: existing, error: existingError } = await supabase
+      .from('outfit_recommendations')
+      .select('id, item_ids, is_worn, occasion')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .maybeSingle()
     if (existingError) throw existingError
-    if (!existing) throw Object.assign(new Error('Outfit recommendation not found'), { statusCode: 404, isOperational: true })
+
+    if (!existing) {
+      // If client provided a valid UUID not in DB yet, create it as saved
+      return this.saveOutfit(
+        userId,
+        {
+          id,
+          item_ids: input.item_ids,
+          items: input.items,
+          occasion: input.occasion,
+          isSaved: input.isSaved ?? true,
+        },
+        token
+      )
+    }
+
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
     if (input.isSaved !== undefined) updates.is_saved = input.isSaved
     if (input.isWorn !== undefined) updates.is_worn = input.isWorn
     if (input.rating !== undefined) updates.feedback_rating = input.rating
     if (input.note !== undefined) updates.feedback_note = input.note
+
     if (input.isWorn && !existing.is_worn) {
       const { data: wornItems, error: wornItemsError } = await supabase.from('wardrobe_items').select('id, wear_count').eq('user_id', userId).in('id', existing.item_ids)
       if (wornItemsError) throw wornItemsError
@@ -118,11 +312,14 @@ export const outfitService = {
       const failedUpdate = wearUpdates.find((result) => result.error)
       if (failedUpdate?.error) throw failedUpdate.error
     }
+
     const { data, error } = await supabase.from('outfit_recommendations').update(updates).eq('id', id).eq('user_id', userId).select().maybeSingle()
     if (error) throw error
     if (!data) throw Object.assign(new Error('Outfit recommendation not found'), { statusCode: 404, isOperational: true })
+
     const eventType = input.eventType || (input.rating ? 'RATING' : input.isWorn ? 'WORN' : input.isSaved === false ? 'UNSAVE' : 'SAVE')
     await supabase.from('preference_events').insert({ user_id: userId, recommendation_id: id, event_type: eventType, rating: input.rating ?? null, note: input.note ?? null, occasion: existing.occasion ?? null, item_ids: existing.item_ids })
+
     if (input.rating !== undefined || eventType === 'LIKE' || eventType === 'DISLIKE') {
       const { data: profile } = await supabase.from('preference_profiles').select('*').eq('user_id', userId).maybeSingle()
       const next = profile || { user_id: userId, style_weights: {}, color_weights: {}, occasion_weights: {}, category_weights: {}, disliked_items: [], feedback_count: 0 }
@@ -142,6 +339,11 @@ export const outfitService = {
       }
       await supabase.from('preference_profiles').upsert({ ...next, updated_at: new Date().toISOString() })
     }
-    return data
+
+    return {
+      ...data,
+      is_saved: Boolean(data.is_saved),
+      is_favorite: Boolean(data.is_saved),
+    }
   },
 }

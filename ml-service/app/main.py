@@ -25,15 +25,38 @@ import re
 import sys
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
-from dotenv import load_dotenv
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("stylesense.ml")
 
 # 1. Load environment variables from ml-service/.env first
 BASE_DIR = Path(__file__).resolve().parent.parent
 ENV_PATH = BASE_DIR / ".env"
+try:
+    from dotenv import load_dotenv
+    if ENV_PATH.exists():
+        load_dotenv(dotenv_path=ENV_PATH, override=True)
+    else:
+        load_dotenv(override=True)
+except Exception:
+    pass
+
+# Ensure REMOVE_BG_API_KEY is loaded directly from .env if present or defaulted
 if ENV_PATH.exists():
-    load_dotenv(dotenv_path=ENV_PATH)
-else:
-    load_dotenv()
+    try:
+        with open(ENV_PATH, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    k = k.strip()
+                    v = v.strip().strip("'\"")
+                    if k:
+                        os.environ[k] = v
+    except Exception as e:
+        logger.warning(f"Failed reading {ENV_PATH}: {e}")
+
+if not os.getenv("REMOVE_BG_API_KEY"):
+    os.environ["REMOVE_BG_API_KEY"] = "6BLesBsiyabbtYwoR3Cer6DE"
 
 # Add ml-service root directory to sys.path so kmeans_color and local modules import cleanly
 if str(BASE_DIR) not in sys.path:
@@ -57,8 +80,6 @@ from pydantic import BaseModel, Field
 import requests
 
 import kmeans_color
-
-logger = logging.getLogger("stylesense.ml")
 
 try:
     from rembg import remove, new_session
@@ -286,10 +307,12 @@ class ScoredOutfitRecommendation(BaseModel):
     reasons: List[str]
 
 
-def extract_garment_cutout(pil_img: Image.Image) -> Tuple[Image.Image, np.ndarray, str]:
+def extract_garment_cutout(pil_img: Image.Image) -> Tuple[Image.Image, np.ndarray, str, str]:
     """Segment garment using official remove.bg API (size='preview') with pure rembg u2net fallback.
 
     Zero OpenCV contour filling or GrabCut code is used, preventing opaque background corruption.
+    Returns:
+        (cutout_pil, fg_mask, cutout_data_uri, bg_source)
     """
     global REMBG_SESSION
     # 1. Resize working copy to max 640 maintaining aspect ratio
@@ -297,8 +320,9 @@ def extract_garment_cutout(pil_img: Image.Image) -> Tuple[Image.Image, np.ndarra
     img.thumbnail((640, 640), Image.Resampling.LANCZOS)
 
     cutout: Optional[Image.Image] = None
-    api_key = os.getenv("REMOVE_BG_API_KEY", "").strip()
-    size_setting = os.getenv("REMOVE_BG_SIZE", "preview").strip()
+    bg_source = "none"
+    api_key = (os.getenv("REMOVE_BG_API_KEY", "").strip()) or "6BLesBsiyabbtYwoR3Cer6DE"
+    size_setting = (os.getenv("REMOVE_BG_SIZE", "preview").strip()) or "preview"
 
     # 2. Primary: Official remove.bg API
     if api_key:
@@ -316,6 +340,7 @@ def extract_garment_cutout(pil_img: Image.Image) -> Tuple[Image.Image, np.ndarra
             )
             if response.status_code == 200:
                 cutout = Image.open(BytesIO(response.content)).convert("RGBA")
+                bg_source = "remove.bg"
             elif response.status_code == 402:
                 logger.warning("remove.bg monthly preview credits exhausted (HTTP 402). Falling back to local rembg u2net.")
             else:
@@ -338,12 +363,14 @@ def extract_garment_cutout(pil_img: Image.Image) -> Tuple[Image.Image, np.ndarra
                         alpha_matting=False,
                         post_process_mask=True,
                     )
+                    bg_source = "rembg_u2net"
             except Exception as e:
                 logger.warning(f"rembg removal failed: {e}")
                 cutout = None
 
     if cutout is None:
         cutout = img.convert("RGBA")
+        bg_source = "raw_fallback"
 
     # 4. Clean up faint background alpha noise (< 20 -> 0)
     rgba = np.array(cutout.convert("RGBA"))
@@ -372,7 +399,7 @@ def extract_garment_cutout(pil_img: Image.Image) -> Tuple[Image.Image, np.ndarra
     cutout_data_uri = f"data:image/png;base64,{cutout_base64}"
 
     fg_mask = np.array(cutout)[:, :, 3] > 64
-    return cutout, fg_mask, cutout_data_uri
+    return cutout, fg_mask, cutout_data_uri, bg_source
 
 
 def extract_color_palette_kmeans(
@@ -453,10 +480,12 @@ def check_text_moderation(text: str) -> Tuple[bool, str, Optional[str]]:
 
 
 async def run_garment_analysis(image: Image.Image, source_filename: str = "") -> Prediction:
-    """Core garment analysis pipeline returning genuine model predictions with zero confidence warping."""
+    """Core garment analysis pipeline:
+    STEP 1 (FIRST): Run fine-tuned ResNet-50 on the ORIGINAL unmodified RGB image.
+    STEP 2 (SECOND): Run remove.bg API with pure rembg u2net fallback.
+    STEP 3 (THIRD): Run CIELAB K-Means++ on foreground pixels from Step 2's cutout.
+    """
     full_skin_ratio, center_skin_ratio = estimate_skin_exposure_ratio(image)
-    cutout_pil, fg_mask, cutout_data_uri = extract_garment_cutout(image)
-    dom_color, color_hex, sec_color, clusters = extract_color_palette_kmeans(cutout_pil, fg_mask=fg_mask, k=2)
 
     # Moderate NSFW / skin-dominant images
     if center_skin_ratio > 0.30 or full_skin_ratio > 0.45:
@@ -466,10 +495,10 @@ async def run_garment_analysis(image: Image.Image, source_filename: str = "") ->
             suggestedName=None,
             suggestedBrand=None,
             layerRole=None,
-            color=dom_color,
-            colorHex=color_hex,
-            secondary_color=sec_color,
-            palette=clusters,
+            color=None,
+            colorHex=None,
+            secondary_color=None,
+            palette=[],
             style=None,
             occasion=None,
             material=None,
@@ -480,18 +509,14 @@ async def run_garment_analysis(image: Image.Image, source_filename: str = "") ->
             moderation_reason="Inappropriate or non-clothing image detected. Please upload a clear photo of a clothing item or wearable accessory.",
         )
 
-    # Composite foreground cutout onto clean neutral white for CNN inference
-    white_bg = Image.new("RGBA", cutout_pil.size, (248, 248, 248, 255))
-    clean_rgb_for_cnn = Image.alpha_composite(white_bg, cutout_pil).convert("RGB")
-
+    # ─────────────────────────────────────────────────────────────────────────
+    # STEP 1 (FIRST): Run ResNet-50 directly on ORIGINAL unmodified RGB image
+    # ─────────────────────────────────────────────────────────────────────────
     transforms_to_use = EVAL_TRANSFORMS if (IS_FINETUNED_HEAD or WEIGHTS is None) else WEIGHTS.transforms()
     tensor_raw = transforms_to_use(image).unsqueeze(0)
-    tensor_clean = transforms_to_use(clean_rgb_for_cnn).unsqueeze(0)
 
     with torch.inference_mode():
-        probs_raw = torch.softmax(MODEL(tensor_raw)[0], dim=0)
-        probs_clean = torch.softmax(MODEL(tensor_clean)[0], dim=0)
-        probabilities = 0.60 * probs_clean + 0.40 * probs_raw
+        probabilities = torch.softmax(MODEL(tensor_raw)[0], dim=0)
 
     # True ResNet-50 softmax confidence and genuine class probabilities (NO WARPING!)
     top_prob, top_idx = torch.max(probabilities, dim=0)
@@ -507,7 +532,6 @@ async def run_garment_analysis(image: Image.Image, source_filename: str = "") ->
     if raw_conf >= CONFIDENCE_THRESHOLD:
         pred_cat: Optional[Category] = CATEGORIES_LIST[pred_cat_idx]
         sub_category, material, pred_style, occasion, layer_role = CATEGORY_DEFAULT_METADATA[pred_cat]
-        suggested_name = f"{dom_color} {sub_category}" if dom_color else sub_category
         moderation_reason = None
     else:
         pred_cat = None
@@ -516,8 +540,25 @@ async def run_garment_analysis(image: Image.Image, source_filename: str = "") ->
         pred_style = None
         occasion = None
         layer_role = None
-        suggested_name = None
         moderation_reason = f"Low classification confidence ({raw_conf:.2f} < {CONFIDENCE_THRESHOLD}); please confirm category manually."
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # STEP 2 (SECOND): Run background removal (remove.bg -> pure rembg u2net fallback)
+    # ─────────────────────────────────────────────────────────────────────────
+    cutout_pil, fg_mask, cutout_data_uri, bg_source = extract_garment_cutout(image)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # STEP 3 (THIRD): Run CIELAB K-Means++ on foreground pixels (alpha > 64)
+    # ─────────────────────────────────────────────────────────────────────────
+    dom_color, color_hex, sec_color, clusters = extract_color_palette_kmeans(cutout_pil, fg_mask=fg_mask, k=2)
+
+    suggested_name = f"{dom_color} {sub_category}" if (dom_color and sub_category) else sub_category
+
+    # Terminal Log: clear log line on every analyze call
+    print(
+        f"[ML-ANALYZE] checkpoint_loaded={IS_FINETUNED_HEAD} | pred_cat={pred_cat} (conf={raw_conf:.4f}, probs={class_probabilities}) | remove_bg_source={bg_source} | color={dom_color} ({color_hex})",
+        flush=True,
+    )
 
     return Prediction(
         category=pred_cat,
@@ -543,6 +584,9 @@ async def run_garment_analysis(image: Image.Image, source_filename: str = "") ->
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     global MODEL, IS_FINETUNED_HEAD, REMBG_SESSION, LOADED_CHECKPOINT_PATH
+
+    remove_bg_key = (os.getenv("REMOVE_BG_API_KEY", "").strip()) or "6BLesBsiyabbtYwoR3Cer6DE"
+    logger.info(f"remove.bg API Key loaded: {'Yes (' + remove_bg_key[:4] + '...)' if remove_bg_key else 'No'}")
 
     # Initialize local rembg session ("u2net") for fallback
     if REMBG_AVAILABLE and REMBG_SESSION is None and new_session is not None:

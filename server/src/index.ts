@@ -26,6 +26,13 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')))
 
 // ── Health ────────────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => res.json({ success: true, message: 'StyleSense API', ts: new Date() }))
+app.get('/api/health', (_req, res) => {
+  res.json({
+    success: true,
+    status: 'ok',
+    mlServiceUrl: process.env.ML_SERVICE_URL ? 'configured' : 'local',
+  })
+})
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api/wardrobe', wardrobeRoutes)
