@@ -38,38 +38,75 @@ export interface ClothingPrediction {
 
 export type AIAnalysisResult = ClothingPrediction;
 
-export async function analyzeClothingImage(uri: string, accessToken: string): Promise<ClothingPrediction> {
+export async function analyzeClothingImage(
+  uri: string,
+  accessToken: string,
+  timeoutMs = 30000
+): Promise<ClothingPrediction> {
   const form = new FormData();
   form.append('image', { uri, name: 'clothing.jpg', type: 'image/jpeg' } as any);
-  const response = await fetch(`${getApiUrl()}/wardrobe/analyze`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}` },
-    body: form,
-  });
-  const body = await response.json();
-  if (!response.ok) throw new Error(body?.message || 'Image analysis failed.');
-  const rawData = (body.data || {}) as ClothingPrediction & {
-    cutout_data_uri?: string | null;
-    cutout_url?: string | null;
-    cutout_image?: string | null;
-  };
-  const prediction: ClothingPrediction = {
-    ...rawData,
-    cutoutDataUri:
-      rawData.cutoutDataUri ??
-      rawData.cutout_data_uri ??
-      rawData.cutout_url ??
-      rawData.cutout_image ??
-      null,
-  };
-  // Calibrate confidence for valid clothing detections into 0.88–0.96 so real garments never fail a raw softmax threshold
-  if (prediction && prediction.is_safe_garment !== false && prediction.category) {
-    const rawConf = prediction.categoryConfidence ?? prediction.confidence ?? 0.88;
-    const calibrated = rawConf < 0.85 ? Math.min(0.96, Math.max(0.88, rawConf + 0.38)) : rawConf;
-    prediction.categoryConfidence = calibrated;
-    prediction.confidence = calibrated;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(`${getApiUrl()}/wardrobe/analyze`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: form,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timer);
+
+    const body = await response.json();
+    if (!response.ok) {
+      throw new Error(body?.message || 'Image analysis failed.');
+    }
+
+    const rawData = (body.data || {}) as ClothingPrediction & {
+      cutout_data_uri?: string | null;
+      cutout_url?: string | null;
+      cutout_image?: string | null;
+    };
+
+    const prediction: ClothingPrediction = {
+      ...rawData,
+      confidence:
+        typeof rawData.confidence === 'number'
+          ? rawData.confidence
+          : typeof rawData.categoryConfidence === 'number'
+          ? rawData.categoryConfidence
+          : 0,
+      categoryConfidence:
+        typeof rawData.categoryConfidence === 'number'
+          ? rawData.categoryConfidence
+          : typeof rawData.confidence === 'number'
+          ? rawData.confidence
+          : 0,
+      cutoutDataUri:
+        rawData.cutoutDataUri ??
+        rawData.cutout_data_uri ??
+        rawData.cutout_url ??
+        rawData.cutout_image ??
+        null,
+    };
+
+    return prediction;
+  } catch (err: any) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+      throw new Error('Analysis timed out after 30 seconds. Could not connect to ML server — check your API URL / Wi-Fi connection.');
+    }
+    if (
+      err.message?.includes('Network request failed') ||
+      err.message?.includes('Failed to fetch') ||
+      err.message?.includes('ECONNREFUSED')
+    ) {
+      throw new Error('Could not connect to ML server — check your API URL / Wi-Fi connection.');
+    }
+    throw err;
   }
-  return prediction;
 }
 
 export const analyzeImage = analyzeClothingImage;

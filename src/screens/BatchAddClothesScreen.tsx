@@ -12,7 +12,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as Crypto from 'expo-crypto';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -72,31 +71,38 @@ function buildDraftFromPrediction(
   originalUri: string,
   prediction: ClothingPrediction | null
 ): BatchDraftWardrobeItem {
-  let detectedColor = 'Gray';
+  let detectedColor = '';
   if (prediction?.color) {
     const matched = COLOR_OPTIONS.find(
       (c) => c.toLowerCase() === prediction.color!.toLowerCase()
     );
     detectedColor = matched || capitalize(prediction.color);
   }
-  const normalizedColor = COLOR_OPTIONS.includes(detectedColor as any) ? detectedColor : 'Gray';
+  const normalizedColor = COLOR_OPTIONS.includes(detectedColor as any) ? detectedColor : 'Black';
   const colorHex =
     prediction?.palette?.dominant_hex || colorNameToHex(normalizedColor);
 
   const rawCategory = prediction?.category || '';
-  const category = (rawCategory && CATEGORY_FROM_API[rawCategory.toUpperCase()]) || 'Tops';
+  const category = (rawCategory && CATEGORY_FROM_API[rawCategory.toUpperCase()]) || '';
 
   const rawSuggested = (prediction?.suggestedName || '').trim();
   const isGenericUppercase =
     !rawSuggested ||
     /^(TOP|BOTTOM|SHOES|OUTERWEAR|ACCESSORIES|ITEM)$/i.test(rawSuggested);
 
-  const finalName = !isGenericUppercase
-    ? rawSuggested
-        .split(/\s+/)
-        .map((w) => capitalize(w))
-        .join(' ')
-    : `${normalizedColor} ${rawCategory ? capitalize(rawCategory) : 'Item'}`;
+  let finalName = '';
+  if (!isGenericUppercase && rawSuggested.length >= 3) {
+    finalName = rawSuggested
+      .split(/\s+/)
+      .map((w) => capitalize(w))
+      .join(' ');
+  } else if (detectedColor && category) {
+    finalName = `${detectedColor} ${category}`;
+  } else if (category) {
+    finalName = category;
+  } else {
+    finalName = 'Garment';
+  }
 
   const apiStyle = (prediction?.style || '').toUpperCase();
   let style = 'Casual';
@@ -123,16 +129,21 @@ function buildDraftFromPrediction(
     occasions = ['Casual', 'Academic'];
   }
 
-  const confidence = prediction?.categoryConfidence ?? prediction?.confidence ?? 0.88;
+  const confidence =
+    typeof prediction?.confidence === 'number'
+      ? prediction.confidence
+      : typeof prediction?.categoryConfidence === 'number'
+      ? prediction.categoryConfidence
+      : 0;
   const isSafeGarment = prediction?.is_safe_garment !== false;
-  const isVerified = isSafeGarment && confidence >= 0.55;
+  const isVerified = isSafeGarment && confidence >= 0.55 && Boolean(category);
 
   return {
     id: draftId,
     originalUri,
     cutoutDataUri: prediction?.cutoutDataUri ?? null,
     name: finalName,
-    category,
+    category: category || 'Tops',
     color: normalizedColor,
     colorHex,
     style,
@@ -202,7 +213,7 @@ export default function BatchAddClothesScreen() {
       seasons: ['All'],
       material: 'Cotton',
       brand: '',
-      confidence: 0.9,
+      confidence: 0,
       isSafeGarment: true,
       isVerified: false,
       analyzing: true,
@@ -220,38 +231,34 @@ export default function BatchAddClothesScreen() {
       const rawAsset = sliced[i];
 
       try {
-        const w = rawAsset.width || 1000;
-        const h = rawAsset.height || 1200;
-        const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(w, h));
-        const processed = await manipulateAsync(
-          rawAsset.uri,
-          [{ resize: { width: Math.round(w * scale), height: Math.round(h * scale) } }],
-          { compress: 0.86, format: SaveFormat.JPEG }
-        );
-
         let prediction: ClothingPrediction | null = null;
         if (session?.access_token) {
-          prediction = await analyzeClothingImage(processed.uri, session.access_token);
+          prediction = await analyzeClothingImage(rawAsset.uri, session.access_token);
         }
 
         const populated = buildDraftFromPrediction(
           placeholder.id,
-          processed.uri,
+          rawAsset.uri,
           prediction
         );
 
         setDraftItems((prev) =>
           prev.map((item) => (item.id === placeholder.id ? populated : item))
         );
-      } catch {
+      } catch (err: any) {
+        showToast(
+          err?.message ||
+            'Could not connect to ML server — check your API URL / Wi-Fi connection.'
+        );
         const fallback = buildDraftFromPrediction(
           placeholder.id,
           rawAsset.uri,
           null
         );
-        // Mark fallback items with confidence 0.52 so user sees "! Needs Review" badge
-        fallback.confidence = 0.52;
+        fallback.name = 'Unanalyzed Garment';
+        fallback.confidence = 0;
         fallback.isVerified = false;
+        fallback.analyzing = false;
         setDraftItems((prev) =>
           prev.map((item) => (item.id === placeholder.id ? fallback : item))
         );
@@ -537,13 +544,13 @@ export default function BatchAddClothesScreen() {
                   style={[styles.colorPreviewDot, { backgroundColor: activeDraft.colorHex }]}
                 />
                 <Text style={[styles.colorPreviewText, { color: theme.text }]}>
-                  {activeDraft.color} · {Math.round(activeDraft.confidence * 100)}% Match
+                  {activeDraft.color} · {activeDraft.confidence > 0 ? `${Math.round(activeDraft.confidence * 100)}% Match` : 'Unanalyzed'}
                 </Text>
               </View>
 
               {(!activeDraft.isVerified || activeDraft.confidence < 0.55) && (
                 <Pressable
-                  onPress={() => updateCurrentDraft({ isVerified: true, confidence: 0.9 })}
+                  onPress={() => updateCurrentDraft({ isVerified: true, confidence: activeDraft.confidence > 0 ? activeDraft.confidence : 1.0 })}
                   style={[styles.markVerifiedBtn, { backgroundColor: '#2F8F5B' }]}
                 >
                   <Text style={styles.markVerifiedBtnText}>✓ Mark Reviewed</Text>

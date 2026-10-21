@@ -147,27 +147,26 @@ export default function OutfitScreen() {
           <OccasionDropdown value={occasion} onChange={setOccasion} />
         </View>
 
-        {/* 4. Primary Action Button: "✨ Generate Top-3 Outfits" */}
-        <Pressable
-          onPress={generateOutfit}
-          disabled={isLoading}
-          style={[
-            styles.generateButton,
-            { backgroundColor: theme.secondaryAccent, opacity: isLoading ? 0.6 : 1 },
-          ]}
-        >
-          <Text style={[styles.generateLabel, { color: theme.onAccent }]}>
-            ✨ Generate Top-3 Outfits
-          </Text>
-        </Pressable>
-
         {isLoading && <OutfitLoadingView />}
 
-        {/* 5. 2-Column Spatial Outfit Board showing recommended outfits */}
+        {/* 4. 2-Column Spatial Outfit Board showing recommended outfits */}
         {!isLoading && top3Outfits.length > 0 && (
           <View style={styles.recommendationsSection}>
             <View style={styles.resultsHeader}>
-              <Text style={[styles.resultsTitle, { color: theme.text }]}>Top-3 Outfits for You</Text>
+              <View style={styles.resultsTitleRow}>
+                <Text style={[styles.resultsTitle, { color: theme.text }]}>Top-3 Outfits for You</Text>
+                <Pressable
+                  onPress={generateOutfit}
+                  disabled={isLoading}
+                  style={({ pressed }) => [
+                    styles.refreshIconBtn,
+                    { opacity: pressed || isLoading ? 0.6 : 1 },
+                  ]}
+                  accessibilityLabel="Refresh outfits"
+                >
+                  <Ionicons name="refresh" size={20} color={theme.accentText} />
+                </Pressable>
+              </View>
               <Text style={[styles.resultsSubtitle, { color: theme.textMuted }]}>
                 Tap any garment on the Spatial Outfit Board or ✏️ to swap pieces from your closet
               </Text>
@@ -343,6 +342,15 @@ const styles = StyleSheet.create({
   addButtonLabel: { color: '#FFFFFF', fontWeight: '700', fontSize: 14.5 },
   recommendationsSection: { gap: 16, marginTop: 4 },
   resultsHeader: { gap: 2, marginBottom: 2 },
+  resultsTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  refreshIconBtn: {
+    padding: 6,
+    borderRadius: 8,
+  },
   resultsTitle: { fontSize: 17, fontWeight: '800' },
   resultsSubtitle: { fontSize: 12.5 },
   outfitBlock: { gap: 8 },

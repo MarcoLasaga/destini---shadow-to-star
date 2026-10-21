@@ -11,7 +11,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as Crypto from 'expo-crypto';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -53,8 +52,8 @@ interface SafePrefillResult {
 }
 
 function buildSafeAutoPrefill(prediction: ClothingPrediction | null): SafePrefillResult {
-  // 1. Detect Color
-  let detectedColor = 'Gray';
+  // 1. Detect Color from ML result
+  let detectedColor = '';
   if (prediction?.color) {
     const matchedColor = COLOR_OPTIONS.find(
       (c) => c.toLowerCase() === prediction.color!.toLowerCase()
@@ -62,22 +61,27 @@ function buildSafeAutoPrefill(prediction: ClothingPrediction | null): SafePrefil
     detectedColor = matchedColor || capitalize(prediction.color);
   }
 
-  // 2. Detect Category
+  // 2. Detect Category from ML result
   const rawCategory = prediction?.category || '';
-  const category = (rawCategory && CATEGORY_FROM_API[rawCategory.toUpperCase()]) || 'Tops';
+  const category = (rawCategory && CATEGORY_FROM_API[rawCategory.toUpperCase()]) || '';
 
-  // 3. Safe Name Pre-Fill: use result.suggestedName if returned, otherwise "${result.color} ${result.category ? capitalize(result.category) : 'Item'}"
+  // 3. Safe Name Pre-Fill: use result.suggestedName if returned from ml-service, otherwise "${result.color} ${result.category}"
   const rawSuggested = (prediction?.suggestedName || '').trim();
   const isGenericUppercase =
     !rawSuggested ||
     /^(TOP|BOTTOM|SHOES|OUTERWEAR|ACCESSORIES|ITEM)$/i.test(rawSuggested);
 
-  const finalName = !isGenericUppercase
-    ? rawSuggested
-        .split(/\s+/)
-        .map((w) => capitalize(w))
-        .join(' ')
-    : `${detectedColor} ${rawCategory ? capitalize(rawCategory) : 'Item'}`;
+  let finalName = '';
+  if (!isGenericUppercase && rawSuggested.length >= 3) {
+    finalName = rawSuggested
+      .split(/\s+/)
+      .map((w) => capitalize(w))
+      .join(' ');
+  } else if (detectedColor && category) {
+    finalName = `${detectedColor} ${category}`;
+  } else if (category) {
+    finalName = category;
+  }
 
   // 4. Determine Style & Occasions
   const apiStyle = (prediction?.style || '').toUpperCase();
@@ -107,8 +111,8 @@ function buildSafeAutoPrefill(prediction: ClothingPrediction | null): SafePrefil
 
   return {
     name: finalName,
-    category,
-    color: COLOR_OPTIONS.includes(detectedColor as any) ? detectedColor : 'Gray',
+    category: category || 'Tops',
+    color: detectedColor || 'Black',
     style,
     occasions,
     seasons: ['All'],
@@ -226,26 +230,13 @@ export default function AddClothesScreen() {
     setLowConfidenceWarning(false);
 
     const asset = result.assets[0];
-    const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(asset.width, asset.height));
-    const processed = await manipulateAsync(
-      asset.uri,
-      [
-        {
-          resize: {
-            width: Math.round(asset.width * scale),
-            height: Math.round(asset.height * scale),
-          },
-        },
-      ],
-      { compress: 0.86, format: SaveFormat.JPEG }
-    );
-
-    setImageUri(processed.uri);
+    setImageUri(asset.uri);
 
     if (session?.access_token) {
       setAnalyzing(true);
+      setError('');
       try {
-        const prediction = await analyzeClothingImage(processed.uri, session.access_token);
+        const prediction = await analyzeClothingImage(asset.uri, session.access_token);
 
         if (
           prediction.is_safe_garment === false ||
@@ -262,13 +253,19 @@ export default function AddClothesScreen() {
           return;
         }
 
-        // Store clean background-removed cutout in imageUri when returned
+        // Store clean background-removed cutout in imageUri when returned from ml-service
         if (prediction.cutoutDataUri && typeof prediction.cutoutDataUri === 'string') {
           setImageUri(prediction.cutoutDataUri);
         }
 
-        const rawConf = prediction.categoryConfidence ?? prediction.confidence ?? 0.88;
-        if (!prediction.category || rawConf < 0.6) {
+        const rawConf =
+          typeof prediction.confidence === 'number'
+            ? prediction.confidence
+            : typeof prediction.categoryConfidence === 'number'
+            ? prediction.categoryConfidence
+            : 0;
+
+        if (!prediction.category || rawConf < 0.55) {
           setLowConfidenceWarning(true);
         }
 
@@ -296,17 +293,21 @@ export default function AddClothesScreen() {
           return;
         }
 
-        setLowConfidenceWarning(true);
+        const errMsg =
+          err?.message ||
+          'Could not connect to ML server — check your API URL / Wi-Fi connection.';
+        setError(errMsg);
+        setInfoModal({
+          visible: true,
+          title: 'ML Server Connection Error',
+          message: errMsg,
+        });
         setIsImageVerified(true);
-        const fallbackPrefill = buildSafeAutoPrefill(null);
-        applySafePrefill(fallbackPrefill);
       } finally {
         setAnalyzing(false);
       }
     } else {
       setIsImageVerified(true);
-      const fallbackPrefill = buildSafeAutoPrefill(null);
-      applySafePrefill(fallbackPrefill);
     }
   };
 

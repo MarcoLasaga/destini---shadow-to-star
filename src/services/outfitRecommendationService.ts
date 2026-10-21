@@ -1,6 +1,12 @@
 import type { AnatomicalSlotType, ClothingRole, ColorSwatch, GeneratedOutfit, OutfitClothingItem, WeatherData } from '../types';
+import * as Crypto from 'expo-crypto';
 import { getApiUrl } from './apiConfig';
 import { getDatasetPicksForSlot, resolveDatasetGarmentPhoto } from '../data/datasetGarmentCatalog';
+
+export function isUuid(id?: string | null): boolean {
+  if (!id) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+}
 
 const CATEGORY: Record<string, ClothingRole> = {
   TOP: 'Top',
@@ -728,8 +734,9 @@ function rotateOutfitItems(
   const rotated: ApiOutfit[] = [];
 
   for (let idx = 0; idx < targetCount; idx++) {
-    const original = rawOutfits[idx] || rawOutfits[0] || {
-      id: `local-outfit-${idx + 1}`,
+    const rawOutfit = rawOutfits[idx];
+    const original = rawOutfit || {
+      id: Crypto.randomUUID(),
       occasion: requestedOccasion && requestedOccasion !== 'Any occasion' ? requestedOccasion : 'Casual',
       score: 94 - idx * 4,
       reasons: [],
@@ -746,10 +753,15 @@ function rotateOutfitItems(
 
     const items = [acc, innerTop, outer, bottom, shoe].filter(Boolean) as ApiItem[];
 
+    // Ensure every generated outfit gets a persistent, valid UUID
+    const finalId = rawOutfit && isUuid(rawOutfit.id) && !rotated.some((r) => r.id === rawOutfit.id)
+      ? rawOutfit.id
+      : Crypto.randomUUID();
+
     rotated.push({
       ...original,
       occasion: requestedOccasion && requestedOccasion !== 'Any occasion' ? requestedOccasion : original.occasion || 'Casual',
-      id: `${original.id || 'outfit'}-${idx + 1}`,
+      id: finalId,
       items: items.length > 0 ? items : original.items,
     });
   }
@@ -975,7 +987,6 @@ export async function getRecommendationHistory(accessToken: string): Promise<Gen
 export async function updateRecommendation(id: string, patch: Record<string, unknown>, accessToken: string) {
   if (!accessToken || !id) return;
   const cleanId = id.replace(/-[123]$/, '');
-  if (cleanId.startsWith('local-outfit')) return;
   try {
     await fetch(`${getApiUrl()}/outfits/${cleanId}/feedback`, {
       method: 'PATCH',
@@ -984,5 +995,65 @@ export async function updateRecommendation(id: string, patch: Record<string, unk
     });
   } catch {
     // Silently ignore network or preview-ID errors so local state always succeeds with zero LogBox errors
+  }
+}
+
+export async function saveOutfitToApi(outfit: GeneratedOutfit, accessToken: string) {
+  if (!accessToken || !outfit) return null;
+  const cleanId = isUuid(outfit.id) ? outfit.id : Crypto.randomUUID();
+  const itemIds = (outfit.clothingItems || [])
+    .map((item) => item.id)
+    .filter((id) => isUuid(id));
+
+  try {
+    const response = await fetch(`${getApiUrl()}/outfits`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        id: cleanId,
+        occasion: outfit.occasionLabel || 'Casual',
+        item_ids: itemIds,
+        items: outfit.clothingItems,
+        score: outfit.matchPercent || 88,
+        reasons: (outfit.whyReasons || []).map((r) => `${r.title}: ${r.description}`),
+        isSaved: true,
+      }),
+    });
+    if (response.ok) {
+      const data = await response.json();
+      return data;
+    }
+  } catch {
+    // Backend API unreachable
+  }
+  return null;
+}
+
+export async function deleteOutfitFromApi(id: string, accessToken: string) {
+  if (!accessToken || !id) return;
+  const cleanId = id.replace(/-[123]$/, '');
+  try {
+    await fetch(`${getApiUrl()}/outfits/${cleanId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  } catch {
+    // Silently handle offline/network errors
+  }
+}
+
+export async function fetchSavedOutfitsFromApi(accessToken: string): Promise<GeneratedOutfit[]> {
+  try {
+    const response = await fetch(`${getApiUrl()}/outfits`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!response.ok) return [];
+    const body = await response.json();
+    return ((body.data as ApiOutfit[]) || []).map((outfit, index) => mapOutfit(outfit, index));
+  } catch {
+    return [];
   }
 }
