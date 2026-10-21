@@ -164,10 +164,11 @@ MODEL: Optional[Any] = None
 IS_FINETUNED_HEAD: bool = False
 WEIGHTS = ResNet50_Weights.IMAGENET1K_V2 if TORCH_AVAILABLE else None
 
-# Standard 224x224 evaluation transforms matching training configuration
+# Standard evaluation transforms matching train_resnet50 validation configuration
 EVAL_TRANSFORMS = (
     T.Compose([
-        T.Resize((224, 224)),
+        T.Resize(256),
+        T.CenterCrop(224),
         T.ToTensor(),
         T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
@@ -509,14 +510,57 @@ async def run_garment_analysis(image: Image.Image, source_filename: str = "") ->
             moderation_reason="Inappropriate or non-clothing image detected. Please upload a clear photo of a clothing item or wearable accessory.",
         )
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # STEP 1 (FIRST): Run ResNet-50 directly on ORIGINAL unmodified RGB image
-    # ─────────────────────────────────────────────────────────────────────────
-    transforms_to_use = EVAL_TRANSFORMS if (IS_FINETUNED_HEAD or WEIGHTS is None) else WEIGHTS.transforms()
-    tensor_raw = transforms_to_use(image).unsqueeze(0)
+    transforms_to_use = EVAL_TRANSFORMS if (IS_FINETUNED_HEAD or WEIGHTS is None or EVAL_TRANSFORMS is not None) else WEIGHTS.transforms()
+    rgb_image = image.convert("RGB")
+    tensor_raw = transforms_to_use(rgb_image).unsqueeze(0)
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # STEP 1: Run ResNet-50 on ORIGINAL unmodified RGB image
+    # ─────────────────────────────────────────────────────────────────────────
     with torch.inference_mode():
-        probabilities = torch.softmax(MODEL(tensor_raw)[0], dim=0)
+        probs_orig = torch.softmax(MODEL(tensor_raw)[0], dim=0)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # STEP 2: Background removal (remove.bg -> pure rembg u2net fallback)
+    # ─────────────────────────────────────────────────────────────────────────
+    cutout_pil, fg_mask, cutout_data_uri, bg_source = extract_garment_cutout(image)
+
+    # Composite RGBA cutout onto clean neutral studio background (RGB(245, 245, 245))
+    # cropped to the garment's bounding box with 12% padding
+    probs_cutout_studio = probs_orig
+    if cutout_pil is not None:
+        try:
+            alpha = cutout_pil.split()[3]
+            bbox = alpha.getbbox()
+            if bbox:
+                left, top, right, bottom = bbox
+                bw = right - left
+                bh = bottom - top
+                pad_x = int(bw * 0.12)
+                pad_y = int(bh * 0.12)
+                w, h = cutout_pil.size
+                crop_box = (
+                    max(0, left - pad_x),
+                    max(0, top - pad_y),
+                    min(w, right + pad_x),
+                    min(h, bottom + pad_y),
+                )
+                garment_crop = cutout_pil.crop(crop_box)
+            else:
+                garment_crop = cutout_pil
+
+            studio_bg = Image.new("RGBA", garment_crop.size, (245, 245, 245, 255))
+            cutout_studio = Image.alpha_composite(studio_bg, garment_crop).convert("RGB")
+
+            tensor_studio = transforms_to_use(cutout_studio).unsqueeze(0)
+            with torch.inference_mode():
+                probs_cutout_studio = torch.softmax(MODEL(tensor_studio)[0], dim=0)
+        except Exception as e:
+            logger.warning(f"Studio cutout inference fallback: {e}")
+            probs_cutout_studio = probs_orig
+
+    # Average softmax probabilities (0.5 * probs_orig + 0.5 * probs_cutout_studio)
+    probabilities = 0.5 * probs_orig + 0.5 * probs_cutout_studio
 
     # True ResNet-50 softmax confidence and genuine class probabilities (NO WARPING!)
     top_prob, top_idx = torch.max(probabilities, dim=0)
@@ -543,12 +587,7 @@ async def run_garment_analysis(image: Image.Image, source_filename: str = "") ->
         moderation_reason = f"Low classification confidence ({raw_conf:.2f} < {CONFIDENCE_THRESHOLD}); please confirm category manually."
 
     # ─────────────────────────────────────────────────────────────────────────
-    # STEP 2 (SECOND): Run background removal (remove.bg -> pure rembg u2net fallback)
-    # ─────────────────────────────────────────────────────────────────────────
-    cutout_pil, fg_mask, cutout_data_uri, bg_source = extract_garment_cutout(image)
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # STEP 3 (THIRD): Run CIELAB K-Means++ on foreground pixels (alpha > 64)
+    # STEP 3: Run CIELAB K-Means++ on foreground pixels (alpha > 64)
     # ─────────────────────────────────────────────────────────────────────────
     dom_color, color_hex, sec_color, clusters = extract_color_palette_kmeans(cutout_pil, fg_mask=fg_mask, k=2)
 
