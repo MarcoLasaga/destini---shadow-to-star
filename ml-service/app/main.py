@@ -40,7 +40,7 @@ try:
 except Exception:
     pass
 
-# Ensure REMOVE_BG_API_KEY is loaded directly from .env if present or defaulted
+# Ensure REMOVE_BG_API_KEY and REMOVE_BG_API_KEYS are loaded directly from .env if present
 if ENV_PATH.exists():
     try:
         with open(ENV_PATH, "r", encoding="utf-8") as f:
@@ -55,8 +55,28 @@ if ENV_PATH.exists():
     except Exception as e:
         logger.warning(f"Failed reading {ENV_PATH}: {e}")
 
-if not os.getenv("REMOVE_BG_API_KEY"):
+if not os.getenv("REMOVE_BG_API_KEY") and not os.getenv("REMOVE_BG_API_KEYS"):
     os.environ["REMOVE_BG_API_KEY"] = "6BLesBsiyabbtYwoR3Cer6DE"
+
+
+def get_remove_bg_api_keys() -> List[str]:
+    """Return configured remove.bg API keys in priority order (pooling multi-member keys)."""
+    keys: List[str] = []
+    # 1. Comma-separated REMOVE_BG_API_KEYS (e.g. key1,key2,key3,key4)
+    multi = os.getenv("REMOVE_BG_API_KEYS", "").strip()
+    if multi:
+        for k in multi.split(","):
+            k = k.strip()
+            if k and k not in keys:
+                keys.append(k)
+    # 2. Single REMOVE_BG_API_KEY
+    single = os.getenv("REMOVE_BG_API_KEY", "").strip()
+    if single and single not in keys:
+        keys.append(single)
+    # 3. Default fallback
+    if not keys:
+        keys.append("6BLesBsiyabbtYwoR3Cer6DE")
+    return keys
 
 # Add ml-service root directory to sys.path so kmeans_color and local modules import cleanly
 if str(BASE_DIR) not in sys.path:
@@ -308,10 +328,16 @@ class ScoredOutfitRecommendation(BaseModel):
     reasons: List[str]
 
 
-def extract_garment_cutout(pil_img: Image.Image) -> Tuple[Image.Image, np.ndarray, str, str]:
-    """Segment garment using official remove.bg API (size='preview') with pure rembg u2net fallback.
+def extract_garment_cutout(
+    pil_img: Image.Image,
+    force_rembg: bool = False,
+) -> Tuple[Image.Image, np.ndarray, str, str]:
+    """Segment garment using official remove.bg API with multi-key rotation and pure rembg u2net fallback.
 
-    Zero OpenCV contour filling or GrabCut code is used, preventing opaque background corruption.
+    - Supports FORCE_REMBG=true (in .env or param) to bypass remove.bg completely (spending 0 credits).
+    - If Key #1 returns HTTP 402 or 429, automatically retries with Key #2, #3, etc. before falling back to rembg.
+    - Zero OpenCV contour filling or GrabCut code is used, preventing opaque background corruption.
+
     Returns:
         (cutout_pil, fg_mask, cutout_data_uri, bg_source)
     """
@@ -322,34 +348,66 @@ def extract_garment_cutout(pil_img: Image.Image) -> Tuple[Image.Image, np.ndarra
 
     cutout: Optional[Image.Image] = None
     bg_source = "none"
-    api_key = (os.getenv("REMOVE_BG_API_KEY", "").strip()) or "6BLesBsiyabbtYwoR3Cer6DE"
+    keys = get_remove_bg_api_keys()
     size_setting = (os.getenv("REMOVE_BG_SIZE", "preview").strip()) or "preview"
 
-    # 2. Primary: Official remove.bg API
-    if api_key:
+    # Check FORCE_REMBG toggle
+    env_force = os.getenv("FORCE_REMBG", "false").strip().lower() in ("true", "1", "yes")
+    should_force_rembg = force_rembg or env_force
+
+    # 2. Primary: Official remove.bg API with multi-key rotation (skipped if should_force_rembg)
+    if should_force_rembg:
+        logger.info("[REMOVE-BG] FORCE_REMBG is active. Skipping remove.bg (0 credits spent) and running local rembg.")
+    elif keys:
         try:
             buf = BytesIO()
             img.save(buf, format="PNG")
             buf_bytes = buf.getvalue()
 
-            response = requests.post(
-                "https://api.remove.bg/v1.0/removebg",
-                files={"image_file": ("image.png", buf_bytes, "image/png")},
-                data={"size": size_setting, "type": "auto", "format": "png"},
-                headers={"X-Api-Key": api_key},
-                timeout=12,
-            )
-            if response.status_code == 200:
-                cutout = Image.open(BytesIO(response.content)).convert("RGBA")
-                bg_source = "remove.bg"
-            elif response.status_code == 402:
-                logger.warning("remove.bg monthly preview credits exhausted (HTTP 402). Falling back to local rembg u2net.")
-            else:
-                logger.warning(
-                    f"remove.bg API returned HTTP {response.status_code}: {response.text[:200]}. Falling back to local rembg u2net."
-                )
+            for idx, api_key in enumerate(keys, start=1):
+                key_masked = f"{api_key[:4]}...{api_key[-4:]}" if len(api_key) > 8 else "***"
+                try:
+                    response = requests.post(
+                        "https://api.remove.bg/v1.0/removebg",
+                        files={"image_file": ("image.png", buf_bytes, "image/png")},
+                        data={"size": size_setting, "type": "auto", "format": "png"},
+                        headers={"X-Api-Key": api_key},
+                        timeout=12,
+                    )
+                    if response.status_code == 200:
+                        cutout = Image.open(BytesIO(response.content)).convert("RGBA")
+                        bg_source = "remove.bg"
+                        logger.info(f"[REMOVE-BG] Success using Key #{idx} ({key_masked}).")
+                        break
+                    elif response.status_code in (402, 429):
+                        reason = "credits exhausted (HTTP 402)" if response.status_code == 402 else "rate limit reached (HTTP 429)"
+                        if idx < len(keys):
+                            logger.warning(
+                                f"[REMOVE-BG] Key #{idx} ({key_masked}) {reason}. Automatically retrying with Key #{idx+1}..."
+                            )
+                        else:
+                            logger.warning(
+                                f"[REMOVE-BG] Key #{idx} ({key_masked}) {reason}. All {len(keys)} configured keys exhausted! Falling back to local rembg u2net."
+                            )
+                    elif response.status_code == 401:
+                        logger.warning(f"[REMOVE-BG] Key #{idx} ({key_masked}) unauthorized (HTTP 401).")
+                        if idx < len(keys):
+                            logger.warning(f"[REMOVE-BG] Automatically retrying with Key #{idx+1}...")
+                            continue
+                        break
+                    else:
+                        logger.warning(
+                            f"[REMOVE-BG] Key #{idx} returned HTTP {response.status_code}: {response.text[:160]}. Falling back to local rembg."
+                        )
+                        break
+                except Exception as e:
+                    logger.warning(f"[REMOVE-BG] Request failed with Key #{idx} ({key_masked}): {e}")
+                    if idx < len(keys):
+                        logger.warning(f"[REMOVE-BG] Automatically retrying with Key #{idx+1}...")
+                        continue
+                    break
         except Exception as e:
-            logger.warning(f"remove.bg API request failed ({e}). Falling back to local rembg u2net.")
+            logger.warning(f"[REMOVE-BG] Image encoding failed: {e}")
 
     # 3. Fallback: Pure rembg local u2net model with alpha_matting=False (zero OpenCV contour manipulation)
     if cutout is None:
@@ -480,10 +538,14 @@ def check_text_moderation(text: str) -> Tuple[bool, str, Optional[str]]:
     return True, (text or "").strip(), None
 
 
-async def run_garment_analysis(image: Image.Image, source_filename: str = "") -> Prediction:
+async def run_garment_analysis(
+    image: Image.Image,
+    source_filename: str = "",
+    force_rembg: bool = False,
+) -> Prediction:
     """Core garment analysis pipeline:
     STEP 1 (FIRST): Run fine-tuned ResNet-50 on the ORIGINAL unmodified RGB image.
-    STEP 2 (SECOND): Run remove.bg API with pure rembg u2net fallback.
+    STEP 2 (SECOND): Run remove.bg API (with multi-key rotation) or local rembg if force_rembg/exhausted.
     STEP 3 (THIRD): Run CIELAB K-Means++ on foreground pixels from Step 2's cutout.
     """
     full_skin_ratio, center_skin_ratio = estimate_skin_exposure_ratio(image)
@@ -521,9 +583,9 @@ async def run_garment_analysis(image: Image.Image, source_filename: str = "") ->
         probs_orig = torch.softmax(MODEL(tensor_raw)[0], dim=0)
 
     # ─────────────────────────────────────────────────────────────────────────
-    # STEP 2: Background removal (remove.bg -> pure rembg u2net fallback)
+    # STEP 2: Background removal (remove.bg multi-key rotation -> pure rembg u2net fallback)
     # ─────────────────────────────────────────────────────────────────────────
-    cutout_pil, fg_mask, cutout_data_uri, bg_source = extract_garment_cutout(image)
+    cutout_pil, fg_mask, cutout_data_uri, bg_source = extract_garment_cutout(image, force_rembg=force_rembg)
 
     # Composite RGBA cutout onto clean neutral studio background (RGB(245, 245, 245))
     # cropped to the garment's bounding box with 12% padding
@@ -624,8 +686,9 @@ async def run_garment_analysis(image: Image.Image, source_filename: str = "") ->
 async def lifespan(_: FastAPI):
     global MODEL, IS_FINETUNED_HEAD, REMBG_SESSION, LOADED_CHECKPOINT_PATH
 
-    remove_bg_key = (os.getenv("REMOVE_BG_API_KEY", "").strip()) or "6BLesBsiyabbtYwoR3Cer6DE"
-    logger.info(f"remove.bg API Key loaded: {'Yes (' + remove_bg_key[:4] + '...)' if remove_bg_key else 'No'}")
+    keys = get_remove_bg_api_keys()
+    force_rembg_env = os.getenv("FORCE_REMBG", "false").strip().lower() in ("true", "1", "yes")
+    logger.info(f"remove.bg API Key(s) loaded: {len(keys)} key(s) | FORCE_REMBG={force_rembg_env}")
 
     # Initialize local rembg session ("u2net") for fallback
     if REMBG_AVAILABLE and REMBG_SESSION is None and new_session is not None:
@@ -702,6 +765,8 @@ app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="2.
 def health() -> Dict[str, object]:
     val_metrics = LOADED_RESULTS_DATA.get("validation_metrics", {})
     test_metrics = LOADED_RESULTS_DATA.get("final_test_metrics", {})
+    keys = get_remove_bg_api_keys()
+    force_rembg_env = os.getenv("FORCE_REMBG", "false").strip().lower() in ("true", "1", "yes")
     return {
         "status": "ok",
         "model": "resnet50-stylesense-5class" if IS_FINETUNED_HEAD else "resnet50-imagenet1k-v2",
@@ -712,8 +777,10 @@ def health() -> Dict[str, object]:
         "final_test_accuracy": test_metrics.get("accuracy", 0.8631 if IS_FINETUNED_HEAD else None),
         "validation_metrics": val_metrics if val_metrics else None,
         "final_test_metrics": test_metrics if test_metrics else None,
-        "remove_bg_configured": bool(os.getenv("REMOVE_BG_API_KEY")),
+        "remove_bg_configured": len(keys) > 0,
+        "remove_bg_keys_count": len(keys),
         "remove_bg_size": os.getenv("REMOVE_BG_SIZE", "preview"),
+        "force_rembg": force_rembg_env,
         "rembg_u2net_enabled": REMBG_SESSION is not None,
         "kmeans_module": "ml-service.kmeans_color",
         "taxonomy": CATEGORIES_LIST,
@@ -723,7 +790,7 @@ def health() -> Dict[str, object]:
 
 
 @app.post("/analyze", response_model=PredictResponse)
-async def analyze(request: Request) -> PredictResponse:
+async def analyze(request: Request, force_rembg: Optional[bool] = None) -> PredictResponse:
     if request.headers.get("content-type", "").split(";")[0] not in {"image/jpeg", "image/png", "image/webp"}:
         raise HTTPException(status_code=415, detail="Send a JPEG, PNG, or WebP image body.")
     body = await request.body()
@@ -736,15 +803,18 @@ async def analyze(request: Request) -> PredictResponse:
     if MODEL is None:
         raise HTTPException(status_code=503, detail="CNN model is still loading.")
     source_filename = request.headers.get("x-source-filename", "")
-    return await run_garment_analysis(image, source_filename)
+    force_param = (force_rembg is True) or (request.query_params.get("force_rembg", "").lower() in ("true", "1", "yes"))
+    return await run_garment_analysis(image, source_filename, force_rembg=force_param)
 
 
 @app.post("/analyze-batch", response_model=BatchAnalyzeResponse)
-async def analyze_batch(payload: BatchAnalyzeRequest) -> BatchAnalyzeResponse:
+async def analyze_batch(payload: BatchAnalyzeRequest, request: Request, force_rembg: Optional[bool] = None) -> BatchAnalyzeResponse:
     if MODEL is None:
         raise HTTPException(status_code=503, detail="CNN model is still loading.")
     if len(payload.images) > 15:
         raise HTTPException(status_code=422, detail="Batch size cannot exceed 15 images.")
+
+    force_param = (force_rembg is True) or (request.query_params.get("force_rembg", "").lower() in ("true", "1", "yes"))
 
     results: List[BatchAnalyzeItemResult] = []
     for item in payload.images:
@@ -754,7 +824,7 @@ async def analyze_batch(payload: BatchAnalyzeRequest) -> BatchAnalyzeResponse:
                 raw_b64 = raw_b64.split(",", 1)[1]
             img_bytes = base64.b64decode(raw_b64)
             image = Image.open(BytesIO(img_bytes)).convert("RGB")
-            pred = await run_garment_analysis(image, item.filename or "")
+            pred = await run_garment_analysis(image, item.filename or "", force_rembg=force_param)
             pred_dict = pred.dict() if hasattr(pred, "dict") else pred.model_dump()
             results.append(BatchAnalyzeItemResult(id=item.id, **pred_dict))
         except Exception as e:
