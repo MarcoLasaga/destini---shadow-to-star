@@ -1,4 +1,14 @@
-# StyleSense CNN service
+---
+title: StyleSense ML Service
+emoji: 👗
+colorFrom: purple
+colorTo: yellow
+sdk: gradio
+sdk_version: 4.44.1
+app_file: app.py
+pinned: false
+---
+# StyleSense FastAPI ML & Hybrid Recommendation Service
 
 This service supplies `CNN_ANALYSIS_URL` for the web API. Its fallback uses a
 pretrained PyTorch ResNet-50 and maps ImageNet garment labels to StyleSense

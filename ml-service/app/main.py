@@ -95,6 +95,7 @@ if sys.platform == "win32":
             pass
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, Field
@@ -830,6 +831,14 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="2.6.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")

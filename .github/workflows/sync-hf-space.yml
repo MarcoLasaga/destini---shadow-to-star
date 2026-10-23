@@ -1,11 +1,10 @@
-name: Sync to Hugging Face Space
-
+name: Sync ML Service to Hugging Face Space
 on:
   push:
-    branches:
-      - main
+    branches: [ main, master ]
     paths:
       - 'ml-service/**'
+      - '.github/workflows/sync-hf-space.yml'
   workflow_dispatch:
 
 jobs:
@@ -15,19 +14,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
           lfs: true
 
-      - name: Push ml-service to Hugging Face Space
+      - name: Install huggingface_hub
+        run: pip install --upgrade huggingface_hub
+
+      - name: Upload ml-service folder to Hugging Face Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          git config --global user.email "bot@stylesense.app"
-          git config --global user.name "StyleSense-DeployBot"
-
-          # Isolate ml-service directory into a separate deployment branch
-          git subtree split --prefix=ml-service -b hf-space-deploy
-
-          # Force push the isolated subtree to Hugging Face Space
-          git push -f https://jdyyy1:$HF_TOKEN@huggingface.co/spaces/jdyyy1/stylesense-ml hf-space-deploy:main
-
+          python3 -c '
+          import os
+          from huggingface_hub import HfApi
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          api.upload_folder(
+              folder_path="ml-service",
+              repo_id="jdyyy1/stylesense-ml",
+              repo_type="space",
+              commit_message="Auto-sync ml-service from GitHub"
+          )
+          print("Successfully synced ml-service to jdyyy1/stylesense-ml!")
+          '
