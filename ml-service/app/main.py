@@ -101,6 +101,9 @@ from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, Field
 import requests
 
+for _p in (Path(__file__).resolve().parent, Path(__file__).resolve().parent.parent):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 import kmeans_color
 
 try:
