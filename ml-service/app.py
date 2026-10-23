@@ -2,7 +2,7 @@ import os
 import sys
 import importlib.util
 
-# Disable Gradio 6's Node.js SSR proxy so Python/FastAPI listens directly on port 7860
+# Disable Gradio 6's Node.js SSR proxy so Python listens directly on port 7860
 os.environ["GRADIO_SSR_MODE"] = "false"
 
 # 1. Import `spaces` BEFORE torch/main so Hugging Face ZeroGPU initializes cleanly
@@ -48,43 +48,76 @@ def warmup_zerogpu() -> str:
     return "StyleSense ZeroGPU & FastAPI pipeline ready."
 
 
-def mount_fastapi_routes_first(target_app) -> None:
-    """Prepend all FastAPI routes at index 0 BEFORE Gradio's catch-all GET /{path:path}."""
-    if target_app is None or not hasattr(target_app, "router"):
-        return
-    skip_paths = {"/", "/docs", "/redoc", "/openapi.json"}
-    existing_signatures = {
-        (getattr(r, "path", None), tuple(sorted(getattr(r, "methods", []) or [])))
-        for r in target_app.router.routes
-    }
-    routes_to_prepend = []
-    for route in fastapi_app.router.routes:
-        path = getattr(route, "path", None)
-        if not path or path in skip_paths:
-            continue
-        methods = tuple(sorted(getattr(route, "methods", []) or []))
-        if (path, methods) not in existing_signatures:
-            routes_to_prepend.append(route)
-            existing_signatures.add((path, methods))
-
-    if routes_to_prepend:
-        target_app.router.routes[0:0] = routes_to_prepend
-        print(
-            f"[StyleSense] Prepended {len(routes_to_prepend)} FastAPI routes at index 0: "
-            f"{[getattr(r, 'path', '') for r in routes_to_prepend]}"
-        )
+_API_POST_ENDPOINTS = {
+    "/analyze",
+    "/analyze-batch",
+    "/remove-bg",
+    "/moderate",
+    "/recommend",
+    "/score-outfit",
+}
+_API_GET_ENDPOINTS = {
+    "/health",
+    "/categories",
+    "/docs",
+    "/openapi.json",
+}
 
 
-# 3. Hook Gradio's App.create_app so routes are prepended the instant the FastAPI server is created
-if GradioServerApp is not None and hasattr(GradioServerApp, "create_app"):
-    _orig_create_app = GradioServerApp.create_app
+def _normalize_api_scope(scope: dict) -> tuple[bool, str]:
+    """
+    Normalizes incoming HTTP paths so duplicate '/analyze/analyze', trailing slashes,
+    POST '/', or GET '/analyze' health checks never trigger HTTP 405.
+    """
+    method = (scope.get("method") or "GET").upper()
+    raw_path = scope.get("path") or "/"
+    path = raw_path.rstrip("/") or "/"
 
-    def _patched_create_app(*args, **kwargs):
-        created_app = _orig_create_app(*args, **kwargs)
-        mount_fastapi_routes_first(created_app)
-        return created_app
+    # Fix accidental double '/analyze/...' when ML_SERVICE_URL ends with '/analyze'
+    if path.startswith("/analyze/"):
+        suffix = path[len("/analyze"):]
+        if suffix in _API_POST_ENDPOINTS or suffix in _API_GET_ENDPOINTS:
+            path = suffix
 
-    GradioServerApp.create_app = staticmethod(_patched_create_app)
+    # Fix '/gradio_api/...' prefix if called through Gradio prefix
+    if path.startswith("/gradio_api/"):
+        suffix = path[len("/gradio_api"):]
+        if suffix in _API_POST_ENDPOINTS or suffix in _API_GET_ENDPOINTS:
+            path = suffix
+
+    # If a client sends GET/HEAD to /analyze (health check or redirect), return /health (200 OK)
+    if path == "/analyze" and method in ("GET", "HEAD"):
+        return True, "/health"
+
+    # If a client sends POST to "/" (when CNN_ANALYSIS_URL is set to base URL), route to /analyze
+    if path == "/" and method == "POST":
+        return True, "/analyze"
+
+    if path in _API_POST_ENDPOINTS or path in _API_GET_ENDPOINTS:
+        return True, path
+
+    return False, raw_path
+
+
+# 3. Hook GradioServerApp.__call__ at the outermost ASGI layer so FastAPI handles API requests directly
+if GradioServerApp is not None:
+    _orig_asgi_call = GradioServerApp.__call__
+
+    async def _stylesense_asgi_call(self, scope, receive, send):
+        if scope.get("type") == "http":
+            is_api, norm_path = _normalize_api_scope(scope)
+            if is_api:
+                orig_path = scope.get("path", "")
+                method = scope.get("method", "GET")
+                print(f"[StyleSense ASGI] {method} {orig_path} -> {norm_path}", flush=True)
+                patched_scope = dict(scope)
+                patched_scope["path"] = norm_path
+                patched_scope["raw_path"] = norm_path.encode("utf-8")
+                await fastapi_app(patched_scope, receive, send)
+                return
+        await _orig_asgi_call(self, scope, receive, send)
+
+    GradioServerApp.__call__ = _stylesense_asgi_call  # type: ignore[method-assign]
 
 
 demo = None
@@ -102,17 +135,11 @@ if gr is not None:
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 7860))
     if gr is not None and demo is not None:
-        res = demo.launch(
+        demo.launch(
             server_name="0.0.0.0",
             server_port=port,
             ssr_mode=False,
-            prevent_thread_lock=True,
         )
-        live_app = getattr(demo, "server_app", None) or getattr(demo, "app", None)
-        if isinstance(res, tuple) and len(res) > 0 and hasattr(res[0], "router"):
-            live_app = res[0]
-        mount_fastapi_routes_first(live_app)
-        demo.block_thread()
     else:
         import uvicorn
         uvicorn.run(fastapi_app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
