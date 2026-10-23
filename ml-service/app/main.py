@@ -16,6 +16,7 @@ Implements:
 
 import base64
 from contextlib import asynccontextmanager
+import gc
 from io import BytesIO
 import json
 import logging
@@ -100,6 +101,11 @@ from pydantic import BaseModel, Field
 import requests
 
 import kmeans_color
+
+try:
+    import cv2
+except Exception:
+    cv2 = None
 
 try:
     from rembg import remove, new_session
@@ -196,13 +202,16 @@ EVAL_TRANSFORMS = (
     else None
 )
 
-# Initialize local rembg session ("u2net") for fallback
+# Initialize local rembg session ("u2netp") for fast sub-second fallback
 REMBG_SESSION: Optional[Any] = None
 if REMBG_AVAILABLE and new_session is not None:
     try:
-        REMBG_SESSION = new_session("u2net")
+        REMBG_SESSION = new_session("u2netp")
     except Exception:
-        REMBG_SESSION = None
+        try:
+            REMBG_SESSION = new_session("u2net")
+        except Exception:
+            REMBG_SESSION = None
 
 CATEGORY_DEFAULT_METADATA: Dict[str, Tuple[str, Material, Style, Occasion, LayerRole]] = {
     "TOP": ("Shirt", "Cotton", "CASUAL", "EVERYDAY", "INNER_BASE"),
@@ -332,19 +341,20 @@ def extract_garment_cutout(
     pil_img: Image.Image,
     force_rembg: bool = False,
 ) -> Tuple[Image.Image, np.ndarray, str, str]:
-    """Segment garment using official remove.bg API with multi-key rotation and pure rembg u2net fallback.
+    """Segment garment using official remove.bg API with multi-key rotation and pure rembg u2netp fallback.
 
     - Supports FORCE_REMBG=true (in .env or param) to bypass remove.bg completely (spending 0 credits).
     - If Key #1 returns HTTP 402 or 429, automatically retries with Key #2, #3, etc. before falling back to rembg.
-    - Zero OpenCV contour filling or GrabCut code is used, preventing opaque background corruption.
+    - Zero OpenCV GrabCut code is used, preventing opaque background corruption.
+    - Fast sub-secondBILINEAR downsampling to 384x384 and lightweight WebP encoding.
 
     Returns:
         (cutout_pil, fg_mask, cutout_data_uri, bg_source)
     """
     global REMBG_SESSION
-    # 1. Resize working copy to max 640 maintaining aspect ratio
+    # 1. Resize working copy to 384x384 (BILINEAR) for sub-second inference & low RAM
     img = pil_img.convert("RGB").copy()
-    img.thumbnail((640, 640), Image.Resampling.LANCZOS)
+    img.thumbnail((384, 384), Image.Resampling.BILINEAR)
 
     cutout: Optional[Image.Image] = None
     bg_source = "none"
@@ -387,7 +397,7 @@ def extract_garment_cutout(
                             )
                         else:
                             logger.warning(
-                                f"[REMOVE-BG] Key #{idx} ({key_masked}) {reason}. All {len(keys)} configured keys exhausted! Falling back to local rembg u2net."
+                                f"[REMOVE-BG] Key #{idx} ({key_masked}) {reason}. All {len(keys)} configured keys exhausted! Falling back to local rembg."
                             )
                     elif response.status_code == 401:
                         logger.warning(f"[REMOVE-BG] Key #{idx} ({key_masked}) unauthorized (HTTP 401).")
@@ -409,20 +419,22 @@ def extract_garment_cutout(
         except Exception as e:
             logger.warning(f"[REMOVE-BG] Image encoding failed: {e}")
 
-    # 3. Fallback: Pure rembg local u2net model with alpha_matting=False (zero OpenCV contour manipulation)
+    # 3. Fallback: Pure rembg local u2netp model with alpha_matting=False (fast, never alpha_matting=True)
     if cutout is None:
         if REMBG_AVAILABLE and remove is not None:
             try:
                 if REMBG_SESSION is None and new_session is not None:
-                    REMBG_SESSION = new_session("u2net")
+                    try:
+                        REMBG_SESSION = new_session("u2netp")
+                    except Exception:
+                        REMBG_SESSION = new_session("u2net")
                 if REMBG_SESSION is not None:
                     cutout = remove(
                         img,
                         session=REMBG_SESSION,
                         alpha_matting=False,
-                        post_process_mask=True,
                     )
-                    bg_source = "rembg_u2net"
+                    bg_source = "rembg_u2netp"
             except Exception as e:
                 logger.warning(f"rembg removal failed: {e}")
                 cutout = None
@@ -434,28 +446,48 @@ def extract_garment_cutout(
     # 4. Clean up faint background alpha noise (< 20 -> 0)
     rgba = np.array(cutout.convert("RGBA"))
     alpha = rgba[:, :, 3]
-    rgba[:, :, 3] = np.where(alpha < 20, 0, alpha)
+    alpha = np.where(alpha < 20, 0, alpha).astype(np.uint8)
+
+    # Morphological closing (5, 5 ellipse) and (3, 3) GaussianBlur
+    if cv2 is not None:
+        try:
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+            alpha = cv2.morphologyEx(alpha, cv2.MORPH_CLOSE, kernel)
+            alpha = cv2.GaussianBlur(alpha, (3, 3), 0)
+        except Exception as e:
+            logger.warning(f"Morphological smoothing skipped: {e}")
+
+    rgba[:, :, 3] = alpha
     cutout = Image.fromarray(rgba, mode="RGBA")
 
-    # Proportionally center on 480x480 transparent PNG canvas
+    # Center tight bounding-box crop on 400x400 RGBA canvas
     bbox = cutout.getbbox()
-    canvas = Image.new("RGBA", (480, 480), (0, 0, 0, 0))
+    canvas = Image.new("RGBA", (400, 400), (0, 0, 0, 0))
     if bbox:
         cropped = cutout.crop(bbox)
-        cropped.thumbnail((440, 440), Image.Resampling.LANCZOS)
-        offset = ((480 - cropped.width) // 2, (480 - cropped.height) // 2)
+        cropped.thumbnail((368, 368), Image.Resampling.BILINEAR)
+        offset = ((400 - cropped.width) // 2, (400 - cropped.height) // 2)
         canvas.paste(cropped, offset, cropped)
     else:
         thumb = cutout.copy()
-        thumb.thumbnail((440, 440), Image.Resampling.LANCZOS)
-        offset = ((480 - thumb.width) // 2, (480 - thumb.height) // 2)
+        thumb.thumbnail((368, 368), Image.Resampling.BILINEAR)
+        offset = ((400 - thumb.width) // 2, (400 - thumb.height) // 2)
         canvas.paste(thumb, offset)
     cutout = canvas
 
+    # Encode cutout into BytesIO as WEBP (quality=85, method=4), falling back to PNG
     buffered = BytesIO()
-    cutout.save(buffered, format="PNG")
+    mime_type = "image/webp"
+    try:
+        cutout.save(buffered, format="WEBP", quality=85, method=4)
+    except Exception as e:
+        logger.warning(f"WebP encoding failed, falling back to PNG: {e}")
+        buffered = BytesIO()
+        cutout.save(buffered, format="PNG")
+        mime_type = "image/png"
+
     cutout_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
-    cutout_data_uri = f"data:image/png;base64,{cutout_base64}"
+    cutout_data_uri = f"data:{mime_type};base64,{cutout_base64}"
 
     fg_mask = np.array(cutout)[:, :, 3] > 64
     return cutout, fg_mask, cutout_data_uri, bg_source
@@ -465,7 +497,8 @@ def extract_color_palette_kmeans(
     cutout: Image.Image,
     fg_mask: Optional[np.ndarray] = None,
     k: int = 2,
-    max_iter: int = 100,
+    max_iter: int = 30,
+    tol: float = 1e-3,
     random_state: int = 42,
 ) -> Tuple[str, str, Optional[str], List[ColorClusterInfo]]:
     """Extract dominant colors and CIELAB palette using ml-service/kmeans_color.py on foreground pixels."""
@@ -479,15 +512,16 @@ def extract_color_palette_kmeans(
         else:
             fg_pixels = rgba[:, :, :3].reshape(-1, 3).astype(np.float64)
 
-    if len(fg_pixels) > 3000:
+    # Subsample at most 1200 foreground pixels for <4ms CIELAB K-Means++
+    if len(fg_pixels) > 1200:
         rng = np.random.default_rng(random_state)
-        idx = rng.choice(len(fg_pixels), size=3000, replace=False)
+        idx = rng.choice(len(fg_pixels), size=1200, replace=False)
         fg_pixels = fg_pixels[idx]
 
     fg_lab = kmeans_color.rgb_to_cielab(fg_pixels)
 
-    # Use KMeansCIELAB from ml-service/kmeans_color.py
-    km = kmeans_color.KMeansCIELAB(n_clusters=k, max_iter=max_iter, random_state=random_state)
+    # Use KMeansCIELAB from ml-service/kmeans_color.py with max_iter=30 and tol=1e-3
+    km = kmeans_color.KMeansCIELAB(n_clusters=k, max_iter=max_iter, tol=tol, random_state=random_state)
     km.fit(fg_lab)
 
     centers = km.cluster_centers_
@@ -574,22 +608,16 @@ async def run_garment_analysis(
 
     transforms_to_use = EVAL_TRANSFORMS if (IS_FINETUNED_HEAD or WEIGHTS is None or EVAL_TRANSFORMS is not None) else WEIGHTS.transforms()
     rgb_image = image.convert("RGB")
-    tensor_raw = transforms_to_use(rgb_image).unsqueeze(0)
 
     # ─────────────────────────────────────────────────────────────────────────
-    # STEP 1: Run ResNet-50 on ORIGINAL unmodified RGB image
-    # ─────────────────────────────────────────────────────────────────────────
-    with torch.inference_mode():
-        probs_orig = torch.softmax(MODEL(tensor_raw)[0], dim=0)
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # STEP 2: Background removal (remove.bg multi-key rotation -> pure rembg u2net fallback)
+    # STEP 1: Background removal (remove.bg multi-key rotation -> pure rembg u2netp fallback)
     # ─────────────────────────────────────────────────────────────────────────
     cutout_pil, fg_mask, cutout_data_uri, bg_source = extract_garment_cutout(image, force_rembg=force_rembg)
 
+    fg_coverage = float(np.mean(fg_mask)) if (fg_mask is not None and fg_mask.size > 0) else 0.0
+
     # Composite RGBA cutout onto clean neutral studio background (RGB(245, 245, 245))
     # cropped to the garment's bounding box with 12% padding
-    probs_cutout_studio = probs_orig
     if cutout_pil is not None:
         try:
             alpha = cutout_pil.split()[3]
@@ -612,17 +640,27 @@ async def run_garment_analysis(
                 garment_crop = cutout_pil
 
             studio_bg = Image.new("RGBA", garment_crop.size, (245, 245, 245, 255))
-            cutout_studio = Image.alpha_composite(studio_bg, garment_crop).convert("RGB")
-
-            tensor_studio = transforms_to_use(cutout_studio).unsqueeze(0)
-            with torch.inference_mode():
-                probs_cutout_studio = torch.softmax(MODEL(tensor_studio)[0], dim=0)
+            clean_rgb_for_cnn = Image.alpha_composite(studio_bg, garment_crop).convert("RGB")
         except Exception as e:
-            logger.warning(f"Studio cutout inference fallback: {e}")
-            probs_cutout_studio = probs_orig
+            logger.warning(f"Studio cutout composition fallback: {e}")
+            clean_rgb_for_cnn = rgb_image
+    else:
+        clean_rgb_for_cnn = rgb_image
 
-    # Average softmax probabilities (0.5 * probs_orig + 0.5 * probs_cutout_studio)
-    probabilities = 0.5 * probs_orig + 0.5 * probs_cutout_studio
+    tensor_clean = transforms_to_use(clean_rgb_for_cnn).unsqueeze(0)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # STEP 2: Fast ResNet-50 forward pass
+    # Single clean pass when fg_coverage >= 0.12; dual pass only when fg_coverage < 0.12
+    # ─────────────────────────────────────────────────────────────────────────
+    with torch.inference_mode():
+        probs_clean = torch.softmax(MODEL(tensor_clean)[0], dim=0)
+        if fg_coverage >= 0.12:
+            probabilities = probs_clean
+        else:
+            tensor_raw = transforms_to_use(rgb_image).unsqueeze(0)
+            probs_orig = torch.softmax(MODEL(tensor_raw)[0], dim=0)
+            probabilities = 0.5 * probs_orig + 0.5 * probs_clean
 
     # True ResNet-50 softmax confidence and genuine class probabilities (NO WARPING!)
     top_prob, top_idx = torch.max(probabilities, dim=0)
@@ -657,7 +695,7 @@ async def run_garment_analysis(
 
     # Terminal Log: clear log line on every analyze call
     print(
-        f"[ML-ANALYZE] checkpoint_loaded={IS_FINETUNED_HEAD} | pred_cat={pred_cat} (conf={raw_conf:.4f}, probs={class_probabilities}) | remove_bg_source={bg_source} | color={dom_color} ({color_hex})",
+        f"[ML-ANALYZE] checkpoint_loaded={IS_FINETUNED_HEAD} | pred_cat={pred_cat} (conf={raw_conf:.4f}, probs={class_probabilities}) | remove_bg_source={bg_source} | fg_cov={fg_coverage:.3f} | color={dom_color} ({color_hex})",
         flush=True,
     )
 
@@ -686,17 +724,33 @@ async def run_garment_analysis(
 async def lifespan(_: FastAPI):
     global MODEL, IS_FINETUNED_HEAD, REMBG_SESSION, LOADED_CHECKPOINT_PATH
 
+    # Constrain torch thread count for low CPU usage & predictable latency
+    if TORCH_AVAILABLE and torch is not None:
+        try:
+            torch.set_num_threads(2)
+        except Exception as e:
+            logger.warning(f"Could not set torch num threads: {e}")
+
     keys = get_remove_bg_api_keys()
     force_rembg_env = os.getenv("FORCE_REMBG", "false").strip().lower() in ("true", "1", "yes")
     logger.info(f"remove.bg API Key(s) loaded: {len(keys)} key(s) | FORCE_REMBG={force_rembg_env}")
 
-    # Initialize local rembg session ("u2net") for fallback
-    if REMBG_AVAILABLE and REMBG_SESSION is None and new_session is not None:
+    # Initialize and pre-warm local rembg session ("u2netp") for fast sub-second fallback
+    if REMBG_AVAILABLE and new_session is not None and remove is not None:
         try:
-            REMBG_SESSION = new_session("u2net")
+            if REMBG_SESSION is None:
+                REMBG_SESSION = new_session("u2netp")
+            dummy_img = Image.new("RGB", (64, 64), (200, 200, 200))
+            remove(dummy_img, session=REMBG_SESSION, alpha_matting=False)
+            logger.info("rembg u2netp session pre-warmed successfully.")
         except Exception as e:
-            logger.warning(f"Failed to initialize rembg u2net session: {e}")
-            REMBG_SESSION = None
+            logger.warning(f"Failed to initialize/pre-warm rembg u2netp session: {e}")
+            try:
+                REMBG_SESSION = new_session("u2net")
+                dummy_img = Image.new("RGB", (64, 64), (200, 200, 200))
+                remove(dummy_img, session=REMBG_SESSION, alpha_matting=False)
+            except Exception:
+                REMBG_SESSION = None
 
     # Load Epoch 13 ResNet-50 Checkpoint
     if TORCH_AVAILABLE and resnet50 is not None:
@@ -713,7 +767,11 @@ async def lifespan(_: FastAPI):
         if ckpt_candidate is not None:
             LOADED_CHECKPOINT_PATH = str(ckpt_candidate.resolve())
             try:
-                state = torch.load(ckpt_candidate, map_location="cpu")
+                try:
+                    state = torch.load(ckpt_candidate, map_location="cpu", mmap=True)
+                except Exception:
+                    state = torch.load(ckpt_candidate, map_location="cpu")
+
                 if isinstance(state, dict):
                     for key in ("model_state_dict", "state_dict", "model", "net"):
                         if key in state and isinstance(state[key], dict):
@@ -747,12 +805,25 @@ async def lifespan(_: FastAPI):
             except Exception as e:
                 print(f"[STARTUP] Failed to load checkpoint {ckpt_candidate}: {e}")
                 logger.warning(f"Failed to load checkpoint {ckpt_candidate}: {e}")
+            finally:
+                if "state" in locals():
+                    del state
+                gc.collect()
 
         if MODEL is None:
             print("[STARTUP] Active model: ResNet-50 ImageNet-1K V2 fallback head")
             logger.info("Active model: ResNet-50 ImageNet-1K V2 fallback head")
             MODEL = resnet50(weights=WEIGHTS).eval()
             IS_FINETUNED_HEAD = False
+
+        # Pre-warm MODEL so first user request never times out
+        try:
+            with torch.inference_mode():
+                dummy_tensor = torch.zeros((1, 3, 224, 224))
+                MODEL(dummy_tensor)
+            logger.info("ResNet-50 MODEL pre-warmed successfully.")
+        except Exception as e:
+            logger.warning(f"Could not pre-warm MODEL: {e}")
 
     yield
     MODEL = None

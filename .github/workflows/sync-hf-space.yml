@@ -1,0 +1,33 @@
+name: Sync to Hugging Face Space
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'ml-service/**'
+  workflow_dispatch:
+
+jobs:
+  sync-to-hub:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Push ml-service to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git config --global user.email "bot@stylesense.app"
+          git config --global user.name "StyleSense-DeployBot"
+
+          # Isolate ml-service directory into a separate deployment branch
+          git subtree split --prefix=ml-service -b hf-space-deploy
+
+          # Force push the isolated subtree to Hugging Face Space
+          git push -f https://jdyyy1:$HF_TOKEN@huggingface.co/spaces/jdyyy1/stylesense-ml hf-space-deploy:main
+

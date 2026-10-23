@@ -446,11 +446,10 @@ export async function inspectImageModeration(buffer: Buffer): Promise<ImageModer
  * dimensions are constrained and RGB JPEG pixels are produced.
  */
 async function preprocessForCnn(buffer: Buffer) {
-  return sharp(buffer, { failOn: 'error' })
+  return sharp(buffer, { failOn: 'none' })
     .rotate()
-    .resize(1280, 1280, { fit: 'inside', withoutEnlargement: true })
-    .removeAlpha()
-    .jpeg({ quality: 92, mozjpeg: true })
+    .resize(512, 512, { fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 85, mozjpeg: true })
     .toBuffer()
 }
 
@@ -485,95 +484,115 @@ export const imageAnalysisService = {
 
     const defaultCategoryForColor: CategoryType = 'TOP'
 
-    // 2. Query remote CNN microservice directly with raw image
+    // 2. Query remote CNN microservice with preprocessed 512x512 JPEG image and retry loop
     const analysisUrl = ENV.CNN_ANALYSIS_URL || (ENV.ML_SERVICE_URL ? `${ENV.ML_SERVICE_URL}/analyze` : 'http://127.0.0.1:8000/analyze')
-    try {
-      const { data } = await axios.post<unknown>(analysisUrl, file.buffer, {
-        headers: {
-          'Content-Type': file.mimetype || 'image/jpeg',
-          'X-Source-Filename': encodeURIComponent(file.originalname),
-          'ngrok-skip-browser-warning': 'true',
-        },
-        timeout: 30_000,
-      })
-      const result = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>
-      const rawConfidence = typeof result.confidence === 'number' && result.confidence >= 0 && result.confidence <= 1 ? result.confidence : 0.0
-      const confidence = Number(rawConfidence.toFixed(4))
-      const resolvedCat = optionalEnum(result.category, CATEGORIES)
-      const resolvedColor = typeof result.color === 'string' && result.color.length <= 50 ? result.color : moderation.dominantColor
+    const cnnBuffer = await preprocessForCnn(file.buffer)
 
-      const subCategory =
-        typeof result.subCategory === 'string' && result.subCategory.trim()
-          ? result.subCategory.trim()
-          : (resolvedCat ? 'Shirt' : null)
-      const suggestedName =
-        typeof result.suggestedName === 'string' && result.suggestedName.trim()
-          ? result.suggestedName.trim()
-          : (subCategory ? `${resolvedColor} ${subCategory}` : null)
-      const style = optionalEnum(result.style, STYLES) ?? (resolvedCat ? 'CASUAL' : undefined)
-      const suggestedBrand =
-        typeof result.suggestedBrand === 'string' && result.suggestedBrand.trim()
-          ? result.suggestedBrand.trim()
-          : null
-      const layerRole =
-        optionalEnum(result.layerRole, LAYER_ROLES) ?? (resolvedCat ? 'INNER_BASE' : null)
-      const colorHex =
-        typeof result.colorHex === 'string' && /^#[0-9a-f]{6}$/i.test(result.colorHex)
-          ? result.colorHex
-          : moderation.colorHex
-      const occasion =
-        optionalEnum(result.occasion, OCCASIONS) ??
-        (typeof result.occasion === 'string' ? result.occasion : (resolvedCat ? 'EVERYDAY' : null))
-      const material =
-        typeof result.material === 'string' && result.material.trim()
-          ? result.material.trim()
-          : (resolvedCat ? 'Cotton' : null)
-      const cutoutDataUri =
-        typeof result.cutoutDataUri === 'string' && result.cutoutDataUri.startsWith('data:image/png;base64,')
-          ? result.cutoutDataUri
-          : moderation.cutoutDataUri
+    let lastError: any = null
+    let responseData: any = null
 
-      return {
-        category: resolvedCat,
-        categoryConfidence: confidence,
-        subCategory,
-        suggestedName,
-        suggestedBrand,
-        layerRole,
-        color: resolvedColor,
-        colorHex,
-        secondary_color: typeof result.secondary_color === 'string'
-          ? result.secondary_color
-          : (result.secondary_color === null ? null : moderation.secondaryColor),
-        palette: result.palette ? (result.palette as any) : moderation.palette,
-        style,
-        occasion,
-        material,
-        confidence,
-        class_probabilities: result.class_probabilities && typeof result.class_probabilities === 'object'
-          ? (result.class_probabilities as Record<string, number>)
-          : undefined,
-        cutoutDataUri,
-        is_safe_garment: typeof result.is_safe_garment === 'boolean' ? result.is_safe_garment : true,
-        moderation_reason: typeof result.moderation_reason === 'string'
-          ? result.moderation_reason
-          : (result.moderation_reason === null ? null : undefined),
-        attributes: result.attributes && typeof result.attributes === 'object' ? (result.attributes as Record<string, unknown>) : null,
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const { data } = await axios.post<unknown>(analysisUrl, cnnBuffer, {
+          headers: {
+            'Content-Type': 'image/jpeg',
+            'X-Source-Filename': encodeURIComponent(file.originalname),
+            'ngrok-skip-browser-warning': 'true',
+          },
+          timeout: 25_000,
+        })
+        responseData = data
+        break
+      } catch (err: any) {
+        lastError = err
+        if (err.response?.status && err.response.status < 500) {
+          break
+        }
+        if (attempt < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 1200))
+        }
       }
-    } catch (cnnErr: any) {
-      if (cnnErr.response?.data?.is_safe_garment === false) {
+    }
+
+    if (!responseData) {
+      if (lastError?.response?.data?.is_safe_garment === false) {
         return {
           category: undefined,
           confidence: 0,
           cutoutDataUri: null,
           is_safe_garment: false,
-          moderation_reason: cnnErr.response.data.moderation_reason || moderation.moderation_reason,
+          moderation_reason: lastError.response.data.moderation_reason || moderation.moderation_reason,
         }
       }
       throw Object.assign(
-        new Error(`ML service at ${analysisUrl} is unreachable (${cnnErr.message || 'connection failed'}). Ensure ml-service is running.`),
+        new Error(`ML service at ${analysisUrl} is unreachable (${lastError?.message || 'connection failed'}). Ensure ml-service is running.`),
         { statusCode: 503, isOperational: true }
       )
+    }
+
+    const result = (responseData && typeof responseData === 'object' ? responseData : {}) as Record<string, unknown>
+    const rawConfidence = typeof result.confidence === 'number' && result.confidence >= 0 && result.confidence <= 1 ? result.confidence : 0.0
+    const confidence = Number(rawConfidence.toFixed(4))
+    const resolvedCat = optionalEnum(result.category, CATEGORIES)
+    const resolvedColor = typeof result.color === 'string' && result.color.length <= 50 ? result.color : moderation.dominantColor
+
+    const subCategory =
+      typeof result.subCategory === 'string' && result.subCategory.trim()
+        ? result.subCategory.trim()
+        : (resolvedCat ? 'Shirt' : null)
+    const suggestedName =
+      typeof result.suggestedName === 'string' && result.suggestedName.trim()
+        ? result.suggestedName.trim()
+        : (subCategory ? `${resolvedColor} ${subCategory}` : null)
+    const style = optionalEnum(result.style, STYLES) ?? (resolvedCat ? 'CASUAL' : undefined)
+    const suggestedBrand =
+      typeof result.suggestedBrand === 'string' && result.suggestedBrand.trim()
+        ? result.suggestedBrand.trim()
+        : null
+    const layerRole =
+      optionalEnum(result.layerRole, LAYER_ROLES) ?? (resolvedCat ? 'INNER_BASE' : null)
+    const colorHex =
+      typeof result.colorHex === 'string' && /^#[0-9a-f]{6}$/i.test(result.colorHex)
+        ? result.colorHex
+        : moderation.colorHex
+    const occasion =
+      optionalEnum(result.occasion, OCCASIONS) ??
+      (typeof result.occasion === 'string' ? result.occasion : (resolvedCat ? 'EVERYDAY' : null))
+    const material =
+      typeof result.material === 'string' && result.material.trim()
+        ? result.material.trim()
+        : (resolvedCat ? 'Cotton' : null)
+    const cutoutDataUri =
+      typeof result.cutoutDataUri === 'string' && (result.cutoutDataUri.startsWith('data:image/webp;base64,') || result.cutoutDataUri.startsWith('data:image/png;base64,'))
+        ? result.cutoutDataUri
+        : moderation.cutoutDataUri
+
+    return {
+      category: resolvedCat,
+      categoryConfidence: confidence,
+      subCategory,
+      suggestedName,
+      suggestedBrand,
+      layerRole,
+      color: resolvedColor,
+      colorHex,
+      secondary_color: typeof result.secondary_color === 'string'
+        ? result.secondary_color
+        : (result.secondary_color === null ? null : moderation.secondaryColor),
+      palette: result.palette ? (result.palette as any) : moderation.palette,
+      style,
+      occasion,
+      material,
+      confidence,
+      class_probabilities: result.class_probabilities && typeof result.class_probabilities === 'object'
+        ? (result.class_probabilities as Record<string, number>)
+        : undefined,
+      cutoutDataUri,
+      is_safe_garment: typeof result.is_safe_garment === 'boolean' ? result.is_safe_garment : true,
+      moderation_reason: typeof result.moderation_reason === 'string'
+        ? result.moderation_reason
+        : (result.moderation_reason === null ? null : undefined),
+      attributes: result.attributes && typeof result.attributes === 'object' ? (result.attributes as Record<string, unknown>) : null,
     }
   },
 }

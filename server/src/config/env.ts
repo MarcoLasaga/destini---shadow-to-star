@@ -18,7 +18,7 @@ export const ENV = {
   SUPABASE_URL: process.env.VITE_SUPABASE_URL || 'https://wdvndocbxxzpltywtpub.supabase.co',
   SUPABASE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || '',
   // URL of the separately deployed clothing CNN & ML microservice
-  CNN_ANALYSIS_URL: (process.env.CNN_ANALYSIS_URL || `${rawMlUrl}/analyze`).replace(/\/+$/, ''),
+  CNN_ANALYSIS_URL: (process.env.CNN_ANALYSIS_URL || (process.env.ML_SERVICE_URL ? `${rawMlUrl}/analyze` : 'https://jdyyy1-stylesense-ml.hf.space/analyze')).replace(/\/+$/, ''),
   ML_SERVICE_URL: rawMlUrl,
   OPENWEATHER_API_KEY: process.env.OPENWEATHER_API_KEY || '',
 }
