@@ -5,7 +5,9 @@ on:
     branches:
       - main
       - master
+      - feature/web-portal-structure
       - web-portal-structure
+      - 'feature/**'
     paths:
       - "ml-service/**"
       - ".github/workflows/sync-hf-space.yml"
