@@ -1,5 +1,6 @@
 import os
 import sys
+import inspect
 import importlib.util
 
 # Disable Gradio 6's Node.js SSR proxy so Python listens directly on port 7860
@@ -20,6 +21,7 @@ except ImportError:
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 APP_DIR = os.path.join(ROOT_DIR, "app")
+os.chdir(ROOT_DIR)
 for p in (ROOT_DIR, APP_DIR):
     if os.path.isdir(p) and p not in sys.path:
         sys.path.insert(0, p)
@@ -48,6 +50,32 @@ def warmup_zerogpu() -> str:
     return "StyleSense ZeroGPU & FastAPI pipeline ready."
 
 
+_startup_done = False
+_lifespan_cm = None
+
+
+async def _ensure_fastapi_startup() -> None:
+    """Executes fastapi_app's startup/lifespan handlers so ResNet-50 loads into memory."""
+    global _startup_done, _lifespan_cm
+    if _startup_done:
+        return
+    _startup_done = True
+    print("[StyleSense] Running FastAPI startup events & loading ResNet-50 model...", flush=True)
+    try:
+        lifespan_factory = getattr(fastapi_app.router, "lifespan_context", None)
+        if lifespan_factory is not None:
+            _lifespan_cm = lifespan_factory(fastapi_app)
+            await _lifespan_cm.__aenter__()
+        else:
+            for handler in getattr(fastapi_app.router, "on_startup", []):
+                res = handler()
+                if inspect.isawaitable(res):
+                    await res
+        print("[StyleSense] FastAPI startup & ResNet-50 model ready!", flush=True)
+    except Exception as exc:
+        print(f"[StyleSense] FastAPI startup error: {exc}", flush=True)
+
+
 _API_POST_ENDPOINTS = {
     "/analyze",
     "/analyze-batch",
@@ -65,31 +93,23 @@ _API_GET_ENDPOINTS = {
 
 
 def _normalize_api_scope(scope: dict) -> tuple[bool, str]:
-    """
-    Normalizes incoming HTTP paths so duplicate '/analyze/analyze', trailing slashes,
-    POST '/', or GET '/analyze' health checks never trigger HTTP 405.
-    """
     method = (scope.get("method") or "GET").upper()
     raw_path = scope.get("path") or "/"
     path = raw_path.rstrip("/") or "/"
 
-    # Fix accidental double '/analyze/...' when ML_SERVICE_URL ends with '/analyze'
     if path.startswith("/analyze/"):
         suffix = path[len("/analyze"):]
         if suffix in _API_POST_ENDPOINTS or suffix in _API_GET_ENDPOINTS:
             path = suffix
 
-    # Fix '/gradio_api/...' prefix if called through Gradio prefix
     if path.startswith("/gradio_api/"):
         suffix = path[len("/gradio_api"):]
         if suffix in _API_POST_ENDPOINTS or suffix in _API_GET_ENDPOINTS:
             path = suffix
 
-    # If a client sends GET/HEAD to /analyze (health check or redirect), return /health (200 OK)
     if path == "/analyze" and method in ("GET", "HEAD"):
         return True, "/health"
 
-    # If a client sends POST to "/" (when CNN_ANALYSIS_URL is set to base URL), route to /analyze
     if path == "/" and method == "POST":
         return True, "/analyze"
 
@@ -99,7 +119,7 @@ def _normalize_api_scope(scope: dict) -> tuple[bool, str]:
     return False, raw_path
 
 
-# 3. Hook GradioServerApp.__call__ at the outermost ASGI layer so FastAPI handles API requests directly
+# 3. Hook GradioServerApp.__call__ at the outermost ASGI layer
 if GradioServerApp is not None:
     _orig_asgi_call = GradioServerApp.__call__
 
@@ -107,13 +127,35 @@ if GradioServerApp is not None:
         if scope.get("type") == "http":
             is_api, norm_path = _normalize_api_scope(scope)
             if is_api:
+                await _ensure_fastapi_startup()
                 orig_path = scope.get("path", "")
                 method = scope.get("method", "GET")
                 print(f"[StyleSense ASGI] {method} {orig_path} -> {norm_path}", flush=True)
                 patched_scope = dict(scope)
                 patched_scope["path"] = norm_path
                 patched_scope["raw_path"] = norm_path.encode("utf-8")
-                await fastapi_app(patched_scope, receive, send)
+
+                status_holder = [200]
+
+                async def _logging_send(message):
+                    if message.get("type") == "http.response.start":
+                        status_holder[0] = message.get("status", 200)
+                        print(
+                            f"[StyleSense ASGI] <- Status {status_holder[0]} for {method} {norm_path}",
+                            flush=True,
+                        )
+                    elif message.get("type") == "http.response.body":
+                        if status_holder[0] >= 400:
+                            body_bytes = message.get("body", b"")
+                            if body_bytes:
+                                print(
+                                    f"[StyleSense ASGI] <- Error detail: "
+                                    f"{body_bytes[:500].decode('utf-8', errors='replace')}",
+                                    flush=True,
+                                )
+                    await send(message)
+
+                await fastapi_app(patched_scope, receive, _logging_send)
                 return
         await _orig_asgi_call(self, scope, receive, send)
 

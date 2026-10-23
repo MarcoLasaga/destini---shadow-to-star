@@ -1,45 +1,57 @@
 name: Sync ML Service to Hugging Face Space
+
 on:
   push:
+    branches:
+      - main
+      - master
+      - web-portal-structure
     paths:
-      - 'ml-service/**'
-      - '.github/workflows/sync-hf-space.yml'
+      - "ml-service/**"
+      - ".github/workflows/sync-hf-space.yml"
   workflow_dispatch:
 
 jobs:
-  sync-to-hub:
+  sync-to-hf:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          lfs: true
+          fetch-depth: 1
 
       - name: Install huggingface_hub
         run: pip install --upgrade huggingface_hub
 
-      - name: Upload ml-service folder to Hugging Face Space
+      - name: Sync ml-service to Hugging Face Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          GIT_COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           python3 -c '
           import os
           from huggingface_hub import HfApi
+
+          raw_msg = os.environ.get("GIT_COMMIT_MSG", "").strip()
+          commit_title = raw_msg.splitlines()[0][:120] if raw_msg else "Auto-sync ml-service from GitHub"
+
           api = HfApi(token=os.environ["HF_TOKEN"])
           api.upload_folder(
               folder_path="ml-service",
               repo_id="jdyyy1/stylesense-ml",
               repo_type="space",
+              commit_message=commit_title,
               ignore_patterns=[
+                  ".env",
+                  ".env.*",
+                  "__pycache__",
                   "**/__pycache__/**",
                   "*.pyc",
-                  ".env",
-                  ".git/**",
+                  "venv/**",
+                  ".venv/**",
                   "dataset/**",
-                  "data/**",
-                  "tests/**"
+                  "data/**"
               ],
-              commit_message="Auto-sync ml-service from GitHub"
           )
-          print("Successfully synced ml-service to jdyyy1/stylesense-ml!")
+          print(f"Successfully synced ml-service to Hugging Face with commit: {commit_title}")
           '
