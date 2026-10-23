@@ -2,6 +2,9 @@ import os
 import sys
 import importlib.util
 
+# Disable Gradio 6's Node.js SSR proxy so Python/FastAPI listens directly on port 7860
+os.environ["GRADIO_SSR_MODE"] = "false"
+
 # 1. Import `spaces` BEFORE torch/main so Hugging Face ZeroGPU initializes cleanly
 try:
     import spaces  # type: ignore[import-not-found]
@@ -65,7 +68,6 @@ def mount_fastapi_routes_first(target_app) -> None:
             existing_signatures.add((path, methods))
 
     if routes_to_prepend:
-        # Insert at index 0 so POST /analyze, POST /remove-bg, GET /health match BEFORE /{path:path}
         target_app.router.routes[0:0] = routes_to_prepend
         print(
             f"[StyleSense] Prepended {len(routes_to_prepend)} FastAPI routes at index 0: "
@@ -90,7 +92,7 @@ if gr is not None:
     with gr.Blocks(title="StyleSense ML Service") as demo:
         gr.Markdown(
             "### StyleSense FastAPI + ZeroGPU ML Service\n"
-            "Active REST endpoints: `POST /analyze`, `POST /remove-bg`, `POST /recommend`, `GET /health`."
+            "Active REST endpoints: `POST /analyze`, `POST /analyze-batch`, `POST /recommend`, `GET /health`."
         )
         status_btn = gr.Button("Verify ZeroGPU Readiness")
         status_out = gr.Textbox(label="Status")
@@ -103,6 +105,7 @@ if __name__ == "__main__":
         res = demo.launch(
             server_name="0.0.0.0",
             server_port=port,
+            ssr_mode=False,
             prevent_thread_lock=True,
         )
         live_app = getattr(demo, "server_app", None) or getattr(demo, "app", None)
