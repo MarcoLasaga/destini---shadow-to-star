@@ -31,7 +31,8 @@ jobs:
               folder_path="ml-service",
               repo_id="jdyyy1/stylesense-ml",
               repo_type="space",
-              commit_message="Auto-sync ml-service from GitHub"
+              commit_message="Auto-sync ml-service from GitHub",
+              ignore_patterns=["**/__pycache__/**", "*.pyc", ".git/**"]
           )
           print("Successfully synced ml-service to jdyyy1/stylesense-ml!")
           '

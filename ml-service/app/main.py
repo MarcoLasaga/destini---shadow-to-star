@@ -158,10 +158,11 @@ else:
 CONFIDENCE_THRESHOLD = 0.55
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
-# Prioritized candidate checkpoint paths
+# Prioritized candidate checkpoint paths (experiments/resnet50/checkpoints/stylesense_resnet50_best.pt first relative to ml-service)
 CANDIDATE_CHECKPOINT_PATHS: List[Path] = [
     Path(os.getenv("RESNET50_CHECKPOINT_PATH", "")),
     BASE_DIR / "experiments" / "resnet50" / "checkpoints" / "stylesense_resnet50_best.pt",
+    Path("experiments/resnet50/checkpoints/stylesense_resnet50_best.pt"),
     BASE_DIR / "experiments" / "resnet50" / "stylesense_resnet50_best.pt",
     BASE_DIR / "models" / "stylesense_resnet50_best.pt",
     BASE_DIR / "models" / "resnet50_stylesense_epoch13.pth",
@@ -769,8 +770,8 @@ async def lifespan(_: FastAPI):
             LOADED_CHECKPOINT_PATH = str(ckpt_candidate.resolve())
             try:
                 try:
-                    state = torch.load(ckpt_candidate, map_location="cpu", mmap=True)
-                except Exception:
+                    state = torch.load(ckpt_candidate, map_location="cpu", weights_only=False)
+                except TypeError:
                     state = torch.load(ckpt_candidate, map_location="cpu")
 
                 if isinstance(state, dict):
