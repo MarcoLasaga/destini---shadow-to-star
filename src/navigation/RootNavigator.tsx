@@ -12,9 +12,6 @@ import AddClothesScreen from '../screens/AddClothesScreen';
 import BatchAddClothesScreen from '../screens/BatchAddClothesScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import SavedOutfitsScreen from '../screens/SavedOutfitsScreen';
-import AnalyticsScreen from '../screens/AnalyticsScreen';
-import PackingScreen from '../screens/PackingScreen';
-import PackingTripDetailScreen from '../screens/PackingTripDetailScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import HelpScreen from '../screens/HelpScreen';
 import OutfitDetailsScreen from '../screens/OutfitDetailsScreen';
@@ -77,9 +74,6 @@ export default function RootNavigator() {
             <Stack.Screen name="EditClothing" component={EditClothingScreen} options={{ headerShown: false }} />
             <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: false }} />
             <Stack.Screen name="SavedOutfits" component={SavedOutfitsScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="Analytics" component={AnalyticsScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="Packing" component={PackingScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="PackingTripDetail" component={PackingTripDetailScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Help" component={HelpScreen} options={{ headerShown: false }} />
             <Stack.Screen name="OutfitDetails" component={OutfitDetailsScreen} options={{ headerShown: false }} />

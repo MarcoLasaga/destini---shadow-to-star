@@ -59,6 +59,8 @@ export default function SettingsScreen() {
     toggleNotification,
     language,
     setLanguage,
+    mannequinSkinTone,
+    setMannequinSkinTone,
     lastActivatedNotification,
     clearNotificationBanner,
   } = useSettings();
@@ -193,6 +195,10 @@ export default function SettingsScreen() {
                 </Text>
               </Pressable>
             </View>
+          </View>
+          <View style={styles.themeRow}>
+            <Text style={[styles.label, { color: theme.text }]}>2D mannequin skin</Text>
+            <View style={styles.skinRow}>{['#F0C7A4', '#D99B72', '#B97852', '#7A4937'].map((tone) => <Pressable key={tone} onPress={() => setMannequinSkinTone(tone)} style={[styles.skinSwatch, { backgroundColor: tone }, mannequinSkinTone === tone && styles.skinSelected]} />)}</View>
           </View>
         </View>
 
@@ -417,6 +423,9 @@ const styles = StyleSheet.create({
   alertPrefLabel: { fontSize: 14, fontWeight: '700' },
   alertPrefNote: { fontSize: 12, lineHeight: 16 },
   themeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
+  skinRow: { flexDirection: 'row', gap: 8 },
+  skinSwatch: { width: 25, height: 25, borderRadius: 13, borderWidth: 2, borderColor: '#FFFFFF' },
+  skinSelected: { borderColor: '#264C3B', transform: [{ scale: 1.18 }] },
   label: { fontSize: 14 },
   themeToggle: { flexDirection: 'row', borderRadius: 999, padding: 3, gap: 2 },
   themeOption: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999 },

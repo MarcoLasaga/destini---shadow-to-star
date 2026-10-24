@@ -6,6 +6,7 @@ import { Theme, lightTheme, darkTheme } from '../constants/theme';
 const STORAGE_KEY_THEME = '@stylesense_theme_preference';
 const STORAGE_KEY_NOTIFS = '@stylesense_notification_prefs';
 const STORAGE_KEY_LANGUAGE = '@stylesense_language_preference';
+const STORAGE_KEY_SKIN = '@stylesense_mannequin_skin_tone';
 
 interface SettingsContextValue {
   themePreference: 'light' | 'dark';
@@ -15,6 +16,8 @@ interface SettingsContextValue {
   toggleNotification: (key: keyof NotificationPrefs) => Promise<boolean>;
   language: string;
   setLanguage: (value: string) => Promise<void>;
+  mannequinSkinTone: string;
+  setMannequinSkinTone: (value: string) => Promise<void>;
   lastActivatedNotification: keyof NotificationPrefs | null;
   clearNotificationBanner: () => void;
 }
@@ -33,6 +36,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [themePreference, setThemePreferenceState] = useState<'light' | 'dark'>('light');
   const [notifications, setNotifications] = useState<NotificationPrefs>(defaultNotifications);
   const [language, setLanguageState] = useState('English (US)');
+  const [mannequinSkinTone, setMannequinSkinToneState] = useState('#B7D69C');
   const [lastActivatedNotification, setLastActivatedNotification] = useState<keyof NotificationPrefs | null>(null);
 
   // Load persisted settings
@@ -54,6 +58,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         if (storedLang) {
           setLanguageState(storedLang);
         }
+        const storedSkin = await AsyncStorage.getItem(STORAGE_KEY_SKIN);
+        if (storedSkin) setMannequinSkinToneState(storedSkin);
       } catch (err) {
         console.warn('Failed to load settings from storage', err);
       }
@@ -76,6 +82,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.warn('Failed to persist theme preference', err);
     }
+  }, []);
+
+  const setMannequinSkinTone = useCallback(async (value: string) => {
+    setMannequinSkinToneState(value);
+    await AsyncStorage.setItem(STORAGE_KEY_SKIN, value);
   }, []);
 
   const toggleNotification = useCallback(async (key: keyof NotificationPrefs) => {
@@ -134,6 +145,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         toggleNotification,
         language,
         setLanguage,
+        mannequinSkinTone,
+        setMannequinSkinTone,
         lastActivatedNotification,
         clearNotificationBanner,
       }}

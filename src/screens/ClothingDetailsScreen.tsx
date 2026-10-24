@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { useWardrobe, isAccessoryItem } from '../contexts/WardrobeContext';
+import { useWardrobe } from '../contexts/WardrobeContext';
 import { useToast } from '../contexts/ToastContext';
 import { RootStackParamList } from '../types';
 import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
@@ -83,7 +83,7 @@ export default function ClothingDetailsScreen() {
             <View style={{ flex: 1, paddingRight: 12 }}>
               <Text style={[styles.name, { color: theme.text }]}>{item.name}</Text>
               <Text style={[styles.meta, { color: theme.textMuted }]}>
-                {item.category} · {item.color} · {isAccessoryItem(item.category, item.name) || item.status === 'clean' ? 'Ready to Wear' : 'Needs Wash'}
+                {item.category} · {item.color}
               </Text>
             </View>
             <Pressable

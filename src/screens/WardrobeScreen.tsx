@@ -6,7 +6,7 @@ import * as ImagePicker from 'expo-image-picker';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { useWardrobe, isAccessoryItem } from '../contexts/WardrobeContext';
+import { useWardrobe } from '../contexts/WardrobeContext';
 import { useToast } from '../contexts/ToastContext';
 import ClothingCard from '../components/ClothingCard';
 import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
@@ -19,9 +19,6 @@ export type FilterCategory = (typeof FILTER_CATEGORIES)[number];
 export const FILTER_OCCASIONS = ['ALL', 'Academic', 'Office', 'Formal', 'Casual', 'Workout'] as const;
 export type FilterOccasion = (typeof FILTER_OCCASIONS)[number];
 
-// Laundry statuses
-export const FILTER_LAUNDRY = ['ALL', 'CLEAN', 'NEEDS_WASHING'] as const;
-export type FilterLaundry = (typeof FILTER_LAUNDRY)[number];
 
 function normalizeCategory(cat: string): string {
   const c = (cat || '').toUpperCase().trim();
@@ -72,7 +69,6 @@ export default function WardrobeScreen() {
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<FilterCategory>('ALL');
   const [selectedOccasion, setSelectedOccasion] = useState<FilterOccasion>('ALL');
-  const [selectedLaundry, setSelectedLaundry] = useState<FilterLaundry>('ALL');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
 
   // Active filter count (excluding 'ALL')
@@ -80,10 +76,9 @@ export default function WardrobeScreen() {
     let count = 0;
     if (selectedCategory !== 'ALL') count++;
     if (selectedOccasion !== 'ALL') count++;
-    if (selectedLaundry !== 'ALL') count++;
     if (favoritesOnly) count++;
     return count;
-  }, [selectedCategory, selectedOccasion, selectedLaundry, favoritesOnly]);
+  }, [selectedCategory, selectedOccasion, favoritesOnly]);
 
   const toggleItemSelection = (id: string) => {
     setSelectedIds((prev) => {
@@ -159,7 +154,6 @@ export default function WardrobeScreen() {
   const resetFilters = () => {
     setSelectedCategory('ALL');
     setSelectedOccasion('ALL');
-    setSelectedLaundry('ALL');
     setFavoritesOnly(false);
   };
 
@@ -184,22 +178,14 @@ export default function WardrobeScreen() {
         if (!matchesOccasion) return false;
       }
 
-      // 3. Laundry Status filter (Accessories are always treated as Clean)
-      if (selectedLaundry !== 'ALL') {
-        const isAcc = isAccessoryItem(item.category, item.name);
-        const itemStatus = isAcc ? 'clean' : (item.status || '').toLowerCase();
-        if (selectedLaundry === 'CLEAN' && itemStatus !== 'clean') return false;
-        if (selectedLaundry === 'NEEDS_WASHING' && itemStatus !== 'needs-washing') return false;
-      }
-
-      // 4. Favorites Only
+      // 3. Favorites Only
       if (favoritesOnly && !item.favorite) {
         return false;
       }
 
       return true;
     });
-  }, [items, selectedCategory, selectedOccasion, selectedLaundry, favoritesOnly]);
+  }, [items, selectedCategory, selectedOccasion, favoritesOnly]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
@@ -314,20 +300,6 @@ export default function WardrobeScreen() {
               ]}
             >
               <Text style={[styles.activePillText, { color: theme.mode === 'dark' ? '#FDF3D2' : '#24152C' }]}>Occasion: {selectedOccasion}</Text>
-              <Ionicons name="close-circle" size={14} color={theme.mode === 'dark' ? '#FDF3D2' : '#24152C'} />
-            </Pressable>
-          )}
-          {selectedLaundry !== 'ALL' && (
-            <Pressable
-              onPress={() => setSelectedLaundry('ALL')}
-              style={[
-                styles.activePill,
-                { backgroundColor: theme.mode === 'dark' ? '#4B1D6F' : '#DECFE8', borderColor: theme.mode === 'dark' ? '#FDD78B' : '#4B1D6F' },
-              ]}
-            >
-              <Text style={[styles.activePillText, { color: theme.mode === 'dark' ? '#FDF3D2' : '#24152C' }]}>
-                {selectedLaundry === 'CLEAN' ? 'Status: Clean' : 'Status: Needs Washing'}
-              </Text>
               <Ionicons name="close-circle" size={14} color={theme.mode === 'dark' ? '#FDF3D2' : '#24152C'} />
             </Pressable>
           )}
@@ -490,35 +462,6 @@ export default function WardrobeScreen() {
                       <Pressable
                         key={occ}
                         onPress={() => setSelectedOccasion(occ)}
-                        style={[
-                          styles.optionPill,
-                          {
-                            backgroundColor: isSelected ? theme.secondaryAccent : theme.surface,
-                            borderColor: isSelected ? theme.secondaryAccent : theme.border,
-                          },
-                        ]}
-                      >
-                        <Text style={[styles.optionPillText, { color: isSelected ? theme.onAccent : theme.text }]}>
-                          {label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-
-              {/* Laundry Status Filter */}
-              <View style={styles.filterSection}>
-                <Text style={[styles.filterSectionTitle, { color: theme.text }]}>Laundry Status</Text>
-                <View style={styles.optionsWrap}>
-                  {FILTER_LAUNDRY.map((status) => {
-                    const isSelected = selectedLaundry === status;
-                    const label =
-                      status === 'ALL' ? 'All Items' : status === 'CLEAN' ? 'Clean' : 'Needs Washing';
-                    return (
-                      <Pressable
-                        key={status}
-                        onPress={() => setSelectedLaundry(status)}
                         style={[
                           styles.optionPill,
                           {

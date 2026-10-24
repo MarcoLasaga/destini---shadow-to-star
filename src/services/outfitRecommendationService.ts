@@ -2,6 +2,7 @@ import type { AnatomicalSlotType, ClothingRole, ColorSwatch, GeneratedOutfit, Ou
 import * as Crypto from 'expo-crypto';
 import { getApiUrl } from './apiConfig';
 import { getDatasetPicksForSlot, resolveDatasetGarmentPhoto } from '../data/datasetGarmentCatalog';
+import { CommunityGender, getGenderMatchedInteractions } from './communitySignals';
 
 export function isUuid(id?: string | null): boolean {
   if (!id) return false;
@@ -275,6 +276,7 @@ export interface RecommendParams {
   outfitSourceMode?: 'closet' | 'bestForOccasion';
   weather?: WeatherData | null;
   wardrobeItems?: Array<{ id: string; name: string; category: string; image?: string; color?: string; style?: string; timesWorn?: number; status?: string }>;
+  actorGender?: CommunityGender;
 }
 
 function calculateItemScores(
@@ -282,7 +284,8 @@ function calculateItemScores(
   occasion: string,
   index: number,
   weather?: WeatherData | null,
-  noNewClothesMode?: boolean
+  noNewClothesMode?: boolean,
+  genderMatchedSignal = 0
 ) {
   let content = 57;
   const reasons: string[] = [];
@@ -340,7 +343,7 @@ function calculateItemScores(
   const cbVariance = index === 0 ? 0 : index === 1 ? -8 : -14;
   const contentScore = Math.min(96, Math.max(72, content + cbVariance));
 
-  const cfVariance = index === 0 ? -5 : index === 1 ? -2 : -5;
+  const cfVariance = (index === 0 ? -5 : index === 1 ? -2 : -5) + Math.min(4, genderMatchedSignal);
   const collaborativeScore = Math.min(95, Math.max(68, contentScore + cfVariance));
 
   // Thesis Chapter 1-3 strict weighting: 55% Content-Based + 45% Collaborative Filtering
@@ -356,11 +359,12 @@ function mapOutfit(
   outfit: ApiOutfit,
   index: number,
   weather?: WeatherData | null,
-  noNewClothesMode?: boolean
+  noNewClothesMode?: boolean,
+  genderMatchedSignal = 0
 ): GeneratedOutfit {
   const occasion = outfit.occasion || 'Casual';
   const { contentScore, collaborativeScore, hybridScore, sustainPercent, reasons: formulaReasons } =
-    calculateItemScores(outfit.items, occasion, index, weather, noNewClothesMode);
+    calculateItemScores(outfit.items, occasion, index, weather, noNewClothesMode, genderMatchedSignal);
 
   const uniqueReasons = outfit.reasons.filter(
     (reason, idx, reasons) =>
@@ -917,6 +921,7 @@ export async function generateRecommendations(
   options?: RecommendParams
 ): Promise<GeneratedOutfit[]> {
   const normalizedOccasion = occasion && occasion !== 'Any occasion' ? occasion.toUpperCase() : 'ANY';
+  const genderMatchedSignal = options?.actorGender ? (await getGenderMatchedInteractions(options.actorGender)).length : 0;
 
   // 1. Try POST /api/wardrobe/recommend as requested by thesis Chapters 1–3
   try {
@@ -946,7 +951,7 @@ export async function generateRecommendations(
         const rotated = rotateOutfitItems(rawOutfits, options?.wardrobeItems, occasion, options?.outfitSourceMode);
         return rotated
           .slice(0, 3)
-          .map((outfit, index) => mapOutfit(outfit, index, options?.weather, options?.noNewClothesMode));
+          .map((outfit, index) => mapOutfit(outfit, index, options?.weather, options?.noNewClothesMode, genderMatchedSignal));
       }
     }
   } catch (err) {
@@ -967,7 +972,7 @@ export async function generateRecommendations(
       const rotated = rotateOutfitItems(rawOutfits, options?.wardrobeItems, occasion, options?.outfitSourceMode);
       return rotated
         .slice(0, 3)
-        .map((outfit, index) => mapOutfit(outfit, index, options?.weather, options?.noNewClothesMode));
+        .map((outfit, index) => mapOutfit(outfit, index, options?.weather, options?.noNewClothesMode, genderMatchedSignal));
     }
   } catch (err) {
     if (__DEV__) {
@@ -978,7 +983,7 @@ export async function generateRecommendations(
   const rotatedFallback = rotateOutfitItems([], options?.wardrobeItems, occasion, options?.outfitSourceMode);
   return rotatedFallback
     .slice(0, 3)
-    .map((outfit, index) => mapOutfit(outfit, index, options?.weather, options?.noNewClothesMode));
+    .map((outfit, index) => mapOutfit(outfit, index, options?.weather, options?.noNewClothesMode, genderMatchedSignal));
 }
 
 export async function getRecommendationHistory(accessToken: string): Promise<GeneratedOutfit[]> {

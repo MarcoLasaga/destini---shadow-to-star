@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Ellipse, G, Line, Path, Rect } from 'react-native-svg';
 import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
 import { OutfitClothingItem, UserProfile } from '../types';
+import { useSettings } from '../contexts/SettingsContext';
 
 export type MannequinSlot = 'TOP' | 'OUTERWEAR' | 'BOTTOM' | 'SHOES' | 'ACCESSORIES';
 type Props = { profile?: Partial<UserProfile> | null; items?: OutfitClothingItem[]; activeSlot?: MannequinSlot | null; onSelectSlot?: (slot: MannequinSlot) => void; compact?: boolean };
@@ -35,6 +36,7 @@ function Garment({ item, slot, build, active }: { item?: OutfitClothingItem; slo
 }
 
 export default function Mannequin2D({ profile, items = [], activeSlot, onSelectSlot, compact = false }: Props) {
+  const { mannequinSkinTone } = useSettings();
   const gender = profile?.gender || 'female'; const height = Math.min(195, Math.max(145, Number(profile?.heightCm) || 170)); const weight = Math.min(110, Math.max(42, Number(profile?.weightKg) || 65)); const build = Math.max(-1, Math.min(1, (weight - 65) / 30)); const fit = (profile?.fitPreference || '').toLowerCase(); const fitScale = fit.includes('baggy') || fit.includes('oversized') ? 1.1 : fit.includes('slim') || fit.includes('tailored') ? 0.93 : 1; const heightScale = 0.88 + ((height - 145) / 50) * 0.24; const shoulder = gender === 'male' ? 1.08 : 0.96; const hair = gender === 'male' ? '#2E2A34' : '#4A2F2A';
   const bySlot = useMemo(() => Object.fromEntries(items.map((item) => [slotForItem(item), item])) as Partial<Record<MannequinSlot, OutfitClothingItem>>, [items]);
   const bodyWidth = 1 + build * 0.12; const bodyHeight = compact ? 0.9 : 1;
@@ -42,8 +44,8 @@ export default function Mannequin2D({ profile, items = [], activeSlot, onSelectS
   return <Animated.View entering={FadeIn.duration(260)} style={[styles.wrap, compact && styles.compact]}><Svg width="100%" height="100%" viewBox="0 0 240 470" preserveAspectRatio="xMidYMid meet"><G transform={`translate(120 0) scale(${bodyWidth * shoulder} ${heightScale * bodyHeight}) translate(-120 0)`}>
     <Ellipse cx="130" cy="92" rx="31" ry="37" fill="#B7D69C" stroke="#264C3B" strokeWidth="2" />{gender === 'female' ? <Path d="M97 87Q95 35 131 32q37 4 34 57l-12-24q-15 12-43 3z" fill={hair} stroke="#264C3B" strokeWidth="2" /> : <Path d="M100 65q10-35 31-34 24 0 33 34l-9-9q-18 9-43 0z" fill={hair} stroke="#264C3B" strokeWidth="2" />}
     <Circle cx="119" cy="88" r="3.5" fill="#2C72A8" /><Circle cx="143" cy="88" r="3.5" fill="#2C72A8" /><Path d="M121 105q9 7 18 0" fill="none" stroke="#264C3B" strokeWidth="2" />
-    <Path d={`M${92 - build * 5} 140q38-25 ${76 + build * 14} 0l-11 93q-27 ${12 + build * 3} -54 0z`} fill="#B7D69C" stroke="#264C3B" strokeWidth="2" /><Path d={`M${103 - build * 4} 226l-12 155h27l12-155zM${130 + build * 2} 226l12 155h27l-12-155z`} fill="#B7D69C" stroke="#264C3B" strokeWidth="2" />
-    <Path d={`M96 143l-28 14-16 84 20 3 20-58M164 143l28 14 16 84-20 3-20-58`} fill="#B7D69C" stroke="#264C3B" strokeWidth="2" />
+    <Path d={`M${92 - build * 5} 140q38-25 ${76 + build * 14} 0l-11 93q-27 ${12 + build * 3} -54 0z`} fill={mannequinSkinTone} stroke="#264C3B" strokeWidth="2" /><Path d={`M${103 - build * 4} 226l-12 155h27l12-155zM${130 + build * 2} 226l12 155h27l-12-155z`} fill={mannequinSkinTone} stroke="#264C3B" strokeWidth="2" />
+    <Path d={`M96 143l-28 14-16 84 20 3 20-58M164 143l28 14 16 84-20 3-20-58`} fill={mannequinSkinTone} stroke="#264C3B" strokeWidth="2" />
     <G transform={`translate(130 250) scale(${fitScale}) translate(-130 -250)`}>{(['TOP', 'OUTERWEAR', 'BOTTOM', 'SHOES', 'ACCESSORIES'] as MannequinSlot[]).map((slot) => <Garment key={slot} item={bySlot[slot]} slot={slot} build={build} active={activeSlot === slot} />)}</G>
   </G></Svg>{zones.map((zone) => <Pressable key={zone.slot} accessibilityLabel={`Select ${zone.slot.toLowerCase()}`} onPress={() => onSelectSlot?.(zone.slot)} style={[styles.zone, { top: `${zone.top / 4.7}%`, left: `${zone.left}%`, width: `${zone.width}%`, height: `${zone.height / 4.7}%` }, activeSlot === zone.slot && styles.zoneActive]} />)}<View style={styles.caption}><Text style={styles.captionText}>{gender === 'male' ? 'Your tailored silhouette' : 'Your personal silhouette'} · {height} cm</Text></View></Animated.View>;
 }

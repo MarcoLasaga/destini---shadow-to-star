@@ -7,7 +7,6 @@ import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { ClothingItem } from '../types';
-import { isAccessoryItem } from '../contexts/WardrobeContext';
 import { resolveDatasetGarmentPhoto } from '../data/datasetGarmentCatalog';
 
 const { width } = Dimensions.get('window');
@@ -108,12 +107,6 @@ export default function ClothingCard({
               ]}
             >
               {isSelected && <Ionicons name="checkmark" size={14} color={theme.onAccent} />}
-            </View>
-          )}
-
-          {item.status === 'needs-washing' && !isAccessoryItem(item.category, item.name) && !selectionMode && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>Needs Wash</Text>
             </View>
           )}
 

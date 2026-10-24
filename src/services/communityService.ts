@@ -3,6 +3,7 @@ import type { GeneratedOutfit } from '../types';
 import type { Database, Json } from '../integrations/supabase/types';
 import { getApiUrl } from './apiConfig';
 import { resolveDatasetGarmentPhoto } from '../data/datasetGarmentCatalog';
+import { CommunityGender, recordCommunityInteraction } from './communitySignals';
 
 type SharedOutfitRow = Database['public']['Tables']['shared_outfits']['Row'];
 export type CommunityItem = { id: string; name: string; category: string; image: string; color?: string };
@@ -14,6 +15,7 @@ export type CommunityOutfit = Omit<SharedOutfitRow, 'items'> & {
   saved: boolean;
   myRating: number | null;
   genderProfile?: 'mens' | 'womens' | 'unisex';
+  authorGender: CommunityGender;
 };
 
 const FEMALE_PROFILE_NAMES = /\b(shae|maria|sarah|anna|emma|chloe|sophia|ella|grace|lily|bea|camille|angela|nikki|trisha|hannah|claire|kaye|denise|jasmine)\b/i;
@@ -125,6 +127,13 @@ function snapshot(outfit: GeneratedOutfit): CommunityItem[] {
   }));
 }
 
+function normalizeGender(value?: string | null): CommunityGender {
+  const normalized = (value || '').toLowerCase();
+  if (normalized === 'womens' || normalized === 'female' || normalized === 'woman') return 'female';
+  if (normalized === 'mens' || normalized === 'male' || normalized === 'man') return 'male';
+  return 'unknown';
+}
+
 function parseItems(value: Json): CommunityItem[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -195,6 +204,7 @@ export async function fetchCommunityFeed(
         caption: row.caption,
         items: parsed,
       }),
+      authorGender: normalizeGender((row as any).gender_profile || classifyCommunityPostGender({ creatorName, name: row.name, caption: row.caption, items: parsed })),
     };
   });
 
@@ -243,7 +253,7 @@ export async function publishOutfit(outfit: GeneratedOutfit, caption: string): P
   return data;
 }
 
-export async function setLike(outfitId: string, active: boolean) {
+export async function setLike(outfitId: string, active: boolean, metadata?: { authorGender: CommunityGender; actorGender: CommunityGender }) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -255,9 +265,10 @@ export async function setLike(outfitId: string, active: boolean) {
     const { error } = await supabase.from('outfit_likes').delete().eq('outfit_id', outfitId).eq('user_id', user.id);
     if (error) throw error;
   }
+  if (metadata) await recordCommunityInteraction({ postId: outfitId, action: active ? 'like' : 'dislike', ...metadata });
 }
 
-export async function setSave(outfitId: string, active: boolean) {
+export async function setSave(outfitId: string, active: boolean, metadata?: { authorGender: CommunityGender; actorGender: CommunityGender }) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -269,6 +280,7 @@ export async function setSave(outfitId: string, active: boolean) {
     const { error } = await supabase.from('outfit_saves').delete().eq('outfit_id', outfitId).eq('user_id', user.id);
     if (error) throw error;
   }
+  if (metadata) await recordCommunityInteraction({ postId: outfitId, action: 'save', ...metadata });
 }
 
 export async function rateOutfit(outfitId: string, rating: number) {

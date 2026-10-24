@@ -4,6 +4,7 @@ import * as Crypto from 'expo-crypto';
 import { GeneratedOutfit, OutfitClothingItem } from '../types';
 import { useAuth } from './AuthContext';
 import { useWardrobe } from './WardrobeContext';
+import { useProfile } from './ProfileContext';
 import { useWeather } from '../hooks/useWeather';
 import { supabase } from '../integrations/supabase/client';
 import {
@@ -54,6 +55,7 @@ const OutfitContext = createContext<OutfitContextValue | undefined>(undefined);
 export function OutfitProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
   const wardrobe = useWardrobe();
+  const { profile } = useProfile();
   const { weather } = useWeather();
 
   const [occasion, setOccasionState] = useState('Any occasion');
@@ -278,6 +280,7 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
           outfitSourceMode: activeSource,
           weather,
           wardrobeItems: wardrobe.items,
+          actorGender: profile.gender === 'female' ? 'female' : profile.gender === 'male' ? 'male' : 'unknown',
         });
 
         const top3 = outfits.slice(0, 3).map((o) => (localPrefs[o.id] ? { ...o, ...localPrefs[o.id] } : o));
@@ -297,7 +300,7 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
       }
     },
-    [session, noNewClothesMode, outfitSourceMode, weather, wardrobe.items, localPrefs]
+    [session, noNewClothesMode, outfitSourceMode, weather, wardrobe.items, localPrefs, profile.gender]
   );
 
   const setOccasion = useCallback(
