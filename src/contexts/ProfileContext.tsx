@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UserProfile } from '../types';
 import { initialProfile } from '../constants/profileMockData';
 import { useAuth } from './AuthContext';
@@ -58,10 +59,20 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         memberSince = date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
       }
 
-      const displayName = profileData?.display_name || user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
+      const displayName =
+        profileData?.display_name || user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
       const parts = displayName.split(' ');
       const firstName = user.user_metadata?.first_name || parts[0] || '';
       const lastName = user.user_metadata?.last_name || parts.slice(1).join(' ') || '';
+
+      // Check AsyncStorage for any recently answered onboarding preferences
+      let localOnboarding = {};
+      try {
+        const raw = await AsyncStorage.getItem('stylesense_onboarding_profile');
+        if (raw) localOnboarding = JSON.parse(raw);
+      } catch {
+        // ignore
+      }
 
       setProfile({
         firstName,
@@ -73,6 +84,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         clothingSize: profileData?.current_size || '',
         preferredSize: profileData?.current_size || '',
         location: user.user_metadata?.location || 'Quezon City, PH',
+        ...localOnboarding,
         ...(user.user_metadata?.onboarding || {}),
       });
     } catch (e) {
@@ -91,64 +103,86 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isLoggedIn, fetchProfile]);
 
-  const updateProfile = useCallback(async (updates: Partial<UserProfile>) => {
-    const user = session?.user;
-    if (!user) return;
+  const updateProfile = useCallback(
+    async (updates: Partial<UserProfile>) => {
+      const user = session?.user;
+      if (!user) return;
 
-    // Optimistically update local state
-    setProfile((prev) => ({ ...prev, ...updates }));
+      // Optimistically update local state
+      setProfile((prev) => ({ ...prev, ...updates }));
 
-    try {
-      // 1. Sync display_name, avatar_url, and current_size to public.profiles table
-      const profileUpdate: any = {};
-      if (updates.displayName !== undefined) profileUpdate.display_name = updates.displayName;
-      if (updates.clothingSize !== undefined) profileUpdate.current_size = updates.clothingSize;
-      if (updates.avatarUri !== undefined) profileUpdate.avatar_url = updates.avatarUri;
+      try {
+        // 1. Sync display_name, avatar_url, and current_size to public.profiles table
+        const profileUpdate: any = {};
+        if (updates.displayName !== undefined) profileUpdate.display_name = updates.displayName;
+        if (updates.clothingSize !== undefined) profileUpdate.current_size = updates.clothingSize;
+        if (updates.avatarUri !== undefined) profileUpdate.avatar_url = updates.avatarUri;
 
-      if (Object.keys(profileUpdate).length > 0) {
-        await supabase
-          .from('profiles')
-          .update(profileUpdate)
-          .eq('id', user.id);
+        if (Object.keys(profileUpdate).length > 0) {
+          await supabase.from('profiles').update(profileUpdate).eq('id', user.id);
+        }
+
+        // 2. Sync first_name, last_name, and location to auth user metadata
+        const metaUpdate: any = {};
+        if (updates.firstName !== undefined) metaUpdate.first_name = updates.firstName;
+        if (updates.lastName !== undefined) metaUpdate.last_name = updates.lastName;
+        if (updates.location !== undefined) metaUpdate.location = updates.location;
+        if (updates.displayName !== undefined) metaUpdate.display_name = updates.displayName;
+        const onboardingKeys = [
+          'ageGroup',
+          'gender',
+          'heightCm',
+          'weightKg',
+          'preferredColors',
+          'texturePreferences',
+          'preferredStyles',
+          'commonOccasions',
+          'fitPreference',
+        ];
+        if (onboardingKeys.some((key) => (updates as any)[key] !== undefined)) {
+          metaUpdate.onboarding = onboardingKeys.reduce((acc, key) => {
+            if ((updates as any)[key] !== undefined) (acc as any)[key] = (updates as any)[key];
+            return acc;
+          }, {} as Record<string, unknown>);
+        }
+
+        if (Object.keys(metaUpdate).length > 0) {
+          await supabase.auth.updateUser({
+            data: metaUpdate,
+          });
+        }
+      } catch (e) {
+        console.error('Error updating profile in Supabase:', e);
       }
+    },
+    [session]
+  );
 
-      // 2. Sync first_name, last_name, and location to auth user metadata
-      const metaUpdate: any = {};
-      if (updates.firstName !== undefined) metaUpdate.first_name = updates.firstName;
-      if (updates.lastName !== undefined) metaUpdate.last_name = updates.lastName;
-      if (updates.location !== undefined) metaUpdate.location = updates.location;
-      if (updates.displayName !== undefined) metaUpdate.display_name = updates.displayName;
-      const onboardingKeys = ['ageGroup', 'gender', 'heightCm', 'weightKg', 'preferredColors', 'texturePreferences', 'preferredStyles', 'commonOccasions', 'fitPreference'];
-      if (onboardingKeys.some((key) => (updates as any)[key] !== undefined)) {
-        metaUpdate.onboarding = onboardingKeys.reduce((acc, key) => {
-          if ((updates as any)[key] !== undefined) (acc as any)[key] = (updates as any)[key];
-          return acc;
-        }, {} as Record<string, unknown>);
+  const setAvatar = useCallback(
+    async (uri: string | null) => {
+      const user = session?.user;
+      if (!user || !uri) {
+        await updateProfile({ avatarUri: null });
+        return;
       }
-
-      if (Object.keys(metaUpdate).length > 0) {
-        await supabase.auth.updateUser({
-          data: metaUpdate,
-        });
-      }
-    } catch (e) {
-      console.error('Error updating profile in Supabase:', e);
-    }
-  }, [session]);
-
-  const setAvatar = useCallback(async (uri: string | null) => {
-    const user = session?.user;
-    if (!user || !uri) { await updateProfile({ avatarUri: null }); return; }
-    const response = await fetch(uri);
-    const bytes = await response.arrayBuffer();
-    const path = `${user.id}/avatar-${Crypto.randomUUID()}.jpg`;
-    const { error } = await supabase.storage.from('wardrobe-images').upload(path, bytes, { contentType: 'image/jpeg', upsert: false });
-    if (error) throw error;
-    await updateProfile({ avatarUri: supabase.storage.from('wardrobe-images').getPublicUrl(path).data.publicUrl });
-  }, [updateProfile]);
+      const response = await fetch(uri);
+      const bytes = await response.arrayBuffer();
+      const path = `${user.id}/avatar-${Crypto.randomUUID()}.jpg`;
+      const { error } = await supabase.storage
+        .from('wardrobe-images')
+        .upload(path, bytes, { contentType: 'image/jpeg', upsert: false });
+      if (error) throw error;
+      await updateProfile({
+        avatarUri: supabase.storage.from('wardrobe-images').getPublicUrl(path).data.publicUrl,
+      });
+    },
+    [updateProfile]
+  );
 
   return (
-    <ProfileContext.Provider value={{ profile, loading, updateProfile, setAvatar, refreshProfile: fetchProfile }}>
+    <ProfileContext.Provider
+      value={{ profile, loading, updateProfile, setAvatar, refreshProfile: fetchProfile }}
+    >
       {children}
     </ProfileContext.Provider>
   );

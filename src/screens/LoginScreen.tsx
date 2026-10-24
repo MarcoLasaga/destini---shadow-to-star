@@ -9,6 +9,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
@@ -36,6 +37,7 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await loginWithEmail(email.trim(), password);
+      await AsyncStorage.setItem('@stylesense_onboarding_complete', 'true');
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to sign in. Please check your credentials.');
     } finally {
@@ -48,6 +50,7 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await loginWithOAuth(provider);
+      await AsyncStorage.setItem('@stylesense_onboarding_complete', 'true');
     } catch (err: any) {
       setErrorMsg(err.message || `Failed to sign in with ${provider}.`);
     } finally {

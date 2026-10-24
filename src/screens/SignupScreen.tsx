@@ -9,6 +9,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
@@ -43,16 +44,23 @@ export default function SignupScreen() {
     setErrorMsg(null);
     setLoading(true);
     try {
+      let storedOnboarding: Record<string, unknown> | undefined = undefined;
+      try {
+        const raw = await AsyncStorage.getItem('stylesense_onboarding_profile');
+        if (raw) storedOnboarding = JSON.parse(raw);
+      } catch {
+        // ignore
+      }
+
       await signUpWithEmail(
         email.trim(),
         password,
         displayName.trim(),
         firstName.trim(),
-        lastName.trim()
+        lastName.trim(),
+        storedOnboarding
       );
-      // Wait for session update. If email verification is enabled, tell the user:
-      // "Verification email sent!" but since Supabase by default triggers session on signup or sends a verification, 
-      // let's show an alert or let AuthContext handle the redirect if session is established automatically.
+      await AsyncStorage.setItem('@stylesense_onboarding_complete', 'true');
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to register account.');
     } finally {
@@ -65,6 +73,7 @@ export default function SignupScreen() {
     setLoading(true);
     try {
       await loginWithOAuth(provider);
+      await AsyncStorage.setItem('@stylesense_onboarding_complete', 'true');
     } catch (err: any) {
       setErrorMsg(err.message || `Failed to sign in with ${provider}.`);
     } finally {

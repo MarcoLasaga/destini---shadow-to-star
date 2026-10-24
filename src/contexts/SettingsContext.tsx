@@ -36,7 +36,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [themePreference, setThemePreferenceState] = useState<'light' | 'dark'>('light');
   const [notifications, setNotifications] = useState<NotificationPrefs>(defaultNotifications);
   const [language, setLanguageState] = useState('English (US)');
-  const [mannequinSkinTone, setMannequinSkinToneState] = useState('#B7D69C');
+  const [mannequinSkinTone, setMannequinSkinToneState] = useState('#F1CBA9');
   const [lastActivatedNotification, setLastActivatedNotification] = useState<keyof NotificationPrefs | null>(null);
 
   // Load persisted settings
@@ -59,7 +59,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
           setLanguageState(storedLang);
         }
         const storedSkin = await AsyncStorage.getItem(STORAGE_KEY_SKIN);
-        if (storedSkin) setMannequinSkinToneState(storedSkin);
+        if (storedSkin) {
+          // Migrate old green skin tone if previously stored
+          if (storedSkin === '#B7D69C' || storedSkin === '#A8D5A2' || storedSkin.includes('D69C')) {
+            setMannequinSkinToneState('#F1CBA9');
+          } else {
+            setMannequinSkinToneState(storedSkin);
+          }
+        }
       } catch (err) {
         console.warn('Failed to load settings from storage', err);
       }

@@ -52,15 +52,7 @@ export default function RootNavigator() {
   return (
     <NavigationContainer ref={navigationRef}>
       <Stack.Navigator screenOptions={screenOptions}>
-        {!onboardingComplete ? (
-          <>
-            <Stack.Screen name="Onboarding" options={{ headerShown: false }}>
-              {() => <OnboardingScreen onComplete={() => setOnboardingComplete(true)} />}
-            </Stack.Screen>
-            <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="Signup" component={SignupScreen} options={{ headerShown: false }} />
-          </>
-        ) : isLoggedIn ? (
+        {isLoggedIn ? (
           <>
             <Stack.Screen name="MainTabs" component={BottomTabNavigator} options={{ headerShown: false }} />
             <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
@@ -77,6 +69,19 @@ export default function RootNavigator() {
             <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Help" component={HelpScreen} options={{ headerShown: false }} />
             <Stack.Screen name="OutfitDetails" component={OutfitDetailsScreen} options={{ headerShown: false }} />
+          </>
+        ) : !onboardingComplete ? (
+          <>
+            <Stack.Screen name="Onboarding" options={{ headerShown: false }}>
+              {() => (
+                <OnboardingScreen
+                  onComplete={() => setOnboardingComplete(true)}
+                  onNavigateToLogin={() => setOnboardingComplete(true)}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="Signup" component={SignupScreen} options={{ headerShown: false }} />
           </>
         ) : (
           <>

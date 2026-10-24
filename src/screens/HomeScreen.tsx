@@ -12,7 +12,9 @@ import { useProfile } from '../contexts/ProfileContext';
 
 function outfitForWeather(condition: string, temp: number): MelOutfit {
   const value = condition.toLowerCase();
-  if (value.includes('rain') || value.includes('drizzle') || value.includes('storm') || value.includes('thunder')) return 'rain_active';
+  if (value.includes('rain') || value.includes('drizzle') || value.includes('storm') || value.includes('thunder')) {
+    return 'rain_active';
+  }
   if (value.includes('clear') && temp >= 28) return 'casual_sunny';
   if (temp < 23) return 'cool_hoodie';
   if (value.includes('cloud') || value.includes('overcast') || temp < 28) return 'smart_layered';
@@ -20,14 +22,84 @@ function outfitForWeather(condition: string, temp: number): MelOutfit {
 }
 
 export default function HomeScreen() {
-  const theme = useAppTheme(); const { weather, loading, refresh } = useWeather(); const { items } = useWardrobe(); const { profile } = useProfile(); const [tipIndex, setTipIndex] = useState(0);
-  const temp = weather.tempC ?? Math.round((weather.tempF - 32) * 5 / 9); const melOutfit = outfitForWeather(weather.condition, temp);
-  const tips = useMemo(() => [weather.tip, 'Air out knits between wears to keep them fresh and extend their life.', 'Save your favorite looks so Mel can help you remix them later.'], [weather.tip]);
+  const theme = useAppTheme();
+  const { weather, loading, refresh } = useWeather();
+  const { items } = useWardrobe();
+  const { profile } = useProfile();
+  const [tipIndex, setTipIndex] = useState(0);
+
+  const temp = weather.tempC ?? Math.round(((weather.tempF - 32) * 5) / 9);
+  const melOutfit = outfitForWeather(weather.condition, temp);
+  const tips = useMemo(
+    () => [
+      weather.tip,
+      'Air out knits between wears to keep them fresh and extend their life.',
+      'Save your favorite looks so Mel can help you remix them later.',
+      'Check the UV index before going out—layer light breathable linen on sunny afternoons.',
+    ],
+    [weather.tip]
+  );
   const message = tips[tipIndex % tips.length];
-  const stats = { items: items.length, favorites: items.filter((item) => item.favorite).length, toWash: 0, categories: new Set(items.map((item) => item.category)).size, savedLooks: items.filter((item) => item.favorite).length };
-  return <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}><ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={theme.accent} />}>
-    <GreetingHeader name={profile.firstName || profile.displayName || 'there'} hasNotifications={false} /><WeatherCard weather={weather} /><WardrobeSummary stats={stats} />
-    <View style={styles.melArea}><MelSpeechBubble variant={melOutfit} message={message} position="bottom-right" onTapNextTip={() => setTipIndex((current) => current + 1)} /><MelMascot outfit={melOutfit} size={142} waving={melOutfit === 'rain_active'} onPress={() => setTipIndex((current) => current + 1)} /></View>
-  </ScrollView></SafeAreaView>;
+  const stats = {
+    items: items.length,
+    favorites: items.filter((item) => item.favorite).length,
+    toWash: 0,
+    categories: new Set(items.map((item) => item.category)).size,
+    savedLooks: items.filter((item) => item.favorite).length,
+  };
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={theme.accent} />}
+      >
+        <GreetingHeader name={profile.firstName || profile.displayName || 'there'} hasNotifications={false} />
+        <WeatherCard weather={weather} />
+        <WardrobeSummary stats={stats} />
+
+        {/* Dedicated Mel Stylist Card Row */}
+        <View style={[styles.melCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <MelSpeechBubble
+            variant={melOutfit}
+            message={message}
+            position="inline"
+            onTapNextTip={() => setTipIndex((current) => current + 1)}
+          />
+          <MelMascot
+            outfit={melOutfit}
+            size={110}
+            waving={melOutfit === 'rain_active'}
+            onPress={() => setTipIndex((current) => current + 1)}
+          />
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
 }
-const styles = StyleSheet.create({ container: { flex: 1 }, content: { paddingBottom: 22 }, melArea: { minHeight: 168, marginTop: 4, marginRight: 14, alignItems: 'flex-end', justifyContent: 'flex-end', position: 'relative' } });
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  content: {
+    paddingBottom: 28,
+  },
+  melCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+});

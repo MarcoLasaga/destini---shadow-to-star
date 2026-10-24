@@ -1,40 +1,1305 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { useAuth } from '../contexts/AuthContext';
 import { useProfile } from '../contexts/ProfileContext';
+import { useAuth } from '../contexts/AuthContext';
 import { MelMascot, MelSpeechBubble } from '../components/MelMascot';
+import Mannequin2D from '../components/Mannequin2D';
+import { OutfitClothingItem } from '../types';
 
-const palettes = ['Black & White', 'Neutral & Earth Tones', 'All Colors / Mix & Match', 'Cool Dark Tones', 'Warm & Pastels'];
-const swatches = ['#171717', '#F5F1E8', '#A5B36B', '#D99378', '#8A72A8', '#4F7695', '#E8B957'];
-const textures = ['Soft', 'Rough / Rugged', 'Smooth', 'Cozy Knit', 'Structured / Crisp'];
-const stylesList = ['Casual', 'Streetwear', 'Vintage', 'Rockstar', 'Punk', 'Minimalist', 'Formal'];
-const occasions = ['School / Academic', 'Work / Office', 'Casual Outings', 'Party / Night Out', 'Formal', 'Workout'];
-const fits = ['Baggy / Oversized', 'Regular / Relaxed Fit', 'Slim / Tailored Fit'];
-
-export default function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
-  const theme = useAppTheme(); const { isLoggedIn, loginWithEmail, signUpWithEmail, loginWithOAuth } = useAuth(); const { updateProfile } = useProfile();
-  const [page, setPage] = useState(0); const [ageGroup, setAgeGroup] = useState<'13-17' | '18-22'>('13-17'); const [gender, setGender] = useState<'male' | 'female'>('female'); const [heightCm, setHeightCm] = useState(''); const [weightKg, setWeightKg] = useState(''); const [preferredColors, setPreferredColors] = useState<string[]>([]); const [texturePreferences, setTexturePreferences] = useState<string[]>([]); const [preferredStyles, setPreferredStyles] = useState<string[]>([]); const [commonOccasions, setCommonOccasions] = useState<string[]>([]); const [fitPreference, setFitPreference] = useState(''); const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [register, setRegister] = useState(true); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
-  const totalPages = 7; const outfit = page === 0 ? 'casual_sunny' : page === 5 ? 'smart_layered' : 'cool_hoodie';
-  const toggle = (value: string, setter: React.Dispatch<React.SetStateAction<string[]>>) => setter((current) => current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
-  const payload = useMemo(() => ({ ageGroup, gender, heightCm, weightKg, preferredColors, texturePreferences, preferredStyles, commonOccasions, fitPreference }), [ageGroup, gender, heightCm, weightKg, preferredColors, texturePreferences, preferredStyles, commonOccasions, fitPreference]);
-  const finish = async () => { if (!email || !password) { setError('Add your email and password to continue.'); return; } setBusy(true); setError(''); try { await AsyncStorage.multiSet([['@stylesense_onboarding_complete', 'true'], ['stylesense_onboarding_profile', JSON.stringify(payload)]]); if (register) await signUpWithEmail(email.trim(), password, email.split('@')[0], email.split('@')[0], '', payload); else if (!isLoggedIn) await loginWithEmail(email.trim(), password); await updateProfile(payload); onComplete(); } catch (e: any) { setError(e?.message || 'Something went wrong. Please try again.'); } finally { setBusy(false); } };
-  const next = () => page === totalPages - 1 ? finish() : setPage((current) => current + 1);
-  const ChipRow = ({ values, selected, setter }: { values: string[]; selected: string[]; setter: React.Dispatch<React.SetStateAction<string[]>> }) => <View style={styles.chips}>{values.map((value) => <Pressable key={value} onPress={() => toggle(value, setter)} style={[styles.chip, selected.includes(value) && { backgroundColor: '#DCEFCF', borderColor: '#4D9A65' }]}><Text style={[styles.chipText, { color: theme.text }]}>{value}</Text>{selected.includes(value) && <Ionicons name="checkmark-circle" size={16} color="#4D9A65" />}</Pressable>)}</View>;
-  const title = ['Meet Mel', 'What is your age group?', 'Let’s shape your mannequin', 'Which colors do you reach for?', 'What textures and styles feel like you?', 'Where will you wear your looks?', 'Save your style profile'][page];
-  return <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.container, { backgroundColor: theme.background }]}><View style={styles.header}><Text style={[styles.brand, { color: theme.text }]}>Style<Text style={{ color: '#4D9A65' }}>Sense</Text></Text><Text style={[styles.counter, { color: theme.textMuted }]}>{page + 1} / {totalPages}</Text></View><View style={styles.progressTrack}><View style={[styles.progress, { width: `${((page + 1) / totalPages) * 100}%` }]} /></View><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-    <View style={styles.melGuide}><MelMascot outfit={outfit as any} size={112} waving={page === 0} /><MelSpeechBubble variant={outfit as any} message={page === 0 ? "Hi! I'm Mel, your personal AI chameleon stylist! Let's set up your look in 60 seconds." : page === 2 ? 'This helps me shape your personal 2D Mannequin!' : page === 3 ? 'Which colors do you reach for most often?' : 'A few quick choices and I’ll make your closet feel more like you.'} position="top-left" /></View>
-    <Text style={[styles.eyebrow, { color: '#4D9A65' }]}>STYLE PROFILE</Text><Text style={[styles.title, { color: theme.text }]}>{title}</Text>
-    {page === 0 && <View style={[styles.preview, { backgroundColor: '#EAF3D9' }]}><Text style={styles.previewKicker}>YOUR DAILY STYLE COMPANION</Text><Text style={[styles.previewTitle, { color: theme.text }]}>Weather-aware outfits. Less closet guesswork.</Text><View style={styles.previewLine}><Ionicons name="sunny-outline" size={22} color="#4D9A65" /><Text style={styles.previewText}>Mel adapts to your day, your style, and your wardrobe.</Text></View></View>}
-    {page === 1 && <><Text style={[styles.helper, { color: theme.textMuted }]}>Mel uses this to tailor trends and recommendations to your life stage.</Text><View style={styles.twoCol}>{[['13-17', 'Teen / High School'], ['18-22', 'Young Adult / College']].map(([value, note]) => <Pressable key={value} onPress={() => setAgeGroup(value as any)} style={[styles.optionCard, ageGroup === value && styles.activeCard]}><Text style={[styles.optionTitle, { color: theme.text }]}>{value}</Text><Text style={[styles.optionNote, { color: theme.textMuted }]}>{note}</Text></Pressable>)}</View></>}
-    {page === 2 && <><View style={styles.segment}>{['male', 'female'].map((value) => <Pressable key={value} onPress={() => setGender(value as any)} style={[styles.segmentItem, gender === value && styles.segmentActive]}><Text style={{ color: theme.text, fontWeight: '700' }}>{value[0].toUpperCase() + value.slice(1)}</Text></Pressable>)}</View><View style={styles.inputRow}><LabeledInput label="Height" unit="cm" value={heightCm} onChangeText={setHeightCm} theme={theme} /><LabeledInput label="Weight" unit="kg" value={weightKg} onChangeText={setWeightKg} theme={theme} /></View></>}
-    {page === 3 && <><Text style={[styles.helper, { color: theme.textMuted }]}>Choose a palette, then add any individual colors you love.</Text><ChipRow values={palettes} selected={preferredColors} setter={setPreferredColors} /><View style={styles.swatches}>{swatches.map((color) => <Pressable key={color} onPress={() => toggle(color, setPreferredColors)} style={[styles.swatch, { backgroundColor: color }, preferredColors.includes(color) && styles.swatchSelected]} />)}</View></>}
-    {page === 4 && <><Text style={styles.sectionLabel}>TEXTURE PREFERENCE</Text><ChipRow values={textures} selected={texturePreferences} setter={setTexturePreferences} /><Text style={styles.sectionLabel}>PREFERRED FASHION STYLE</Text><ChipRow values={stylesList} selected={preferredStyles} setter={setPreferredStyles} /></>}
-    {page === 5 && <><Text style={styles.sectionLabel}>COMMON OCCASIONS</Text><ChipRow values={occasions} selected={commonOccasions} setter={setCommonOccasions} /><Text style={styles.sectionLabel}>CLOTHING FIT</Text><View style={styles.chips}>{fits.map((value) => <Pressable key={value} onPress={() => setFitPreference(value)} style={[styles.chip, fitPreference === value && { backgroundColor: '#DCEFCF', borderColor: '#4D9A65' }]}><Text style={[styles.chipText, { color: theme.text }]}>{value}</Text>{fitPreference === value && <Ionicons name="checkmark-circle" size={16} color="#4D9A65" />}</Pressable>)}</View></>}
-    {page === 6 && <><Text style={[styles.helper, { color: theme.textMuted }]}>Your preferences stay editable, and help Mel make better recommendations from day one.</Text>{error ? <Text style={styles.error}>{error}</Text> : null}<TextInput placeholder="Email" placeholderTextColor={theme.textMuted} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" style={[styles.input, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface }]} /><TextInput placeholder="Password" placeholderTextColor={theme.textMuted} value={password} onChangeText={setPassword} secureTextEntry style={[styles.input, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface }]} /><Pressable onPress={() => setRegister((value) => !value)}><Text style={[styles.switchAuth, { color: '#4D9A65' }]}>{register ? 'Already have an account? Sign in' : 'New here? Create an account'}</Text></Pressable><View style={styles.socialRow}><Pressable style={styles.social} onPress={() => loginWithOAuth('google')}><Ionicons name="logo-google" size={17} color="#EA4335" /><Text>Google</Text></Pressable><Pressable style={styles.social} onPress={() => loginWithOAuth('facebook')}><Ionicons name="logo-facebook" size={17} color="#1877F2" /><Text>Facebook</Text></Pressable></View></>}
-  </ScrollView><View style={styles.footer}>{page > 0 && <Pressable onPress={() => setPage((current) => current - 1)}><Text style={[styles.back, { color: theme.textMuted }]}>Back</Text></Pressable>}<Pressable onPress={next} disabled={busy} style={styles.next}>{busy ? <ActivityIndicator color="#FFFFFF" /> : <><Text style={styles.nextText}>{page === 6 ? (register ? 'Create profile' : 'Sign in & start') : 'Next'}</Text><Text style={styles.arrow}>→</Text></>}</Pressable></View></KeyboardAvoidingView>;
+interface OnboardingScreenProps {
+  onComplete: () => void;
+  onNavigateToLogin?: () => void;
 }
-function LabeledInput({ label, unit, value, onChangeText, theme }: any) { return <View style={{ flex: 1 }}><Text style={[styles.fieldLabel, { color: theme.text }]}>{label}</Text><View style={[styles.unitInput, { borderColor: theme.border, backgroundColor: theme.surface }]}><TextInput value={value} onChangeText={onChangeText} keyboardType="numeric" placeholder="e.g. 165" placeholderTextColor={theme.textMuted} style={[styles.unitText, { color: theme.text }]} /><Text style={{ color: theme.textMuted }}>{unit}</Text></View></View>; }
-const styles = StyleSheet.create({ container: { flex: 1 }, header: { paddingHorizontal: 22, paddingTop: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, brand: { fontSize: 20, fontWeight: '900' }, counter: { fontSize: 12, fontWeight: '700' }, progressTrack: { height: 4, backgroundColor: '#DCE7D8', marginHorizontal: 22, marginTop: 14, borderRadius: 9, overflow: 'hidden' }, progress: { height: 4, backgroundColor: '#4D9A65' }, content: { padding: 22, paddingBottom: 24 }, melGuide: { height: 136, position: 'relative', alignItems: 'flex-end', justifyContent: 'flex-end', marginBottom: 10 }, eyebrow: { fontSize: 11, fontWeight: '900', letterSpacing: 1.3, marginBottom: 8 }, title: { fontSize: 30, lineHeight: 35, fontWeight: '900', letterSpacing: -0.5, marginBottom: 14 }, helper: { fontSize: 14, lineHeight: 21, marginBottom: 18 }, preview: { padding: 22, borderRadius: 22, minHeight: 190, justifyContent: 'space-between' }, previewKicker: { color: '#4D9A65', fontSize: 10, fontWeight: '900', letterSpacing: 1.1 }, previewTitle: { fontSize: 24, lineHeight: 28, fontWeight: '900', maxWidth: 290 }, previewLine: { flexDirection: 'row', gap: 10, alignItems: 'center' }, previewText: { color: '#45604A', fontSize: 13, flex: 1, lineHeight: 18 }, twoCol: { flexDirection: 'row', gap: 12 }, optionCard: { flex: 1, minHeight: 126, borderWidth: 1.5, borderColor: '#D9DDD4', backgroundColor: '#FFFFFF', borderRadius: 18, padding: 16, justifyContent: 'flex-end' }, activeCard: { borderColor: '#4D9A65', backgroundColor: '#EAF3D9' }, optionTitle: { fontSize: 25, fontWeight: '900', marginBottom: 6 }, optionNote: { fontSize: 12, lineHeight: 17 }, segment: { flexDirection: 'row', padding: 4, borderRadius: 16, backgroundColor: '#EAF0E6', marginBottom: 18 }, segmentItem: { flex: 1, paddingVertical: 13, alignItems: 'center', borderRadius: 12 }, segmentActive: { backgroundColor: '#FFFFFF', shadowColor: '#2F5538', shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 }, inputRow: { flexDirection: 'row', gap: 12 }, fieldLabel: { fontSize: 12, fontWeight: '800', marginBottom: 7 }, unitInput: { height: 52, borderWidth: 1.5, borderRadius: 14, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center' }, unitText: { flex: 1, fontSize: 15 }, chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginBottom: 22 }, chip: { borderWidth: 1.5, borderColor: '#D9DDD4', borderRadius: 99, backgroundColor: '#FFFFFF', paddingVertical: 10, paddingHorizontal: 13, flexDirection: 'row', gap: 6, alignItems: 'center' }, chipText: { fontSize: 13, fontWeight: '600' }, sectionLabel: { color: '#4D9A65', fontSize: 11, fontWeight: '900', letterSpacing: 1.1, marginBottom: 10, marginTop: 4 }, swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 2 }, swatch: { width: 37, height: 37, borderRadius: 19, borderWidth: 2, borderColor: '#FFFFFF' }, swatchSelected: { borderColor: '#24513B', transform: [{ scale: 1.14 }] }, input: { height: 52, borderWidth: 1.5, borderRadius: 14, paddingHorizontal: 15, fontSize: 15, marginBottom: 12 }, switchAuth: { fontSize: 13, fontWeight: '700', marginBottom: 16 }, socialRow: { flexDirection: 'row', gap: 10 }, social: { flex: 1, height: 46, borderWidth: 1.5, borderColor: '#D9DDD4', backgroundColor: '#FFFFFF', borderRadius: 13, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 7 }, error: { color: '#B64B4B', fontSize: 13, marginBottom: 12 }, footer: { paddingHorizontal: 22, paddingVertical: 14, borderTopWidth: 1, borderTopColor: '#E4E8E0', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, back: { fontSize: 14, fontWeight: '700', padding: 12 }, next: { backgroundColor: '#24513B', borderRadius: 99, paddingVertical: 14, paddingHorizontal: 22, minWidth: 120, flexDirection: 'row', justifyContent: 'center', gap: 8, alignItems: 'center' }, nextText: { color: '#FFFFFF', fontSize: 15, fontWeight: '900' }, arrow: { color: '#FFFFFF', fontSize: 20, lineHeight: 18 } });
+
+interface PaletteOption {
+  id: string;
+  name: string;
+  description: string;
+  colors: string[];
+}
+
+const PALETTES: PaletteOption[] = [
+  {
+    id: 'monochrome',
+    name: 'Monochrome B&W',
+    description: 'Sleek, modern high-contrast styling',
+    colors: ['#171717', '#525252', '#A3A3A3', '#FFFFFF'],
+  },
+  {
+    id: 'earth_neutral',
+    name: 'Earth & Neutral',
+    description: 'Warm tans, olive greens, and cozy creams',
+    colors: ['#785336', '#A2845E', '#D4C3A3', '#556B2F'],
+  },
+  {
+    id: 'streetwear_dark',
+    name: 'Streetwear Dark',
+    description: 'Cyber & urban midnight slate aesthetics',
+    colors: ['#1E1E2E', '#313244', '#45475A', '#89B4FA'],
+  },
+  {
+    id: 'pastel_warm',
+    name: 'Pastel & Warm',
+    description: 'Soft lavender, butter yellow, and blush',
+    colors: ['#FBCFE8', '#FED7AA', '#FEF08A', '#BBF7D0'],
+  },
+  {
+    id: 'mix_match',
+    name: 'Mix & Match All',
+    description: 'Vibrant, expressive and eclectic combinations',
+    colors: ['#EF4444', '#F59E0B', '#10B981', '#3B82F6'],
+  },
+];
+
+const TEXTURE_OPTIONS = [
+  { label: 'Soft Cotton', icon: 'cloud-outline' },
+  { label: 'Cozy Knit', icon: 'shirt-outline' },
+  { label: 'Rough & Denim', icon: 'layers-outline' },
+  { label: 'Smooth Silk', icon: 'sparkles-outline' },
+  { label: 'Structured & Crisp', icon: 'shield-checkmark-outline' },
+];
+
+const STYLE_OPTIONS = [
+  { label: 'Casual Everyday', icon: 'walk-outline', vibe: 'Comfort first' },
+  { label: 'Streetwear', icon: 'bicycle-outline', vibe: 'Urban & edgy' },
+  { label: 'Vintage & Retro', icon: 'film-outline', vibe: 'Timeless classics' },
+  { label: 'Rockstar', icon: 'flash-outline', vibe: 'Bold statements' },
+  { label: 'Punk', icon: 'flame-outline', vibe: 'Rebellious tones' },
+  { label: 'Minimalist', icon: 'ellipse-outline', vibe: 'Clean essentials' },
+  { label: 'Formal & Smart', icon: 'briefcase-outline', vibe: 'Sharp tailoring' },
+];
+
+const OCCASION_OPTIONS = [
+  { label: 'School / Campus', icon: 'school-outline' },
+  { label: 'Work / Internship', icon: 'briefcase-outline' },
+  { label: 'Casual Hangouts', icon: 'cafe-outline' },
+  { label: 'Parties & Nightlife', icon: 'musical-notes-outline' },
+  { label: 'Formal Events', icon: 'ribbon-outline' },
+  { label: 'Gym & Sports', icon: 'fitness-outline' },
+];
+
+const FIT_OPTIONS = [
+  {
+    id: 'Baggy / Oversized',
+    title: 'Baggy & Oversized',
+    description: 'Relaxed streetwear silhouette with extra drape and drop shoulders.',
+    icon: 'resize-outline',
+  },
+  {
+    id: 'Regular / Relaxed Fit',
+    title: 'Regular & Relaxed',
+    description: 'Balanced, timeless everyday fit designed for natural ease and comfort.',
+    icon: 'body-outline',
+  },
+  {
+    id: 'Slim / Tailored Fit',
+    title: 'Slim & Tailored',
+    description: 'Sharp contour that follows body lines for an elongated, crisp profile.',
+    icon: 'cut-outline',
+  },
+];
+
+const DEMO_AVATAR_CLOTHES: OutfitClothingItem[] = [
+  {
+    id: 'onboard-top',
+    name: 'Classic Crewneck',
+    category: 'Top',
+    image: '',
+    color: '#3B82F6',
+    primaryColor: '#3B82F6',
+    slotType: 'innerTop',
+  },
+  {
+    id: 'onboard-bottom',
+    name: 'Straight Denim Pants',
+    category: 'Bottom',
+    image: '',
+    color: '#1E293B',
+    primaryColor: '#1E293B',
+    slotType: 'bottom',
+  },
+  {
+    id: 'onboard-shoes',
+    name: 'Clean White Sneakers',
+    category: 'Shoes',
+    image: '',
+    color: '#FFFFFF',
+    primaryColor: '#FFFFFF',
+    slotType: 'shoes',
+  },
+];
+
+export default function OnboardingScreen({
+  onComplete,
+  onNavigateToLogin,
+}: OnboardingScreenProps) {
+  const theme = useAppTheme();
+  const { isLoggedIn } = useAuth();
+  const { updateProfile } = useProfile();
+
+  // 6 Pages (0 to 5)
+  const [page, setPage] = useState<number>(0);
+  const totalPages = 6;
+
+  // Form State
+  const [ageGroup, setAgeGroup] = useState<'13-17' | '18-22'>('13-17');
+  const [gender, setGender] = useState<'male' | 'female'>('female');
+  const [heightCm, setHeightCm] = useState<string>('168');
+  const [weightKg, setWeightKg] = useState<string>('58');
+  const [selectedPalettes, setSelectedPalettes] = useState<string[]>(['Monochrome B&W', 'Earth & Neutral']);
+  const [texturePreferences, setTexturePreferences] = useState<string[]>(['Soft Cotton', 'Cozy Knit']);
+  const [preferredStyles, setPreferredStyles] = useState<string[]>(['Casual Everyday', 'Streetwear']);
+  const [commonOccasions, setCommonOccasions] = useState<string[]>(['School / Campus', 'Casual Hangouts']);
+  const [fitPreference, setFitPreference] = useState<string>('Regular / Relaxed Fit');
+  const [busy, setBusy] = useState<boolean>(false);
+
+  const toggleArrayItem = (item: string, currentList: string[], setter: (val: string[]) => void) => {
+    if (currentList.includes(item)) {
+      setter(currentList.filter((x) => x !== item));
+    } else {
+      setter([...currentList, item]);
+    }
+  };
+
+  const payload = useMemo(
+    () => ({
+      ageGroup,
+      gender,
+      heightCm,
+      weightKg,
+      preferredColors: selectedPalettes,
+      texturePreferences,
+      preferredStyles,
+      commonOccasions,
+      fitPreference,
+    }),
+    [ageGroup, gender, heightCm, weightKg, selectedPalettes, texturePreferences, preferredStyles, commonOccasions, fitPreference]
+  );
+
+  const melOutfit = useMemo(() => {
+    if (page === 0) return 'casual_sunny';
+    if (page === 1) return 'cool_hoodie';
+    if (page === 2) return 'smart_layered';
+    if (page === 3) return 'formal_suit';
+    if (page === 4) return 'cool_hoodie';
+    return 'casual_sunny';
+  }, [page]);
+
+  const melMessage = useMemo(() => {
+    switch (page) {
+      case 0:
+        return "Hi! I'm Mel, your AI chameleon stylist. Let's customize your wardrobe avatar in 60 seconds!";
+      case 1:
+        return 'Tell me your stage in life so I can tailor campus dress codes & daily vibes!';
+      case 2:
+        return 'Watch your 2D mannequin adapt in real time as you adjust gender and proportions.';
+      case 3:
+        return 'Which palettes make up your core closet? I use these for smart color harmonics.';
+      case 4:
+        return 'Fabrics and styles define how your clothes feel and look on you!';
+      case 5:
+        return 'Almost ready! Where do you go and how do you like your clothes to fit?';
+      default:
+        return 'StyleSense adapts to your closet!';
+    }
+  }, [page]);
+
+  const handleFinish = async () => {
+    setBusy(true);
+    try {
+      await AsyncStorage.multiSet([
+        ['@stylesense_onboarding_complete', 'true'],
+        ['stylesense_onboarding_profile', JSON.stringify(payload)],
+      ]);
+      if (isLoggedIn) {
+        await updateProfile(payload);
+      }
+      onComplete();
+    } catch (e) {
+      console.error('Error completing onboarding:', e);
+      onComplete();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSkipToLogin = async () => {
+    try {
+      await AsyncStorage.multiSet([
+        ['@stylesense_onboarding_complete', 'true'],
+        ['stylesense_onboarding_profile', JSON.stringify(payload)],
+      ]);
+    } catch {
+      // ignore
+    }
+    if (onNavigateToLogin) {
+      onNavigateToLogin();
+    } else {
+      onComplete();
+    }
+  };
+
+  const handleNext = () => {
+    if (page < totalPages - 1) {
+      setPage((prev) => prev + 1);
+    } else {
+      handleFinish();
+    }
+  };
+
+  const handleBack = () => {
+    if (page > 0) {
+      setPage((prev) => prev - 1);
+    }
+  };
+
+  return (
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardContainer}
+      >
+        {/* Top App Header with Brand & Skip Button */}
+        <View style={styles.topBar}>
+          <Text style={[styles.brandText, { color: theme.text }]}>
+            Style<Text style={{ color: '#4D9A65' }}>Sense</Text>
+          </Text>
+
+          <Pressable onPress={handleSkipToLogin} style={styles.skipButton}>
+            <Text style={[styles.skipButtonText, { color: theme.textMuted }]}>
+              Skip to Sign In →
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* 6-Step Segmented Progress Bar */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressSegmentsRow}>
+            {Array.from({ length: totalPages }).map((_, idx) => (
+              <View
+                key={idx}
+                style={[
+                  styles.progressSegment,
+                  {
+                    backgroundColor: idx <= page ? '#4D9A65' : '#E2E8F0',
+                  },
+                ]}
+              />
+            ))}
+          </View>
+          <View style={styles.stepCountRow}>
+            <Text style={[styles.stepLabel, { color: '#4D9A65' }]}>
+              STEP {page + 1} OF {totalPages}
+            </Text>
+          </View>
+        </View>
+
+        {/* Mel Stylist Non-Overlapping Header Row */}
+        <View style={[styles.melHeaderRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <View style={styles.melBubbleFlex}>
+            <MelSpeechBubble variant={melOutfit} message={melMessage} position="inline" />
+          </View>
+          <MelMascot outfit={melOutfit} size={84} waving={page === 0} />
+        </View>
+
+        {/* Interactive Scrollable Content */}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ================= PAGE 0: WELCOME & FEATURE PILLS ================= */}
+          {page === 0 && (
+            <View style={styles.pageContainer}>
+              <Text style={[styles.heroHeading, { color: theme.text }]}>
+                Your Personal AI Wardrobe Stylist
+              </Text>
+              <Text style={[styles.heroSubheading, { color: theme.textMuted }]}>
+                Mix, match, and preview outfits on your custom 2D avatar powered by real-time weather and closet intelligence.
+              </Text>
+
+              {/* Duo Preview Card (Avatar + Mel) */}
+              <View style={[styles.duoPreviewCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <View style={styles.mannequinPreviewWrap}>
+                  <Mannequin2D
+                    compact
+                    profile={{ gender: 'female', heightCm: '168', weightKg: '58' }}
+                    items={DEMO_AVATAR_CLOTHES}
+                  />
+                </View>
+                <View style={styles.duoCardDivider} />
+                <View style={styles.duoFeaturePills}>
+                  <View style={styles.featurePill}>
+                    <View style={[styles.featureIconWrap, { backgroundColor: '#E8F5E9' }]}>
+                      <Ionicons name="camera-outline" size={18} color="#2E7D32" />
+                    </View>
+                    <View style={styles.featureTextWrap}>
+                      <Text style={[styles.featurePillTitle, { color: theme.text }]}>Snap Your Closet</Text>
+                      <Text style={[styles.featurePillSub, { color: theme.textMuted }]}>
+                        Auto background removal & instant tagging
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.featurePill}>
+                    <View style={[styles.featureIconWrap, { backgroundColor: '#EDE7F6' }]}>
+                      <Ionicons name="body-outline" size={18} color="#673AB7" />
+                    </View>
+                    <View style={styles.featureTextWrap}>
+                      <Text style={[styles.featurePillTitle, { color: theme.text }]}>2D Outfit Avatar</Text>
+                      <Text style={[styles.featurePillSub, { color: theme.textMuted }]}>
+                        Try on full looks before stepping out
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.featurePill}>
+                    <View style={[styles.featureIconWrap, { backgroundColor: '#FFF3E0' }]}>
+                      <Ionicons name="partly-sunny-outline" size={18} color="#E65100" />
+                    </View>
+                    <View style={styles.featureTextWrap}>
+                      <Text style={[styles.featurePillTitle, { color: theme.text }]}>Weather-Smart Looks</Text>
+                      <Text style={[styles.featurePillSub, { color: theme.textMuted }]}>
+                        Tailored to humidity, rain & temp
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* ================= PAGE 1: AGE GROUP ================= */}
+          {page === 1 && (
+            <View style={styles.pageContainer}>
+              <Text style={[styles.heroHeading, { color: theme.text }]}>What is your life stage?</Text>
+              <Text style={[styles.heroSubheading, { color: theme.textMuted }]}>
+                Mel curates age-appropriate trends, campus dress codes, and fit guidelines for you.
+              </Text>
+
+              <View style={styles.twoColumnCardsRow}>
+                {/* 13-17 Teen Card */}
+                <Pressable
+                  onPress={() => setAgeGroup('13-17')}
+                  style={[
+                    styles.ageCard,
+                    { backgroundColor: theme.surface, borderColor: theme.border },
+                    ageGroup === '13-17' && styles.activeAgeCard,
+                  ]}
+                >
+                  <View style={styles.ageCardTopRow}>
+                    <View style={[styles.ageBadge, { backgroundColor: '#E8F5E9' }]}>
+                      <Ionicons name="school" size={20} color="#2E7D32" />
+                    </View>
+                    {ageGroup === '13-17' && (
+                      <Ionicons name="checkmark-circle" size={22} color="#4D9A65" />
+                    )}
+                  </View>
+                  <Text style={[styles.ageNumber, { color: theme.text }]}>13–17</Text>
+                  <Text style={[styles.ageTitle, { color: theme.text }]}>Teen & High School</Text>
+                  <Text style={[styles.ageDesc, { color: theme.textMuted }]}>
+                    Comfortable daily fits, school casual, athletic trends, and weekend hangouts.
+                  </Text>
+                  <View style={styles.tagChipsWrap}>
+                    <Text style={styles.tagPill}>#SchoolFit</Text>
+                    <Text style={styles.tagPill}>#Activewear</Text>
+                    <Text style={styles.tagPill}>#Streetwear</Text>
+                  </View>
+                </Pressable>
+
+                {/* 18-22 Campus Card */}
+                <Pressable
+                  onPress={() => setAgeGroup('18-22')}
+                  style={[
+                    styles.ageCard,
+                    { backgroundColor: theme.surface, borderColor: theme.border },
+                    ageGroup === '18-22' && styles.activeAgeCard,
+                  ]}
+                >
+                  <View style={styles.ageCardTopRow}>
+                    <View style={[styles.ageBadge, { backgroundColor: '#EDE7F6' }]}>
+                      <Ionicons name="school-outline" size={20} color="#673AB7" />
+                    </View>
+                    {ageGroup === '18-22' && (
+                      <Ionicons name="checkmark-circle" size={22} color="#4D9A65" />
+                    )}
+                  </View>
+                  <Text style={[styles.ageNumber, { color: theme.text }]}>18–22</Text>
+                  <Text style={[styles.ageTitle, { color: theme.text }]}>Campus & Young Adult</Text>
+                  <Text style={[styles.ageDesc, { color: theme.textMuted }]}>
+                    College campus style, internships, smart casual networking, and nightlife.
+                  </Text>
+                  <View style={styles.tagChipsWrap}>
+                    <Text style={styles.tagPill}>#CampusStyle</Text>
+                    <Text style={styles.tagPill}>#SmartCasual</Text>
+                    <Text style={styles.tagPill}>#Internship</Text>
+                  </View>
+                </Pressable>
+              </View>
+            </View>
+          )}
+
+          {/* ================= PAGE 2: GENDER, HEIGHT, WEIGHT ================= */}
+          {page === 2 && (
+            <View style={styles.pageContainer}>
+              <Text style={[styles.heroHeading, { color: theme.text }]}>Let's shape your mannequin</Text>
+              <Text style={[styles.heroSubheading, { color: theme.textMuted }]}>
+                Tailor avatar proportions in real time so your virtual try-on looks proportional.
+              </Text>
+
+              {/* Live Morphing Mannequin Box */}
+              <View style={[styles.liveMannequinBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <Mannequin2D
+                  compact
+                  profile={{
+                    gender,
+                    heightCm,
+                    weightKg,
+                  }}
+                  items={DEMO_AVATAR_CLOTHES}
+                />
+                <View style={styles.liveBadge}>
+                  <View style={styles.greenPulseDot} />
+                  <Text style={styles.liveBadgeText}>Live Avatar Morph</Text>
+                </View>
+              </View>
+
+              {/* Gender Segment Toggle */}
+              <View style={styles.genderToggleRow}>
+                <Pressable
+                  onPress={() => setGender('male')}
+                  style={[
+                    styles.genderButton,
+                    { backgroundColor: theme.surface, borderColor: theme.border },
+                    gender === 'male' && styles.genderButtonActive,
+                  ]}
+                >
+                  <Ionicons
+                    name="man"
+                    size={18}
+                    color={gender === 'male' ? '#FFFFFF' : theme.text}
+                  />
+                  <Text
+                    style={[
+                      styles.genderButtonText,
+                      { color: gender === 'male' ? '#FFFFFF' : theme.text },
+                    ]}
+                  >
+                    Male Avatar
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => setGender('female')}
+                  style={[
+                    styles.genderButton,
+                    { backgroundColor: theme.surface, borderColor: theme.border },
+                    gender === 'female' && styles.genderButtonActive,
+                  ]}
+                >
+                  <Ionicons
+                    name="woman"
+                    size={18}
+                    color={gender === 'female' ? '#FFFFFF' : theme.text}
+                  />
+                  <Text
+                    style={[
+                      styles.genderButtonText,
+                      { color: gender === 'female' ? '#FFFFFF' : theme.text },
+                    ]}
+                  >
+                    Female Avatar
+                  </Text>
+                </Pressable>
+              </View>
+
+              {/* Height & Weight Inputs with Steppers */}
+              <View style={styles.measurementsRow}>
+                {/* Height */}
+                <View style={[styles.measurementCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                  <Text style={[styles.measurementLabel, { color: theme.textMuted }]}>HEIGHT</Text>
+                  <View style={styles.measurementValRow}>
+                    <TextInput
+                      value={heightCm}
+                      onChangeText={setHeightCm}
+                      keyboardType="numeric"
+                      style={[styles.measurementInput, { color: theme.text }]}
+                    />
+                    <Text style={[styles.measurementUnit, { color: theme.textMuted }]}>cm</Text>
+                  </View>
+                  <View style={styles.stepperRow}>
+                    <Pressable
+                      onPress={() => setHeightCm((prev) => String(Math.max(120, (parseInt(prev, 10) || 165) - 2)))}
+                      style={styles.stepperBtn}
+                    >
+                      <Ionicons name="remove" size={16} color={theme.text} />
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setHeightCm((prev) => String(Math.min(220, (parseInt(prev, 10) || 165) + 2)))}
+                      style={styles.stepperBtn}
+                    >
+                      <Ionicons name="add" size={16} color={theme.text} />
+                    </Pressable>
+                  </View>
+                </View>
+
+                {/* Weight */}
+                <View style={[styles.measurementCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                  <Text style={[styles.measurementLabel, { color: theme.textMuted }]}>WEIGHT</Text>
+                  <View style={styles.measurementValRow}>
+                    <TextInput
+                      value={weightKg}
+                      onChangeText={setWeightKg}
+                      keyboardType="numeric"
+                      style={[styles.measurementInput, { color: theme.text }]}
+                    />
+                    <Text style={[styles.measurementUnit, { color: theme.textMuted }]}>kg</Text>
+                  </View>
+                  <View style={styles.stepperRow}>
+                    <Pressable
+                      onPress={() => setWeightKg((prev) => String(Math.max(35, (parseInt(prev, 10) || 60) - 2)))}
+                      style={styles.stepperBtn}
+                    >
+                      <Ionicons name="remove" size={16} color={theme.text} />
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setWeightKg((prev) => String(Math.min(180, (parseInt(prev, 10) || 60) + 2)))}
+                      style={styles.stepperBtn}
+                    >
+                      <Ionicons name="add" size={16} color={theme.text} />
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* ================= PAGE 3: USUAL STYLE COLORS ================= */}
+          {page === 3 && (
+            <View style={styles.pageContainer}>
+              <Text style={[styles.heroHeading, { color: theme.text }]}>Which colors do you reach for?</Text>
+              <Text style={[styles.heroSubheading, { color: theme.textMuted }]}>
+                Choose the color palettes that dominate your wardrobe. Select all that fit your personal style.
+              </Text>
+
+              <View style={styles.palettesList}>
+                {PALETTES.map((pal) => {
+                  const isSelected = selectedPalettes.includes(pal.name);
+                  return (
+                    <Pressable
+                      key={pal.id}
+                      onPress={() => toggleArrayItem(pal.name, selectedPalettes, setSelectedPalettes)}
+                      style={[
+                        styles.paletteCard,
+                        { backgroundColor: theme.surface, borderColor: theme.border },
+                        isSelected && styles.activePaletteCard,
+                      ]}
+                    >
+                      <View style={styles.paletteHeaderRow}>
+                        <View style={styles.paletteTextWrap}>
+                          <Text style={[styles.paletteName, { color: theme.text }]}>{pal.name}</Text>
+                          <Text style={[styles.paletteDesc, { color: theme.textMuted }]}>
+                            {pal.description}
+                          </Text>
+                        </View>
+                        <Ionicons
+                          name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
+                          size={24}
+                          color={isSelected ? '#4D9A65' : theme.border}
+                        />
+                      </View>
+
+                      {/* 4 Swatch Circles */}
+                      <View style={styles.swatchCirclesRow}>
+                        {pal.colors.map((c, i) => (
+                          <View
+                            key={i}
+                            style={[
+                              styles.swatchCircle,
+                              { backgroundColor: c, borderColor: c === '#FFFFFF' ? '#D1D5DB' : 'transparent' },
+                            ]}
+                          />
+                        ))}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {/* ================= PAGE 4: TEXTURES & STYLES ================= */}
+          {page === 4 && (
+            <View style={styles.pageContainer}>
+              <Text style={[styles.heroHeading, { color: theme.text }]}>Textures & Fashion Styles</Text>
+              <Text style={[styles.heroSubheading, { color: theme.textMuted }]}>
+                Pick the fabrics and aesthetics you feel most confident wearing.
+              </Text>
+
+              {/* Textures Section */}
+              <Text style={[styles.sectionTitle, { color: '#4D9A65' }]}>PREFERRED TEXTURES</Text>
+              <View style={styles.chipGrid}>
+                {TEXTURE_OPTIONS.map((item) => {
+                  const isSelected = texturePreferences.includes(item.label);
+                  return (
+                    <Pressable
+                      key={item.label}
+                      onPress={() => toggleArrayItem(item.label, texturePreferences, setTexturePreferences)}
+                      style={[
+                        styles.filterChip,
+                        { backgroundColor: theme.surface, borderColor: theme.border },
+                        isSelected && styles.filterChipActive,
+                      ]}
+                    >
+                      <Ionicons
+                        name={item.icon as any}
+                        size={16}
+                        color={isSelected ? '#2E7D32' : theme.textMuted}
+                      />
+                      <Text
+                        style={[
+                          styles.filterChipText,
+                          { color: isSelected ? '#1B4D1F' : theme.text },
+                        ]}
+                      >
+                        {item.label}
+                      </Text>
+                      {isSelected && (
+                        <Ionicons name="checkmark" size={14} color="#2E7D32" />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* Styles Section */}
+              <Text style={[styles.sectionTitle, { color: '#4D9A65', marginTop: 20 }]}>
+                FASHION STYLES
+              </Text>
+              <View style={styles.styleGrid}>
+                {STYLE_OPTIONS.map((item) => {
+                  const isSelected = preferredStyles.includes(item.label);
+                  return (
+                    <Pressable
+                      key={item.label}
+                      onPress={() => toggleArrayItem(item.label, preferredStyles, setPreferredStyles)}
+                      style={[
+                        styles.styleCard,
+                        { backgroundColor: theme.surface, borderColor: theme.border },
+                        isSelected && styles.styleCardActive,
+                      ]}
+                    >
+                      <Ionicons
+                        name={item.icon as any}
+                        size={20}
+                        color={isSelected ? '#2E7D32' : theme.accent}
+                      />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.styleCardTitle, { color: theme.text }]}>
+                          {item.label}
+                        </Text>
+                        <Text style={[styles.styleCardVibe, { color: theme.textMuted }]}>
+                          {item.vibe}
+                        </Text>
+                      </View>
+                      {isSelected && (
+                        <Ionicons name="checkmark-circle" size={18} color="#4D9A65" />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {/* ================= PAGE 5: OCCASIONS & FIT ================= */}
+          {page === 5 && (
+            <View style={styles.pageContainer}>
+              <Text style={[styles.heroHeading, { color: theme.text }]}>Occasions & Preferred Fit</Text>
+              <Text style={[styles.heroSubheading, { color: theme.textMuted }]}>
+                Final touch! Tell Mel what cut looks best on your body and where you spend your time.
+              </Text>
+
+              {/* Fit Silhouette Cards */}
+              <Text style={[styles.sectionTitle, { color: '#4D9A65' }]}>FIT SILHOUETTE</Text>
+              <View style={styles.fitList}>
+                {FIT_OPTIONS.map((fit) => {
+                  const isSelected = fitPreference === fit.id;
+                  return (
+                    <Pressable
+                      key={fit.id}
+                      onPress={() => setFitPreference(fit.id)}
+                      style={[
+                        styles.fitCard,
+                        { backgroundColor: theme.surface, borderColor: theme.border },
+                        isSelected && styles.fitCardActive,
+                      ]}
+                    >
+                      <View style={styles.fitHeaderRow}>
+                        <View style={[styles.fitIconCircle, { backgroundColor: isSelected ? '#E8F5E9' : '#F1F5F9' }]}>
+                          <Ionicons
+                            name={fit.icon as any}
+                            size={18}
+                            color={isSelected ? '#2E7D32' : theme.textMuted}
+                          />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.fitTitle, { color: theme.text }]}>{fit.title}</Text>
+                          <Text style={[styles.fitDesc, { color: theme.textMuted }]}>
+                            {fit.description}
+                          </Text>
+                        </View>
+                        <Ionicons
+                          name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
+                          size={22}
+                          color={isSelected ? '#4D9A65' : theme.border}
+                        />
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* Common Occasions Chips */}
+              <Text style={[styles.sectionTitle, { color: '#4D9A65', marginTop: 20 }]}>
+                COMMON OCCASIONS
+              </Text>
+              <View style={styles.chipGrid}>
+                {OCCASION_OPTIONS.map((item) => {
+                  const isSelected = commonOccasions.includes(item.label);
+                  return (
+                    <Pressable
+                      key={item.label}
+                      onPress={() => toggleArrayItem(item.label, commonOccasions, setCommonOccasions)}
+                      style={[
+                        styles.filterChip,
+                        { backgroundColor: theme.surface, borderColor: theme.border },
+                        isSelected && styles.filterChipActive,
+                      ]}
+                    >
+                      <Ionicons
+                        name={item.icon as any}
+                        size={16}
+                        color={isSelected ? '#2E7D32' : theme.textMuted}
+                      />
+                      <Text
+                        style={[
+                          styles.filterChipText,
+                          { color: isSelected ? '#1B4D1F' : theme.text },
+                        ]}
+                      >
+                        {item.label}
+                      </Text>
+                      {isSelected && (
+                        <Ionicons name="checkmark" size={14} color="#2E7D32" />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Bottom Navigation Buttons */}
+        <View style={[styles.bottomBar, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
+          {page > 0 ? (
+            <Pressable onPress={handleBack} style={styles.backBtn}>
+              <Ionicons name="arrow-back" size={18} color={theme.text} />
+              <Text style={[styles.backBtnText, { color: theme.text }]}>Back</Text>
+            </Pressable>
+          ) : (
+            <View style={{ width: 60 }} />
+          )}
+
+          <Pressable
+            onPress={handleNext}
+            disabled={busy}
+            style={[styles.primaryNextBtn, { backgroundColor: '#24513B' }]}
+          >
+            {busy ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <>
+                <Text style={styles.primaryNextBtnText}>
+                  {page === totalPages - 1 ? 'Finish & Sign In' : 'Continue'}
+                </Text>
+                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+              </>
+            )}
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
+  keyboardContainer: {
+    flex: 1,
+  },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  brandText: {
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  skipButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  skipButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  progressContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 8,
+  },
+  progressSegmentsRow: {
+    flexDirection: 'row',
+    gap: 6,
+    height: 5,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  progressSegment: {
+    flex: 1,
+    height: 5,
+    borderRadius: 3,
+  },
+  stepCountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  stepLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  melHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 8,
+  },
+  melBubbleFlex: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+  },
+  pageContainer: {
+    paddingTop: 8,
+  },
+  heroHeading: {
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+    marginBottom: 6,
+  },
+  heroSubheading: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  duoPreviewCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  mannequinPreviewWrap: {
+    height: 200,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  duoCardDivider: {
+    width: '100%',
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 14,
+  },
+  duoFeaturePills: {
+    width: '100%',
+    gap: 10,
+  },
+  featurePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  featureIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureTextWrap: {
+    flex: 1,
+  },
+  featurePillTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  featurePillSub: {
+    fontSize: 12,
+  },
+  twoColumnCardsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  ageCard: {
+    flex: 1,
+    borderRadius: 18,
+    borderWidth: 2,
+    padding: 14,
+    minHeight: 220,
+    justifyContent: 'space-between',
+  },
+  activeAgeCard: {
+    borderColor: '#4D9A65',
+    backgroundColor: '#F0F9F1',
+    shadowColor: '#4D9A65',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  ageCardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  ageBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ageNumber: {
+    fontSize: 28,
+    fontWeight: '900',
+    marginTop: 8,
+  },
+  ageTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  ageDesc: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 10,
+  },
+  tagChipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  tagPill: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#2E7D32',
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  liveMannequinBox: {
+    height: 220,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginBottom: 14,
+    overflow: 'hidden',
+  },
+  liveBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 6,
+  },
+  greenPulseDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#4D9A65',
+  },
+  liveBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#24513B',
+  },
+  genderToggleRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 14,
+  },
+  genderButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  genderButtonActive: {
+    backgroundColor: '#24513B',
+    borderColor: '#24513B',
+  },
+  genderButtonText: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  measurementsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  measurementCard: {
+    flex: 1,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 12,
+  },
+  measurementLabel: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    marginBottom: 6,
+  },
+  measurementValRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  measurementInput: {
+    fontSize: 26,
+    fontWeight: '900',
+    minWidth: 60,
+    padding: 0,
+  },
+  measurementUnit: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  stepperRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  stepperBtn: {
+    flex: 1,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  palettesList: {
+    gap: 10,
+  },
+  paletteCard: {
+    borderRadius: 16,
+    borderWidth: 1.5,
+    padding: 14,
+  },
+  activePaletteCard: {
+    borderColor: '#4D9A65',
+    backgroundColor: '#F0F9F1',
+  },
+  paletteHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  paletteTextWrap: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  paletteName: {
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  paletteDesc: {
+    fontSize: 12,
+  },
+  swatchCirclesRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  swatchCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 10,
+  },
+  chipGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1.5,
+  },
+  filterChipActive: {
+    backgroundColor: '#E8F5E9',
+    borderColor: '#4D9A65',
+  },
+  filterChipText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  styleGrid: {
+    gap: 8,
+  },
+  styleCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1.5,
+  },
+  styleCardActive: {
+    backgroundColor: '#E8F5E9',
+    borderColor: '#4D9A65',
+  },
+  styleCardTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  styleCardVibe: {
+    fontSize: 12,
+  },
+  fitList: {
+    gap: 10,
+  },
+  fitCard: {
+    borderRadius: 16,
+    borderWidth: 1.5,
+    padding: 14,
+  },
+  fitCardActive: {
+    borderColor: '#4D9A65',
+    backgroundColor: '#F0F9F1',
+  },
+  fitHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  fitIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fitTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  fitDesc: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  bottomBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+  },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  backBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  primaryNextBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 99,
+    shadowColor: '#24513B',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  primaryNextBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+});

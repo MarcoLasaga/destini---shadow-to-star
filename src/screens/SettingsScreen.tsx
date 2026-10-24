@@ -198,7 +198,7 @@ export default function SettingsScreen() {
           </View>
           <View style={styles.themeRow}>
             <Text style={[styles.label, { color: theme.text }]}>2D mannequin skin</Text>
-            <View style={styles.skinRow}>{['#F0C7A4', '#D99B72', '#B97852', '#7A4937'].map((tone) => <Pressable key={tone} onPress={() => setMannequinSkinTone(tone)} style={[styles.skinSwatch, { backgroundColor: tone }, mannequinSkinTone === tone && styles.skinSelected]} />)}</View>
+            <View style={styles.skinRow}>{['#F7E1D3', '#F1CBA9', '#E2B187', '#C99266', '#A66E46'].map((tone) => <Pressable key={tone} onPress={() => setMannequinSkinTone(tone)} style={[styles.skinSwatch, { backgroundColor: tone }, mannequinSkinTone === tone && styles.skinSelected]} />)}</View>
           </View>
         </View>
 
