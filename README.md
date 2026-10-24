@@ -1,96 +1,53 @@
-## Intro (Ceana)
+# StyleSense web portal
 
-Woah-oh-oh-oh-oh woah
+The web project is the StyleSense portal. It is intentionally not a second
+consumer wardrobe app. The mobile app owns wardrobe capture and daily outfit
+use; this web project owns the public overview, authentication, admin
+operations, and research/evaluation workspace.
 
-## Verse 1 (Shiekah)
+## Start the portal
 
-Hiding in the dark, ang dilim ng paligid
-Eyes on the ground, 'di lang makakitang inggit
-Whispers in the air, sinong maglalakas-loob
-Dreams are buried deep, now we’re breaking the globe
+From this directory:
 
-Nasa dilim ako noon
-Shadows whispered all alone
-But now the fire's in my bones
-Watch me rise, I'm taking the throne
+```powershell
+npm ci
+npm run dev
+```
 
-## Interlude (Ceana)
+Open the URL printed by Vite, normally `http://localhost:5173/`.
 
-And now the stage is mine
-Oh, can you feel the fire?
-I’m breaking all the lines
-Soaring higher and higher
+The portal landing page does not require the Express API or Docker to render.
 
-## Pre-Chorus (Shiekah)
+## Optional local services
 
-'Di na takot, 'di na magtatago
-Ready na ako, mundo'y magbabago
-Oh, hear me loud, no more echo
+Start the Express API only when working on API-backed operations:
 
-## Chorus (Shiekah)
+```powershell
+npm run server:dev
+```
 
-From shadow to star, 'di mo mapipigilan
-Lahat ng ilaw, sa akin lang nagniningning
-From shadow to star, brighter than the sun
-No chains can hold me, my moment has begun
+The API listens on `http://localhost:5000` and exposes `/health`.
 
-## Verse 2 (Ceana, Shiekah)
+The image-analysis service is optional infrastructure for image-processing
+work. Docker is not part of the current workflow. If it is needed locally,
+run it directly from its directory:
 
-I'm a spotlight hunter, shining stronger
-Hinding-hindi na magtatago
-Now the spotlight's mine to follow (Woah, woah)
-No fear, no blunder
+```powershell
+cd ml-service
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
 
-## Verse 3 (Shiekah)
+The API can use it when `CNN_ANALYSIS_URL=http://localhost:8000/analyze` is
+configured. Run the ML commands from `ml-service`, not the repository root.
 
-Diretso sa bawat hakbang, puso ko'y palaban
-Kung nakinig ka lang sana, 'di ka nag-aabang
-Diretso sa bawat hakbang, puso ko’y palaban
-Kung nakinig ka lang sana, 'di ka nag-aabang
+## Validate
 
-## Verse 4 (Ceana)
+```powershell
+npm run build
+```
 
-They thought I’d stay low
-Thought I'd lay low
-Ngayon ako'y rocketship, tuloy-tuloy ang show
-
-Eyes on me, spotlight beam
-My time has arrived
-Ang liwanag ko'y eternal
-Never dim, never die
-
-From ashes I rose, phoenix in my soul
-Built my kingdom, now I’m in control
-Bawat sugat naging badge of honor
-No retreat, just conquer
-
-I'm a fighter, every bruise, every scar
-Made me who I am so far
-I'm a diamond born from the dark (From the dark)
-
-## Pre-Chorus (Shiekah)
-
-'Di na takot, 'di na magtatago
-Ready na ako, mundo'y magbabago
-Oh, hear me loud, no more echo
-
-## Chorus (Shiekah)
-
-From shadow to star, 'di mo mapipigilan
-Lahat ng ilaw, sa akin lang nagniningning
-From shadow to star, brighter than the sun
-No chains can hold me, my moment has begun
-
-## Bridge (Shiekah, Ceana)
-
-Lahat ng sugat, healed in time
-Wounds turned gold, they shine
-Ang mundo ko ngayon may himig
-Hear my anthem, hear my rhyme
-
-## Chorus (Shiekah)
-
-From shadow to star, 'di mo mapipigilan ('Di mo mapipigilan)
-Lahat ng ilaw, sa akin lang nagniningning (Nagniningning)
-From shadow to star, brighter than the sun
-No chains can hold me, my moment has begun
+The repository may contain legacy mobile-owned screen files for reference, but
+they are no longer registered as web portal routes.

@@ -65,9 +65,20 @@ export interface CreateItemPayload {
 
 export interface ClothingPrediction {
   category?: CreateItemPayload['category']
+  subCategory?: string | null
+  suggestedName?: string | null
+  suggestedBrand?: string | null
+  layerRole?: 'INNER_BASE' | 'OUTER_LAYER' | 'LOWER_BODY' | 'FOOTWEAR' | 'ACCESSORY' | null
   color?: string
+  colorHex?: string | null
+  secondary_color?: string | null
   style?: NonNullable<CreateItemPayload['style']>
+  occasion?: string | null
+  material?: string | null
   confidence?: number
+  cutoutDataUri?: string | null
+  is_safe_garment?: boolean
+  moderation_reason?: string | null
 }
 
 export const wardrobeApi = {
@@ -119,3 +130,4 @@ export const wardrobeApi = {
   recordWear: (id: string) =>
     apiClient.patch<{ data: WardrobeItem }>(`/wardrobe/${id}/wear`),
 }
+

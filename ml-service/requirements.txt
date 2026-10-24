@@ -1,4 +1,7 @@
-fastapi==0.115.12
-uvicorn[standard]==0.34.2
-pillow==11.2.1
-numpy==2.2.5
+torch==2.8.0
+torchvision
+scipy
+scikit-learn
+opencv-python-headless
+rembg
+onnxruntime

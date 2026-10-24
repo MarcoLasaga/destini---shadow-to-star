@@ -24,6 +24,28 @@ const OCCASIONS = ['SCHOOL', 'WORK', 'GYM', 'PARTY', 'DATE', 'OUTDOOR', 'EVERYDA
 const SEASONS = ['SPRING', 'SUMMER', 'AUTUMN', 'WINTER', 'ALL_SEASONS'] as const
 const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'] as const
 
+const NATURAL_CATEGORY_LABELS: Record<(typeof CATEGORIES)[number], string> = {
+  TOP: 'Casual Top',
+  BOTTOM: 'Tailored Bottoms',
+  SHOES: 'Everyday Shoes',
+  OUTERWEAR: 'Everyday Jacket',
+  ACCESSORIES: 'Everyday Accessory',
+}
+
+export function buildFallbackSuggestedName(
+  category?: string,
+  color?: string,
+  subCategory?: string | null
+): string {
+  const cleanColor = color?.trim() || 'Classic'
+  if (subCategory && subCategory.trim()) {
+    return `${cleanColor} ${subCategory.trim()}`
+  }
+  const upperCat = (category || 'TOP').toUpperCase() as (typeof CATEGORIES)[number]
+  const naturalNoun = NATURAL_CATEGORY_LABELS[upperCat] || 'Casual Top'
+  return `${cleanColor} ${naturalNoun}`
+}
+
 const label: React.CSSProperties = {
   fontFamily: FF, fontSize: 12, fontWeight: 700, letterSpacing: '0.10em',
   textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 11, display: 'block',
@@ -52,13 +74,17 @@ export default function AddClothes() {
   const createMut = useCreateItem()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
+  const lastAutoNameRef = useRef<string>('')
 
   const [preview, setPreview] = useState<string | null>(null)
   const [fileName, setFileName] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [name, setName] = useState('')
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>('TOP')
+  const [subCategory, setSubCategory] = useState<string>('')
+  const [layerRole, setLayerRole] = useState<string>('INNER_BASE')
   const [color, setColor] = useState('Black')
+  const [colorHex, setColorHex] = useState<string>('#1a1a1a')
   const [fabric, setFabric] = useState<(typeof FABRICS)[number]>('Cotton')
   const [style, setStyle] = useState<(typeof STYLES)[number]>('CASUAL')
   const [occasion, setOccasion] = useState<(typeof OCCASIONS)[number]>('EVERYDAY')
@@ -72,6 +98,7 @@ export default function AddClothes() {
   async function handleFile(file: File) {
     setImageFile(file)
     setFileName(file.name)
+    setError('')
     const reader = new FileReader()
     reader.onload = e => setPreview(e.target?.result as string)
     reader.readAsDataURL(file)
@@ -79,12 +106,58 @@ export default function AddClothes() {
     try {
       const { data } = await wardrobeApi.analyzeImage(file)
       const prediction = data.data
-      if (prediction.category) setCategory(prediction.category as (typeof CATEGORIES)[number])
-      if (prediction.color) setColor(prediction.color)
-      if (prediction.style) setStyle(prediction.style as (typeof STYLES)[number])
-      if (prediction.category && !name.trim()) setName(`${prediction.color ? `${prediction.color} ` : ''}${prediction.category}`)
+      if (prediction.category && (CATEGORIES as readonly string[]).includes(prediction.category)) {
+        setCategory(prediction.category as (typeof CATEGORIES)[number])
+      }
+      if (prediction.subCategory) {
+        setSubCategory(prediction.subCategory)
+      }
+      if (prediction.layerRole) {
+        setLayerRole(prediction.layerRole)
+      }
+      if (prediction.color) {
+        setColor(prediction.color)
+      }
+      if (prediction.colorHex) {
+        setColorHex(prediction.colorHex)
+      }
+      if (prediction.cutoutDataUri) {
+        setPreview(prediction.cutoutDataUri)
+      }
+      if (prediction.style && (STYLES as readonly string[]).includes(prediction.style)) {
+        setStyle(prediction.style as (typeof STYLES)[number])
+      }
+      if (prediction.material && (FABRICS as readonly string[]).includes(prediction.material)) {
+        setFabric(prediction.material as (typeof FABRICS)[number])
+      }
+      if (prediction.occasion && (OCCASIONS as readonly string[]).includes(prediction.occasion.toUpperCase())) {
+        setOccasion(prediction.occasion.toUpperCase() as (typeof OCCASIONS)[number])
+      }
+      if (prediction.suggestedBrand && !brand.trim()) {
+        setBrand(prediction.suggestedBrand)
+      }
+
+      const generatedName =
+        prediction.suggestedName?.trim() ||
+        buildFallbackSuggestedName(prediction.category ?? category, prediction.color ?? color, prediction.subCategory)
+
+      setName(prev => {
+        if (!prev.trim() || prev === lastAutoNameRef.current) {
+          lastAutoNameRef.current = generatedName
+          return generatedName
+        }
+        return prev
+      })
     } catch (analysisError) {
-      // Uploading still works when the optional CNN service is unavailable.
+      // Uploading still works when the optional CNN service is unavailable; generate a natural fallback name.
+      const fallbackName = buildFallbackSuggestedName(category, color)
+      setName(prev => {
+        if (!prev.trim() || prev === lastAutoNameRef.current) {
+          lastAutoNameRef.current = fallbackName
+          return fallbackName
+        }
+        return prev
+      })
       console.info('Image analysis unavailable; continuing with manual entry.', analysisError)
     }
   }
@@ -100,6 +173,7 @@ export default function AddClothes() {
       await createMut.mutateAsync({
         payload: {
           category,
+          subcategory: subCategory || undefined,
           clothingName: name,
           color,
           material: fabric,
@@ -128,6 +202,8 @@ export default function AddClothes() {
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
       className="ss-page-wrapper" style={{ background: 'var(--bg-page)', minHeight: '100vh' }}
+      data-layer-role={layerRole}
+      data-color-hex={colorHex}
     >
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
         <button onClick={() => navigate('/wardrobe')}
@@ -171,7 +247,7 @@ export default function AddClothes() {
 
         <div style={{ marginBottom: 26 }}>
           <span style={label}>ITEM NAME <span style={{ color: 'var(--accent)' }}>*</span></span>
-          <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Black Hoodie" style={inputSt} onFocus={e => { e.target.style.borderColor = 'var(--secondary)'; e.target.style.boxShadow = '0 0 0 3px var(--secondary-soft)' }} onBlur={e => { e.target.style.borderColor = 'var(--border-solid)'; e.target.style.boxShadow = 'none' }} />
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Black Pullover Hoodie" style={inputSt} onFocus={e => { e.target.style.borderColor = 'var(--secondary)'; e.target.style.boxShadow = '0 0 0 3px var(--secondary-soft)' }} onBlur={e => { e.target.style.borderColor = 'var(--border-solid)'; e.target.style.boxShadow = 'none' }} />
         </div>
 
         <div style={{ marginBottom: 26 }}>
@@ -189,7 +265,7 @@ export default function AddClothes() {
             {COLORS.map(c => {
               const active = color === c.name
               return (
-                <button key={c.name} onClick={() => setColor(c.name)} style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: FF, fontSize: 13.5, fontWeight: 600, padding: '6px 13px', borderRadius: 9, cursor: 'pointer', border: active ? 'none' : '1.5px solid var(--border-solid)', background: active ? 'var(--accent)' : 'var(--bg-card)', color: active ? '#fff' : 'var(--text-body)', transition: 'all 0.18s' }} onMouseEnter={e => { if (!active) { e.currentTarget.style.borderColor = 'var(--secondary)'; e.currentTarget.style.color = 'var(--accent)' } }} onMouseLeave={e => { if (!active) { e.currentTarget.style.borderColor = 'var(--border-solid)'; e.currentTarget.style.color = 'var(--text-body)' } }}>
+                <button key={c.name} onClick={() => { setColor(c.name); setColorHex(c.hex) }} style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: FF, fontSize: 13.5, fontWeight: 600, padding: '6px 13px', borderRadius: 9, cursor: 'pointer', border: active ? 'none' : '1.5px solid var(--border-solid)', background: active ? 'var(--accent)' : 'var(--bg-card)', color: active ? '#fff' : 'var(--text-body)', transition: 'all 0.18s' }} onMouseEnter={e => { if (!active) { e.currentTarget.style.borderColor = 'var(--secondary)'; e.currentTarget.style.color = 'var(--accent)' } }} onMouseLeave={e => { if (!active) { e.currentTarget.style.borderColor = 'var(--border-solid)'; e.currentTarget.style.color = 'var(--text-body)' } }}>
                   <span style={{ width: 13, height: 13, borderRadius: '50%', background: c.hex, border: '1.5px solid rgba(0,0,0,0.1)', flexShrink: 0 }} />
                   {c.name}
                 </button>
@@ -269,3 +345,4 @@ export default function AddClothes() {
     </motion.div>
   )
 }
+
