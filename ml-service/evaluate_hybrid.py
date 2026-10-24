@@ -55,8 +55,6 @@ def compute_content_score(outfit, target_occ, weather, user_prefs):
     w_occ = min(user_prefs['occ_w'].get(target_occ, 0.0), 10.0) * 0.4
     s += w_style + w_color + w_cat + w_occ
  
-    if any(it['worn_last_7d'] for it in outfit):
-        s -= 18.0
     if any(it['disliked'] for it in outfit):
         s -= 30.0
  

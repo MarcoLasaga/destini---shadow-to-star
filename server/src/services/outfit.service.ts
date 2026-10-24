@@ -43,15 +43,13 @@ function scoreCombination(items: WardrobeRow[], occasion?: string, preferences?:
   if (categoryWeight > 0) { score += Math.min(categoryWeight, 8); reasons.push('Uses clothing types you prefer') }
   if (occasionWeight > 0) { score += Math.min(occasionWeight, 10); reasons.push('Fits your occasion preference') }
   if (items.some((item) => NEUTRALS.has(item.color?.toLowerCase() || ''))) { score += 10; reasons.push('Neutral color anchor') }
-  const recentlyWorn = items.some((item) => item.last_worn_at && Date.now() - new Date(item.last_worn_at).getTime() < 7 * 86400000)
-  if (recentlyWorn) { score -= 14; reasons.push('Includes a recently worn item') } else reasons.push('Avoids recently worn items')
   const disliked = new Set(preferences?.disliked_items || [])
   if (items.some((item) => disliked.has(item.id))) { score -= 25; reasons.push('Avoids items you disliked less effectively') }
   return { score: Math.max(0, Math.min(score, 100)), reasons }
 }
 
 function combinations(items: WardrobeRow[], occasion?: string, preferences?: PreferenceProfile) {
-  const clean = items.filter((item) => item.laundry_status === 'CLEAN')
+  const clean = items
   const tops = clean.filter((item) => item.category === 'TOP')
   const bottoms = clean.filter((item) => item.category === 'BOTTOM')
   const shoes = clean.filter((item) => item.category === 'SHOES')

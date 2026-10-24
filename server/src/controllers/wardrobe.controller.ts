@@ -258,18 +258,21 @@ export const wardrobeController = {
       }
 
       const mappedWardrobe = (rawItems || []).map((row: any) => {
-        const lastWorn = row.last_worn_at || row.lastWornAt
-        const worn_within_7_days = Boolean(lastWorn && (Date.now() - new Date(lastWorn).getTime() < 7 * 24 * 60 * 60 * 1000))
-
         return {
           id: String(row.id),
           clothing_name: row.clothing_name || row.clothingName || 'Item',
           category: normalizeCategory(row.category),
           color: (typeof row.color === 'string' && row.color.trim()) ? row.color.trim() : 'Black',
+          primary_color: row.primary_color || row.primaryColor || null,
+          secondary_color: row.secondary_color || row.secondaryColor || null,
           style: normalizeStyle(row.style),
           occasion: row.occasion || 'Casual',
+          vector_subtype: row.vector_subtype || row.vectorSubtype || null,
+          texture: row.texture || null,
+          fit: row.fit || null,
+          target_gender: row.target_gender || row.targetGender || 'unisex',
+          image_url: row.image_url || row.imageUrl || null,
           laundry_status: normalizeLaundryStatus(row.laundry_status || row.laundryStatus),
-          worn_within_7_days,
           is_favorite: Boolean(row.is_favorite ?? row.isFavorite ?? false),
           is_disliked: Boolean(row.is_disliked ?? row.isDisliked ?? false),
         }
@@ -299,6 +302,12 @@ export const wardrobeController = {
         weather,
         community_signals: Array.isArray(req.body?.community_signals) ? req.body.community_signals : [],
         alpha: typeof req.body?.alpha === 'number' ? req.body.alpha : 0.55,
+        gender: req.body?.gender || 'unisex',
+        source_mode: req.body?.source_mode || 'wardrobe',
+        textures: Array.isArray(req.body?.textures) ? req.body.textures : [],
+        favorite_colors: Array.isArray(req.body?.favorite_colors) ? req.body.favorite_colors : [],
+        fit_preference: req.body?.fit_preference || null,
+        common_occasions: Array.isArray(req.body?.common_occasions) ? req.body.common_occasions : [],
       }
 
       const mlUrl = (process.env.ML_SERVICE_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '')
@@ -317,6 +326,29 @@ export const wardrobeController = {
         success: true,
         data: recommendations,
         recommendations,
+      })
+    } catch (err: any) {
+      if (err.response?.status) {
+        sendError(res, err.response.data?.detail || err.message, err.response.status)
+        return
+      }
+      next(err)
+    }
+  },
+
+  async scoreOutfit(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const mlUrl = (process.env.ML_SERVICE_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '')
+      const { data: scoreResult } = await axios.post(`${mlUrl}/score-outfit`, req.body, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+        },
+        timeout: 15_000,
+      })
+      return res.status(200).json({
+        success: true,
+        data: scoreResult,
+        ...scoreResult,
       })
     } catch (err: any) {
       if (err.response?.status) {

@@ -107,6 +107,16 @@ for _p in (Path(__file__).resolve().parent, Path(__file__).resolve().parent.pare
 import kmeans_color
 
 try:
+    from app.system_catalog import SYSTEM_DATASET_CATALOG, get_system_catalog_items
+except ImportError:
+    try:
+        from system_catalog import SYSTEM_DATASET_CATALOG, get_system_catalog_items
+    except ImportError:
+        SYSTEM_DATASET_CATALOG = []  # type: ignore[assignment]
+        def get_system_catalog_items(gender: str = "unisex"):  # type: ignore
+            return []
+
+try:
     import cv2
 except Exception:
     cv2 = None
@@ -136,7 +146,8 @@ except Exception:
 Category = Literal["TOP", "BOTTOM", "SHOES", "OUTERWEAR", "ACCESSORIES"]
 Style = Literal[
     "CASUAL", "FORMAL", "SPORTY", "STREETWEAR",
-    "MINIMALIST", "BOHEMIAN", "VINTAGE", "CLASSIC"
+    "MINIMALIST", "BOHEMIAN", "VINTAGE", "CLASSIC",
+    "ROCKSTAR", "PUNK", "WORKOUT"
 ]
 LayerRole = Literal["INNER_BASE", "OUTER_LAYER", "LOWER_BODY", "FOOTWEAR", "ACCESSORY"]
 Material = Literal[
@@ -246,6 +257,7 @@ class Prediction(BaseModel):
     suggestedName: Optional[str] = None
     suggestedBrand: Optional[str] = None
     layerRole: Optional[LayerRole] = None
+    vector_subtype: Optional[str] = None
     color: Optional[str] = None
     colorHex: Optional[str] = None
     secondary_color: Optional[str] = None
@@ -298,12 +310,19 @@ class WardrobeItemInput(BaseModel):
     clothing_name: str
     category: Category
     color: str
+    primary_color: Optional[str] = None
+    secondary_color: Optional[str] = None
     style: Style = "CASUAL"
     occasion: str = "Casual"
-    laundry_status: Literal["CLEAN", "DIRTY", "LAUNDRY", "NEEDS_WASHING"] = "CLEAN"
-    worn_within_7_days: bool = False
+    vector_subtype: Optional[str] = None
+    texture: Optional[str] = None
+    fit: Optional[str] = None
+    target_gender: Optional[str] = "unisex"
+    image_url: Optional[str] = None
     is_favorite: bool = False
     is_disliked: bool = False
+    laundry_status: Optional[str] = "CLEAN"  # Backwards compatibility; ignored for scoring
+    worn_within_7_days: Optional[bool] = False  # Backwards compatibility; wear penalty removed
 
 
 class WeatherContextInput(BaseModel):
@@ -318,18 +337,26 @@ class CommunityRatingSignal(BaseModel):
     style: Style
     dominant_color: str
     rating: float = Field(ge=1.0, le=5.0)
+    author_gender: Optional[str] = None
+    rater_gender: Optional[str] = None
 
 
 class HybridRecommendationRequest(BaseModel):
     user_id: str
     target_occasion: str = "Casual"
     no_new_clothes_mode: bool = True
-    wardrobe: List[WardrobeItemInput]
+    wardrobe: List[WardrobeItemInput] = Field(default_factory=list)
     preferred_styles: List[Style] = Field(default_factory=lambda: ["CASUAL"])
     preferred_colors: List[str] = Field(default_factory=lambda: ["Black", "White", "Navy"])
     weather: WeatherContextInput = Field(default_factory=WeatherContextInput)
     community_signals: List[CommunityRatingSignal] = Field(default_factory=list)
     alpha: float = 0.55
+    gender: Optional[str] = "unisex"
+    source_mode: Optional[Literal["wardrobe", "system_catalog", "mix"]] = "wardrobe"
+    textures: List[str] = Field(default_factory=list)
+    favorite_colors: List[str] = Field(default_factory=list)
+    fit_preference: Optional[str] = None
+    common_occasions: List[str] = Field(default_factory=list)
 
 
 class ScoredOutfitRecommendation(BaseModel):
@@ -340,6 +367,37 @@ class ScoredOutfitRecommendation(BaseModel):
     hybrid_score: float
     weather_tag: str
     reasons: List[str]
+    mel_commentary: Optional[str] = None
+    used_system_catalog: bool = False
+    source_mode: Optional[str] = "wardrobe"
+
+
+class ScoreOutfitRequest(BaseModel):
+    user_id: Optional[str] = "default_user"
+    previous_score: Optional[float] = None
+    swapped_category: Optional[Category] = None
+    current_items: List[WardrobeItemInput]
+    target_occasion: str = "Casual"
+    gender: Optional[str] = "unisex"
+    preferred_styles: List[Style] = Field(default_factory=lambda: ["CASUAL"])
+    preferred_colors: List[str] = Field(default_factory=lambda: ["Black", "White", "Navy"])
+    weather: WeatherContextInput = Field(default_factory=WeatherContextInput)
+    community_signals: List[CommunityRatingSignal] = Field(default_factory=list)
+    alpha: float = 0.55
+    textures: List[str] = Field(default_factory=list)
+    favorite_colors: List[str] = Field(default_factory=list)
+    fit_preference: Optional[str] = None
+    common_occasions: List[str] = Field(default_factory=list)
+
+
+class ScoreOutfitResponse(BaseModel):
+    new_score: float
+    content_score: float
+    collaborative_score: float
+    score_delta: float
+    verdict: Literal["better", "worse", "neutral"]
+    reasons: List[str]
+    mel_commentary: str
 
 
 def extract_garment_cutout(
@@ -577,6 +635,105 @@ def check_text_moderation(text: str) -> Tuple[bool, str, Optional[str]]:
     return True, (text or "").strip(), None
 
 
+def _infer_2d_vector_subtype(
+    category: Optional[str],
+    filename: str = "",
+    hint_labels: Optional[List[Optional[str]]] = None,
+    bbox_aspect_ratio: float = 1.0,
+) -> str:
+    """Infer the 2D mannequin visualizer vector subtype for a garment."""
+    cat = (category or "").upper()
+    tokens = [filename.lower()]
+    if hint_labels:
+        for lbl in hint_labels:
+            if lbl:
+                tokens.append(str(lbl).lower())
+    text = " ".join(tokens)
+
+    if cat == "TOP":
+        if any(w in text for w in ("polo",)):
+            return "polo"
+        if any(w in text for w in ("crop", "cropped")):
+            return "crop_top"
+        if any(w in text for w in ("tank", "sleeveless", "singlet", "vest")):
+            return "tank_top"
+        if any(w in text for w in ("button", "oxford", "formal shirt", "dress shirt", "collared", "flannel", "blouse")):
+            return "button_down"
+        if any(w in text for w in ("long sleeve", "longsleeve", "sweater", "crewneck", "pullover", "turtleneck", "thermal")):
+            return "long_sleeve"
+        if bbox_aspect_ratio < 0.75:
+            return "long_sleeve"
+        return "tshirt"
+
+    elif cat == "OUTERWEAR":
+        if "zip" in text and ("hood" in text or "sweat" in text):
+            return "zip_hoodie"
+        if any(w in text for w in ("hoodie", "hood", "sweatshirt")):
+            return "hoodie"
+        if any(w in text for w in ("blazer", "suit jacket", "tuxedo")):
+            return "blazer"
+        if any(w in text for w in ("denim", "jean jacket", "trucker")):
+            return "denim_jacket"
+        if any(w in text for w in ("windbreaker", "anorak", "track jacket", "nylon")):
+            return "windbreaker"
+        if any(w in text for w in ("cardigan", "knit jacket", "open front")):
+            return "cardigan"
+        if any(w in text for w in ("coat", "trench", "overcoat", "parka", "peacoat")):
+            return "coat"
+        if bbox_aspect_ratio < 0.70:
+            return "coat"
+        return "hoodie"
+
+    elif cat == "BOTTOM":
+        if any(w in text for w in ("skirt", "mini skirt", "maxi skirt", "pleated skirt")):
+            return "skirt"
+        if any(w in text for w in ("short", "shorts", "bermuda", "trunks")):
+            return "shorts"
+        if any(w in text for w in ("cargo", "utility")):
+            return "cargo_pants"
+        if any(w in text for w in ("track", "jogger", "sweatpants", "sweat pants")):
+            return "track_pants"
+        if any(w in text for w in ("trouser", "trousers", "slacks", "chino", "dress pants", "suit pants")):
+            return "trousers"
+        if any(w in text for w in ("jean", "jeans", "denim")):
+            return "jeans"
+        if bbox_aspect_ratio > 0.95:
+            return "shorts"
+        return "jeans"
+
+    elif cat == "SHOES":
+        if any(w in text for w in ("boot", "boots", "combat", "doc", "chelsea")):
+            return "combat_boots"
+        if any(w in text for w in ("loafer", "loafers", "oxford", "derby", "dress shoe", "monk")):
+            return "loafers"
+        if any(w in text for w in ("heel", "heels", "pump", "pumps", "stiletto")):
+            return "heels"
+        if any(w in text for w in ("running", "runner", "trainer", "athletic", "sport")):
+            return "running_shoes"
+        return "sneakers"
+
+    elif cat == "ACCESSORIES":
+        if any(w in text for w in ("watch", "timepiece", "chronograph")):
+            return "watch"
+        if any(w in text for w in ("choker",)):
+            return "choker"
+        if any(w in text for w in ("chain", "necklace", "pendant", "cuban")):
+            return "chain_necklace"
+        if any(w in text for w in ("belt", "buckle")):
+            return "belt"
+        if any(w in text for w in ("bag", "tote", "crossbody", "backpack", "shoulder bag", "purse")):
+            return "crossbody_bag"
+        if any(w in text for w in ("sunglass", "sunglasses", "shades", "eyewear", "glasses")):
+            return "sunglasses"
+        if any(w in text for w in ("earring", "earrings", "stud")):
+            return "earrings"
+        if any(w in text for w in ("cap", "hat", "beanie", "snapback", "bucket hat")):
+            return "cap"
+        return "cap"
+
+    return "tshirt"
+
+
 async def run_garment_analysis(
     image: Image.Image,
     source_filename: str = "",
@@ -620,6 +777,7 @@ async def run_garment_analysis(
     cutout_pil, fg_mask, cutout_data_uri, bg_source = extract_garment_cutout(image, force_rembg=force_rembg)
 
     fg_coverage = float(np.mean(fg_mask)) if (fg_mask is not None and fg_mask.size > 0) else 0.0
+    bbox_aspect_ratio = 1.0
 
     # Composite RGBA cutout onto clean neutral studio background (RGB(245, 245, 245))
     # cropped to the garment's bounding box with 12% padding
@@ -631,6 +789,7 @@ async def run_garment_analysis(
                 left, top, right, bottom = bbox
                 bw = right - left
                 bh = bottom - top
+                bbox_aspect_ratio = float(bw) / max(float(bh), 1.0)
                 pad_x = int(bw * 0.12)
                 pad_y = int(bh * 0.12)
                 w, h = cutout_pil.size
@@ -698,9 +857,16 @@ async def run_garment_analysis(
 
     suggested_name = f"{dom_color} {sub_category}" if (dom_color and sub_category) else sub_category
 
+    vector_subtype = _infer_2d_vector_subtype(
+        category=pred_cat,
+        filename=source_filename,
+        hint_labels=[sub_category, pred_style, occasion, suggested_name],
+        bbox_aspect_ratio=bbox_aspect_ratio,
+    )
+
     # Terminal Log: clear log line on every analyze call
     print(
-        f"[ML-ANALYZE] checkpoint_loaded={IS_FINETUNED_HEAD} | pred_cat={pred_cat} (conf={raw_conf:.4f}, probs={class_probabilities}) | remove_bg_source={bg_source} | fg_cov={fg_coverage:.3f} | color={dom_color} ({color_hex})",
+        f"[ML-ANALYZE] checkpoint_loaded={IS_FINETUNED_HEAD} | pred_cat={pred_cat} (conf={raw_conf:.4f}, subtype={vector_subtype}) | remove_bg_source={bg_source} | fg_cov={fg_coverage:.3f} | color={dom_color} ({color_hex})",
         flush=True,
     )
 
@@ -710,6 +876,7 @@ async def run_garment_analysis(
         suggestedName=suggested_name,
         suggestedBrand=None,  # No fake brands
         layerRole=layer_role,
+        vector_subtype=vector_subtype,
         color=dom_color,
         colorHex=color_hex,
         secondary_color=sec_color,
@@ -870,6 +1037,11 @@ def health() -> Dict[str, object]:
         "taxonomy": CATEGORIES_LIST,
         "hybrid_engine": "0.55_CB_0.45_CF",
         "ai_moderation_enabled": True,
+        "system_catalog_size": len(SYSTEM_DATASET_CATALOG),
+        "mel_mascot_commentary_enabled": True,
+        "gender_isolated_cf": True,
+        "laundry_wear_filter_removed": True,
+        "mannequin_2d_vector_subtypes_enabled": True,
     }
 
 
@@ -940,93 +1112,386 @@ def moderate_post(payload: ModerationRequest) -> ModerationResponse:
     return ModerationResponse(approved=True, sanitized_caption=sanitized, reason=None)
 
 
+def generate_mel_recommendation_commentary(
+    items: List[WardrobeItemInput],
+    weather_tag: str,
+    target_occasion: str,
+    preferred_styles: List[Style],
+    fit_preference: Optional[str] = None,
+) -> str:
+    """Generate friendly, zero-jargon commentary spoken by Mel the Chameleon mascot."""
+    top = next((i for i in items if i.category == "TOP"), None)
+    bottom = next((i for i in items if i.category == "BOTTOM"), None)
+    outer = next((i for i in items if i.category == "OUTERWEAR"), None)
+
+    weather_note = ""
+    if "Rainy" in weather_tag or "Cool" in weather_tag:
+        weather_note = "keeps you cozy in today's cooler weather"
+    else:
+        weather_note = "keeps you breezy and cool under the warm sun"
+
+    fit_note = f"matches your {fit_preference.lower()} fit vibe" if fit_preference else "gives you a super clean silhouette"
+
+    if outer and top and bottom:
+        return f"I layered this {outer.color.lower()} {outer.style.lower()} {outer.clothing_name.lower()} over your {top.clothing_name.lower()} with {bottom.clothing_name.lower()} because it {fit_note} and {weather_note}!"
+    elif top and bottom:
+        return f"I paired this {top.color.lower()} {top.style.lower()} {top.clothing_name.lower()} with {bottom.clothing_name.lower()}—it {fit_note} and fits right into your {target_occasion.lower()} plans!"
+    else:
+        return f"Mel here! This combo is color-coordinated, comfortable, and {weather_note}!"
+
+
+def generate_mel_swap_commentary(
+    swapped_item: Optional[WardrobeItemInput],
+    other_items: List[WardrobeItemInput],
+    score_delta: float,
+    verdict: str,
+    target_occasion: str,
+    preferred_styles: List[Style],
+) -> str:
+    """Generate interactive swap commentary spoken by Mel the Chameleon mascot."""
+    int_delta = int(round(score_delta))
+    sign = f"+{int_delta}" if int_delta > 0 else f"{int_delta}"
+    swapped_name = swapped_item.clothing_name.lower() if swapped_item else "that piece"
+    swapped_style = swapped_item.style.lower() if swapped_item else "chosen"
+    swapped_cat = swapped_item.category.lower() if swapped_item else "item"
+
+    if verdict == "better":
+        return f"Nice swap! That {swapped_name} fits your {swapped_style} style way better ({sign} boost) and harmonizes cleanly with the rest of your outfit!"
+    elif verdict == "worse":
+        counter_style = other_items[0].style.lower() if other_items else "overall"
+        return f"Hmm, that {swapped_style} {swapped_cat} clashes a bit with your {counter_style} vibe ({sign})—your previous choice looked sharper on you!"
+    else:
+        return f"Solid alternative! That {swapped_name} keeps your outfit well-balanced and ready for {target_occasion.lower()} with no drop in style."
+
+
+def score_outfit_combination(
+    items: List[WardrobeItemInput],
+    target_occasion: str,
+    weather: WeatherContextInput,
+    preferred_styles: List[Style],
+    preferred_colors: List[str],
+    community_signals: List[CommunityRatingSignal],
+    alpha: float = 0.55,
+    user_gender: Optional[str] = "unisex",
+    textures: Optional[List[str]] = None,
+    favorite_colors: Optional[List[str]] = None,
+    fit_preference: Optional[str] = None,
+    common_occasions: Optional[List[str]] = None,
+) -> Tuple[float, float, float, str, List[str]]:
+    """Calculates S_cb, S_cf, and S_hybrid = round(0.55 * S_cb + 0.45 * S_cf) with Gender-Isolation and zero wear penalty."""
+    is_rainy_or_cool = (
+        weather.temperature_c < 24.0
+        or weather.precipitation_mm > 0.5
+        or any(w in weather.condition.lower() for w in ("rain", "storm", "drizzle", "thunder", "cool", "cold"))
+    )
+    weather_tag = (
+        f"Rainy/Cool ({weather.temperature_c:.0f}°C, {weather.condition})"
+        if is_rainy_or_cool
+        else f"Warm/Humid ({weather.temperature_c:.0f}°C, {weather.condition})"
+    )
+
+    # 1. Content-Based Scoring (S_cb)
+    s_cb = 55.0
+    reasons: List[str] = []
+
+    # Style consistency (+18)
+    styles = [it.style for it in items if it.style]
+    if len(styles) > 1 and len(set(styles)) == 1:
+        s_cb += 18.0
+        reasons.append(f"Consistent {styles[0].title()} style silhouette (+18)")
+
+    # Occasion match (+15)
+    if any(it.occasion.lower() == target_occasion.lower() for it in items):
+        s_cb += 15.0
+        reasons.append(f"Suited for {target_occasion} occasion (+15)")
+
+    # CIELAB neutral / color harmony (+10)
+    if any(it.color in NEUTRAL_COLORS for it in items):
+        s_cb += 10.0
+        reasons.append("Balanced color harmony with neutral foundation (+10)")
+
+    # Weather suitability
+    has_outerwear = any(it.category == "OUTERWEAR" for it in items)
+    if is_rainy_or_cool:
+        if has_outerwear:
+            s_cb += 8.0
+            reasons.append(f"Layered with protective outerwear for {weather_tag}")
+        else:
+            s_cb -= 6.0
+    else:
+        if not has_outerwear:
+            s_cb += 6.0
+            reasons.append(f"Breathable silhouette suited for {weather_tag}")
+        else:
+            s_cb -= 6.0
+
+    # User Onboarding Preferences:
+    # preferred_styles (+15 max)
+    if preferred_styles:
+        style_bonus = min(sum(5.0 for it in items if it.style in preferred_styles), 15.0)
+        s_cb += style_bonus
+
+    # colors (+10 max)
+    all_fav_colors = set(preferred_colors or []) | set(favorite_colors or [])
+    if all_fav_colors:
+        color_bonus = min(sum(4.0 for it in items if it.color in all_fav_colors), 10.0)
+        s_cb += color_bonus
+
+    # textures (+9 max)
+    if textures:
+        tex_set = {t.lower() for t in textures}
+        tex_matches = [it for it in items if it.texture and it.texture.lower() in tex_set]
+        if tex_matches:
+            tex_bonus = min(len(tex_matches) * 3.0, 9.0)
+            s_cb += tex_bonus
+            reasons.append(f"Features preferred {tex_matches[0].texture.lower()} texture")
+
+    # fit preference (+6)
+    if fit_preference:
+        fit_norm = fit_preference.lower()
+        if any(it.fit and it.fit.lower() == fit_norm for it in items):
+            s_cb += 6.0
+            reasons.append(f"Matches your {fit_preference.lower()} fit preference")
+
+    # common occasions (+5)
+    if common_occasions:
+        occ_set = {o.lower() for o in common_occasions}
+        if any(it.occasion.lower() in occ_set for it in items):
+            s_cb += 5.0
+
+    # Disliked penalty (-30)
+    if any(it.is_disliked for it in items):
+        s_cb -= 30.0
+        reasons.append("Contains item marked as disliked (-30)")
+
+    # (7-day wear recency penalty P_worn = -18 completely removed!)
+    s_cb = float(np.clip(s_cb, 0.0, 100.0))
+
+    # 2. Gender-Isolated Collaborative Filtering (S_cf)
+    norm_gender = (user_gender or "unisex").strip().lower()
+    if norm_gender in ("male", "female"):
+        isolated_signals = [
+            sig for sig in community_signals
+            if (not sig.author_gender or sig.author_gender.strip().lower() == norm_gender)
+            and (not sig.rater_gender or sig.rater_gender.strip().lower() == norm_gender)
+        ]
+    else:
+        isolated_signals = community_signals
+
+    item_styles = {it.style for it in items}
+    item_colors = {it.color for it in items}
+    matching_signals = [
+        sig for sig in isolated_signals
+        if sig.style in item_styles or sig.dominant_color in item_colors
+    ]
+
+    if matching_signals:
+        num = sum(sig.neighbor_similarity * sig.rating for sig in matching_signals)
+        den = sum(abs(sig.neighbor_similarity) for sig in matching_signals)
+        pred_rating = (num / den) if den > 1e-6 else 4.0
+        s_cf = float(np.clip((pred_rating - 1.0) / 4.0 * 100.0, 0.0, 100.0))
+        gender_label = norm_gender.capitalize() if norm_gender in ("male", "female") else "Community"
+        reasons.append(f"Rated {pred_rating:.1f}/5.0 by verified {gender_label} Community Feed profiles")
+    else:
+        fav_boost = sum(8.0 for it in items if it.is_favorite)
+        s_cf = float(np.clip(72.0 + fav_boost, 0.0, 100.0))
+
+    # 3. Weighted Hybrid Score
+    s_hyb = round(alpha * s_cb + (1.0 - alpha) * s_cf, 1)
+
+    return round(s_cb, 1), round(s_cf, 1), s_hyb, weather_tag, reasons
+
+
 @app.post("/recommend", response_model=List[ScoredOutfitRecommendation])
 def recommend_outfits(req: HybridRecommendationRequest) -> List[ScoredOutfitRecommendation]:
-    """Generate Top-3 outfits via Weighted Hybrid Filtering (0.55 Content-Based + 0.45 Collaborative)."""
-    eligible = [
-        item for item in req.wardrobe
-        if item.laundry_status == "CLEAN" and not item.is_disliked
-    ]
-    tops = [i for i in eligible if i.category == "TOP"]
-    bottoms = [i for i in eligible if i.category == "BOTTOM"]
-    shoes = [i for i in eligible if i.category == "SHOES"]
-    outerwear = [i for i in eligible if i.category == "OUTERWEAR"]
+    """Generate Top-3 outfits via Weighted Hybrid Filtering (0.55 Content-Based + 0.45 Collaborative).
+
+    Supports:
+    - 2D Mannequin Visualizer & System Dataset Catalog fallback (when wardrobe is empty or source_mode='system_catalog')
+    - Gender-Isolated Collaborative Filtering (male-to-male & female-to-female only)
+    - Zero 7-day wear penalty & zero laundry filter
+    - Mel Chameleon Mascot commentary
+    """
+    eligible_wardrobe = [item for item in req.wardrobe if not item.is_disliked]
+    w_tops = [i for i in eligible_wardrobe if i.category == "TOP"]
+    w_bottoms = [i for i in eligible_wardrobe if i.category == "BOTTOM"]
+    w_shoes = [i for i in eligible_wardrobe if i.category == "SHOES"]
+    has_complete_wardrobe = bool(w_tops and w_bottoms and w_shoes)
+
+    source_mode_req = (req.source_mode or "wardrobe").lower()
+
+    if source_mode_req == "system_catalog" or not has_complete_wardrobe:
+        catalog_raw = get_system_catalog_items(req.gender or "unisex")
+        pool = [WardrobeItemInput(**c) for c in catalog_raw]
+        used_catalog = True
+        actual_source_mode = "system_catalog"
+    elif source_mode_req == "mix":
+        catalog_raw = get_system_catalog_items(req.gender or "unisex")
+        catalog_items = [WardrobeItemInput(**c) for c in catalog_raw]
+        pool = eligible_wardrobe + catalog_items
+        used_catalog = True
+        actual_source_mode = "mix"
+    else:
+        pool = eligible_wardrobe
+        used_catalog = False
+        actual_source_mode = "wardrobe"
+
+    tops = [i for i in pool if i.category == "TOP"]
+    bottoms = [i for i in pool if i.category == "BOTTOM"]
+    shoes = [i for i in pool if i.category == "SHOES"]
+    outerwear = [i for i in pool if i.category == "OUTERWEAR"]
 
     if not tops or not bottoms or not shoes:
-        return []
+        # Fallback to system catalog if still empty
+        catalog_raw = get_system_catalog_items(req.gender or "unisex")
+        pool = [WardrobeItemInput(**c) for c in catalog_raw]
+        tops = [i for i in pool if i.category == "TOP"]
+        bottoms = [i for i in pool if i.category == "BOTTOM"]
+        shoes = [i for i in pool if i.category == "SHOES"]
+        outerwear = [i for i in pool if i.category == "OUTERWEAR"]
+        used_catalog = True
+        actual_source_mode = "system_catalog"
 
     is_rainy_or_cool = (
         req.weather.temperature_c < 24.0
         or req.weather.precipitation_mm > 0.5
-        or any(w in req.weather.condition.lower() for w in ("rain", "storm", "drizzle", "thunder"))
-    )
-    weather_tag = (
-        f"Rainy/Cool ({req.weather.temperature_c:.0f} deg C, {req.weather.condition})"
-        if is_rainy_or_cool
-        else f"Warm/Humid ({req.weather.temperature_c:.0f} deg C, {req.weather.condition})"
+        or any(w in req.weather.condition.lower() for w in ("rain", "storm", "drizzle", "thunder", "cool", "cold"))
     )
 
-    recommendations: List[ScoredOutfitRecommendation] = []
+    candidates: List[ScoredOutfitRecommendation] = []
     for top in tops:
         for bottom in bottoms:
             for shoe in shoes:
                 items = [top, bottom, shoe]
                 if is_rainy_or_cool and outerwear:
-                    items.append(outerwear[0])
+                    matching_out = next((o for o in outerwear if o.style == top.style), outerwear[0])
+                    items.append(matching_out)
+                elif req.target_occasion.lower() in ("formal", "office") and outerwear:
+                    blazer_out = next((o for o in outerwear if o.vector_subtype == "blazer"), None)
+                    if blazer_out:
+                        items.append(blazer_out)
 
-                s_cb = 55.0
-                reasons: List[str] = []
+                s_cb, s_cf, s_hyb, weather_tag, reasons = score_outfit_combination(
+                    items=items,
+                    target_occasion=req.target_occasion,
+                    weather=req.weather,
+                    preferred_styles=req.preferred_styles,
+                    preferred_colors=req.preferred_colors,
+                    community_signals=req.community_signals,
+                    alpha=req.alpha,
+                    user_gender=req.gender,
+                    textures=req.textures,
+                    favorite_colors=req.favorite_colors,
+                    fit_preference=req.fit_preference,
+                    common_occasions=req.common_occasions,
+                )
 
-                if len({top.style, bottom.style, shoe.style}) == 1:
-                    s_cb += 18.0
-                    reasons.append(f"Consistent {top.style.title()} style silhouette (+18)")
-                if any(it.occasion.lower() == req.target_occasion.lower() for it in items):
-                    s_cb += 15.0
-                    reasons.append(f"Suited for {req.target_occasion} occasion (+15)")
-                if any(it.color in NEUTRAL_COLORS for it in (top, bottom)):
-                    s_cb += 10.0
-                    reasons.append(f"Balanced CIELAB color harmony with {top.color} & {bottom.color} (+10)")
+                mel_commentary = generate_mel_recommendation_commentary(
+                    items=items,
+                    weather_tag=weather_tag,
+                    target_occasion=req.target_occasion,
+                    preferred_styles=req.preferred_styles,
+                    fit_preference=req.fit_preference,
+                )
 
-                style_bonus = min(sum(5.0 for it in items if it.style in req.preferred_styles), 15.0)
-                color_bonus = min(sum(4.0 for it in items if it.color in req.preferred_colors), 10.0)
-                s_cb += style_bonus + color_bonus
-
-                if is_rainy_or_cool and len(items) > 3:
-                    s_cb += 8.0
-                    reasons.append(f"Includes outerwear layer for {weather_tag}")
-                elif not is_rainy_or_cool and len(items) == 3:
-                    s_cb += 6.0
-                    reasons.append(f"Breathable 3-piece pairing for {weather_tag}")
-
-                if any(it.worn_within_7_days for it in items):
-                    s_cb -= 18.0
-
-                s_cb = float(np.clip(s_cb, 0.0, 100.0))
-
-                matching_signals = [
-                    sig for sig in req.community_signals
-                    if sig.style in {top.style, bottom.style} or sig.dominant_color in {top.color, bottom.color}
-                ]
-                if matching_signals:
-                    num = sum(sig.neighbor_similarity * sig.rating for sig in matching_signals)
-                    den = sum(abs(sig.neighbor_similarity) for sig in matching_signals)
-                    pred_rating = (num / den) if den > 1e-6 else 4.0
-                    s_cf = float(np.clip((pred_rating - 1.0) / 4.0 * 100.0, 0.0, 100.0))
-                    reasons.append(f"Rated {pred_rating:.1f}/5.0 by similar Community Feed profiles")
-                else:
-                    fav_boost = sum(8.0 for it in items if it.is_favorite)
-                    s_cf = float(np.clip(72.0 + fav_boost, 0.0, 100.0))
-
-                s_hyb = round(req.alpha * s_cb + (1.0 - req.alpha) * s_cf, 2)
-                recommendations.append(ScoredOutfitRecommendation(
+                candidates.append(ScoredOutfitRecommendation(
                     item_ids=[it.id for it in items],
                     items=items,
-                    content_score=round(s_cb, 2),
-                    collaborative_score=round(s_cf, 2),
+                    content_score=s_cb,
+                    collaborative_score=s_cf,
                     hybrid_score=s_hyb,
                     weather_tag=weather_tag,
                     reasons=reasons[:3],
+                    mel_commentary=mel_commentary,
+                    used_system_catalog=used_catalog,
+                    source_mode=actual_source_mode,
                 ))
 
-    recommendations.sort(key=lambda r: r.hybrid_score, reverse=True)
-    return recommendations[:3]
+    candidates.sort(key=lambda r: r.hybrid_score, reverse=True)
+
+    # Ensure diverse Top-3 recommendations
+    selected: List[ScoredOutfitRecommendation] = []
+    seen_tops = set()
+    for cand in candidates:
+        top_id = next((it.id for it in cand.items if it.category == "TOP"), None)
+        if top_id not in seen_tops or len(seen_tops) >= len(tops):
+            selected.append(cand)
+            if top_id:
+                seen_tops.add(top_id)
+        if len(selected) == 3:
+            break
+
+    if len(selected) < 3:
+        for cand in candidates:
+            if cand not in selected:
+                selected.append(cand)
+            if len(selected) == 3:
+                break
+
+    return selected
+
+
+@app.post("/score-outfit", response_model=ScoreOutfitResponse)
+def score_outfit(req: ScoreOutfitRequest) -> ScoreOutfitResponse:
+    """Live interactive swap scoring for the 2D Mannequin Visualizer with Mel Chameleon Mascot commentary."""
+    if not req.current_items:
+        raise HTTPException(status_code=422, detail="current_items cannot be empty.")
+
+    s_cb, s_cf, s_hyb, weather_tag, reasons = score_outfit_combination(
+        items=req.current_items,
+        target_occasion=req.target_occasion,
+        weather=req.weather,
+        preferred_styles=req.preferred_styles,
+        preferred_colors=req.preferred_colors,
+        community_signals=req.community_signals,
+        alpha=req.alpha,
+        user_gender=req.gender,
+        textures=req.textures,
+        favorite_colors=req.favorite_colors,
+        fit_preference=req.fit_preference,
+        common_occasions=req.common_occasions,
+    )
+
+    # Determine swapped item
+    swapped_item = None
+    other_items: List[WardrobeItemInput] = []
+    if req.swapped_category:
+        for it in req.current_items:
+            if it.category == req.swapped_category:
+                swapped_item = it
+            else:
+                other_items.append(it)
+    else:
+        swapped_item = req.current_items[0]
+        other_items = req.current_items[1:]
+
+    if req.previous_score is not None:
+        delta = round(s_hyb - req.previous_score, 1)
+        if delta > 1.5:
+            verdict: Literal["better", "worse", "neutral"] = "better"
+        elif delta < -1.5:
+            verdict = "worse"
+        else:
+            verdict = "neutral"
+    else:
+        delta = 0.0
+        verdict = "neutral"
+
+    mel_commentary = generate_mel_swap_commentary(
+        swapped_item=swapped_item,
+        other_items=other_items,
+        score_delta=delta,
+        verdict=verdict,
+        target_occasion=req.target_occasion,
+        preferred_styles=req.preferred_styles,
+    )
+
+    return ScoreOutfitResponse(
+        new_score=s_hyb,
+        content_score=s_cb,
+        collaborative_score=s_cf,
+        score_delta=delta,
+        verdict=verdict,
+        reasons=reasons[:3],
+        mel_commentary=mel_commentary,
+    )
