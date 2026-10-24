@@ -18,39 +18,79 @@ import { useWeather } from '../hooks/useWeather';
 import OccasionDropdown from '../components/OccasionDropdown';
 import Mannequin2D, { MannequinSlot } from '../components/Mannequin2D';
 import OutfitCustomizeModal from '../components/OutfitCustomizeModal';
+import CharacterCustomizeModal from '../components/CharacterCustomizeModal';
 import { MelMascot, MelSpeechBubble } from '../components/MelMascot';
 import { GeneratedOutfit, OutfitClothingItem } from '../types';
 import { classifyAnatomicalSlot, colorNameToHex } from '../services/outfitRecommendationService';
 import { triggerWeatherAlertOncePerSession } from '../services/notificationService';
 import { DATASET_GARMENT_CATALOG } from '../data/datasetGarmentCatalog';
-import { MiniGarmentSvg, resolveGarmentImageUrl } from '../utils/garmentImageHelper';
+import { MiniGarmentSvg } from '../utils/garmentImageHelper';
+import { computeAccurateOutfitScore } from '../services/hybridScoreService';
 
 const toAnatomical = (slot: MannequinSlot) =>
   slot === 'OUTERWEAR' ? 'outerLayer' : slot === 'BOTTOM' ? 'bottom' : slot === 'SHOES' ? 'shoes' : slot === 'ACCESSORIES' ? 'accessory' : 'innerTop';
 
-interface WheelCardProps {
+interface RimCardProps {
   outfit: GeneratedOutfit;
   rankLabel: string;
-  active: boolean;
+  position: -1 | 1;
+  onPress: () => void;
+}
+
+function RimCard({ outfit, rankLabel, position, onPress }: RimCardProps) {
+  const score = outfit.hybridScore ?? outfit.matchPercent ?? 88;
+  const styleLabel = outfit.name?.split(' ')[0] || outfit.occasionLabel || 'Look';
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.rimCard,
+        position === -1 ? styles.rimCardTop : styles.rimCardBottom,
+      ]}
+    >
+      <View style={styles.rimCardInner}>
+        <View style={styles.rimRankBadge}>
+          <Text style={styles.rimRankText}>{rankLabel}</Text>
+        </View>
+        <Text style={styles.rimScoreText}>{score}%</Text>
+        <Text style={styles.rimDot}>··</Text>
+        <Text style={styles.rimStyleText} numberOfLines={1}>
+          {styleLabel}
+        </Text>
+        <Ionicons
+          name={position === -1 ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'}
+          size={14}
+          color="#819084"
+          style={{ marginLeft: 'auto' }}
+        />
+      </View>
+      <Text style={styles.rimHintText}>Swipe to rotate</Text>
+    </Pressable>
+  );
+}
+
+interface ActiveWheelCardProps {
+  outfit: GeneratedOutfit;
   onPress: () => void;
   scaleAnim: Animated.Value;
 }
 
-function WheelCard({ outfit, rankLabel, active, onPress, scaleAnim }: WheelCardProps) {
+function ActiveWheelCard({ outfit, onPress, scaleAnim }: ActiveWheelCardProps) {
   const garments = outfit.clothingItems || [];
   const topPieces = garments.slice(0, 4);
+  const score = outfit.hybridScore ?? outfit.matchPercent ?? 92;
 
   return (
     <Animated.View
       style={[
-        styles.wheelCard,
-        active ? styles.wheelCardActive : styles.wheelCardInactive,
+        styles.activeWheelCard,
         {
           transform: [
             {
               scale: scaleAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [active ? 1.0 : 0.90, active ? 1.02 : 0.90],
+                inputRange: [-1, 0, 1],
+                outputRange: [0.96, 1.0, 0.96],
               }),
             },
           ],
@@ -60,23 +100,21 @@ function WheelCard({ outfit, rankLabel, active, onPress, scaleAnim }: WheelCardP
       <Pressable onPress={onPress} style={styles.cardInner}>
         {/* Top Header Row: Rank badge & Hybrid Match Score */}
         <View style={styles.rankRow}>
-          <View style={[styles.rankBadge, active ? styles.rankBadgeActive : styles.rankBadgeInactive]}>
-            <Text style={[styles.rankText, active && styles.rankTextActive]}>{rankLabel}</Text>
+          <View style={styles.rankBadgeActive}>
+            <Text style={styles.rankTextActive}>TOP 1 · ACTIVE</Text>
           </View>
           <View style={styles.scoreBadge}>
-            <Ionicons name="sparkles" size={11} color="#4D9A65" />
-            <Text style={styles.scoreText}>
-              {outfit.hybridScore ?? outfit.matchPercent ?? 92}% Match
-            </Text>
+            <Ionicons name="sparkles" size={12} color="#4D9A65" />
+            <Text style={styles.scoreText}>{score}% Match</Text>
           </View>
         </View>
 
         {/* Outfit Title */}
-        <Text style={[styles.cardTitle, active && styles.cardTitleActive]} numberOfLines={1}>
+        <Text style={styles.cardTitleActive} numberOfLines={1}>
           {outfit.name || outfit.occasionLabel || 'Curated Look'}
         </Text>
 
-        {/* Garment Micro-Thumbnails (Mini 2D Vector Previews - Never Empty / Black Box) */}
+        {/* Garment Micro-Thumbnails */}
         <View style={styles.thumbRow}>
           {topPieces.map((item, idx) => (
             <View key={`${item.id || 'item'}-${idx}`} style={styles.microThumb}>
@@ -95,14 +133,8 @@ function WheelCard({ outfit, rankLabel, active, onPress, scaleAnim }: WheelCardP
 
         {/* Footer Hint */}
         <View style={styles.cardFooter}>
-          <Text style={[styles.cardHint, active && styles.cardHintActive]}>
-            {active ? 'Wearing on Mannequin · Tap to customize' : 'Tap to cycle to avatar'}
-          </Text>
-          <Ionicons
-            name={active ? 'shirt-outline' : 'repeat-outline'}
-            size={14}
-            color={active ? '#F07E57' : '#718078'}
-          />
+          <Text style={styles.cardHintActive}>Wearing · Tap to customize</Text>
+          <Ionicons name="options-outline" size={14} color="#F07E57" />
         </View>
       </Pressable>
     </Animated.View>
@@ -128,6 +160,7 @@ export default function OutfitScreen() {
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [customizing, setCustomizing] = useState(false);
+  const [characterModalVisible, setCharacterModalVisible] = useState(false);
   const [reaction, setReaction] = useState(
     'Mel is balancing your colors, proportions, and today’s weather.'
   );
@@ -153,23 +186,51 @@ export default function OutfitScreen() {
     if (index >= 0) setActiveIndex(index);
   }, [currentOutfit?.id, currentOutfits]);
 
-  const top3 = currentOutfits.slice(0, 3);
+  // Dynamically compute deterministic hybrid score for all top-3 outfits
+  const top3 = useMemo(() => {
+    return currentOutfits.slice(0, 3).map((outfit) => {
+      const calculatedScore = computeAccurateOutfitScore(
+        outfit.clothingItems || [],
+        profile,
+        weather,
+        occasion
+      );
+      return {
+        ...outfit,
+        hybridScore: calculatedScore,
+        matchPercent: calculatedScore,
+      };
+    });
+  }, [currentOutfits, profile, weather, occasion]);
+
   const activeOutfit = top3[activeIndex] || currentOutfit || null;
   const catalogOnly = items.length === 0;
 
-  // Wheel transition animation
-  const wheelAnim = useRef(new Animated.Value(0)).current;
+  // Rotary Wheel animation value
+  const rotaryAnim = useRef(new Animated.Value(0)).current;
 
-  // True vertical circular wheel:
-  // Slot 0 (Top): Top 3
-  // Slot 1 (Middle / Active Center): Top 1 (currently worn by Mannequin)
-  // Slot 2 (Bottom): Top 2
+  // True Rotary Wheel mapping:
+  // Upper rim card: offset = -1 (top)
+  // Active card: offset = 0 (middle / center)
+  // Lower rim card: offset = +1 (bottom)
   const wheel = useMemo(() => {
     if (!top3.length) return [];
     return [
-      { outfit: top3[(activeIndex + 2) % top3.length], rankLabel: 'TOP 3', isCenter: false, position: 0 },
-      { outfit: top3[activeIndex % top3.length], rankLabel: 'TOP 1 · ACTIVE', isCenter: true, position: 1 },
-      { outfit: top3[(activeIndex + 1) % top3.length], rankLabel: 'TOP 2', isCenter: false, position: 2 },
+      {
+        outfit: top3[(activeIndex + top3.length - 1) % top3.length],
+        rankLabel: 'TOP 3',
+        position: -1 as const,
+      },
+      {
+        outfit: top3[activeIndex % top3.length],
+        rankLabel: 'TOP 1',
+        position: 0 as const,
+      },
+      {
+        outfit: top3[(activeIndex + 1) % top3.length],
+        rankLabel: 'TOP 2',
+        position: 1 as const,
+      },
     ];
   }, [top3, activeIndex]);
 
@@ -210,31 +271,31 @@ export default function OutfitScreen() {
     return Array.from(unique.values());
   }, [items, currentOutfits]);
 
-  // Rotate wheel circularly: activeIdx = (activeIdx + delta + 3) % 3 with spring animation
+  // Rotate wheel circularly: activeIndex = (activeIndex + direction + top3.length) % top3.length
   const cycle = (direction: number) => {
     if (!top3.length) return;
-    wheelAnim.setValue(direction > 0 ? 1 : -1);
-    Animated.spring(wheelAnim, {
+    rotaryAnim.setValue(direction > 0 ? 1 : -1);
+    Animated.spring(rotaryAnim, {
       toValue: 0,
-      friction: 5,
-      tension: 70,
+      friction: 6,
+      tension: 75,
       useNativeDriver: true,
     }).start();
 
     setActiveIndex((current) => (current + direction + top3.length) % top3.length);
   };
 
-  // PanResponder for smooth vertical swipe gestures (swipe up / swipe down)
+  // PanResponder for smooth vertical swipe gestures on the wheel
   const panResponder = useMemo(
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 10,
         onPanResponderRelease: (_, gesture) => {
           if (gesture.dy < -18) {
-            // Swiped up -> bring bottom card to center
+            // Swiped up -> cycle down to next
             cycle(1);
           } else if (gesture.dy > 18) {
-            // Swiped down -> bring top card to center
+            // Swiped down -> cycle up to previous
             cycle(-1);
           }
         },
@@ -243,9 +304,9 @@ export default function OutfitScreen() {
   );
 
   const handleSelectCard = (position: number) => {
-    if (position === 1) {
+    if (position === 0) {
       setCustomizing(true);
-    } else if (position === 0) {
+    } else if (position === -1) {
       cycle(-1);
     } else {
       cycle(1);
@@ -259,10 +320,7 @@ export default function OutfitScreen() {
       (entry) => (entry.slotType || classifyAnatomicalSlot(entry.name, entry.category)) !== anatomical
     );
     nextItems.push({ ...item, slotType: anatomical as any });
-    const nextScore = Math.max(
-      72,
-      Math.min(98, (activeOutfit.hybridScore ?? activeOutfit.matchPercent ?? 90) + (item.isSuggested ? 1 : 2))
-    );
+    const nextScore = computeAccurateOutfitScore(nextItems, profile, weather, occasion);
 
     updateOutfitEverywhere(activeOutfit.id, {
       clothingItems: nextItems,
@@ -279,18 +337,38 @@ export default function OutfitScreen() {
     );
   };
 
+  useEffect(() => {
+    if (activeOutfit) {
+      const s = activeOutfit.hybridScore ?? activeOutfit.matchPercent ?? 88;
+      setReaction(
+        `Wearing ${activeOutfit.name || 'Look'} (${s}% match). Mel styled this for ${
+          occasion === 'Any occasion' ? 'everyday wear' : occasion
+        }!`
+      );
+    }
+  }, [activeOutfit?.id, occasion]);
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {/* Screen Header */}
         <View style={styles.header}>
           <View>
-            <Text style={[styles.kicker, { color: '#4D9A65' }]}>DRESS TO IMPRESS</Text>
-            <Text style={[styles.title, { color: theme.text }]}>Your Outfit, Styled Around You</Text>
+            <Text style={[styles.kicker, { color: '#4D9A65' }]}>AI OUTFIT STUDIO</Text>
+            <Text style={[styles.title, { color: theme.text }]}>Your Outfit Recommendations</Text>
           </View>
-          <Pressable onPress={generateOutfit} style={styles.refresh} accessibilityLabel="Refresh outfits">
-            <Ionicons name="refresh" size={19} color="#4D9A65" />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => setCharacterModalVisible(true)}
+              style={styles.characterBtn}
+              accessibilityLabel="Customize character"
+            >
+              <Text style={styles.characterBtnText}>🎨 Character</Text>
+            </Pressable>
+            <Pressable onPress={generateOutfit} style={styles.refresh} accessibilityLabel="Refresh outfits">
+              <Ionicons name="refresh" size={19} color="#4D9A65" />
+            </Pressable>
+          </View>
         </View>
 
         {/* Controls: Target Occasion & Wardrobe Source Toggle */}
@@ -319,7 +397,7 @@ export default function OutfitScreen() {
                   outfitSourceMode === 'bestForOccasion' && styles.sourceTextActive,
                 ]}
               >
-                System Catalog / Mix
+                Style Suggestions
               </Text>
             </Pressable>
           </View>
@@ -340,7 +418,7 @@ export default function OutfitScreen() {
           <MelSpeechBubble variant="smart_layered" message={reaction} position="inline" />
         </View>
 
-        {/* Interactive Styling Stage: 2D Human Avatar on Left + Infinite Vertical Wheel on Right */}
+        {/* Interactive Styling Stage: 2D Human Avatar on Left + Rotary Wheel on Right */}
         <View style={styles.stage}>
           {/* Left Pane: 2D Human Avatar */}
           <View style={styles.leftPane}>
@@ -351,7 +429,7 @@ export default function OutfitScreen() {
             />
           </View>
 
-          {/* Right Pane: True Infinite-Loop Vertical Wheel with PanResponder */}
+          {/* Right Pane: True Rotary Circular Wheel with PanResponder */}
           <View style={styles.rightPane} {...panResponder.panHandlers}>
             {isLoading ? (
               <View style={styles.loadingBox}>
@@ -359,36 +437,30 @@ export default function OutfitScreen() {
                 <Text style={styles.loading}>Mel is styling your look…</Text>
               </View>
             ) : wheel.length ? (
-              <>
-                {wheel.map((item) => (
-                  <WheelCard
-                    key={`${item.outfit.id}-${item.position}`}
-                    outfit={item.outfit}
-                    rankLabel={item.rankLabel}
-                    active={item.isCenter}
-                    onPress={() => handleSelectCard(item.position)}
-                    scaleAnim={wheelAnim}
-                  />
-                ))}
+              <View style={styles.rotaryWheelContainer}>
+                {/* Upper Rim Card (Top 3) */}
+                <RimCard
+                  outfit={wheel[0].outfit}
+                  rankLabel={wheel[0].rankLabel}
+                  position={-1}
+                  onPress={() => handleSelectCard(-1)}
+                />
 
-                {/* Sub-controls to cycle up or down */}
-                <View style={styles.wheelControls}>
-                  <Pressable
-                    onPress={() => cycle(-1)}
-                    style={styles.cycleButton}
-                    accessibilityLabel="Cycle wheel up"
-                  >
-                    <Ionicons name="chevron-up" size={18} color="#264C3B" />
-                  </Pressable>
-                  <Pressable
-                    onPress={() => cycle(1)}
-                    style={styles.cycleButton}
-                    accessibilityLabel="Cycle wheel down"
-                  >
-                    <Ionicons name="chevron-down" size={18} color="#264C3B" />
-                  </Pressable>
-                </View>
-              </>
+                {/* Center Active Card (Top 1) */}
+                <ActiveWheelCard
+                  outfit={wheel[1].outfit}
+                  onPress={() => handleSelectCard(0)}
+                  scaleAnim={rotaryAnim}
+                />
+
+                {/* Lower Rim Card (Top 2) */}
+                <RimCard
+                  outfit={wheel[2].outfit}
+                  rankLabel={wheel[2].rankLabel}
+                  position={1}
+                  onPress={() => handleSelectCard(1)}
+                />
+              </View>
             ) : (
               <Text style={styles.loading}>Preparing your first three looks…</Text>
             )}
@@ -396,12 +468,20 @@ export default function OutfitScreen() {
         </View>
       </ScrollView>
 
+      {/* Character Customization Modal */}
+      <CharacterCustomizeModal
+        visible={characterModalVisible}
+        onClose={() => setCharacterModalVisible(false)}
+        initialGender={profile?.gender === 'female' ? 'female' : 'male'}
+      />
+
       {/* Focused Customizer Modal */}
       {activeOutfit && (
         <OutfitCustomizeModal
           visible={customizing}
           outfit={activeOutfit}
           profile={profile}
+          weather={weather}
           suggestions={allSuggestions}
           onClose={() => setCustomizing(false)}
           onEquip={chooseItem}
@@ -432,16 +512,34 @@ const styles = StyleSheet.create({
     letterSpacing: 1.3,
   },
   title: {
-    fontSize: 22,
-    lineHeight: 27,
+    fontSize: 21,
+    lineHeight: 26,
     fontWeight: '900',
-    maxWidth: 300,
+    maxWidth: 240,
     marginTop: 2,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  characterBtn: {
+    backgroundColor: '#EAF3D9',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#D4E6BD',
+  },
+  characterBtnText: {
+    color: '#264C3B',
+    fontSize: 11.5,
+    fontWeight: '800',
+  },
   refresh: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#EAF3D9',
     alignItems: 'center',
     justifyContent: 'center',
@@ -518,7 +616,7 @@ const styles = StyleSheet.create({
   stage: {
     flexDirection: 'row',
     marginTop: 4,
-    minHeight: 450,
+    minHeight: 460,
     gap: 8,
   },
   leftPane: {
@@ -532,27 +630,91 @@ const styles = StyleSheet.create({
     borderColor: '#E1E6DB',
   },
   rightPane: {
-    flex: 0.85,
+    flex: 0.88,
     justifyContent: 'center',
-    gap: 8,
+    alignItems: 'center',
   },
-  wheelCard: {
-    borderRadius: 16,
+  rotaryWheelContainer: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 4,
+  },
+  rimCard: {
+    width: '92%',
+    borderRadius: 14,
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
-    borderColor: '#DCE1D6',
+    borderColor: '#E2E6DC',
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+    opacity: 0.68,
+    shadowColor: '#264C3B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  wheelCardActive: {
-    borderColor: '#F07E57',
+  rimCardTop: {
+    marginBottom: 8,
+    transform: [{ translateX: 14 }, { rotateZ: '-5deg' }, { scale: 0.84 }],
+  },
+  rimCardBottom: {
+    marginTop: 8,
+    transform: [{ translateX: 14 }, { rotateZ: '5deg' }, { scale: 0.84 }],
+  },
+  rimCardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  rimRankBadge: {
+    backgroundColor: '#EEF2EA',
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  rimRankText: {
+    color: '#657468',
+    fontSize: 8.5,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  rimScoreText: {
+    color: '#4D9A65',
+    fontSize: 10.5,
+    fontWeight: '900',
+  },
+  rimDot: {
+    color: '#BDC5BD',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  rimStyleText: {
+    color: '#4B5563',
+    fontSize: 10.5,
+    fontWeight: '700',
+    flex: 1,
+  },
+  rimHintText: {
+    color: '#8C978E',
+    fontSize: 8,
+    fontWeight: '600',
+    marginTop: 2,
+    letterSpacing: 0.3,
+  },
+  activeWheelCard: {
+    width: '100%',
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
     borderWidth: 2,
+    borderColor: '#F07E57',
     shadowColor: '#F07E57',
     shadowOpacity: 0.22,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
-  },
-  wheelCardInactive: {
-    opacity: 0.78,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
+    zIndex: 10,
   },
   cardInner: {
     padding: 10,
@@ -562,25 +724,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  rankBadge: {
+  rankBadgeActive: {
+    backgroundColor: '#FFF2EB',
     paddingHorizontal: 8,
     paddingVertical: 2.5,
     borderRadius: 8,
   },
-  rankBadgeActive: {
-    backgroundColor: '#FFF2EB',
-  },
-  rankBadgeInactive: {
-    backgroundColor: '#F0F3EC',
-  },
-  rankText: {
-    color: '#819084',
+  rankTextActive: {
+    color: '#F07E57',
     fontSize: 9.5,
     fontWeight: '900',
     letterSpacing: 0.8,
-  },
-  rankTextActive: {
-    color: '#F07E57',
   },
   scoreBadge: {
     flexDirection: 'row',
@@ -592,14 +746,11 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '900',
   },
-  cardTitle: {
-    color: '#264C3B',
+  cardTitleActive: {
+    color: '#1A3327',
     fontSize: 13,
     fontWeight: '900',
     marginTop: 6,
-  },
-  cardTitleActive: {
-    color: '#1A3327',
   },
   thumbRow: {
     flexDirection: 'row',
@@ -633,28 +784,11 @@ const styles = StyleSheet.create({
     borderTopColor: '#F0F3EA',
     paddingTop: 5,
   },
-  cardHint: {
-    color: '#8C978E',
+  cardHintActive: {
+    color: '#F07E57',
     fontSize: 9,
     fontWeight: '700',
     flex: 1,
-  },
-  cardHintActive: {
-    color: '#F07E57',
-  },
-  wheelControls: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 2,
-  },
-  cycleButton: {
-    width: 32,
-    height: 28,
-    borderRadius: 9,
-    backgroundColor: '#EAF3D9',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   loadingBox: {
     alignItems: 'center',

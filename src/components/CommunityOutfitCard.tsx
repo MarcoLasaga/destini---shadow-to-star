@@ -173,7 +173,7 @@ export default function CommunityOutfitCard({
             { backgroundColor: theme.mode === 'dark' ? '#231B2C' : '#FAF7F0' },
           ]}
         >
-          <Mannequin2D items={mannequinItems} compact />
+          <Mannequin2D items={mannequinItems} compact staticPreview />
 
           {/* Occasion / Style pill */}
           <View style={styles.postLabel}>
@@ -541,7 +541,8 @@ const styles = StyleSheet.create({
   mannequinBoard: {
     marginHorizontal: 12,
     borderRadius: 18,
-    height: 270,
+    height: 290,
+    paddingVertical: 8,
     overflow: 'hidden',
     position: 'relative',
     alignItems: 'center',

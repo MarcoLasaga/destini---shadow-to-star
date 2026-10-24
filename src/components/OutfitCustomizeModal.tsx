@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
   FlatList,
   Image,
   Modal,
@@ -14,8 +15,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { MelMascot, MelSpeechBubble } from './MelMascot';
 import Mannequin2D, { MannequinSlot } from './Mannequin2D';
-import { GeneratedOutfit, OutfitClothingItem, UserProfile } from '../types';
+import { GeneratedOutfit, OutfitClothingItem, UserProfile, WeatherData } from '../types';
 import { MiniGarmentSvg, resolveGarmentImageUrl } from '../utils/garmentImageHelper';
+import { computeAccurateOutfitScore } from '../services/hybridScoreService';
 
 const SLOT_LABELS: Record<MannequinSlot, string> = {
   TOP: 'Inner Top',
@@ -51,6 +53,7 @@ interface Props {
   visible: boolean;
   outfit: GeneratedOutfit;
   profile?: Partial<UserProfile> | null;
+  weather?: WeatherData | null;
   suggestions: OutfitClothingItem[];
   onClose: () => void;
   onEquip: (item: OutfitClothingItem, slot: MannequinSlot) => void;
@@ -65,6 +68,7 @@ export default function OutfitCustomizeModal({
   visible,
   outfit,
   profile,
+  weather,
   suggestions,
   onClose,
   onEquip,
@@ -72,6 +76,96 @@ export default function OutfitCustomizeModal({
   const [activeSlot, setActiveSlot] = useState<MannequinSlot>('TOP');
   const equipped = outfit.clothingItems || [];
   const activeItem = equipped.find((item) => toSlot(item) === activeSlot);
+
+  // Choreographed In-Place Transition Animations
+  const zoomAnim = useRef(new Animated.Value(0.94)).current;
+  const slideRightAnim = useRef(new Animated.Value(110)).current;
+  const slideUpAnim = useRef(new Animated.Value(130)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Accurate live hybrid score calculation
+  const currentScore = useMemo(() => {
+    return computeAccurateOutfitScore(equipped, profile, weather, outfit.occasionLabel);
+  }, [equipped, profile, weather, outfit.occasionLabel]);
+
+  const [scoreDelta, setScoreDelta] = useState<number | null>(null);
+  const [lastEquippedItem, setLastEquippedItem] = useState<OutfitClothingItem | null>(null);
+  const prevScoreRef = useRef(currentScore);
+
+  useEffect(() => {
+    if (prevScoreRef.current !== currentScore) {
+      const delta = currentScore - prevScoreRef.current;
+      setScoreDelta(delta);
+      prevScoreRef.current = currentScore;
+    }
+  }, [currentScore]);
+
+  useEffect(() => {
+    if (visible) {
+      zoomAnim.setValue(0.94);
+      slideRightAnim.setValue(110);
+      slideUpAnim.setValue(130);
+      fadeAnim.setValue(0);
+
+      Animated.parallel([
+        Animated.spring(zoomAnim, {
+          toValue: 1.04,
+          useNativeDriver: true,
+          friction: 7,
+          tension: 65,
+        }),
+        Animated.spring(slideRightAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+          friction: 7,
+          tension: 65,
+        }),
+        Animated.spring(slideUpAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+          friction: 7,
+          tension: 65,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [visible, zoomAnim, slideRightAnim, slideUpAnim, fadeAnim]);
+
+  const handleClose = () => {
+    Animated.parallel([
+      Animated.timing(zoomAnim, {
+        toValue: 0.94,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideRightAnim, {
+        toValue: 110,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideUpAnim, {
+        toValue: 130,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      onClose();
+    });
+  };
+
+  const handleItemEquip = (item: OutfitClothingItem, slot: MannequinSlot) => {
+    setLastEquippedItem(item);
+    onEquip(item, slot);
+  };
 
   // Filter compatible suggestions for this slot
   const slotSuggestions = useMemo(() => {
@@ -124,20 +218,35 @@ export default function OutfitCustomizeModal({
     }
   };
 
-  const reaction = activeItem
-    ? `Your ${activeItem.name.toLowerCase()} gives this look character. Tap any piece below to instantly dress the avatar!`
-    : `Your ${SLOT_LABELS[activeSlot].toLowerCase()} slot is ready. Tap any piece below to equip it!`;
+  let reaction = `Live outfit match score: ${currentScore}%. Tap any piece below to equip on your avatar!`;
+  if (scoreDelta !== null && lastEquippedItem) {
+    if (scoreDelta > 0) {
+      reaction = `+${scoreDelta}% Match (${currentScore}%)! ${lastEquippedItem.name} coordinates cleanly with this look!`;
+    } else if (scoreDelta < 0) {
+      reaction = `${scoreDelta}% (${currentScore}%). Adds high-contrast variety to your ${outfit.occasionLabel || 'look'}!`;
+    } else {
+      reaction = `Equipped ${lastEquippedItem.name} (${currentScore}% match). Still well-balanced!`;
+    }
+  } else if (activeItem) {
+    reaction = `Your ${activeItem.name.toLowerCase()} gives this look character (${currentScore}% match). Tap pieces below to swap!`;
+  }
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={styles.container}>
+    <Modal visible={visible} animationType="none" transparent onRequestClose={handleClose}>
+      <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
         {/* Top Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.kicker}>FOCUSED CUSTOMIZATION</Text>
-            <Text style={styles.title}>Dress to Impress</Text>
+            <Text style={styles.kicker}>AI OUTFIT STUDIO</Text>
+            <View style={styles.titleRow}>
+              <Text style={styles.title}>Customize Outfit</Text>
+              <View style={styles.scorePill}>
+                <Ionicons name="sparkles" size={13} color="#264C3B" />
+                <Text style={styles.scorePillText}>{currentScore}% MATCH</Text>
+              </View>
+            </View>
           </View>
-          <Pressable onPress={onClose} style={styles.close} accessibilityLabel="Close customizer">
+          <Pressable onPress={handleClose} style={styles.close} accessibilityLabel="Close customizer">
             <Ionicons name="close" size={22} color="#264C3B" />
           </Pressable>
         </View>
@@ -150,73 +259,75 @@ export default function OutfitCustomizeModal({
 
         {/* Split Stage: 2D Human Mannequin on Left + Decomposed 5 Slots on Right */}
         <View style={styles.split}>
-          <View style={styles.mannequinPane}>
+          <Animated.View style={[styles.mannequinPane, { transform: [{ scale: zoomAnim }] }]}>
             <Mannequin2D
               profile={profile}
               items={equipped}
               activeSlot={activeSlot}
               onSelectSlot={setActiveSlot}
             />
-          </View>
+          </Animated.View>
 
-          <ScrollView style={styles.slotPane} contentContainerStyle={styles.slotContent} showsVerticalScrollIndicator={false}>
-            {(['TOP', 'OUTERWEAR', 'BOTTOM', 'SHOES', 'ACCESSORIES'] as MannequinSlot[]).map((slot) => {
-              const item = equipped.find((entry) => toSlot(entry) === slot);
-              const isSelected = activeSlot === slot;
-              const imgUrl = resolveGarmentImageUrl(item);
-              const isDataset = item?.isSuggested || (item?.id && item.id.startsWith('dataset-'));
+          <Animated.View style={[styles.slotPane, { transform: [{ translateX: slideRightAnim }] }]}>
+            <ScrollView contentContainerStyle={styles.slotContent} showsVerticalScrollIndicator={false}>
+              {(['TOP', 'OUTERWEAR', 'BOTTOM', 'SHOES', 'ACCESSORIES'] as MannequinSlot[]).map((slot) => {
+                const item = equipped.find((entry) => toSlot(entry) === slot);
+                const isSelected = activeSlot === slot;
+                const imgUrl = resolveGarmentImageUrl(item);
+                const isDataset = item?.isSuggested || (item?.id && item.id.startsWith('dataset-'));
 
-              return (
-                <Pressable
-                  key={slot}
-                  onPress={() => setActiveSlot(slot)}
-                  style={[styles.slotCard, isSelected && styles.slotCardActive]}
-                >
-                  <View style={styles.slotCardHeader}>
-                    <Text style={[styles.slotLabel, isSelected && styles.slotLabelActive]}>
-                      {SLOT_LABELS[slot]}
-                    </Text>
-                    {item && (
-                      <View
-                        style={[
-                          styles.slotColorDot,
-                          { backgroundColor: item.hexColor || item.primaryColor || '#4B1D6F' },
-                        ]}
-                      />
-                    )}
-                  </View>
-
-                  <View style={styles.slotBodyRow}>
-                    <View style={styles.slotThumbnail}>
-                      {imgUrl ? (
-                        <Image source={{ uri: imgUrl }} style={styles.thumbImage} resizeMode="contain" />
-                      ) : (
-                        <MiniGarmentSvg
-                          slot={slot}
-                          name={item?.name || ''}
-                          color={item?.hexColor || item?.primaryColor || '#8BAA82'}
-                          size={38}
+                return (
+                  <Pressable
+                    key={slot}
+                    onPress={() => setActiveSlot(slot)}
+                    style={[styles.slotCard, isSelected && styles.slotCardActive]}
+                  >
+                    <View style={styles.slotCardHeader}>
+                      <Text style={[styles.slotLabel, isSelected && styles.slotLabelActive]}>
+                        {SLOT_LABELS[slot]}
+                      </Text>
+                      {item && (
+                        <View
+                          style={[
+                            styles.slotColorDot,
+                            { backgroundColor: item.hexColor || item.primaryColor || '#4B1D6F' },
+                          ]}
                         />
                       )}
                     </View>
 
-                    <View style={styles.slotDetails}>
-                      <Text style={styles.slotName} numberOfLines={2}>
-                        {item?.name || 'Empty slot'}
-                      </Text>
-                      <Text style={[styles.slotSource, isDataset && styles.datasetSourceText]}>
-                        {item ? (isDataset ? 'Dataset Catalog' : 'My Wardrobe') : 'Tap to add'}
-                      </Text>
+                    <View style={styles.slotBodyRow}>
+                      <View style={styles.slotThumbnail}>
+                        {imgUrl ? (
+                          <Image source={{ uri: imgUrl }} style={styles.thumbImage} resizeMode="contain" />
+                        ) : (
+                          <MiniGarmentSvg
+                            slot={slot}
+                            name={item?.name || ''}
+                            color={item?.hexColor || item?.primaryColor || '#8BAA82'}
+                            size={38}
+                          />
+                        )}
+                      </View>
+
+                      <View style={styles.slotDetails}>
+                        <Text style={styles.slotName} numberOfLines={2}>
+                          {item?.name || 'Empty slot'}
+                        </Text>
+                        <Text style={[styles.slotSource, isDataset && styles.datasetSourceText]}>
+                          {item ? (isDataset ? 'Style Suggestion' : 'My Wardrobe') : 'Tap to add'}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </Animated.View>
         </View>
 
         {/* Bottom Drawer: Style Suggestions with Horizontal Infinite-Loop FlatList */}
-        <View style={styles.drawer}>
+        <Animated.View style={[styles.drawer, { transform: [{ translateY: slideUpAnim }] }]}>
           <View style={styles.drawerHeader}>
             <View>
               <Text style={styles.drawerTitle}>
@@ -258,7 +369,7 @@ export default function OutfitCustomizeModal({
 
                 return (
                   <Pressable
-                    onPress={() => onEquip(item, activeSlot)}
+                    onPress={() => handleItemEquip(item, activeSlot)}
                     style={[styles.suggestionCard, isEquipped && styles.suggestionCardEquipped]}
                   >
                     {/* Real Garment Photo or Miniature 2D Vector SVG (NEVER a black sparkle box) */}
@@ -295,7 +406,7 @@ export default function OutfitCustomizeModal({
                       {item.name}
                     </Text>
 
-                    {/* Source Badge: My Wardrobe vs Dataset Catalog */}
+                    {/* Source Badge: My Wardrobe vs Style Suggestion */}
                     <View
                       style={[
                         styles.sourcePill,
@@ -308,7 +419,7 @@ export default function OutfitCustomizeModal({
                           isDataset ? styles.sourcePillTextDataset : styles.sourcePillTextWardrobe,
                         ]}
                       >
-                        {isDataset ? 'Dataset Catalog' : 'My Wardrobe'}
+                        {isDataset ? 'Style Suggestion' : 'My Wardrobe'}
                       </Text>
                     </View>
                   </Pressable>
@@ -316,8 +427,8 @@ export default function OutfitCustomizeModal({
               }}
             />
           )}
-        </View>
-      </View>
+        </Animated.View>
+      </Animated.View>
     </Modal>
   );
 }
@@ -340,11 +451,31 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 1.3,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 2,
+  },
   title: {
     color: '#264C3B',
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '900',
-    marginTop: 2,
+  },
+  scorePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EAF3D9',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  scorePillText: {
+    color: '#264C3B',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   close: {
     width: 36,

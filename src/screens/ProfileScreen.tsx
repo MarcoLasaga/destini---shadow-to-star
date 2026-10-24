@@ -18,6 +18,7 @@ import { useOutfit } from '../contexts/OutfitContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import Mannequin2D from '../components/Mannequin2D';
+import CharacterCustomizeModal from '../components/CharacterCustomizeModal';
 import { CommunityOutfit } from '../services/communityService';
 import { OutfitClothingItem } from '../types';
 import {
@@ -41,6 +42,7 @@ export default function ProfileScreen() {
   const { showToast } = useToast();
 
   const [settingsVisible, setSettingsVisible] = useState(false);
+  const [characterModalVisible, setCharacterModalVisible] = useState(false);
   const [tab, setTab] = useState<'Published' | 'Liked' | 'Saved'>('Published');
 
   // Manage Published Post Bottom Sheet State
@@ -175,8 +177,12 @@ export default function ProfileScreen() {
             {profile.email || '@stylesense_member'}
           </Text>
 
-          {/* Followers / Likes Stats */}
+          {/* Followers / Following / Likes Stats */}
           <View style={styles.stats}>
+            <View style={styles.stat}>
+              <Text style={[styles.statValue, { color: theme.text }]}>18</Text>
+              <Text style={[styles.statLabel, { color: theme.textMuted }]}>Followers</Text>
+            </View>
             <View style={styles.stat}>
               <Text style={[styles.statValue, { color: theme.text }]}>0</Text>
               <Text style={[styles.statLabel, { color: theme.textMuted }]}>Following</Text>
@@ -231,7 +237,7 @@ export default function ProfileScreen() {
                     { backgroundColor: theme.mode === 'dark' ? '#231B2C' : '#FAF7F0' },
                   ]}
                 >
-                  <Mannequin2D items={outfit.clothingItems} compact />
+                  <Mannequin2D items={outfit.clothingItems} compact staticPreview />
                 </View>
                 <Text style={[styles.gridKicker, { color: '#4D9A65' }]}>SAVED LOOK</Text>
                 <Text style={[styles.gridTitle, { color: theme.text }]} numberOfLines={2}>
@@ -270,7 +276,7 @@ export default function ProfileScreen() {
                       { backgroundColor: theme.mode === 'dark' ? '#231B2C' : '#FAF7F0' },
                     ]}
                   >
-                    <Mannequin2D items={mannequinItems} compact />
+                    <Mannequin2D items={mannequinItems} compact staticPreview />
                   </View>
 
                   <Text style={[styles.gridTitle, { color: theme.text }]} numberOfLines={2}>
@@ -337,10 +343,29 @@ export default function ProfileScreen() {
               </Pressable>
             </View>
 
+            {/* Row 1: Appearance / Edit Character */}
+            <Pressable
+              onPress={() => {
+                setSettingsVisible(false);
+                setCharacterModalVisible(true);
+              }}
+              style={styles.settingRow}
+            >
+              <Ionicons name="color-palette-outline" size={20} color="#4D9A65" />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.settingLabel, { color: theme.text }]}>
+                  Appearance / Edit Character
+                </Text>
+                <Text style={[styles.settingSub, { color: theme.textMuted }]}>
+                  Personalize hair style, color, skin tone & face expression
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={17} color={theme.textMuted} />
+            </Pressable>
+
             {/* Standard Nav Rows */}
             {[
               ['Edit Profile', 'person-outline', 'EditProfile'],
-              ['Appearance', 'color-palette-outline', 'Settings'],
               ['Notification Preferences', 'notifications-outline', 'Settings'],
               ['Help & Support', 'help-circle-outline', 'Help'],
             ].map(([label, icon, route]) => (
@@ -657,6 +682,13 @@ export default function ProfileScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* ================= 4. CHARACTER CUSTOMIZER MODAL ================= */}
+      <CharacterCustomizeModal
+        visible={characterModalVisible}
+        onClose={() => setCharacterModalVisible(false)}
+        initialGender={profile?.gender === 'female' ? 'female' : 'male'}
+      />
     </SafeAreaView>
   );
 }
@@ -777,7 +809,7 @@ const styles = StyleSheet.create({
   },
   gridCard: {
     width: '48%',
-    minHeight: 220,
+    minHeight: 260,
     borderWidth: 1,
     borderRadius: 16,
     padding: 10,
@@ -785,7 +817,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   gridMannequin: {
-    height: 155,
+    height: 195,
+    paddingVertical: 8,
     borderRadius: 12,
     overflow: 'hidden',
     alignItems: 'center',

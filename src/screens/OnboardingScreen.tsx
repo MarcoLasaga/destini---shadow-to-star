@@ -16,9 +16,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useProfile } from '../contexts/ProfileContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useSettings } from '../contexts/SettingsContext';
 import { MelMascot, MelSpeechBubble } from '../components/MelMascot';
 import Mannequin2D from '../components/Mannequin2D';
 import { OutfitClothingItem } from '../types';
+import {
+  MALE_HAIRSTYLES,
+  FEMALE_HAIRSTYLES,
+  HAIR_COLORS,
+  SKIN_TONES,
+  FACE_STYLES,
+} from '../components/CharacterCustomizeModal';
 
 interface OnboardingScreenProps {
   onComplete: () => void;
@@ -150,6 +158,12 @@ export default function OnboardingScreen({
   const theme = useAppTheme();
   const { isLoggedIn } = useAuth();
   const { updateProfile } = useProfile();
+  const {
+    setMannequinSkinTone,
+    setHairStyle: setSettingsHairStyle,
+    setHairColor: setSettingsHairColor,
+    setFaceStyle: setSettingsFaceStyle,
+  } = useSettings();
 
   // 6 Pages (0 to 5)
   const [page, setPage] = useState<number>(0);
@@ -165,6 +179,13 @@ export default function OnboardingScreen({
   const [preferredStyles, setPreferredStyles] = useState<string[]>(['Casual Everyday', 'Streetwear']);
   const [commonOccasions, setCommonOccasions] = useState<string[]>(['School / Campus', 'Casual Hangouts']);
   const [fitPreference, setFitPreference] = useState<string>('Regular / Relaxed Fit');
+
+  // Character Customization State
+  const [hairStyle, setHairStyle] = useState<string>('female_long_tucked');
+  const [hairColor, setHairColor] = useState<string>('#1C1613');
+  const [skinTone, setSkinTone] = useState<string>('#F1CBA9');
+  const [faceStyle, setFaceStyle] = useState<string>('friendly');
+
   const [busy, setBusy] = useState<boolean>(false);
 
   const toggleArrayItem = (item: string, currentList: string[], setter: (val: string[]) => void) => {
@@ -172,6 +193,15 @@ export default function OnboardingScreen({
       setter(currentList.filter((x) => x !== item));
     } else {
       setter([...currentList, item]);
+    }
+  };
+
+  const handleGenderSelect = (g: 'male' | 'female') => {
+    setGender(g);
+    if (g === 'male' && hairStyle.startsWith('female_')) {
+      setHairStyle('male_twoblock');
+    } else if (g === 'female' && hairStyle.startsWith('male_')) {
+      setHairStyle('female_long_tucked');
     }
   };
 
@@ -186,8 +216,26 @@ export default function OnboardingScreen({
       preferredStyles,
       commonOccasions,
       fitPreference,
+      hairStyle,
+      hairColor,
+      skinTone,
+      faceStyle,
     }),
-    [ageGroup, gender, heightCm, weightKg, selectedPalettes, texturePreferences, preferredStyles, commonOccasions, fitPreference]
+    [
+      ageGroup,
+      gender,
+      heightCm,
+      weightKg,
+      selectedPalettes,
+      texturePreferences,
+      preferredStyles,
+      commonOccasions,
+      fitPreference,
+      hairStyle,
+      hairColor,
+      skinTone,
+      faceStyle,
+    ]
   );
 
   const melOutfit = useMemo(() => {
@@ -206,7 +254,7 @@ export default function OnboardingScreen({
       case 1:
         return 'Tell me your stage in life so I can tailor campus dress codes & daily vibes!';
       case 2:
-        return 'Watch your 2D mannequin adapt in real time as you adjust gender and proportions.';
+        return 'Watch your 2D mannequin adapt in real time as you adjust gender, hair, skin, and face style!';
       case 3:
         return 'Which palettes make up your core closet? I use these for smart color harmonics.';
       case 4:
@@ -225,8 +273,14 @@ export default function OnboardingScreen({
         ['@stylesense_onboarding_complete', 'true'],
         ['stylesense_onboarding_profile', JSON.stringify(payload)],
       ]);
+
+      await setMannequinSkinTone(skinTone);
+      await setSettingsHairStyle(hairStyle);
+      await setSettingsHairColor(hairColor);
+      await setSettingsFaceStyle(faceStyle);
+
       if (isLoggedIn) {
-        await updateProfile(payload);
+        await updateProfile(payload as any);
       }
       onComplete();
     } catch (e) {
@@ -266,6 +320,8 @@ export default function OnboardingScreen({
       setPage((prev) => prev - 1);
     }
   };
+
+  const availableHairstyles = gender === 'female' ? FEMALE_HAIRSTYLES : MALE_HAIRSTYLES;
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
@@ -338,6 +394,10 @@ export default function OnboardingScreen({
                   <Mannequin2D
                     compact
                     profile={{ gender: 'female', heightCm: '168', weightKg: '58' }}
+                    skinTone={skinTone}
+                    hairStyle={hairStyle}
+                    hairColor={hairColor}
+                    faceStyle={faceStyle}
                     items={DEMO_AVATAR_CLOTHES}
                   />
                 </View>
@@ -453,12 +513,12 @@ export default function OnboardingScreen({
             </View>
           )}
 
-          {/* ================= PAGE 2: GENDER, HEIGHT, WEIGHT ================= */}
+          {/* ================= PAGE 2: GENDER, HEIGHT, WEIGHT & CHARACTER CUSTOMIZER ================= */}
           {page === 2 && (
             <View style={styles.pageContainer}>
               <Text style={[styles.heroHeading, { color: theme.text }]}>Let's shape your mannequin</Text>
               <Text style={[styles.heroSubheading, { color: theme.textMuted }]}>
-                Tailor avatar proportions in real time so your virtual try-on looks proportional.
+                Tailor avatar proportions, hairstyle, skin tone, and face style in real time.
               </Text>
 
               {/* Live Morphing Mannequin Box */}
@@ -470,18 +530,22 @@ export default function OnboardingScreen({
                     heightCm,
                     weightKg,
                   }}
+                  skinTone={skinTone}
+                  hairStyle={hairStyle}
+                  hairColor={hairColor}
+                  faceStyle={faceStyle}
                   items={DEMO_AVATAR_CLOTHES}
                 />
                 <View style={styles.liveBadge}>
                   <View style={styles.greenPulseDot} />
-                  <Text style={styles.liveBadgeText}>Live Avatar Morph</Text>
+                  <Text style={styles.liveBadgeText}>Live Avatar Preview</Text>
                 </View>
               </View>
 
               {/* Gender Segment Toggle */}
               <View style={styles.genderToggleRow}>
                 <Pressable
-                  onPress={() => setGender('male')}
+                  onPress={() => handleGenderSelect('male')}
                   style={[
                     styles.genderButton,
                     { backgroundColor: theme.surface, borderColor: theme.border },
@@ -504,7 +568,7 @@ export default function OnboardingScreen({
                 </Pressable>
 
                 <Pressable
-                  onPress={() => setGender('female')}
+                  onPress={() => handleGenderSelect('female')}
                   style={[
                     styles.genderButton,
                     { backgroundColor: theme.surface, borderColor: theme.border },
@@ -584,6 +648,101 @@ export default function OnboardingScreen({
                     </Pressable>
                   </View>
                 </View>
+              </View>
+
+              {/* Character Attributes Customization */}
+              {/* 1. Hairstyles */}
+              <Text style={[styles.sectionTitle, { color: '#4D9A65', marginTop: 18 }]}>HAIRSTYLE</Text>
+              <View style={styles.hairOptionGrid}>
+                {availableHairstyles.map((hs) => {
+                  const isActive = hairStyle === hs.id;
+                  return (
+                    <Pressable
+                      key={hs.id}
+                      onPress={() => setHairStyle(hs.id)}
+                      style={[
+                        styles.hairPill,
+                        { backgroundColor: theme.surface, borderColor: theme.border },
+                        isActive && styles.hairPillActive,
+                      ]}
+                    >
+                      <Text style={[styles.hairPillText, { color: isActive ? '#1B4D1F' : theme.text }]}>
+                        {hs.label}
+                      </Text>
+                      {isActive && <Ionicons name="checkmark-circle" size={14} color="#4D9A65" />}
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* 2. Hair Color */}
+              <Text style={[styles.sectionTitle, { color: '#4D9A65', marginTop: 16 }]}>HAIR COLOR</Text>
+              <View style={styles.swatchRow}>
+                {HAIR_COLORS.map((hc) => {
+                  const isActive = hairColor === hc.hex;
+                  return (
+                    <Pressable
+                      key={hc.hex}
+                      onPress={() => setHairColor(hc.hex)}
+                      style={[
+                        styles.swatchItem,
+                        isActive && { borderColor: '#4D9A65', transform: [{ scale: 1.1 }] },
+                      ]}
+                    >
+                      <View style={[styles.swatchDot, { backgroundColor: hc.hex }]} />
+                      <Text style={[styles.swatchText, { color: theme.text }]} numberOfLines={1}>
+                        {hc.label.split(' ')[0]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* 3. Skin Tone */}
+              <Text style={[styles.sectionTitle, { color: '#4D9A65', marginTop: 16 }]}>SKIN TONE</Text>
+              <View style={styles.swatchRow}>
+                {SKIN_TONES.map((st) => {
+                  const isActive = skinTone === st.hex;
+                  return (
+                    <Pressable
+                      key={st.hex}
+                      onPress={() => setSkinTone(st.hex)}
+                      style={[
+                        styles.swatchItem,
+                        isActive && { borderColor: '#4D9A65', transform: [{ scale: 1.1 }] },
+                      ]}
+                    >
+                      <View style={[styles.swatchDot, { backgroundColor: st.hex }]} />
+                      <Text style={[styles.swatchText, { color: theme.text }]} numberOfLines={1}>
+                        {st.label.split(' ')[0]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* 4. Face Style */}
+              <Text style={[styles.sectionTitle, { color: '#4D9A65', marginTop: 16 }]}>FACE STYLE</Text>
+              <View style={styles.faceStyleGrid}>
+                {FACE_STYLES.map((fs) => {
+                  const isActive = faceStyle === fs.id;
+                  return (
+                    <Pressable
+                      key={fs.id}
+                      onPress={() => setFaceStyle(fs.id)}
+                      style={[
+                        styles.facePill,
+                        { backgroundColor: theme.surface, borderColor: theme.border },
+                        isActive && styles.facePillActive,
+                      ]}
+                    >
+                      <Ionicons name={fs.icon as any} size={16} color={isActive ? '#2E7D32' : theme.text} />
+                      <Text style={[styles.facePillText, { color: isActive ? '#1B4D1F' : theme.text }]}>
+                        {fs.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
             </View>
           )}
@@ -1044,7 +1203,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   liveMannequinBox: {
-    height: 220,
+    height: 230,
     borderRadius: 18,
     borderWidth: 1,
     alignItems: 'center',
@@ -1143,6 +1302,76 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  hairOptionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  hairPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1.5,
+  },
+  hairPillActive: {
+    borderColor: '#4D9A65',
+    backgroundColor: '#E8F5E9',
+  },
+  hairPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  swatchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  swatchItem: {
+    alignItems: 'center',
+    padding: 3,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    width: '18%',
+  },
+  swatchDot: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  swatchText: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 3,
+    textAlign: 'center',
+  },
+  faceStyleGrid: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  facePill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  facePillActive: {
+    borderColor: '#4D9A65',
+    backgroundColor: '#E8F5E9',
+  },
+  facePillText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   palettesList: {
     gap: 10,
   },
@@ -1187,7 +1416,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 1,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   chipGrid: {
     flexDirection: 'row',

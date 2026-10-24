@@ -7,6 +7,9 @@ const STORAGE_KEY_THEME = '@stylesense_theme_preference';
 const STORAGE_KEY_NOTIFS = '@stylesense_notification_prefs';
 const STORAGE_KEY_LANGUAGE = '@stylesense_language_preference';
 const STORAGE_KEY_SKIN = '@stylesense_mannequin_skin_tone';
+const STORAGE_KEY_HAIR_STYLE = '@stylesense_hair_style';
+const STORAGE_KEY_HAIR_COLOR = '@stylesense_hair_color';
+const STORAGE_KEY_FACE_STYLE = '@stylesense_face_style';
 
 interface SettingsContextValue {
   themePreference: 'light' | 'dark';
@@ -18,6 +21,12 @@ interface SettingsContextValue {
   setLanguage: (value: string) => Promise<void>;
   mannequinSkinTone: string;
   setMannequinSkinTone: (value: string) => Promise<void>;
+  hairStyle: string;
+  setHairStyle: (value: string) => Promise<void>;
+  hairColor: string;
+  setHairColor: (value: string) => Promise<void>;
+  faceStyle: string;
+  setFaceStyle: (value: string) => Promise<void>;
   lastActivatedNotification: keyof NotificationPrefs | null;
   clearNotificationBanner: () => void;
 }
@@ -37,6 +46,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<NotificationPrefs>(defaultNotifications);
   const [language, setLanguageState] = useState('English (US)');
   const [mannequinSkinTone, setMannequinSkinToneState] = useState('#F1CBA9');
+  const [hairStyle, setHairStyleState] = useState('male_twoblock');
+  const [hairColor, setHairColorState] = useState('#1C1613');
+  const [faceStyle, setFaceStyleState] = useState('friendly');
   const [lastActivatedNotification, setLastActivatedNotification] = useState<keyof NotificationPrefs | null>(null);
 
   // Load persisted settings
@@ -58,15 +70,24 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         if (storedLang) {
           setLanguageState(storedLang);
         }
+
         const storedSkin = await AsyncStorage.getItem(STORAGE_KEY_SKIN);
         if (storedSkin) {
-          // Migrate old green skin tone if previously stored
           if (storedSkin === '#B7D69C' || storedSkin === '#A8D5A2' || storedSkin.includes('D69C')) {
             setMannequinSkinToneState('#F1CBA9');
           } else {
             setMannequinSkinToneState(storedSkin);
           }
         }
+
+        const storedHairStyle = await AsyncStorage.getItem(STORAGE_KEY_HAIR_STYLE);
+        if (storedHairStyle) setHairStyleState(storedHairStyle);
+
+        const storedHairColor = await AsyncStorage.getItem(STORAGE_KEY_HAIR_COLOR);
+        if (storedHairColor) setHairColorState(storedHairColor);
+
+        const storedFaceStyle = await AsyncStorage.getItem(STORAGE_KEY_FACE_STYLE);
+        if (storedFaceStyle) setFaceStyleState(storedFaceStyle);
       } catch (err) {
         console.warn('Failed to load settings from storage', err);
       }
@@ -94,6 +115,21 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const setMannequinSkinTone = useCallback(async (value: string) => {
     setMannequinSkinToneState(value);
     await AsyncStorage.setItem(STORAGE_KEY_SKIN, value);
+  }, []);
+
+  const setHairStyle = useCallback(async (value: string) => {
+    setHairStyleState(value);
+    await AsyncStorage.setItem(STORAGE_KEY_HAIR_STYLE, value);
+  }, []);
+
+  const setHairColor = useCallback(async (value: string) => {
+    setHairColorState(value);
+    await AsyncStorage.setItem(STORAGE_KEY_HAIR_COLOR, value);
+  }, []);
+
+  const setFaceStyle = useCallback(async (value: string) => {
+    setFaceStyleState(value);
+    await AsyncStorage.setItem(STORAGE_KEY_FACE_STYLE, value);
   }, []);
 
   const toggleNotification = useCallback(async (key: keyof NotificationPrefs) => {
@@ -154,6 +190,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setLanguage,
         mannequinSkinTone,
         setMannequinSkinTone,
+        hairStyle,
+        setHairStyle,
+        hairColor,
+        setHairColor,
+        faceStyle,
+        setFaceStyle,
         lastActivatedNotification,
         clearNotificationBanner,
       }}
