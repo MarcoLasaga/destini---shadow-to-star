@@ -14,10 +14,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MelMascot, MelSpeechBubble } from './MelMascot';
-import Mannequin2D, { MannequinSlot } from './Mannequin2D';
+import Mannequin2D, { MannequinSlot, resolveGarmentHex } from './Mannequin2D';
 import { GeneratedOutfit, OutfitClothingItem, UserProfile, WeatherData } from '../types';
 import { MiniGarmentSvg, resolveGarmentImageUrl } from '../utils/garmentImageHelper';
 import { computeAccurateOutfitScore } from '../services/hybridScoreService';
+import { useToast } from '../contexts/ToastContext';
 
 const SLOT_LABELS: Record<MannequinSlot, string> = {
   TOP: 'Inner Top',
@@ -56,7 +57,7 @@ interface Props {
   weather?: WeatherData | null;
   suggestions: OutfitClothingItem[];
   onClose: () => void;
-  onEquip: (item: OutfitClothingItem, slot: MannequinSlot) => void;
+  onEquip: (item: OutfitClothingItem | null, slot: MannequinSlot) => void;
 }
 
 const CARD_WIDTH = 126;
@@ -73,9 +74,10 @@ export default function OutfitCustomizeModal({
   onClose,
   onEquip,
 }: Props) {
+  const { showToast } = useToast();
   const [activeSlot, setActiveSlot] = useState<MannequinSlot>('TOP');
   const equipped = outfit.clothingItems || [];
-  const activeItem = equipped.find((item) => toSlot(item) === activeSlot);
+  const activeItem = equipped.find((item) => toSlot(item) === activeSlot) ?? null;
 
   // Choreographed In-Place Transition Animations
   const zoomAnim = useRef(new Animated.Value(0.94)).current;
@@ -99,6 +101,34 @@ export default function OutfitCustomizeModal({
       prevScoreRef.current = currentScore;
     }
   }, [currentScore]);
+
+  // CIELAB Color Harmony Analysis & Quick Styling Guidance Pills
+  const colorHarmony = useMemo(() => {
+    const dots = equipped.map((item) => ({
+      name: item.name,
+      hex: resolveGarmentHex(item),
+    }));
+
+    const hexes = dots.map((d) => d.hex.toLowerCase());
+    const hasWarmEarth = hexes.some((h) => ['#6e473b', '#c8b696', '#d2b48c', '#4a5d4e'].includes(h));
+    const hasNavyBlue = hexes.some((h) => ['#1e2f4d', '#3b6ea5', '#3d5a80'].includes(h));
+    const isMono = hexes.length > 0 && hexes.every((h) => ['#f5f5f0', '#1e2022', '#7d8491', '#ffffff', '#000000'].includes(h));
+
+    let tag = 'Balanced Neutral Anchor';
+    let pills = ['Layer Jacket Open', 'Sleeves Rolled'];
+    if (hasWarmEarth) {
+      tag = 'Warm Earth-Tone Match';
+      pills = ['Tuck Front Hem', 'Match Leather Accents'];
+    } else if (hasNavyBlue) {
+      tag = 'Classic Maritime Harmony';
+      pills = ['Clean Ankle Break', 'Minimalist Watch'];
+    } else if (isMono) {
+      tag = 'Monochrome Minimalist';
+      pills = ['Contrast Sneaker Soles', 'Clean Lines'];
+    }
+
+    return { dots, tag, pills };
+  }, [equipped]);
 
   useEffect(() => {
     if (visible) {
@@ -162,9 +192,14 @@ export default function OutfitCustomizeModal({
     });
   };
 
-  const handleItemEquip = (item: OutfitClothingItem, slot: MannequinSlot) => {
+  const handleItemEquip = (item: OutfitClothingItem | null, slot: MannequinSlot) => {
     setLastEquippedItem(item);
     onEquip(item, slot);
+  };
+
+  const handleWearToday = () => {
+    showToast('✨ Outfit confirmed for today! Looking sharp.');
+    handleClose();
   };
 
   // Filter compatible suggestions for this slot
@@ -227,6 +262,8 @@ export default function OutfitCustomizeModal({
     } else {
       reaction = `Equipped ${lastEquippedItem.name} (${currentScore}% match). Still well-balanced!`;
     }
+  } else if (!activeItem) {
+    reaction = `Deselected ${SLOT_LABELS[activeSlot]}. Showing clean inner base layer (${currentScore}% match).`;
   } else if (activeItem) {
     reaction = `Your ${activeItem.name.toLowerCase()} gives this look character (${currentScore}% match). Tap pieces below to swap!`;
   }
@@ -236,25 +273,59 @@ export default function OutfitCustomizeModal({
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
         {/* Top Header */}
         <View style={styles.header}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.kicker}>AI OUTFIT STUDIO</Text>
             <View style={styles.titleRow}>
               <Text style={styles.title}>Customize Outfit</Text>
               <View style={styles.scorePill}>
-                <Ionicons name="sparkles" size={13} color="#264C3B" />
-                <Text style={styles.scorePillText}>{currentScore}% MATCH</Text>
+                <Ionicons name="sparkles" size={12} color="#264C3B" />
+                <Text style={styles.scorePillText}>{currentScore}%</Text>
               </View>
             </View>
           </View>
-          <Pressable onPress={handleClose} style={styles.close} accessibilityLabel="Close customizer">
-            <Ionicons name="close" size={22} color="#264C3B" />
-          </Pressable>
+
+          {/* Action Buttons: Wear Today + Close */}
+          <View style={styles.headerRightActions}>
+            <Pressable
+              onPress={handleWearToday}
+              style={styles.wearTodayBtn}
+              accessibilityLabel="Wear this outfit today"
+            >
+              <Ionicons name="checkmark-circle" size={14} color="#FFFFFF" />
+              <Text style={styles.wearTodayText}>Wear Today</Text>
+            </Pressable>
+            <Pressable onPress={handleClose} style={styles.close} accessibilityLabel="Close customizer">
+              <Ionicons name="close" size={20} color="#264C3B" />
+            </Pressable>
+          </View>
         </View>
 
-        {/* Dedicated Mel Mascot & Speech Bubble Row (Never Overlaps Mannequin or Cards) */}
+        {/* Dedicated Mel Mascot & Speech Bubble Row */}
         <View style={styles.melRow}>
-          <MelMascot size={58} outfit="cool_hoodie" />
+          <MelMascot size={56} outfit="cool_hoodie" />
           <MelSpeechBubble variant="cool_hoodie" message={reaction} position="inline" />
+        </View>
+
+        {/* CIELAB Color Harmony Bar & "How to Wear" Styling Guidance */}
+        <View style={styles.harmonyBar}>
+          <View style={styles.harmonyLeft}>
+            <View style={styles.colorDotsRow}>
+              {colorHarmony.dots.map((d, i) => (
+                <View
+                  key={`${d.hex}-${i}`}
+                  style={[styles.harmonyDot, { backgroundColor: d.hex }]}
+                />
+              ))}
+            </View>
+            <Text style={styles.harmonyTag}>{colorHarmony.tag}</Text>
+          </View>
+          <View style={styles.stylingPillsRow}>
+            {colorHarmony.pills.map((pill, i) => (
+              <View key={i} style={styles.stylingPill}>
+                <Text style={styles.stylingPillText}>{pill}</Text>
+              </View>
+            ))}
+          </View>
         </View>
 
         {/* Split Stage: 2D Human Mannequin on Left + Decomposed 5 Slots on Right */}
@@ -265,6 +336,7 @@ export default function OutfitCustomizeModal({
               items={equipped}
               activeSlot={activeSlot}
               onSelectSlot={setActiveSlot}
+              occasionScene={outfit.occasionLabel}
             />
           </Animated.View>
 
@@ -286,36 +358,55 @@ export default function OutfitCustomizeModal({
                       <Text style={[styles.slotLabel, isSelected && styles.slotLabelActive]}>
                         {SLOT_LABELS[slot]}
                       </Text>
-                      {item && (
-                        <View
-                          style={[
-                            styles.slotColorDot,
-                            { backgroundColor: item.hexColor || item.primaryColor || '#4B1D6F' },
-                          ]}
-                        />
-                      )}
+                      <View style={styles.slotHeaderRight}>
+                        {item && (
+                          <Pressable
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              handleItemEquip(null, slot);
+                            }}
+                            hitSlop={8}
+                            style={styles.slotUnequipBtn}
+                            accessibilityLabel={`Unequip ${SLOT_LABELS[slot]}`}
+                          >
+                            <Ionicons name="close-circle" size={17} color="#DC2626" />
+                          </Pressable>
+                        )}
+                        {item && (
+                          <View
+                            style={[
+                              styles.slotColorDot,
+                              { backgroundColor: resolveGarmentHex(item, '#4B1D6F') },
+                            ]}
+                          />
+                        )}
+                      </View>
                     </View>
 
                     <View style={styles.slotBodyRow}>
                       <View style={styles.slotThumbnail}>
-                        {imgUrl ? (
-                          <Image source={{ uri: imgUrl }} style={styles.thumbImage} resizeMode="contain" />
+                        {item ? (
+                          imgUrl ? (
+                            <Image source={{ uri: imgUrl }} style={styles.thumbImage} resizeMode="contain" />
+                          ) : (
+                            <MiniGarmentSvg
+                              slot={slot}
+                              name={item.name}
+                              color={resolveGarmentHex(item, '#8BAA82')}
+                              size={38}
+                            />
+                          )
                         ) : (
-                          <MiniGarmentSvg
-                            slot={slot}
-                            name={item?.name || ''}
-                            color={item?.hexColor || item?.primaryColor || '#8BAA82'}
-                            size={38}
-                          />
+                          <Ionicons name="shirt-outline" size={20} color="#B5BFB7" />
                         )}
                       </View>
 
                       <View style={styles.slotDetails}>
                         <Text style={styles.slotName} numberOfLines={2}>
-                          {item?.name || 'Empty slot'}
+                          {item?.name || 'Inner base layer (None)'}
                         </Text>
                         <Text style={[styles.slotSource, isDataset && styles.datasetSourceText]}>
-                          {item ? (isDataset ? 'Style Suggestion' : 'My Wardrobe') : 'Tap to add'}
+                          {item ? (isDataset ? 'Style Suggestion' : 'My Wardrobe') : 'Tap piece below to add'}
                         </Text>
                       </View>
                     </View>
@@ -326,7 +417,7 @@ export default function OutfitCustomizeModal({
           </Animated.View>
         </View>
 
-        {/* Bottom Drawer: Style Suggestions with Horizontal Infinite-Loop FlatList */}
+        {/* Bottom Drawer: Style Suggestions with Option 0 as "🚫 None (Unequip)" */}
         <Animated.View style={[styles.drawer, { transform: [{ translateY: slideUpAnim }] }]}>
           <View style={styles.drawerHeader}>
             <View>
@@ -334,7 +425,7 @@ export default function OutfitCustomizeModal({
                 Style Suggestions · {SLOT_LABELS[activeSlot]}
               </Text>
               <Text style={styles.drawerHint}>
-                Swipe infinitely · Tap any card to equip on your 2D mannequin
+                Swipe cards · Tap to equip or deselect any piece
               </Text>
             </View>
             <View style={styles.countBadge}>
@@ -342,91 +433,108 @@ export default function OutfitCustomizeModal({
             </View>
           </View>
 
-          {slotSuggestions.length === 0 ? (
-            <View style={styles.emptySuggestions}>
-              <Text style={styles.emptyText}>No suggestions available for this slot.</Text>
-            </View>
-          ) : (
-            <FlatList
-              ref={flatListRef}
-              horizontal
-              data={loopedData}
-              keyExtractor={(entry) => entry.loopKey}
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.suggestionRow}
-              onScroll={handleScroll}
-              scrollEventThrottle={16}
-              getItemLayout={(_, index) => ({
-                length: ITEM_TOTAL_WIDTH,
-                offset: ITEM_TOTAL_WIDTH * index,
-                index,
-              })}
-              renderItem={({ item: entry }) => {
-                const item = entry.item;
-                const imageUrl = resolveGarmentImageUrl(item);
-                const isDataset = item.isSuggested || (item.id && item.id.startsWith('dataset-'));
-                const isEquipped = equipped.some((eq) => eq.id === item.id);
-
-                return (
-                  <Pressable
-                    onPress={() => handleItemEquip(item, activeSlot)}
-                    style={[styles.suggestionCard, isEquipped && styles.suggestionCardEquipped]}
-                  >
-                    {/* Real Garment Photo or Miniature 2D Vector SVG (NEVER a black sparkle box) */}
-                    <View style={styles.previewBox}>
-                      {imageUrl ? (
-                        <Image source={{ uri: imageUrl }} style={styles.garmentPhoto} resizeMode="contain" />
-                      ) : (
-                        <MiniGarmentSvg
-                          slot={activeSlot}
-                          name={item.name}
-                          color={item.hexColor || item.primaryColor || item.color}
-                          secondaryColor={item.secondaryColor}
-                          size={54}
-                        />
-                      )}
-
-                      {/* CIELAB Color Swatch Dot */}
-                      <View
-                        style={[
-                          styles.colorDotBadge,
-                          { backgroundColor: item.hexColor || item.primaryColor || '#3B414B' },
-                        ]}
-                      />
-
-                      {isEquipped && (
-                        <View style={styles.equippedBadge}>
-                          <Text style={styles.equippedBadgeText}>Equipped</Text>
-                        </View>
-                      )}
+          <FlatList
+            ref={flatListRef}
+            horizontal
+            data={loopedData}
+            keyExtractor={(entry) => entry.loopKey}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.suggestionRow}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            getItemLayout={(_, index) => ({
+              length: ITEM_TOTAL_WIDTH,
+              offset: ITEM_TOTAL_WIDTH * index,
+              index,
+            })}
+            ListHeaderComponent={
+              <Pressable
+                onPress={() => handleItemEquip(null, activeSlot)}
+                style={[
+                  styles.suggestionCard,
+                  !activeItem && styles.suggestionCardEquipped,
+                  styles.noneCard,
+                ]}
+              >
+                <View style={[styles.previewBox, { backgroundColor: '#F8F7F4' }]}>
+                  <Ionicons name="ban-outline" size={28} color="#DC2626" />
+                  {!activeItem && (
+                    <View style={[styles.equippedBadge, { backgroundColor: '#475569' }]}>
+                      <Text style={styles.equippedBadgeText}>Base</Text>
                     </View>
+                  )}
+                </View>
+                <Text style={styles.suggestionName} numberOfLines={1}>
+                  None (Unequip)
+                </Text>
+                <View style={[styles.sourcePill, { backgroundColor: '#FEE2E2' }]}>
+                  <Text style={[styles.sourcePillText, { color: '#DC2626' }]}>Deselect</Text>
+                </View>
+              </Pressable>
+            }
+            renderItem={({ item: entry }) => {
+              const item = entry.item;
+              const imageUrl = resolveGarmentImageUrl(item);
+              const isDataset = item.isSuggested || (item.id && item.id.startsWith('dataset-'));
+              const isEquipped = equipped.some((eq) => eq.id === item.id);
+              const hexColor = resolveGarmentHex(item, '#3B414B');
 
-                    {/* Garment Title */}
-                    <Text style={styles.suggestionName} numberOfLines={2}>
-                      {item.name}
-                    </Text>
+              return (
+                <Pressable
+                  onPress={() => handleItemEquip(item, activeSlot)}
+                  style={[styles.suggestionCard, isEquipped && styles.suggestionCardEquipped]}
+                >
+                  <View style={styles.previewBox}>
+                    {imageUrl ? (
+                      <Image source={{ uri: imageUrl }} style={styles.garmentPhoto} resizeMode="contain" />
+                    ) : (
+                      <MiniGarmentSvg
+                        slot={activeSlot}
+                        name={item.name}
+                        color={hexColor}
+                        secondaryColor={item.secondaryColor}
+                        size={52}
+                      />
+                    )}
 
-                    {/* Source Badge: My Wardrobe vs Style Suggestion */}
+                    {/* Color Swatch Dot */}
                     <View
                       style={[
-                        styles.sourcePill,
-                        isDataset ? styles.sourcePillDataset : styles.sourcePillWardrobe,
+                        styles.colorDotBadge,
+                        { backgroundColor: hexColor },
+                      ]}
+                    />
+
+                    {isEquipped && (
+                      <View style={styles.equippedBadge}>
+                        <Text style={styles.equippedBadgeText}>Equipped</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <Text style={styles.suggestionName} numberOfLines={2}>
+                    {item.name}
+                  </Text>
+
+                  <View
+                    style={[
+                      styles.sourcePill,
+                      isDataset ? styles.sourcePillDataset : styles.sourcePillWardrobe,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.sourcePillText,
+                        isDataset ? styles.sourcePillTextDataset : styles.sourcePillTextWardrobe,
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.sourcePillText,
-                          isDataset ? styles.sourcePillTextDataset : styles.sourcePillTextWardrobe,
-                        ]}
-                      >
-                        {isDataset ? 'Style Suggestion' : 'My Wardrobe'}
-                      </Text>
-                    </View>
-                  </Pressable>
-                );
-              }}
-            />
-          )}
+                      {isDataset ? 'Style Suggestion' : 'My Wardrobe'}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            }}
+          />
         </Animated.View>
       </Animated.View>
     </Modal>
@@ -440,47 +548,71 @@ const styles = StyleSheet.create({
     paddingTop: 50,
   },
   header: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 4,
   },
   kicker: {
     color: '#4D9A65',
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '900',
-    letterSpacing: 1.3,
+    letterSpacing: 1.2,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     marginTop: 2,
   },
   title: {
     color: '#264C3B',
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '900',
   },
   scorePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
     backgroundColor: '#EAF3D9',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
   scorePillText: {
     color: '#264C3B',
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '900',
-    letterSpacing: 0.5,
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  wearTodayBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#264C3B',
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 14,
+    shadowColor: '#264C3B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  wearTodayText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
   },
   close: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#EAF3D9',
     alignItems: 'center',
     justifyContent: 'center',
@@ -489,19 +621,72 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 10,
-    marginTop: 8,
+    marginTop: 6,
+    marginBottom: 6,
     marginHorizontal: 16,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 10,
+    padding: 9,
     borderWidth: 1,
     borderColor: '#E1E6DB',
     shadowColor: '#264C3B',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  harmonyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    backgroundColor: '#F3F6EC',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#E2E7DC',
+  },
+  harmonyLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  colorDotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  harmonyDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+  },
+  harmonyTag: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#264C3B',
+  },
+  stylingPillsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  stylingPill: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: '#D8E2D2',
+  },
+  stylingPillText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#4B5563',
   },
   split: {
     flex: 1,
@@ -521,16 +706,16 @@ const styles = StyleSheet.create({
     flex: 0.82,
   },
   slotContent: {
-    gap: 7,
-    paddingBottom: 10,
+    gap: 6,
+    paddingBottom: 8,
   },
   slotCard: {
     borderWidth: 1.5,
     borderColor: '#DCE1D6',
     borderRadius: 13,
-    padding: 9,
+    padding: 8,
     backgroundColor: '#FFFFFF',
-    minHeight: 68,
+    minHeight: 64,
   },
   slotCardActive: {
     borderColor: '#F07E57',
@@ -540,30 +725,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   slotLabel: {
     color: '#4D9A65',
-    fontSize: 9.5,
+    fontSize: 9,
     fontWeight: '900',
     textTransform: 'uppercase',
   },
   slotLabelActive: {
     color: '#F07E57',
   },
+  slotHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  slotUnequipBtn: {
+    padding: 2,
+  },
   slotColorDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
   },
   slotBodyRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: 6,
   },
   slotThumbnail: {
-    width: 38,
-    height: 38,
+    width: 36,
+    height: 36,
     borderRadius: 7,
     backgroundColor: '#F4F7EF',
     alignItems: 'center',
@@ -579,14 +772,14 @@ const styles = StyleSheet.create({
   },
   slotName: {
     color: '#264C3B',
-    fontSize: 11.5,
-    lineHeight: 15,
+    fontSize: 11,
+    lineHeight: 14,
     fontWeight: '800',
   },
   slotSource: {
     color: '#7D8B81',
-    fontSize: 9,
-    marginTop: 2,
+    fontSize: 8.5,
+    marginTop: 1,
   },
   datasetSourceText: {
     color: '#5554B8',
@@ -595,35 +788,35 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E2E6DC',
     backgroundColor: '#FFFFFF',
-    paddingTop: 12,
-    paddingBottom: 22,
+    paddingTop: 10,
+    paddingBottom: 20,
   },
   drawerHeader: {
     paddingHorizontal: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 7,
   },
   drawerTitle: {
     color: '#264C3B',
-    fontSize: 14.5,
+    fontSize: 14,
     fontWeight: '900',
   },
   drawerHint: {
     color: '#7B887E',
-    fontSize: 10.5,
-    marginTop: 2,
+    fontSize: 10,
+    marginTop: 1,
   },
   countBadge: {
     backgroundColor: '#EAF3D9',
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 2,
     borderRadius: 10,
   },
   countText: {
     color: '#264C3B',
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '800',
   },
   suggestionRow: {
@@ -638,12 +831,16 @@ const styles = StyleSheet.create({
     padding: 8,
     backgroundColor: '#FCFAF5',
   },
+  noneCard: {
+    marginRight: 6,
+    borderColor: '#CBD5E1',
+  },
   suggestionCardEquipped: {
     borderColor: '#4D9A65',
     backgroundColor: '#F0F7EB',
   },
   previewBox: {
-    height: 72,
+    height: 70,
     borderRadius: 10,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
@@ -662,9 +859,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 5,
     left: 5,
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     borderWidth: 1,
     borderColor: '#FFFFFF',
   },
@@ -690,9 +887,9 @@ const styles = StyleSheet.create({
     minHeight: 28,
   },
   sourcePill: {
-    marginTop: 5,
+    marginTop: 4,
     paddingHorizontal: 6,
-    paddingVertical: 3,
+    paddingVertical: 2.5,
     borderRadius: 6,
     alignSelf: 'flex-start',
   },
@@ -711,13 +908,5 @@ const styles = StyleSheet.create({
   },
   sourcePillTextDataset: {
     color: '#4B3AA6',
-  },
-  emptySuggestions: {
-    paddingVertical: 28,
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: '#7B887E',
-    fontSize: 12,
   },
 });

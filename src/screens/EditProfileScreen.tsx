@@ -3,6 +3,7 @@ import { View, Pressable, Text, ScrollView, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useProfile } from '../contexts/ProfileContext';
+import { syncCreatorNickname } from '../services/communityService';
 import ScreenHeader from '../components/ScreenHeader';
 import TextField from '../components/TextField';
 
@@ -20,6 +21,7 @@ export default function EditProfileScreen() {
 
   const handleSave = () => {
     updateProfile({ firstName, lastName, displayName, clothingSize, preferredSize, location });
+    syncCreatorNickname(displayName, profile.avatarUri);
     navigation.goBack();
   };
 

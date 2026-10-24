@@ -88,6 +88,7 @@ export default function CharacterCustomizeModal({
   const [hairColor, setHairColor] = useState<string>(settingsHairColor || '#1C1613');
   const [skinTone, setSkinTone] = useState<string>(mannequinSkinTone || '#F1CBA9');
   const [faceStyle, setFaceStyle] = useState<string>(settingsFaceStyle || 'friendly');
+  const [zoomMode, setZoomMode] = useState<'head' | 'body'>('body');
 
   useEffect(() => {
     if (visible) {
@@ -164,8 +165,25 @@ export default function CharacterCustomizeModal({
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             {/* Live Mannequin Preview */}
             <View style={[styles.previewBox, { backgroundColor: theme.mode === 'dark' ? '#231B2C' : '#FAF7F0' }]}>
+              {/* Zoom Pill Toggle in top-right */}
+              <Pressable
+                onPress={() => setZoomMode((m) => (m === 'head' ? 'body' : 'head'))}
+                style={styles.zoomTogglePill}
+                accessibilityLabel="Toggle close-up view"
+              >
+                <Ionicons
+                  name={zoomMode === 'head' ? 'body-outline' : 'search-outline'}
+                  size={12}
+                  color="#264C3B"
+                />
+                <Text style={styles.zoomToggleText}>
+                  {zoomMode === 'head' ? '🧍 Full Body' : '🔍 Zoom Head'}
+                </Text>
+              </Pressable>
+
               <Mannequin2D
                 compact
+                zoomMode={zoomMode}
                 profile={{ gender, heightCm: '170', weightKg: '60' }}
                 skinTone={skinTone}
                 hairStyle={hairStyle}
@@ -359,12 +377,39 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   previewBox: {
-    height: 220,
+    height: 250,
+    paddingVertical: 8,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
+    position: 'relative',
     overflow: 'hidden',
+  },
+  zoomTogglePill: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#D4E6BD',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  zoomToggleText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#264C3B',
   },
   genderRow: {
     flexDirection: 'row',

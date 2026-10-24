@@ -17,9 +17,11 @@ import { useCommunity } from '../contexts/CommunityContext';
 import { useOutfit } from '../contexts/OutfitContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Mannequin2D from '../components/Mannequin2D';
 import CharacterCustomizeModal from '../components/CharacterCustomizeModal';
-import { CommunityOutfit } from '../services/communityService';
+import SocialListModal from '../components/SocialListModal';
+import { CommunityOutfit, syncCreatorNickname } from '../services/communityService';
 import { OutfitClothingItem } from '../types';
 import {
   classifyAnatomicalSlot,
@@ -43,7 +45,24 @@ export default function ProfileScreen() {
 
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [characterModalVisible, setCharacterModalVisible] = useState(false);
+  const [socialModalVisible, setSocialModalVisible] = useState(false);
+  const [socialModalTab, setSocialModalTab] = useState<'followers' | 'following' | 'likes'>('followers');
+  const [followingCount, setFollowingCount] = useState(3);
+  const [followersCount, setFollowersCount] = useState(18);
   const [tab, setTab] = useState<'Published' | 'Liked' | 'Saved'>('Published');
+
+  useEffect(() => {
+    AsyncStorage.getItem('@stylesense_social_following_names').then((raw) => {
+      if (raw) {
+        try {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) setFollowingCount(list.length);
+        } catch {
+          // ignore
+        }
+      }
+    });
+  }, [socialModalVisible]);
 
   // Manage Published Post Bottom Sheet State
   const [manageModalVisible, setManageModalVisible] = useState(false);
@@ -179,18 +198,41 @@ export default function ProfileScreen() {
 
           {/* Followers / Following / Likes Stats */}
           <View style={styles.stats}>
-            <View style={styles.stat}>
-              <Text style={[styles.statValue, { color: theme.text }]}>18</Text>
+            <Pressable
+              onPress={() => {
+                setSocialModalTab('followers');
+                setSocialModalVisible(true);
+              }}
+              style={styles.stat}
+              accessibilityLabel="View followers"
+            >
+              <Text style={[styles.statValue, { color: theme.text }]}>{followersCount}</Text>
               <Text style={[styles.statLabel, { color: theme.textMuted }]}>Followers</Text>
-            </View>
-            <View style={styles.stat}>
-              <Text style={[styles.statValue, { color: theme.text }]}>0</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => {
+                setSocialModalTab('following');
+                setSocialModalVisible(true);
+              }}
+              style={styles.stat}
+              accessibilityLabel="View following creators"
+            >
+              <Text style={[styles.statValue, { color: theme.text }]}>{followingCount}</Text>
               <Text style={[styles.statLabel, { color: theme.textMuted }]}>Following</Text>
-            </View>
-            <View style={styles.stat}>
+            </Pressable>
+
+            <Pressable
+              onPress={() => {
+                setSocialModalTab('likes');
+                setSocialModalVisible(true);
+              }}
+              style={styles.stat}
+              accessibilityLabel="View post likes"
+            >
               <Text style={[styles.statValue, { color: theme.text }]}>{likesCount}</Text>
               <Text style={[styles.statLabel, { color: theme.textMuted }]}>Likes</Text>
-            </View>
+            </Pressable>
           </View>
         </View>
 
@@ -237,7 +279,12 @@ export default function ProfileScreen() {
                     { backgroundColor: theme.mode === 'dark' ? '#231B2C' : '#FAF7F0' },
                   ]}
                 >
-                  <Mannequin2D items={outfit.clothingItems} compact staticPreview />
+                  <Mannequin2D
+                    items={outfit.clothingItems}
+                    compact
+                    staticPreview
+                    occasionScene={outfit.occasionLabel}
+                  />
                 </View>
                 <Text style={[styles.gridKicker, { color: '#4D9A65' }]}>SAVED LOOK</Text>
                 <Text style={[styles.gridTitle, { color: theme.text }]} numberOfLines={2}>
@@ -276,7 +323,12 @@ export default function ProfileScreen() {
                       { backgroundColor: theme.mode === 'dark' ? '#231B2C' : '#FAF7F0' },
                     ]}
                   >
-                    <Mannequin2D items={mannequinItems} compact staticPreview />
+                    <Mannequin2D
+                      items={mannequinItems}
+                      compact
+                      staticPreview
+                      occasionScene={post.occasion || post.style}
+                    />
                   </View>
 
                   <Text style={[styles.gridTitle, { color: theme.text }]} numberOfLines={2}>
@@ -688,6 +740,17 @@ export default function ProfileScreen() {
         visible={characterModalVisible}
         onClose={() => setCharacterModalVisible(false)}
         initialGender={profile?.gender === 'female' ? 'female' : 'male'}
+      />
+
+      {/* ================= 5. SOCIAL FOLLOWERS / FOLLOWING / LIKES MODAL ================= */}
+      <SocialListModal
+        visible={socialModalVisible}
+        initialTab={socialModalTab}
+        onClose={() => setSocialModalVisible(false)}
+        onFollowCountChange={(fCount, flwCount) => {
+          setFollowingCount(fCount);
+          setFollowersCount(flwCount);
+        }}
       />
     </SafeAreaView>
   );

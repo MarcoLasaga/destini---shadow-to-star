@@ -1,9 +1,76 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../integrations/supabase/client';
 import type { GeneratedOutfit } from '../types';
 import type { Database, Json } from '../integrations/supabase/types';
 import { getApiUrl } from './apiConfig';
 import { resolveDatasetGarmentPhoto } from '../data/datasetGarmentCatalog';
 import { CommunityGender, recordCommunityInteraction } from './communitySignals';
+
+export const MY_POST_IDS_KEY = '@stylesense_my_post_ids';
+
+/**
+ * Accurately determines if a community post belongs to the currently logged in user.
+ * Prevents self-following and nickname mismatch bugs (e.g. "Jdyy" vs "Jdyyy1").
+ */
+export function isCurrentUserPost(
+  post: { user_id?: string | null; creatorName?: string | null; id?: string },
+  user?: { id?: string | null; email?: string | null } | null,
+  profile?: { displayName?: string | null; email?: string | null } | null,
+  myPostIds: string[] = []
+): boolean {
+  if (!post) return false;
+
+  // 1. Direct user_id match
+  if (user?.id && post.user_id && String(post.user_id) === String(user.id)) return true;
+
+  // 2. Local device published post id match
+  if (post.id && myPostIds && myPostIds.includes(post.id)) return true;
+
+  const currentEmail = (user?.email || profile?.email || '').toLowerCase().trim();
+  const currentName = (profile?.displayName || '').toLowerCase().trim();
+  const creator = (post.creatorName || '').toLowerCase().trim();
+
+  // 3. Exact display name match
+  if (currentName && creator && currentName === creator) return true;
+
+  // 4. Normalized prefix match (handles "Jdyy" vs "Jdyyy1")
+  const cleanCreator = creator.replace(/[0-9_\-\s]/g, '');
+  const cleanUser = currentName.replace(/[0-9_\-\s]/g, '');
+  if (cleanCreator && cleanUser && (cleanCreator.startsWith(cleanUser.slice(0, 3)) || cleanUser.startsWith(cleanCreator.slice(0, 3)))) {
+    return true;
+  }
+
+  // 5. Email prefix match
+  if (currentEmail && creator) {
+    const emailPrefix = currentEmail.split('@')[0].replace(/[0-9_\-\s]/g, '');
+    if (emailPrefix && cleanCreator && (emailPrefix.includes(cleanCreator) || cleanCreator.includes(emailPrefix))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export async function syncCreatorNickname(newDisplayName: string, newAvatarUri?: string | null) {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      await supabase
+        .from('shared_outfits')
+        .update({
+          creator_name: newDisplayName,
+          creator_avatar_url: newAvatarUri || null,
+        })
+        .eq('user_id', user.id);
+    }
+  } catch (err) {
+    if (__DEV__) {
+      console.info('[CommunityService] Nickname sync info:', err);
+    }
+  }
+}
 
 type SharedOutfitRow = Database['public']['Tables']['shared_outfits']['Row'];
 export type CommunityItem = { id: string; name: string; category: string; image: string; color?: string };
@@ -250,6 +317,19 @@ export async function publishOutfit(outfit: GeneratedOutfit, caption: string): P
     .single();
 
   if (error) throw error;
+
+  // Persist post ID locally so isCurrentUserPost always detects this post
+  try {
+    const raw = await AsyncStorage.getItem(MY_POST_IDS_KEY);
+    const existing: string[] = raw ? JSON.parse(raw) : [];
+    if (data?.id && !existing.includes(data.id)) {
+      existing.push(data.id);
+      await AsyncStorage.setItem(MY_POST_IDS_KEY, JSON.stringify(existing));
+    }
+  } catch {
+    // Non-fatal
+  }
+
   return data;
 }
 

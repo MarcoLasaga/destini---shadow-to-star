@@ -101,11 +101,11 @@ function ActiveWheelCard({ outfit, onPress, scaleAnim }: ActiveWheelCardProps) {
         {/* Top Header Row: Rank badge & Hybrid Match Score */}
         <View style={styles.rankRow}>
           <View style={styles.rankBadgeActive}>
-            <Text style={styles.rankTextActive}>TOP 1 · ACTIVE</Text>
+            <Text style={styles.rankTextActive}>TOP 1</Text>
           </View>
           <View style={styles.scoreBadge}>
-            <Ionicons name="sparkles" size={12} color="#4D9A65" />
-            <Text style={styles.scoreText}>{score}% Match</Text>
+            <Ionicons name="sparkles" size={11} color="#4D9A65" />
+            <Text style={styles.scoreText}>✨ {score}%</Text>
           </View>
         </View>
 
@@ -313,13 +313,15 @@ export default function OutfitScreen() {
     }
   };
 
-  const chooseItem = (item: OutfitClothingItem, slot: MannequinSlot) => {
+  const chooseItem = (item: OutfitClothingItem | null, slot: MannequinSlot) => {
     if (!activeOutfit) return;
     const anatomical = toAnatomical(slot);
     const nextItems = (activeOutfit.clothingItems || []).filter(
       (entry) => (entry.slotType || classifyAnatomicalSlot(entry.name, entry.category)) !== anatomical
     );
-    nextItems.push({ ...item, slotType: anatomical as any });
+    if (item) {
+      nextItems.push({ ...item, slotType: anatomical as any });
+    }
     const nextScore = computeAccurateOutfitScore(nextItems, profile, weather, occasion);
 
     updateOutfitEverywhere(activeOutfit.id, {
@@ -330,11 +332,17 @@ export default function OutfitScreen() {
       collaborativeScore: nextScore - 1,
     });
 
-    setReaction(
-      `Ooh, swapping to ${item.name.toLowerCase()} keeps your ${
-        occasion === 'Any occasion' ? 'everyday' : occasion.toLowerCase()
-      } direction clean. This look now scores ${nextScore}%!`
-    );
+    if (item) {
+      setReaction(
+        `Ooh, swapping to ${item.name.toLowerCase()} keeps your ${
+          occasion === 'Any occasion' ? 'everyday' : occasion.toLowerCase()
+        } direction clean. This look now scores ${nextScore}%!`
+      );
+    } else {
+      setReaction(
+        `Deselected piece. Mel recalculated your live outfit match score to ${nextScore}%.`
+      );
+    }
   };
 
   useEffect(() => {
@@ -426,6 +434,7 @@ export default function OutfitScreen() {
               profile={profile}
               items={activeOutfit?.clothingItems || []}
               onSelectSlot={() => setCustomizing(true)}
+              occasionScene={activeOutfit?.occasionLabel || occasion}
             />
           </View>
 

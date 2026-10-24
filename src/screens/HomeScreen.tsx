@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -6,9 +6,11 @@ import { useWeather } from '../hooks/useWeather';
 import GreetingHeader from '../components/GreetingHeader';
 import WeatherCard from '../components/WeatherCard';
 import WardrobeSummary from '../components/WardrobeSummary';
+import NotificationsModal from '../components/NotificationsModal';
 import { MelMascot, MelSpeechBubble, MelOutfit } from '../components/MelMascot';
 import { useWardrobe } from '../contexts/WardrobeContext';
 import { useProfile } from '../contexts/ProfileContext';
+import { getUnreadNotificationCount } from '../services/socialNotificationService';
 
 function outfitForWeather(condition: string, temp: number): MelOutfit {
   const value = condition.toLowerCase();
@@ -27,6 +29,19 @@ export default function HomeScreen() {
   const { items } = useWardrobe();
   const { profile } = useProfile();
   const [tipIndex, setTipIndex] = useState(0);
+
+  // Activity Notifications Modal State
+  const [notificationsModalVisible, setNotificationsModalVisible] = useState(false);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(3);
+
+  const fetchNotificationCount = async () => {
+    const count = await getUnreadNotificationCount();
+    setUnreadNotificationsCount(count);
+  };
+
+  useEffect(() => {
+    fetchNotificationCount();
+  }, [notificationsModalVisible]);
 
   const temp = weather.tempC ?? Math.round(((weather.tempF - 32) * 5) / 9);
   const melOutfit = outfitForWeather(weather.condition, temp);
@@ -55,7 +70,12 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={theme.accent} />}
       >
-        <GreetingHeader name={profile.firstName || profile.displayName || 'there'} hasNotifications={false} />
+        <GreetingHeader
+          name={profile.firstName || profile.displayName || 'there'}
+          hasNotifications={unreadNotificationsCount > 0}
+          unreadCount={unreadNotificationsCount}
+          onPressNotifications={() => setNotificationsModalVisible(true)}
+        />
         <WeatherCard weather={weather} />
         <WardrobeSummary stats={stats} />
 
@@ -75,6 +95,13 @@ export default function HomeScreen() {
           />
         </View>
       </ScrollView>
+
+      {/* Activity Notifications Modal */}
+      <NotificationsModal
+        visible={notificationsModalVisible}
+        onClose={() => setNotificationsModalVisible(false)}
+        onNotificationCountChange={setUnreadNotificationsCount}
+      />
     </SafeAreaView>
   );
 }
@@ -98,8 +125,8 @@ const styles = StyleSheet.create({
     gap: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
     elevation: 2,
   },
 });

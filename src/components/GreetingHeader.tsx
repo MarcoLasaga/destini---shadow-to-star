@@ -15,12 +15,18 @@ function getGreeting(): string {
 export default function GreetingHeader({
   name,
   hasNotifications = true,
+  unreadCount = 0,
+  onPressNotifications,
 }: {
   name: string;
   hasNotifications?: boolean;
+  unreadCount?: number;
+  onPressNotifications?: () => void;
 }) {
   const theme = useAppTheme();
   const navigation = useNavigation<any>();
+
+  const showBadge = unreadCount > 0 || hasNotifications;
 
   return (
     <Animated.View entering={FadeInDown.duration(400)} style={styles.row}>
@@ -33,14 +39,27 @@ export default function GreetingHeader({
       </View>
 
       <Pressable
-        onPress={() => navigation.navigate('Notifications')}
+        onPress={() => {
+          if (onPressNotifications) {
+            onPressNotifications();
+          } else {
+            navigation.navigate('Notifications');
+          }
+        }}
+        accessibilityLabel="Notifications"
         style={({ pressed }) => [
           styles.bellButton,
           { backgroundColor: theme.surface, opacity: pressed ? 0.7 : 1 },
         ]}
       >
         <Ionicons name="notifications-outline" size={22} color={theme.text} />
-        {hasNotifications && <View style={styles.badge} />}
+        {showBadge && (
+          <View style={[styles.badge, unreadCount > 0 ? styles.countBadge : null]}>
+            {unreadCount > 0 ? (
+              <Text style={styles.countText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+            ) : null}
+          </View>
+        )}
       </Pressable>
     </Animated.View>
   );
@@ -69,6 +88,7 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
+    position: 'relative',
   },
   badge: {
     position: 'absolute',
@@ -80,5 +100,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5484D',
     borderWidth: 1.5,
     borderColor: '#fff',
+  },
+  countBadge: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    top: 5,
+    right: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+  },
+  countText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '900',
+    lineHeight: 11,
   },
 });

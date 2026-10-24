@@ -20,6 +20,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { MelMascot, MelSpeechBubble } from '../components/MelMascot';
 import Mannequin2D from '../components/Mannequin2D';
 import { OutfitClothingItem } from '../types';
+import { syncCreatorNickname } from '../services/communityService';
 import {
   MALE_HAIRSTYLES,
   FEMALE_HAIRSTYLES,
@@ -157,7 +158,7 @@ export default function OnboardingScreen({
 }: OnboardingScreenProps) {
   const theme = useAppTheme();
   const { isLoggedIn } = useAuth();
-  const { updateProfile } = useProfile();
+  const { profile, updateProfile } = useProfile();
   const {
     setMannequinSkinTone,
     setHairStyle: setSettingsHairStyle,
@@ -281,6 +282,9 @@ export default function OnboardingScreen({
 
       if (isLoggedIn) {
         await updateProfile(payload as any);
+        if (profile?.displayName) {
+          syncCreatorNickname(profile.displayName);
+        }
       }
       onComplete();
     } catch (e) {

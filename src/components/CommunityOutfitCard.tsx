@@ -35,6 +35,8 @@ interface CommunityOutfitCardProps {
   onRepost?: () => void;
   onFollow?: () => void;
   following?: boolean;
+  isOwnPost?: boolean;
+  onViewLikes?: () => void;
 }
 
 export default function CommunityOutfitCard({
@@ -45,6 +47,8 @@ export default function CommunityOutfitCard({
   onRepost,
   onFollow,
   following = false,
+  isOwnPost = false,
+  onViewLikes,
 }: CommunityOutfitCardProps) {
   const theme = useAppTheme();
   const [detailModalVisible, setDetailModalVisible] = useState(false);
@@ -152,14 +156,21 @@ export default function CommunityOutfitCard({
           </View>
 
           <View style={styles.headerActions}>
-            <Pressable
-              onPress={onFollow}
-              style={[styles.followButton, following && styles.followingButton]}
-            >
-              <Text style={[styles.followText, following && styles.followingText]}>
-                {following ? 'Following' : 'Follow'}
-              </Text>
-            </Pressable>
+            {isOwnPost ? (
+              <View style={styles.youBadge}>
+                <Ionicons name="person" size={10} color="#264C3B" />
+                <Text style={styles.youBadgeText}>You</Text>
+              </View>
+            ) : (
+              <Pressable
+                onPress={onFollow}
+                style={[styles.followButton, following && styles.followingButton]}
+              >
+                <Text style={[styles.followText, following && styles.followingText]}>
+                  {following ? 'Following' : 'Follow'}
+                </Text>
+              </Pressable>
+            )}
             <Pressable onPress={() => setMenuVisible(true)} style={styles.more}>
               <Ionicons name="ellipsis-horizontal" size={20} color={theme.textMuted} />
             </Pressable>
@@ -173,7 +184,12 @@ export default function CommunityOutfitCard({
             { backgroundColor: theme.mode === 'dark' ? '#231B2C' : '#FAF7F0' },
           ]}
         >
-          <Mannequin2D items={mannequinItems} compact staticPreview />
+          <Mannequin2D
+            items={mannequinItems}
+            compact
+            staticPreview
+            occasionScene={outfit.occasion || outfit.style}
+          />
 
           {/* Occasion / Style pill */}
           <View style={styles.postLabel}>
@@ -209,16 +225,20 @@ export default function CommunityOutfitCard({
 
       {/* Social Actions Row */}
       <View style={[styles.actions, { borderBottomColor: theme.border }]}>
-        <Pressable onPress={onLike} style={styles.action}>
-          <Ionicons
-            name={outfit.liked ? 'heart' : 'heart-outline'}
-            size={20}
-            color={outfit.liked ? '#E5484D' : theme.text}
-          />
-          <Text style={[styles.count, { color: theme.text }]}>
-            {outfit.like_count}
-          </Text>
-        </Pressable>
+        <View style={styles.likeActionGroup}>
+          <Pressable onPress={onLike} style={styles.action}>
+            <Ionicons
+              name={outfit.liked ? 'heart' : 'heart-outline'}
+              size={20}
+              color={outfit.liked ? '#E5484D' : theme.text}
+            />
+          </Pressable>
+          <Pressable onPress={onViewLikes} style={styles.countBtn}>
+            <Text style={[styles.count, { color: theme.text }]}>
+              {outfit.like_count}
+            </Text>
+          </Pressable>
+        </View>
 
         <Pressable onPress={onDislike} style={styles.action}>
           <Ionicons name="thumbs-down-outline" size={18} color={theme.text} />
@@ -518,6 +538,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  youBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 999,
+    backgroundColor: '#EAF3D9',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: '#D4E6BD',
+  },
+  youBadgeText: {
+    color: '#264C3B',
+    fontSize: 11,
+    fontWeight: '800',
+  },
   followButton: {
     borderRadius: 999,
     backgroundColor: '#264C3B',
@@ -603,6 +639,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     borderBottomWidth: 1,
     gap: 20,
+  },
+  likeActionGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  countBtn: {
+    paddingVertical: 2,
+    paddingHorizontal: 4,
   },
   action: {
     flexDirection: 'row',
