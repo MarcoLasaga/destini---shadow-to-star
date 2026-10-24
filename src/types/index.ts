@@ -17,6 +17,8 @@ export interface WardrobeStats {
   items: number;
   favorites: number;
   toWash: number;
+  categories?: number;
+  savedLooks?: number;
 }
 
 export interface AnalyticsPreview {
@@ -66,6 +68,15 @@ export interface UserProfile {
   clothingSize: string;
   preferredSize: string;
   location: string;
+  ageGroup?: '13-17' | '18-22';
+  gender?: 'male' | 'female';
+  heightCm?: string;
+  weightKg?: string;
+  preferredColors?: string[];
+  texturePreferences?: string[];
+  preferredStyles?: string[];
+  commonOccasions?: string[];
+  fitPreference?: string;
 }
 
 export interface SavedOutfit {
@@ -172,6 +183,9 @@ export interface OutfitClothingItem {
   status?: LaundryStatus;
   isSuggested?: boolean;
   suggestedLabel?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  garmentType?: string;
 }
 
 export interface ColorSwatch {

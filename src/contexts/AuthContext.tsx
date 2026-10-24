@@ -12,7 +12,7 @@ interface AuthContextValue {
   session: Session | null;
   loading: boolean;
   loginWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string, displayName: string, firstName: string, lastName: string) => Promise<void>;
+  signUpWithEmail: (email: string, password: string, displayName: string, firstName: string, lastName: string, onboarding?: Record<string, unknown>) => Promise<void>;
   loginWithOAuth: (provider: 'google' | 'facebook') => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   };
 
-  const signUpWithEmail = async (email: string, password: string, displayName: string, firstName: string, lastName: string) => {
+  const signUpWithEmail = async (email: string, password: string, displayName: string, firstName: string, lastName: string, onboarding?: Record<string, unknown>) => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -75,6 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           display_name: displayName,
           first_name: firstName,
           last_name: lastName,
+          ...(onboarding ? { onboarding } : {}),
         },
       },
     });

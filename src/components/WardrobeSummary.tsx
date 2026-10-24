@@ -11,9 +11,9 @@ export default function WardrobeSummary({ stats }: { stats: WardrobeStats }) {
   const theme = useAppTheme();
 
   const items = [
-    { icon: 'shirt-outline' as const, value: stats.items, label: 'Items' },
-    { icon: 'heart-outline' as const, value: stats.favorites, label: 'Favorites' },
-    { icon: 'archive-outline' as const, value: stats.toWash, label: 'To Wash' },
+    { icon: 'shirt-outline' as const, value: stats.items, label: 'Total Items' },
+    { icon: 'grid-outline' as const, value: stats.categories ?? 0, label: 'Categories' },
+    { icon: 'bookmark-outline' as const, value: stats.savedLooks ?? stats.favorites, label: 'Saved Looks' },
   ];
 
   const isDark = theme.mode === 'dark';

@@ -73,6 +73,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         clothingSize: profileData?.current_size || '',
         preferredSize: profileData?.current_size || '',
         location: user.user_metadata?.location || 'Quezon City, PH',
+        ...(user.user_metadata?.onboarding || {}),
       });
     } catch (e) {
       console.error('Error in fetchProfile:', e);
@@ -117,6 +118,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (updates.lastName !== undefined) metaUpdate.last_name = updates.lastName;
       if (updates.location !== undefined) metaUpdate.location = updates.location;
       if (updates.displayName !== undefined) metaUpdate.display_name = updates.displayName;
+      const onboardingKeys = ['ageGroup', 'gender', 'heightCm', 'weightKg', 'preferredColors', 'texturePreferences', 'preferredStyles', 'commonOccasions', 'fitPreference'];
+      if (onboardingKeys.some((key) => (updates as any)[key] !== undefined)) {
+        metaUpdate.onboarding = onboardingKeys.reduce((acc, key) => {
+          if ((updates as any)[key] !== undefined) (acc as any)[key] = (updates as any)[key];
+          return acc;
+        }, {} as Record<string, unknown>);
+      }
 
       if (Object.keys(metaUpdate).length > 0) {
         await supabase.auth.updateUser({

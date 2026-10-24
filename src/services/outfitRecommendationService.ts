@@ -251,6 +251,9 @@ type ApiItem = {
   color: string | null;
   is_suggested?: boolean;
   suggested_label?: string;
+  primary_color?: string | null;
+  secondary_color?: string | null;
+  garment_type?: string | null;
 };
 
 type ApiOutfit = {
@@ -399,6 +402,9 @@ function mapOutfit(
       image: realPhotoUri,
       color: itemColor,
       hexColor: colorNameToHex(itemColor),
+      primaryColor: item.primary_color || colorNameToHex(itemColor),
+      secondaryColor: item.secondary_color || undefined,
+      garmentType: item.garment_type || undefined,
       slotType,
       placementBadge: getBodyPlacementBadge({ name: item.clothing_name, category: roleCategory, color: itemColor }, slotType, occasion),
       status: 'clean',
@@ -659,12 +665,12 @@ function rotateOutfitItems(
         image_url: resolveDatasetGarmentPhoto(anyWardrobeInnerTop.name, anyWardrobeInnerTop.category, anyWardrobeInnerTop.image),
         color: anyWardrobeInnerTop.color || 'Blue',
       });
-    } else {
+    } else if (outfitSourceMode === 'bestForOccasion' || !wardrobePool || wardrobePool.length === 0) {
       allInnerTops.push(suggested.innerTop);
     }
   }
 
-  if (allOuterwears.length === 0 && wardrobePool) {
+  if (allOuterwears.length === 0 && wardrobePool && wardrobePool.length > 0) {
     const anyOuter = wardrobePool.find((w) => classifyAnatomicalSlot(w.name, w.category) === 'outerLayer');
     if (anyOuter) {
       allOuterwears.push({
@@ -674,12 +680,14 @@ function rotateOutfitItems(
         image_url: resolveDatasetGarmentPhoto(anyOuter.name, anyOuter.category, anyOuter.image),
         color: anyOuter.color || 'Navy',
       });
-    } else if (outfitSourceMode === 'bestForOccasion') {
+    } else if (outfitSourceMode === 'bestForOccasion' || wardrobePool.length === 0) {
       allOuterwears.push(suggested.outerLayer);
     }
+  } else if (allOuterwears.length === 0 && (!wardrobePool || wardrobePool.length === 0)) {
+    allOuterwears.push(suggested.outerLayer);
   }
 
-  if (allBottoms.length === 0 && wardrobePool) {
+  if (allBottoms.length === 0 && wardrobePool && wardrobePool.length > 0) {
     const anyBottom = wardrobePool.find((w) => classifyAnatomicalSlot(w.name, w.category) === 'bottom');
     if (anyBottom) {
       allBottoms.push({
@@ -689,12 +697,14 @@ function rotateOutfitItems(
         image_url: resolveDatasetGarmentPhoto(anyBottom.name, anyBottom.category, anyBottom.image),
         color: anyBottom.color || 'Khaki',
       });
-    } else {
+    } else if (outfitSourceMode === 'bestForOccasion') {
       allBottoms.push(suggested.bottom);
     }
+  } else if (allBottoms.length === 0 && (!wardrobePool || wardrobePool.length === 0)) {
+    allBottoms.push(suggested.bottom);
   }
 
-  if (allShoes.length === 0 && wardrobePool) {
+  if (allShoes.length === 0 && wardrobePool && wardrobePool.length > 0) {
     const anyShoe = wardrobePool.find((w) => classifyAnatomicalSlot(w.name, w.category) === 'shoes');
     if (anyShoe) {
       allShoes.push({
@@ -704,9 +714,9 @@ function rotateOutfitItems(
         image_url: resolveDatasetGarmentPhoto(anyShoe.name, anyShoe.category, anyShoe.image),
         color: anyShoe.color || 'Black',
       });
-    } else {
-      allShoes.push(suggested.shoes);
-    }
+    } else if (outfitSourceMode === 'bestForOccasion') allShoes.push(suggested.shoes);
+  } else if (allShoes.length === 0 && (!wardrobePool || wardrobePool.length === 0)) {
+    allShoes.push(suggested.shoes);
   }
 
   if (allAccessories.length === 0 && wardrobePool) {
