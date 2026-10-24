@@ -1,6 +1,10 @@
+import io
 import os
 import sys
+import time
+import asyncio
 import inspect
+import threading
 import importlib.util
 
 # Disable Gradio 6's Node.js SSR proxy so Python listens directly on port 7860
@@ -51,7 +55,47 @@ def warmup_zerogpu() -> str:
 
 
 _startup_done = False
+_startup_lock = threading.Lock()
 _lifespan_cm = None
+
+
+async def _run_dummy_inference_warmup() -> None:
+    """
+    Passes a tiny 64x64 synthetic image through /analyze at container boot so
+    ONNX Runtime (u2netp), PyTorch ResNet-50, and K-Means++ compile their CPU kernels
+    BEFORE the user uploads their first real garment photo.
+    """
+    try:
+        from PIL import Image
+        from fastapi.testclient import TestClient
+
+        t0 = time.perf_counter()
+        img = Image.new("RGB", (64, 64), color=(60, 90, 140))
+        # Draw a contrasting center square so K-Means++ has >= 2 distinct colors & foreground
+        for x in range(16, 48):
+            for y in range(16, 48):
+                img.putpixel((x, y), (220, 210, 190))
+
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+
+        def _sync_warmup():
+            client = TestClient(fastapi_app)
+            resp = client.post(
+                "/analyze",
+                files={"file": ("warmup.png", buf.getvalue(), "image/png")},
+            )
+            return resp.status_code
+
+        status = await asyncio.to_thread(_sync_warmup)
+        elapsed_ms = (time.perf_counter() - t0) * 1000.0
+        print(
+            f"[StyleSense] Eager dummy image warm-up complete (status={status}, {elapsed_ms:.0f} ms)!",
+            flush=True,
+        )
+    except Exception as exc:
+        print(f"[StyleSense] Dummy warm-up note (non-fatal): {exc}", flush=True)
 
 
 async def _ensure_fastapi_startup() -> None:
@@ -59,21 +103,39 @@ async def _ensure_fastapi_startup() -> None:
     global _startup_done, _lifespan_cm
     if _startup_done:
         return
-    _startup_done = True
-    print("[StyleSense] Running FastAPI startup events & loading ResNet-50 model...", flush=True)
-    try:
-        lifespan_factory = getattr(fastapi_app.router, "lifespan_context", None)
-        if lifespan_factory is not None:
-            _lifespan_cm = lifespan_factory(fastapi_app)
-            await _lifespan_cm.__aenter__()
-        else:
-            for handler in getattr(fastapi_app.router, "on_startup", []):
-                res = handler()
-                if inspect.isawaitable(res):
-                    await res
-        print("[StyleSense] FastAPI startup & ResNet-50 model ready!", flush=True)
-    except Exception as exc:
-        print(f"[StyleSense] FastAPI startup error: {exc}", flush=True)
+    with _startup_lock:
+        if _startup_done:
+            return
+        _startup_done = True
+        print("[StyleSense] Running FastAPI startup events & loading ResNet-50 model...", flush=True)
+        try:
+            lifespan_factory = getattr(fastapi_app.router, "lifespan_context", None)
+            if lifespan_factory is not None:
+                _lifespan_cm = lifespan_factory(fastapi_app)
+                await _lifespan_cm.__aenter__()
+            else:
+                for handler in getattr(fastapi_app.router, "on_startup", []):
+                    res = handler()
+                    if inspect.isawaitable(res):
+                        await res
+            print("[StyleSense] FastAPI startup & ResNet-50 model ready!", flush=True)
+        except Exception as exc:
+            print(f"[StyleSense] FastAPI startup error: {exc}", flush=True)
+
+    # Also warm up ONNX + PyTorch + K-Means++ with a dummy image
+    await _run_dummy_inference_warmup()
+
+
+def _trigger_eager_startup_in_background() -> None:
+    """Fires _ensure_fastapi_startup() immediately at container boot without waiting for Request #1."""
+    def _runner():
+        try:
+            asyncio.run(_ensure_fastapi_startup())
+        except Exception as exc:
+            print(f"[StyleSense] Background eager startup note: {exc}", flush=True)
+
+    t = threading.Thread(target=_runner, daemon=True)
+    t.start()
 
 
 _API_POST_ENDPOINTS = {
@@ -175,6 +237,9 @@ if gr is not None:
 
 
 if __name__ == "__main__":
+    # Eagerly load ResNet-50 and run a dummy 64x64 image warm-up immediately at container boot!
+    _trigger_eager_startup_in_background()
+
     port = int(os.environ.get("PORT", 7860))
     if gr is not None and demo is not None:
         demo.launch(
