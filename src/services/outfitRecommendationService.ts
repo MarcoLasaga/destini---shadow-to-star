@@ -1,7 +1,11 @@
 import type { AnatomicalSlotType, ClothingRole, ColorSwatch, GeneratedOutfit, OutfitClothingItem, WeatherData } from '../types';
 import * as Crypto from 'expo-crypto';
 import { getApiUrl } from './apiConfig';
-import { getDatasetPicksForSlot, resolveDatasetGarmentPhoto } from '../data/datasetGarmentCatalog';
+import {
+  DATASET_GARMENT_CATALOG,
+  getDatasetPicksForSlot,
+  resolveDatasetGarmentPhoto,
+} from '../data/datasetGarmentCatalog';
 import { CommunityGender, getGenderMatchedInteractions } from './communitySignals';
 
 export function isUuid(id?: string | null): boolean {
@@ -38,6 +42,19 @@ export function classifyAnatomicalSlot(name: string, category?: string): Anatomi
   return 'innerTop';
 }
 
+export type AccessoryZone = 'ears' | 'neck' | 'wrist' | 'waist_bag' | 'head';
+
+export function inferAccessoryZone(item?: { name?: string; category?: string } | null): AccessoryZone {
+  if (!item) return 'wrist';
+  const n = (item.name || '').toLowerCase();
+  if (/earring|ear cuff|stud|hoop|airpod|earbud|drop earring|spike earring/.test(n)) return 'ears';
+  if (/necklace|chain|choker|pendant|scarf|tie|collar|cuban chain/.test(n)) return 'neck';
+  if (/watch|smartwatch|bracelet|bangle|wrist|cuff|wristband/.test(n)) return 'wrist';
+  if (/belt|grommet|hip chain|wallet chain|bag|crossbody|cross body|tote|purse|backpack|fanny|saddle bag/.test(n)) return 'waist_bag';
+  if (/sunglass|glasses|shades|hat|cap|beanie|headband|hair clip/.test(n)) return 'head';
+  return 'wrist';
+}
+
 export function colorNameToHex(colorName?: string): string {
   const c = (colorName || '').toLowerCase().trim();
   if (c.includes('black')) return '#1E1E24';
@@ -51,9 +68,9 @@ export function colorNameToHex(colorName?: string): string {
   if (c.includes('red') || c.includes('burgundy') || c.includes('maroon')) return '#9E2A2B';
   if (c.includes('pink') || c.includes('rose') || c.includes('blush')) return '#E5989B';
   if (c.includes('green') || c.includes('olive') || c.includes('sage')) return '#4F772D';
-  if (c.includes('purple') || c.includes('plum') || c.includes('lilac')) return '#4B1D6F';
+  if (c.includes('purple') || c.includes('plum') || c.includes('lilac')) return '#6B4C82';
   if (c.includes('yellow') || c.includes('gold') || c.includes('mustard')) return '#E9C46A';
-  return '#4B1D6F';
+  return '#3A404A';
 }
 
 export function getBodyPlacementBadge(
@@ -736,6 +753,22 @@ function rotateOutfitItems(
     }
   }
 
+  // Ensure diverse multi-zone accessories from catalog are available
+  if (allAccessories.length < 3) {
+    const dsAccessories = DATASET_GARMENT_CATALOG.filter((i) => i.slotType === 'accessory');
+    for (const d of dsAccessories) {
+      if (!allAccessories.some((a) => a.clothing_name === d.name)) {
+        allAccessories.push({
+          id: d.id,
+          clothing_name: d.name,
+          category: 'ACCESSORIES',
+          image_url: d.imageUri,
+          color: d.color,
+        });
+      }
+    }
+  }
+
   if (isOfficeOrFormal) {
     allOuterwears.sort((a, b) => {
       const aHoodie = /hoodie|sweatshirt/i.test(a.clothing_name) ? 1 : 0;
@@ -763,9 +796,28 @@ function rotateOutfitItems(
     const outer = allOuterwears.length > 0 ? allOuterwears[idx % allOuterwears.length] : undefined;
     const bottom = allBottoms[idx % Math.max(1, allBottoms.length)];
     const shoe = allShoes[idx % Math.max(1, allShoes.length)];
-    const acc = allAccessories[idx % Math.max(1, allAccessories.length)];
 
-    const items = [acc, innerTop, outer, bottom, shoe].filter(Boolean) as ApiItem[];
+    // Multi-zone accessory bundling across distinct anatomical zones
+    const bundledAccessories: ApiItem[] = [];
+    const usedZones = new Set<string>();
+
+    if (allAccessories.length > 0) {
+      const primaryAcc = allAccessories[idx % allAccessories.length];
+      if (primaryAcc) {
+        bundledAccessories.push(primaryAcc);
+        usedZones.add(inferAccessoryZone({ name: primaryAcc.clothing_name, category: primaryAcc.category }));
+      }
+    }
+
+    for (const extra of allAccessories) {
+      const z = inferAccessoryZone({ name: extra.clothing_name, category: extra.category });
+      if (!usedZones.has(z) && bundledAccessories.length < 3) {
+        bundledAccessories.push(extra);
+        usedZones.add(z);
+      }
+    }
+
+    const items = [...bundledAccessories, innerTop, outer, bottom, shoe].filter(Boolean) as ApiItem[];
 
     // Ensure every generated outfit gets a persistent, valid UUID
     const finalId = rawOutfit && isUuid(rawOutfit.id) && !rotated.some((r) => r.id === rawOutfit.id)

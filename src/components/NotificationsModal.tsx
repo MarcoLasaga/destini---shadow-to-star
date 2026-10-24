@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { formatRelativeTime } from '../utils/timeFormat';
 import {
@@ -29,16 +30,27 @@ export default function NotificationsModal({
 }: NotificationsModalProps) {
   const theme = useAppTheme();
   const [notifications, setNotifications] = useState<SocialNotification[]>([]);
-  const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({
-    'Marcus Lin': false,
-    'Leo Chen': true,
-  });
+  const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({});
 
   const loadNotifications = async () => {
     const list = await getSocialNotifications();
     setNotifications(list);
     const unread = list.filter((n) => !n.read).length;
     onNotificationCountChange?.(unread);
+
+    const rawFollowing = await AsyncStorage.getItem('@stylesense_social_following_names');
+    if (rawFollowing) {
+      try {
+        const names: string[] = JSON.parse(rawFollowing);
+        const map: Record<string, boolean> = {};
+        names.forEach((n) => {
+          map[n] = true;
+        });
+        setFollowingMap(map);
+      } catch {
+        // ignore
+      }
+    }
   };
 
   useEffect(() => {

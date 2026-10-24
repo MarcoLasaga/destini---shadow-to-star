@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -18,10 +19,15 @@ import { useOutfit } from '../contexts/OutfitContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../integrations/supabase/client';
 import Mannequin2D from '../components/Mannequin2D';
 import CharacterCustomizeModal from '../components/CharacterCustomizeModal';
 import SocialListModal from '../components/SocialListModal';
-import { CommunityOutfit, syncCreatorNickname } from '../services/communityService';
+import {
+  CommunityOutfit,
+  isCurrentUserPost,
+  syncCreatorNickname,
+} from '../services/communityService';
 import { OutfitClothingItem } from '../types';
 import {
   classifyAnatomicalSlot,
@@ -40,16 +46,30 @@ export default function ProfileScreen() {
   const { profile, updateProfile } = useProfile();
   const community = useCommunity();
   const { savedOutfits } = useOutfit();
-  const { logout } = useAuth();
+  const { logout, session } = useAuth();
   const { showToast } = useToast();
 
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [characterModalVisible, setCharacterModalVisible] = useState(false);
   const [socialModalVisible, setSocialModalVisible] = useState(false);
   const [socialModalTab, setSocialModalTab] = useState<'followers' | 'following' | 'likes'>('followers');
-  const [followingCount, setFollowingCount] = useState(3);
-  const [followersCount, setFollowersCount] = useState(18);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [followersCount, setFollowersCount] = useState(0);
   const [tab, setTab] = useState<'Published' | 'Liked' | 'Saved'>('Published');
+  const [myPostIds, setMyPostIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    AsyncStorage.getItem('@stylesense_my_post_ids').then((raw) => {
+      if (raw) {
+        try {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) setMyPostIds(list);
+        } catch {
+          // ignore
+        }
+      }
+    });
+  }, []);
 
   useEffect(() => {
     AsyncStorage.getItem('@stylesense_social_following_names').then((raw) => {
@@ -60,6 +80,21 @@ export default function ProfileScreen() {
         } catch {
           // ignore
         }
+      } else {
+        setFollowingCount(0);
+      }
+    });
+
+    AsyncStorage.getItem('@stylesense_social_followers').then((raw) => {
+      if (raw) {
+        try {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) setFollowersCount(list.length);
+        } catch {
+          // ignore
+        }
+      } else {
+        setFollowersCount(0);
       }
     });
   }, [socialModalVisible]);
@@ -92,29 +127,135 @@ export default function ProfileScreen() {
     }
   }, [profile]);
 
+  const userPublishedPosts = useMemo(() => {
+    return community.feed.filter((post) => isCurrentUserPost(post, session?.user, profile, myPostIds));
+  }, [community.feed, session?.user, profile, myPostIds]);
+
+  const totalPublishedLikes = useMemo(() => {
+    return userPublishedPosts.reduce((acc, p) => acc + (p.like_count || 0), 0);
+  }, [userPublishedPosts]);
+
   const posts = useMemo(() => {
     if (tab === 'Published') {
-      const own = (profile.displayName || '').toLowerCase();
-      return community.feed.filter(
-        (post) => (post.creatorName || '').toLowerCase() === own
-      );
+      return userPublishedPosts;
     }
     if (tab === 'Liked') {
       return community.feed.filter((post) => post.liked);
     }
     return [];
-  }, [community.feed, tab, profile.displayName]);
+  }, [userPublishedPosts, community.feed, tab]);
 
   const initial =
     profile.displayName?.trim().charAt(0).toUpperCase() ||
     profile.firstName?.trim().charAt(0).toUpperCase() ||
     'U';
-  const likesCount = community.feed.filter((post) => post.liked).length;
+  const likesCount = totalPublishedLikes;
 
   const openManagePost = (post: CommunityOutfit) => {
     setSelectedPost(post);
     setDeleteConfirmStep(false);
     setManageModalVisible(true);
+  };
+
+  const handleDeleteAllMyPosts = () => {
+    Alert.alert(
+      'Delete All Published & Legacy Posts?',
+      'This will permanently delete all your shared and legacy community looks from the server and feed. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete All',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const currentUserId = session?.user?.id;
+              const currentEmail = session?.user?.email || profile.email;
+              const currentName = profile.displayName;
+
+              if (currentUserId) {
+                await supabase.from('shared_outfits').delete().eq('user_id', currentUserId);
+              }
+              const orConditions: string[] = ['author_name.eq.Jdyy', 'author_name.eq.Jdyyy1'];
+              if (currentName) orConditions.push(`author_name.eq.${currentName}`);
+              if (currentEmail) orConditions.push(`author_email.eq.${currentEmail}`);
+
+              await supabase.from('shared_outfits').delete().or(orConditions.join(','));
+
+              await AsyncStorage.removeItem('@stylesense_my_post_ids');
+              await AsyncStorage.removeItem('@stylesense_published_posts');
+              setMyPostIds([]);
+              await community.refresh();
+              showToast('🗑️ All your published & legacy posts have been purged.');
+              setSettingsVisible(false);
+            } catch (err) {
+              console.error('Failed to purge user posts:', err);
+              await AsyncStorage.removeItem('@stylesense_my_post_ids');
+              await AsyncStorage.removeItem('@stylesense_published_posts');
+              setMyPostIds([]);
+              await community.refresh();
+              showToast('Purged local published posts.');
+              setSettingsVisible(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleTerminateAccount = () => {
+    Alert.alert(
+      '⚠️ Terminate Account?',
+      'Are you sure you want to terminate your account? This will permanently delete your published looks, clear all your wardrobe items and preferences on this device, log you out, and return you to onboarding. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Terminate Account',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const currentUserId = session?.user?.id;
+              const currentEmail = session?.user?.email || profile.email;
+              const currentName = profile.displayName;
+
+              if (currentUserId) {
+                await supabase.from('shared_outfits').delete().eq('user_id', currentUserId);
+              }
+              const orConditions: string[] = ['author_name.eq.Jdyy', 'author_name.eq.Jdyyy1'];
+              if (currentName) orConditions.push(`author_name.eq.${currentName}`);
+              if (currentEmail) orConditions.push(`author_email.eq.${currentEmail}`);
+
+              await supabase.from('shared_outfits').delete().or(orConditions.join(','));
+
+              const allKeys = await AsyncStorage.getAllKeys();
+              const toRemove = allKeys.filter((k) => k.startsWith('@stylesense') || k.startsWith('sb-'));
+              if (toRemove.length > 0) {
+                await AsyncStorage.multiRemove(toRemove);
+              }
+
+              setSettingsVisible(false);
+              showToast('Account terminated.');
+              await logout();
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Onboarding' }],
+              });
+            } catch (err) {
+              console.error('Error terminating account:', err);
+              const allKeys = await AsyncStorage.getAllKeys();
+              const toRemove = allKeys.filter((k) => k.startsWith('@stylesense'));
+              if (toRemove.length > 0) {
+                await AsyncStorage.multiRemove(toRemove);
+              }
+              await logout();
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Onboarding' }],
+              });
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleHideArchive = async () => {
@@ -457,13 +598,50 @@ export default function ProfileScreen() {
                 setSettingsVisible(false);
                 logout();
               }}
-              style={[styles.settingRow, { borderBottomWidth: 0, marginTop: 4 }]}
+              style={styles.settingRow}
             >
               <Ionicons name="log-out-outline" size={20} color="#DC2626" />
               <Text style={[styles.settingLabel, { color: '#DC2626' }]}>
                 Log Out
               </Text>
             </Pressable>
+
+            {/* DESTRUCTIVE ACTIONS SECTION */}
+            <View style={styles.destructiveSection}>
+              <Text style={styles.destructiveHeader}>DESTRUCTIVE ACTIONS</Text>
+
+              {/* Action 1: Delete All My Published & Legacy Posts */}
+              <Pressable
+                onPress={handleDeleteAllMyPosts}
+                style={[styles.settingRow, styles.destructiveRow]}
+              >
+                <Ionicons name="trash-outline" size={20} color="#DC2626" />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.settingLabel, { color: '#DC2626' }]}>
+                    Delete All My Published & Legacy Posts
+                  </Text>
+                  <Text style={[styles.settingSub, { color: theme.textMuted }]}>
+                    Permanently delete all your shared and legacy community looks
+                  </Text>
+                </View>
+              </Pressable>
+
+              {/* Action 2: Terminate Account */}
+              <Pressable
+                onPress={handleTerminateAccount}
+                style={[styles.settingRow, styles.destructiveRow, { borderBottomWidth: 0 }]}
+              >
+                <Ionicons name="alert-circle-outline" size={20} color="#B91C1C" />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.settingLabel, { color: '#B91C1C', fontWeight: '900' }]}>
+                    Terminate Account
+                  </Text>
+                  <Text style={[styles.settingSub, { color: theme.textMuted }]}>
+                    Wipe all account data, reset app preferences & return to onboarding
+                  </Text>
+                </View>
+              </Pressable>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>
@@ -967,6 +1145,22 @@ const styles = StyleSheet.create({
   settingSub: {
     fontSize: 11,
     marginTop: 2,
+  },
+  destructiveSection: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1.5,
+    borderTopColor: '#FEE2E2',
+  },
+  destructiveHeader: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#DC2626',
+    letterSpacing: 1.1,
+    marginBottom: 4,
+  },
+  destructiveRow: {
+    borderBottomColor: '#FEE2E2',
   },
   sheetActionRow: {
     flexDirection: 'row',

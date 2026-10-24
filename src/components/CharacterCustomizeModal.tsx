@@ -89,6 +89,7 @@ export default function CharacterCustomizeModal({
   const [skinTone, setSkinTone] = useState<string>(mannequinSkinTone || '#F1CBA9');
   const [faceStyle, setFaceStyle] = useState<string>(settingsFaceStyle || 'friendly');
   const [zoomMode, setZoomMode] = useState<'head' | 'body'>('body');
+  const [categoryTab, setCategoryTab] = useState<'hair' | 'face'>('hair');
 
   useEffect(() => {
     if (visible) {
@@ -162,25 +163,25 @@ export default function CharacterCustomizeModal({
             </Pressable>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-            {/* Live Mannequin Preview */}
-            <View style={[styles.previewBox, { backgroundColor: theme.mode === 'dark' ? '#231B2C' : '#FAF7F0' }]}>
-              {/* Zoom Pill Toggle in top-right */}
-              <Pressable
-                onPress={() => setZoomMode((m) => (m === 'head' ? 'body' : 'head'))}
-                style={styles.zoomTogglePill}
-                accessibilityLabel="Toggle close-up view"
-              >
-                <Ionicons
-                  name={zoomMode === 'head' ? 'body-outline' : 'search-outline'}
-                  size={12}
-                  color="#264C3B"
-                />
-                <Text style={styles.zoomToggleText}>
-                  {zoomMode === 'head' ? '🧍 Full Body' : '🔍 Zoom Head'}
-                </Text>
-              </Pressable>
+          {/* ZONE 1: PINNED TOP PREVIEW STAGE (Fixed height: 215, never scrolls away) */}
+          <View style={[styles.previewBox, { backgroundColor: theme.mode === 'dark' ? '#231B2C' : '#FAF7F0' }]}>
+            {/* Zoom Pill Toggle in top-right */}
+            <Pressable
+              onPress={() => setZoomMode((m) => (m === 'head' ? 'body' : 'head'))}
+              style={styles.zoomTogglePill}
+              accessibilityLabel="Toggle close-up view"
+            >
+              <Ionicons
+                name={zoomMode === 'head' ? 'body-outline' : 'search-outline'}
+                size={12}
+                color="#264C3B"
+              />
+              <Text style={styles.zoomToggleText}>
+                {zoomMode === 'head' ? '🧍 Full Body' : '🔍 Zoom Face'}
+              </Text>
+            </Pressable>
 
+            <View style={styles.mannequinWrap}>
               <Mannequin2D
                 compact
                 zoomMode={zoomMode}
@@ -189,135 +190,169 @@ export default function CharacterCustomizeModal({
                 hairStyle={hairStyle}
                 hairColor={hairColor}
                 faceStyle={faceStyle}
+                viewBoxOverride={zoomMode === 'head' ? '45 0 150 165' : '0 0 240 385'}
               />
             </View>
+          </View>
 
-            {/* Gender Toggle */}
-            <View style={styles.genderRow}>
-              <Pressable
-                onPress={() => handleGenderChange('male')}
-                style={[
-                  styles.genderBtn,
-                  gender === 'male' && styles.genderBtnActive,
-                  { borderColor: theme.border },
-                ]}
-              >
-                <Ionicons name="man" size={17} color={gender === 'male' ? '#FFFFFF' : theme.text} />
-                <Text style={[styles.genderBtnText, { color: gender === 'male' ? '#FFFFFF' : theme.text }]}>
-                  Male
-                </Text>
-              </Pressable>
+          {/* PINNED CATEGORY SWITCHER PILL BAR */}
+          <View style={styles.tabBar}>
+            <Pressable
+              onPress={() => setCategoryTab('hair')}
+              style={[styles.tabBtn, categoryTab === 'hair' && styles.tabBtnActive]}
+            >
+              <Text style={[styles.tabBtnText, categoryTab === 'hair' && styles.tabBtnTextActive]}>
+                💇 Gender & Hair
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setCategoryTab('face')}
+              style={[styles.tabBtn, categoryTab === 'face' && styles.tabBtnActive]}
+            >
+              <Text style={[styles.tabBtnText, categoryTab === 'face' && styles.tabBtnTextActive]}>
+                🎨 Skin & Face
+              </Text>
+            </Pressable>
+          </View>
 
-              <Pressable
-                onPress={() => handleGenderChange('female')}
-                style={[
-                  styles.genderBtn,
-                  gender === 'female' && styles.genderBtnActive,
-                  { borderColor: theme.border },
-                ]}
-              >
-                <Ionicons name="woman" size={17} color={gender === 'female' ? '#FFFFFF' : theme.text} />
-                <Text style={[styles.genderBtnText, { color: gender === 'female' ? '#FFFFFF' : theme.text }]}>
-                  Female
-                </Text>
-              </Pressable>
-            </View>
-
-            {/* 1. Hairstyle Selection */}
-            <Text style={[styles.sectionTitle, { color: '#4D9A65' }]}>HAIRSTYLE</Text>
-            <View style={styles.hairstylesGrid}>
-              {availableHairstyles.map((hs) => {
-                const isActive = hairStyle === hs.id;
-                return (
+          {/* ZONE 2: SCROLLABLE OPTIONS */}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            style={styles.optionsScrollView}
+            contentContainerStyle={styles.scrollContent}
+          >
+            {categoryTab === 'hair' ? (
+              <>
+                {/* Gender Toggle */}
+                <View style={styles.genderRow}>
                   <Pressable
-                    key={hs.id}
-                    onPress={() => setHairStyle(hs.id)}
+                    onPress={() => handleGenderChange('male')}
                     style={[
-                      styles.hairOptionCard,
-                      { borderColor: isActive ? '#4D9A65' : theme.border, backgroundColor: isActive ? '#F0F9F1' : theme.surface },
+                      styles.genderBtn,
+                      gender === 'male' && styles.genderBtnActive,
+                      { borderColor: theme.border },
                     ]}
                   >
-                    <Text style={[styles.hairOptionLabel, { color: theme.text }]}>{hs.label}</Text>
-                    <Text style={[styles.hairOptionDesc, { color: theme.textMuted }]}>{hs.desc}</Text>
-                    {isActive && (
-                      <View style={styles.activeCheck}>
-                        <Ionicons name="checkmark-circle" size={16} color="#4D9A65" />
-                      </View>
-                    )}
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {/* 2. Hair Color Selection */}
-            <Text style={[styles.sectionTitle, { color: '#4D9A65', marginTop: 18 }]}>HAIR COLOR</Text>
-            <View style={styles.colorSwatchesRow}>
-              {HAIR_COLORS.map((hc) => {
-                const isActive = hairColor === hc.hex;
-                return (
-                  <Pressable
-                    key={hc.hex}
-                    onPress={() => setHairColor(hc.hex)}
-                    style={[
-                      styles.colorSwatchWrap,
-                      isActive && { borderColor: '#4D9A65', transform: [{ scale: 1.1 }] },
-                    ]}
-                  >
-                    <View style={[styles.colorSwatchCircle, { backgroundColor: hc.hex }]} />
-                    <Text style={[styles.colorSwatchLabel, { color: theme.text }]} numberOfLines={1}>
-                      {hc.label}
+                    <Ionicons name="man" size={17} color={gender === 'male' ? '#FFFFFF' : theme.text} />
+                    <Text style={[styles.genderBtnText, { color: gender === 'male' ? '#FFFFFF' : theme.text }]}>
+                      Male
                     </Text>
                   </Pressable>
-                );
-              })}
-            </View>
 
-            {/* 3. Skin Tone Selection */}
-            <Text style={[styles.sectionTitle, { color: '#4D9A65', marginTop: 18 }]}>SKIN TONE</Text>
-            <View style={styles.colorSwatchesRow}>
-              {SKIN_TONES.map((st) => {
-                const isActive = skinTone === st.hex;
-                return (
                   <Pressable
-                    key={st.hex}
-                    onPress={() => setSkinTone(st.hex)}
+                    onPress={() => handleGenderChange('female')}
                     style={[
-                      styles.colorSwatchWrap,
-                      isActive && { borderColor: '#4D9A65', transform: [{ scale: 1.1 }] },
+                      styles.genderBtn,
+                      gender === 'female' && styles.genderBtnActive,
+                      { borderColor: theme.border },
                     ]}
                   >
-                    <View style={[styles.colorSwatchCircle, { backgroundColor: st.hex }]} />
-                    <Text style={[styles.colorSwatchLabel, { color: theme.text }]} numberOfLines={1}>
-                      {st.label.split(' ')[0]}
+                    <Ionicons name="woman" size={17} color={gender === 'female' ? '#FFFFFF' : theme.text} />
+                    <Text style={[styles.genderBtnText, { color: gender === 'female' ? '#FFFFFF' : theme.text }]}>
+                      Female
                     </Text>
                   </Pressable>
-                );
-              })}
-            </View>
+                </View>
 
-            {/* 4. Face Style Selection */}
-            <Text style={[styles.sectionTitle, { color: '#4D9A65', marginTop: 18 }]}>FACE STYLE</Text>
-            <View style={styles.faceStylesRow}>
-              {FACE_STYLES.map((fs) => {
-                const isActive = faceStyle === fs.id;
-                return (
-                  <Pressable
-                    key={fs.id}
-                    onPress={() => setFaceStyle(fs.id)}
-                    style={[
-                      styles.faceStyleBtn,
-                      { borderColor: isActive ? '#4D9A65' : theme.border, backgroundColor: isActive ? '#F0F9F1' : theme.surface },
-                    ]}
-                  >
-                    <Ionicons name={fs.icon as any} size={18} color={isActive ? '#2E7D32' : theme.text} />
-                    <Text style={[styles.faceStyleLabel, { color: theme.text }]}>{fs.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+                {/* Hairstyle Selection */}
+                <Text style={[styles.sectionTitle, { color: '#4D9A65' }]}>HAIRSTYLE</Text>
+                <View style={styles.hairstylesGrid}>
+                  {availableHairstyles.map((hs) => {
+                    const isActive = hairStyle === hs.id;
+                    return (
+                      <Pressable
+                        key={hs.id}
+                        onPress={() => setHairStyle(hs.id)}
+                        style={[
+                          styles.hairOptionCard,
+                          { borderColor: isActive ? '#4D9A65' : theme.border, backgroundColor: isActive ? '#F0F9F1' : theme.surface },
+                        ]}
+                      >
+                        <Text style={[styles.hairOptionLabel, { color: theme.text }]}>{hs.label}</Text>
+                        <Text style={[styles.hairOptionDesc, { color: theme.textMuted }]}>{hs.desc}</Text>
+                        {isActive && (
+                          <View style={styles.activeCheck}>
+                            <Ionicons name="checkmark-circle" size={16} color="#4D9A65" />
+                          </View>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {/* Hair Color Selection */}
+                <Text style={[styles.sectionTitle, { color: '#4D9A65', marginTop: 14 }]}>HAIR COLOR</Text>
+                <View style={styles.colorSwatchesRow}>
+                  {HAIR_COLORS.map((hc) => {
+                    const isActive = hairColor === hc.hex;
+                    return (
+                      <Pressable
+                        key={hc.hex}
+                        onPress={() => setHairColor(hc.hex)}
+                        style={[
+                          styles.colorSwatchWrap,
+                          isActive && { borderColor: '#4D9A65', transform: [{ scale: 1.1 }] },
+                        ]}
+                      >
+                        <View style={[styles.colorSwatchCircle, { backgroundColor: hc.hex }]} />
+                        <Text style={[styles.colorSwatchLabel, { color: theme.text }]} numberOfLines={1}>
+                          {hc.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </>
+            ) : (
+              <>
+                {/* Skin Tone Selection */}
+                <Text style={[styles.sectionTitle, { color: '#4D9A65' }]}>SKIN TONE</Text>
+                <View style={styles.colorSwatchesRow}>
+                  {SKIN_TONES.map((st) => {
+                    const isActive = skinTone === st.hex;
+                    return (
+                      <Pressable
+                        key={st.hex}
+                        onPress={() => setSkinTone(st.hex)}
+                        style={[
+                          styles.colorSwatchWrap,
+                          isActive && { borderColor: '#4D9A65', transform: [{ scale: 1.1 }] },
+                        ]}
+                      >
+                        <View style={[styles.colorSwatchCircle, { backgroundColor: st.hex }]} />
+                        <Text style={[styles.colorSwatchLabel, { color: theme.text }]} numberOfLines={1}>
+                          {st.label.split(' ')[0]}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {/* Face Style Selection */}
+                <Text style={[styles.sectionTitle, { color: '#4D9A65', marginTop: 16 }]}>FACE STYLE</Text>
+                <View style={styles.faceStylesRow}>
+                  {FACE_STYLES.map((fs) => {
+                    const isActive = faceStyle === fs.id;
+                    return (
+                      <Pressable
+                        key={fs.id}
+                        onPress={() => setFaceStyle(fs.id)}
+                        style={[
+                          styles.faceStyleBtn,
+                          { borderColor: isActive ? '#4D9A65' : theme.border, backgroundColor: isActive ? '#F0F9F1' : theme.surface },
+                        ]}
+                      >
+                        <Ionicons name={fs.icon as any} size={18} color={isActive ? '#2E7D32' : theme.text} />
+                        <Text style={[styles.faceStyleLabel, { color: theme.text }]}>{fs.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </>
+            )}
           </ScrollView>
 
-          {/* Action Buttons */}
+          {/* ZONE 3: PINNED BOTTOM ACTION ROW (flexShrink: 0) */}
           <View style={styles.footerRow}>
             <Pressable onPress={onClose} style={[styles.cancelBtn, { borderColor: theme.border }]}>
               <Text style={[styles.cancelBtnText, { color: theme.text }]}>Cancel</Text>
@@ -376,15 +411,53 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 16,
   },
+  optionsScrollView: {
+    flex: 1,
+  },
   previewBox: {
-    height: 250,
-    paddingVertical: 8,
+    height: 215,
+    minHeight: 215,
+    flexShrink: 0,
+    paddingVertical: 4,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
+    marginBottom: 10,
     position: 'relative',
     overflow: 'hidden',
+  },
+  mannequinWrap: {
+    width: 145,
+    height: 200,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabBar: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    backgroundColor: '#EEF2EA',
+    padding: 3,
+    gap: 4,
+    marginBottom: 12,
+    flexShrink: 0,
+  },
+  tabBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabBtnActive: {
+    backgroundColor: '#264C3B',
+  },
+  tabBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#657468',
+  },
+  tabBtnTextActive: {
+    color: '#FFFFFF',
   },
   zoomTogglePill: {
     position: 'absolute',

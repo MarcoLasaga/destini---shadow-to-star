@@ -21,7 +21,11 @@ import OutfitCustomizeModal from '../components/OutfitCustomizeModal';
 import CharacterCustomizeModal from '../components/CharacterCustomizeModal';
 import { MelMascot, MelSpeechBubble } from '../components/MelMascot';
 import { GeneratedOutfit, OutfitClothingItem } from '../types';
-import { classifyAnatomicalSlot, colorNameToHex } from '../services/outfitRecommendationService';
+import {
+  classifyAnatomicalSlot,
+  colorNameToHex,
+  inferAccessoryZone,
+} from '../services/outfitRecommendationService';
 import { triggerWeatherAlertOncePerSession } from '../services/notificationService';
 import { DATASET_GARMENT_CATALOG } from '../data/datasetGarmentCatalog';
 import { MiniGarmentSvg } from '../utils/garmentImageHelper';
@@ -206,8 +210,8 @@ export default function OutfitScreen() {
   const activeOutfit = top3[activeIndex] || currentOutfit || null;
   const catalogOnly = items.length === 0;
 
-  // Rotary Wheel animation value
-  const rotaryAnim = useRef(new Animated.Value(0)).current;
+  // Rotary Wheel animation values for vertical 60fps circular drum loop
+  const panY = useRef(new Animated.Value(0)).current;
 
   // True Rotary Wheel mapping:
   // Upper rim card: offset = -1 (top)
@@ -274,10 +278,10 @@ export default function OutfitScreen() {
   // Rotate wheel circularly: activeIndex = (activeIndex + direction + top3.length) % top3.length
   const cycle = (direction: number) => {
     if (!top3.length) return;
-    rotaryAnim.setValue(direction > 0 ? 1 : -1);
-    Animated.spring(rotaryAnim, {
+    panY.setValue(direction > 0 ? 38 : -38);
+    Animated.spring(panY, {
       toValue: 0,
-      friction: 6,
+      friction: 7,
       tension: 75,
       useNativeDriver: true,
     }).start();
@@ -285,18 +289,27 @@ export default function OutfitScreen() {
     setActiveIndex((current) => (current + direction + top3.length) % top3.length);
   };
 
-  // PanResponder for smooth vertical swipe gestures on the wheel
+  // PanResponder for smooth 60fps vertical swipe gestures on the wheel
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 10,
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 7,
+        onPanResponderMove: (_, gesture) => {
+          panY.setValue(gesture.dy * 0.42);
+        },
         onPanResponderRelease: (_, gesture) => {
-          if (gesture.dy < -18) {
-            // Swiped up -> cycle down to next
+          if (gesture.dy < -20) {
             cycle(1);
-          } else if (gesture.dy > 18) {
-            // Swiped down -> cycle up to previous
+          } else if (gesture.dy > 20) {
             cycle(-1);
+          } else {
+            Animated.spring(panY, {
+              toValue: 0,
+              friction: 7,
+              tension: 75,
+              useNativeDriver: true,
+            }).start();
           }
         },
       }),
@@ -316,12 +329,26 @@ export default function OutfitScreen() {
   const chooseItem = (item: OutfitClothingItem | null, slot: MannequinSlot) => {
     if (!activeOutfit) return;
     const anatomical = toAnatomical(slot);
-    const nextItems = (activeOutfit.clothingItems || []).filter(
-      (entry) => (entry.slotType || classifyAnatomicalSlot(entry.name, entry.category)) !== anatomical
-    );
-    if (item) {
-      nextItems.push({ ...item, slotType: anatomical as any });
+
+    let nextItems: OutfitClothingItem[];
+    if (slot === 'ACCESSORIES' && item) {
+      const itemZone = inferAccessoryZone(item);
+      // Keep other zones intact, replace only the item in the same accessory zone
+      nextItems = (activeOutfit.clothingItems || []).filter((entry) => {
+        const isAcc = (entry.slotType || classifyAnatomicalSlot(entry.name, entry.category)) === 'accessory';
+        if (!isAcc) return true;
+        return inferAccessoryZone(entry) !== itemZone;
+      });
+      nextItems.push({ ...item, slotType: 'accessory' as any });
+    } else {
+      nextItems = (activeOutfit.clothingItems || []).filter(
+        (entry) => (entry.slotType || classifyAnatomicalSlot(entry.name, entry.category)) !== anatomical
+      );
+      if (item) {
+        nextItems.push({ ...item, slotType: anatomical as any });
+      }
     }
+
     const nextScore = computeAccurateOutfitScore(nextItems, profile, weather, occasion);
 
     updateOutfitEverywhere(activeOutfit.id, {
@@ -435,6 +462,7 @@ export default function OutfitScreen() {
               items={activeOutfit?.clothingItems || []}
               onSelectSlot={() => setCustomizing(true)}
               occasionScene={activeOutfit?.occasionLabel || occasion}
+              viewBoxOverride="0 0 240 385"
             />
           </View>
 
@@ -447,28 +475,70 @@ export default function OutfitScreen() {
               </View>
             ) : wheel.length ? (
               <View style={styles.rotaryWheelContainer}>
-                {/* Upper Rim Card (Top 3) */}
-                <RimCard
-                  outfit={wheel[0].outfit}
-                  rankLabel={wheel[0].rankLabel}
-                  position={-1}
-                  onPress={() => handleSelectCard(-1)}
-                />
+                {/* Upper Rim Card (Top 3) at translateY: -104 */}
+                <Animated.View
+                  style={[
+                    styles.rotaryCardWrapper,
+                    {
+                      transform: [
+                        { translateY: Animated.add(new Animated.Value(-104), panY) },
+                        { scale: 0.85 },
+                      ],
+                      opacity: 0.72,
+                      zIndex: 1,
+                    },
+                  ]}
+                >
+                  <RimCard
+                    outfit={wheel[0].outfit}
+                    rankLabel={wheel[0].rankLabel}
+                    position={-1}
+                    onPress={() => handleSelectCard(-1)}
+                  />
+                </Animated.View>
 
-                {/* Center Active Card (Top 1) */}
-                <ActiveWheelCard
-                  outfit={wheel[1].outfit}
-                  onPress={() => handleSelectCard(0)}
-                  scaleAnim={rotaryAnim}
-                />
+                {/* Center Active Card (Top 1) at translateY: 0 */}
+                <Animated.View
+                  style={[
+                    styles.rotaryCardWrapper,
+                    {
+                      transform: [
+                        { translateY: panY },
+                        { scale: 1.0 },
+                      ],
+                      opacity: 1.0,
+                      zIndex: 3,
+                    },
+                  ]}
+                >
+                  <ActiveWheelCard
+                    outfit={wheel[1].outfit}
+                    onPress={() => handleSelectCard(0)}
+                    scaleAnim={panY}
+                  />
+                </Animated.View>
 
-                {/* Lower Rim Card (Top 2) */}
-                <RimCard
-                  outfit={wheel[2].outfit}
-                  rankLabel={wheel[2].rankLabel}
-                  position={1}
-                  onPress={() => handleSelectCard(1)}
-                />
+                {/* Lower Rim Card (Top 2) at translateY: +104 */}
+                <Animated.View
+                  style={[
+                    styles.rotaryCardWrapper,
+                    {
+                      transform: [
+                        { translateY: Animated.add(new Animated.Value(104), panY) },
+                        { scale: 0.85 },
+                      ],
+                      opacity: 0.72,
+                      zIndex: 1,
+                    },
+                  ]}
+                >
+                  <RimCard
+                    outfit={wheel[2].outfit}
+                    rankLabel={wheel[2].rankLabel}
+                    position={1}
+                    onPress={() => handleSelectCard(1)}
+                  />
+                </Animated.View>
               </View>
             ) : (
               <Text style={styles.loading}>Preparing your first three looks…</Text>
@@ -510,7 +580,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: 8,
-    paddingBottom: 12,
+    marginBottom: 8,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -557,9 +627,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E1E6DB',
-    borderRadius: 17,
-    padding: 12,
-    gap: 8,
+    borderRadius: 16,
+    padding: 10,
+    gap: 6,
+    marginBottom: 6,
   },
   controlLabel: {
     fontSize: 12.5,
@@ -590,10 +661,10 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   emptyBanner: {
-    marginTop: 10,
+    marginTop: 8,
     backgroundColor: '#EAF3D9',
     borderRadius: 14,
-    padding: 12,
+    padding: 10,
     flexDirection: 'row',
     gap: 8,
     alignItems: 'flex-start',
@@ -609,11 +680,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginTop: 12,
-    marginBottom: 10,
+    marginTop: 4,
+    marginBottom: 6,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 10,
+    padding: 8,
     borderWidth: 1,
     borderColor: '#E1E6DB',
     shadowColor: '#264C3B',
@@ -625,12 +696,14 @@ const styles = StyleSheet.create({
   stage: {
     flexDirection: 'row',
     marginTop: 4,
-    minHeight: 460,
+    height: 335,
+    maxHeight: 345,
     gap: 8,
   },
   leftPane: {
-    flex: 1.15,
-    borderRadius: 20,
+    width: '54%',
+    height: 335,
+    borderRadius: 24,
     backgroundColor: '#F3F6EC',
     overflow: 'hidden',
     alignItems: 'center',
@@ -639,39 +712,41 @@ const styles = StyleSheet.create({
     borderColor: '#E1E6DB',
   },
   rightPane: {
-    flex: 0.88,
-    justifyContent: 'center',
+    width: '46%',
+    height: 335,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   rotaryWheelContainer: {
     width: '100%',
+    height: 335,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 4,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  rotaryCardWrapper: {
+    position: 'absolute',
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   rimCard: {
-    width: '92%',
+    width: '94%',
     borderRadius: 14,
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
     borderColor: '#E2E6DC',
     paddingHorizontal: 9,
     paddingVertical: 7,
-    opacity: 0.68,
     shadowColor: '#264C3B',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 2,
   },
-  rimCardTop: {
-    marginBottom: 8,
-    transform: [{ translateX: 14 }, { rotateZ: '-5deg' }, { scale: 0.84 }],
-  },
-  rimCardBottom: {
-    marginTop: 8,
-    transform: [{ translateX: 14 }, { rotateZ: '5deg' }, { scale: 0.84 }],
-  },
+  rimCardTop: {},
+  rimCardBottom: {},
   rimCardInner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -717,8 +792,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#FFFFFF',
     borderWidth: 2,
-    borderColor: '#F07E57',
-    shadowColor: '#F07E57',
+    borderColor: '#E07A5F',
+    shadowColor: '#E07A5F',
     shadowOpacity: 0.22,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },

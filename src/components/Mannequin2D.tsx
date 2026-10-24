@@ -21,6 +21,7 @@ import Svg, {
 import { OutfitClothingItem, UserProfile } from '../types';
 import { useSettings } from '../contexts/SettingsContext';
 import { adjustColor } from '../utils/garmentImageHelper';
+import { inferAccessoryZone } from '../services/outfitRecommendationService';
 
 export type MannequinSlot = 'TOP' | 'OUTERWEAR' | 'BOTTOM' | 'SHOES' | 'ACCESSORIES';
 
@@ -38,6 +39,7 @@ interface Mannequin2DProps {
   zoomMode?: 'head' | 'body';
   viewBoxOverride?: string;
   occasionScene?: string;
+  xrayOuterwear?: boolean;
 }
 
 const SLOT_LABELS: Record<MannequinSlot, string> = {
@@ -155,7 +157,7 @@ const slotForItem = (item: OutfitClothingItem): MannequinSlot => {
   return 'TOP';
 };
 
-export default function Mannequin2D({
+function Mannequin2DComponent({
   profile,
   items = [],
   activeSlot,
@@ -169,6 +171,7 @@ export default function Mannequin2D({
   zoomMode = 'body',
   viewBoxOverride,
   occasionScene,
+  xrayOuterwear = false,
 }: Mannequin2DProps) {
   const settings = useSettings();
 
@@ -237,18 +240,43 @@ export default function Mannequin2D({
   const shoesItem = bySlot.SHOES ?? null;
   const accessoryItem = bySlot.ACCESSORIES ?? null;
 
+  // Multi-Zone Accessories resolution
+  const allAccessories = useMemo(() => {
+    return items.filter(
+      (item) => item && item.name && (item.slotType === 'accessory' || slotForItem(item) === 'ACCESSORIES')
+    );
+  }, [items]);
+
+  const accessoriesByZone = useMemo(() => {
+    const map: Partial<Record<'head' | 'ears' | 'neck' | 'wrist' | 'waist_bag', OutfitClothingItem>> = {};
+    for (const acc of allAccessories) {
+      const zone = inferAccessoryZone(acc);
+      if (!map[zone]) {
+        map[zone] = acc;
+      }
+    }
+    return map;
+  }, [allAccessories]);
+
+  const headAcc = accessoriesByZone.head ?? null;
+  const earsAcc = accessoriesByZone.ears ?? null;
+  const neckAcc = accessoriesByZone.neck ?? null;
+  const wristAcc = accessoriesByZone.wrist ?? null;
+  const waistAcc = accessoriesByZone.waist_bag ?? null;
+  const hasAnyAccessory = allAccessories.length > 0;
+
   // Garment names and color resolution
   const topColor = resolveGarmentHex(topItem, '#F5F5F0');
   const outerColor = resolveGarmentHex(outerItem, '#2D3A45');
   const bottomColor = resolveGarmentHex(bottomItem, '#23395B');
   const shoesColor = resolveGarmentHex(shoesItem, '#FFFFFF');
-  const accColor = resolveGarmentHex(accessoryItem, '#D4AF37');
+  const accColor = resolveGarmentHex(accessoryItem || allAccessories[0], '#D4AF37');
 
   const topName = (topItem?.name || '').toLowerCase();
   const outerName = (outerItem?.name || '').toLowerCase();
   const bottomName = (bottomItem?.name || '').toLowerCase();
   const shoesName = (shoesItem?.name || '').toLowerCase();
-  const accName = (accessoryItem?.name || '').toLowerCase();
+  const accName = (accessoryItem?.name || allAccessories[0]?.name || '').toLowerCase();
 
   const isTopWhite = isWhiteOrLight(topColor);
   const isOuterWhite = isWhiteOrLight(outerColor);
@@ -855,7 +883,10 @@ export default function Mannequin2D({
 
         {/* 2D Outerwear Layer (Over Inner Top) */}
         {hasOuter && (
-          <G onPress={() => onSelectSlot?.('OUTERWEAR')}>
+          <G
+            opacity={xrayOuterwear ? 0.26 : 1}
+            onPress={() => onSelectSlot?.('OUTERWEAR')}
+          >
             {isHoodie ? (
               <G>
                 {/* Fleece Hoodie Body */}
@@ -864,10 +895,23 @@ export default function Mannequin2D({
                   fill="url(#outerGrad)"
                   stroke={isOuterWhite ? '#D0CEC7' : adjustColor(outerColor, -30)}
                   strokeWidth={isOuterWhite ? 1.4 : 1.3}
+                  strokeDasharray={xrayOuterwear ? '4,3' : undefined}
                 />
                 {/* Full Long Sleeves */}
-                <Path d="M 80,86 L 64,140 L 70,182 L 78,182 L 74,140 L 88,92 Z" fill="url(#outerGrad)" stroke={isOuterWhite ? '#D0CEC7' : adjustColor(outerColor, -30)} strokeWidth="1.2" />
-                <Path d="M 160,86 L 176,140 L 170,182 L 162,182 L 166,140 L 152,92 Z" fill="url(#outerGrad)" stroke={isOuterWhite ? '#D0CEC7' : adjustColor(outerColor, -30)} strokeWidth="1.2" />
+                <Path
+                  d="M 80,86 L 64,140 L 70,182 L 78,182 L 74,140 L 88,92 Z"
+                  fill="url(#outerGrad)"
+                  stroke={isOuterWhite ? '#D0CEC7' : adjustColor(outerColor, -30)}
+                  strokeWidth="1.2"
+                  strokeDasharray={xrayOuterwear ? '4,3' : undefined}
+                />
+                <Path
+                  d="M 160,86 L 176,140 L 170,182 L 162,182 L 166,140 L 152,92 Z"
+                  fill="url(#outerGrad)"
+                  stroke={isOuterWhite ? '#D0CEC7' : adjustColor(outerColor, -30)}
+                  strokeWidth="1.2"
+                  strokeDasharray={xrayOuterwear ? '4,3' : undefined}
+                />
                 {/* Cuffs */}
                 <Rect x="68" y="176" width="12" height="6" rx="1" fill={isOuterWhite ? '#ECE8E1' : adjustColor(outerColor, -15)} />
                 <Rect x="160" y="176" width="12" height="6" rx="1" fill={isOuterWhite ? '#ECE8E1' : adjustColor(outerColor, -15)} />
@@ -886,9 +930,22 @@ export default function Mannequin2D({
                   fill="url(#outerGrad)"
                   stroke={isOuterWhite ? '#D0CEC7' : adjustColor(outerColor, -32)}
                   strokeWidth={isOuterWhite ? 1.4 : 1.3}
+                  strokeDasharray={xrayOuterwear ? '4,3' : undefined}
                 />
-                <Path d="M 80,86 L 64,140 L 70,182 L 78,182 L 74,140 L 88,92 Z" fill="url(#outerGrad)" stroke={isOuterWhite ? '#D0CEC7' : adjustColor(outerColor, -32)} strokeWidth="1.2" />
-                <Path d="M 160,86 L 176,140 L 170,182 L 162,182 L 166,140 L 152,92 Z" fill="url(#outerGrad)" stroke={isOuterWhite ? '#D0CEC7' : adjustColor(outerColor, -32)} strokeWidth="1.2" />
+                <Path
+                  d="M 80,86 L 64,140 L 70,182 L 78,182 L 74,140 L 88,92 Z"
+                  fill="url(#outerGrad)"
+                  stroke={isOuterWhite ? '#D0CEC7' : adjustColor(outerColor, -32)}
+                  strokeWidth="1.2"
+                  strokeDasharray={xrayOuterwear ? '4,3' : undefined}
+                />
+                <Path
+                  d="M 160,86 L 176,140 L 170,182 L 162,182 L 166,140 L 152,92 Z"
+                  fill="url(#outerGrad)"
+                  stroke={isOuterWhite ? '#D0CEC7' : adjustColor(outerColor, -32)}
+                  strokeWidth="1.2"
+                  strokeDasharray={xrayOuterwear ? '4,3' : undefined}
+                />
                 {/* Lapel cutouts */}
                 <Path d="M 102,84 L 120,132 L 96,136 Z" fill={isOuterWhite ? '#ECE8E1' : adjustColor(outerColor, -14)} stroke={isOuterWhite ? '#D0CEC7' : adjustColor(outerColor, -32)} strokeWidth="1" />
                 <Path d="M 138,84 L 120,132 L 144,136 Z" fill={isOuterWhite ? '#ECE8E1' : adjustColor(outerColor, -14)} stroke={isOuterWhite ? '#D0CEC7' : adjustColor(outerColor, -32)} strokeWidth="1" />
@@ -902,9 +959,22 @@ export default function Mannequin2D({
                   fill="url(#outerGrad)"
                   stroke={isOuterWhite ? '#D0CEC7' : adjustColor(outerColor, -30)}
                   strokeWidth={isOuterWhite ? 1.4 : 1.3}
+                  strokeDasharray={xrayOuterwear ? '4,3' : undefined}
                 />
-                <Path d="M 80,86 L 64,140 L 70,182 L 78,182 L 74,140 L 88,92 Z" fill="url(#outerGrad)" stroke={isOuterWhite ? '#D0CEC7' : adjustColor(outerColor, -30)} strokeWidth="1.2" />
-                <Path d="M 160,86 L 176,140 L 170,182 L 162,182 L 166,140 L 152,92 Z" fill="url(#outerGrad)" stroke={isOuterWhite ? '#D0CEC7' : adjustColor(outerColor, -30)} strokeWidth="1.2" />
+                <Path
+                  d="M 80,86 L 64,140 L 70,182 L 78,182 L 74,140 L 88,92 Z"
+                  fill="url(#outerGrad)"
+                  stroke={isOuterWhite ? '#D0CEC7' : adjustColor(outerColor, -30)}
+                  strokeWidth="1.2"
+                  strokeDasharray={xrayOuterwear ? '4,3' : undefined}
+                />
+                <Path
+                  d="M 160,86 L 176,140 L 170,182 L 162,182 L 166,140 L 152,92 Z"
+                  fill="url(#outerGrad)"
+                  stroke={isOuterWhite ? '#D0CEC7' : adjustColor(outerColor, -30)}
+                  strokeWidth="1.2"
+                  strokeDasharray={xrayOuterwear ? '4,3' : undefined}
+                />
                 {/* Zipper Line */}
                 <Line x1="120" y1="84" x2="120" y2="190" stroke={isOuterWhite ? '#A8A49C' : '#1C1613'} strokeWidth="1.8" strokeDasharray="3,1.5" />
               </G>
@@ -918,39 +988,106 @@ export default function Mannequin2D({
           </G>
         )}
 
-        {/* Accessories */}
-        {accessoryItem && (
+        {/* Multi-Zone Accessories Layer */}
+        {(hasAnyAccessory || accessoryItem) && (
           <G onPress={() => onSelectSlot?.('ACCESSORIES')}>
-            {hasWatch && (
-              <G>
-                <Rect x="69" y="174" width="9" height="5" rx="1.5" fill="#1C1613" />
-                <Rect x="71" y="173" width="5" height="7" rx="1.5" fill={accColor} />
-              </G>
-            )}
-
-            {hasNecklace && (
-              <G>
-                <Path d="M 112,82 C 112,98 128,98 128,82" fill="none" stroke={accColor} strokeWidth="1.8" />
-                <Circle cx="120" cy="94" r="2.2" fill={accColor} />
-              </G>
-            )}
-
-            {hasAirpods && (
-              <G>
-                <Circle cx="95" cy="48" r="2.2" fill="#FFFFFF" stroke="#D1D5DB" strokeWidth="0.8" />
-                <Line x1="95" y1="48" x2="95" y2="54" stroke="#FFFFFF" strokeWidth="1.2" strokeLinecap="round" />
-                <Circle cx="145" cy="48" r="2.2" fill="#FFFFFF" stroke="#D1D5DB" strokeWidth="0.8" />
-                <Line x1="145" y1="48" x2="145" y2="54" stroke="#FFFFFF" strokeWidth="1.2" strokeLinecap="round" />
-              </G>
-            )}
-
-            {hasSunglasses && (
+            {/* 1. Head Zone: Sunglasses / Eyewear */}
+            {(headAcc || hasSunglasses) && (
               <G>
                 <Rect x="103" y="40" width="14" height="10" rx="3" fill="#12151B" stroke="#D4AF37" strokeWidth="1.2" />
                 <Rect x="123" y="40" width="14" height="10" rx="3" fill="#12151B" stroke="#D4AF37" strokeWidth="1.2" />
                 <Line x1="117" y1="43" x2="123" y2="43" stroke="#D4AF37" strokeWidth="1.5" />
                 <Line x1="96" y1="42" x2="103" y2="42" stroke="#D4AF37" strokeWidth="1.2" />
                 <Line x1="137" y1="42" x2="144" y2="42" stroke="#D4AF37" strokeWidth="1.2" />
+              </G>
+            )}
+
+            {/* 2. Ears Zone: Chrome Spike Drop Earrings / Pearls / AirPods */}
+            {(earsAcc || hasAirpods) && (
+              <G>
+                {/spike|chrome|punk|metal|rock/i.test(earsAcc?.name || '') ? (
+                  <G>
+                    <Circle cx="94" cy="49" r="1.8" fill="#E2E8F0" stroke="#718096" strokeWidth="0.8" />
+                    <Path d="M 94,49 L 92.5,58 L 95.5,58 Z" fill="#CBD5E0" stroke="#4A5568" strokeWidth="0.6" />
+                    <Circle cx="146" cy="49" r="1.8" fill="#E2E8F0" stroke="#718096" strokeWidth="0.8" />
+                    <Path d="M 146,49 L 144.5,58 L 147.5,58 Z" fill="#CBD5E0" stroke="#4A5568" strokeWidth="0.6" />
+                  </G>
+                ) : /airpod|earbud/i.test(earsAcc?.name || '') || hasAirpods ? (
+                  <G>
+                    <Circle cx="95" cy="48" r="2.2" fill="#FFFFFF" stroke="#D1D5DB" strokeWidth="0.8" />
+                    <Line x1="95" y1="48" x2="95" y2="54" stroke="#FFFFFF" strokeWidth="1.2" strokeLinecap="round" />
+                    <Circle cx="145" cy="48" r="2.2" fill="#FFFFFF" stroke="#D1D5DB" strokeWidth="0.8" />
+                    <Line x1="145" y1="48" x2="145" y2="54" stroke="#FFFFFF" strokeWidth="1.2" strokeLinecap="round" />
+                  </G>
+                ) : (
+                  <G>
+                    <Circle cx="94" cy="49" r="2.4" fill="#F7F7F5" stroke="#D1D5DB" strokeWidth="0.8" />
+                    <Circle cx="146" cy="49" r="2.4" fill="#F7F7F5" stroke="#D1D5DB" strokeWidth="0.8" />
+                  </G>
+                )}
+              </G>
+            )}
+
+            {/* 3. Neck Zone: Spiked Choker / Cuban Chain / Layered Necklace */}
+            {(neckAcc || hasNecklace) && (
+              <G>
+                {/choker/i.test(neckAcc?.name || '') ? (
+                  <G>
+                    <Path d="M 108,72 L 132,72 L 132,77 L 108,77 Z" fill="#1C1613" />
+                    <Circle cx="114" cy="74.5" r="1.3" fill="#E2E8F0" />
+                    <Circle cx="120" cy="74.5" r="1.6" fill="#D4AF37" stroke="#FFFFFF" strokeWidth="0.5" />
+                    <Circle cx="126" cy="74.5" r="1.3" fill="#E2E8F0" />
+                  </G>
+                ) : /cuban|layered|heavy/i.test(neckAcc?.name || '') ? (
+                  <G>
+                    <Path d="M 110,80 C 110,91 130,91 130,80" fill="none" stroke="#D8DDE3" strokeWidth="2.4" strokeDasharray="2,1.5" />
+                    <Path d="M 107,82 C 107,99 133,99 133,82" fill="none" stroke="#CBD5E0" strokeWidth="1.8" />
+                    <Circle cx="120" cy="99" r="2.4" fill="#E2E8F0" stroke="#718096" strokeWidth="0.6" />
+                  </G>
+                ) : (
+                  <G>
+                    <Path d="M 112,82 C 112,98 128,98 128,82" fill="none" stroke={resolveGarmentHex(neckAcc || accessoryItem, '#D4AF37')} strokeWidth="1.8" />
+                    <Circle cx="120" cy="94" r="2.2" fill={resolveGarmentHex(neckAcc || accessoryItem, '#D4AF37')} />
+                  </G>
+                )}
+              </G>
+            )}
+
+            {/* 4. Wrist Zone: Watch / Smartwatch / Spiked Wristband */}
+            {(wristAcc || hasWatch) && (
+              <G>
+                {/spiked|cuff|wristband|metal/i.test(wristAcc?.name || '') ? (
+                  <G>
+                    <Rect x="67" y="172" width="11" height="8" rx="1.5" fill="#12151B" stroke="#4A5568" strokeWidth="0.8" />
+                    <Circle cx="70" cy="176" r="1.2" fill="#E2E8F0" />
+                    <Circle cx="75" cy="176" r="1.2" fill="#E2E8F0" />
+                  </G>
+                ) : (
+                  <G>
+                    <Rect x="69" y="174" width="9" height="5" rx="1.5" fill="#1C1613" />
+                    <Rect x="71" y="173" width="5" height="7" rx="1.5" fill={resolveGarmentHex(wristAcc || accessoryItem, '#D4AF37')} />
+                  </G>
+                )}
+              </G>
+            )}
+
+            {/* 5. Waist / Bag Zone: Studded Belt + Hip Chain / Crossbody Saddle Bag */}
+            {(waistAcc || hasBelt) && (
+              <G>
+                {/bag|crossbody|purse|tote/i.test(waistAcc?.name || '') ? (
+                  <G>
+                    <Line x1="148" y1="86" x2="84" y2="186" stroke="#4A3B32" strokeWidth="2.8" strokeLinecap="round" />
+                    <Rect x="74" y="176" width="20" height="18" rx="4" fill="#6F4E37" stroke="#4A3B32" strokeWidth="1.2" />
+                    <Rect x="74" y="176" width="20" height="7" rx="2" fill="#583E2C" />
+                    <Circle cx="84" cy="183" r="1.5" fill="#D4AF37" />
+                  </G>
+                ) : (
+                  <G>
+                    <Rect x="87" y="185" width="66" height="7" fill="#1C1613" stroke="#4A5568" strokeWidth="0.8" />
+                    <Rect x="116" y="184" width="8" height="9" fill="#D4AF37" rx="1" />
+                    <Path d="M 98,189 Q 112,204 126,189" fill="none" stroke="#D8DDE3" strokeWidth="1.4" strokeDasharray="2,1.5" />
+                  </G>
+                )}
               </G>
             )}
 
@@ -1075,6 +1212,13 @@ export default function Mannequin2D({
         </View>
       )}
 
+      {/* X-Ray Jacket View Badge */}
+      {xrayOuterwear && hasOuter && (
+        <View style={styles.xrayBadge}>
+          <Text style={styles.xrayBadgeText}>👁️ X-Ray Jacket View: Previewing Inner Top</Text>
+        </View>
+      )}
+
       {staticPreview ? (
         <View style={styles.stage}>{renderSvgContent()}</View>
       ) : (
@@ -1140,6 +1284,38 @@ export default function Mannequin2D({
   );
 }
 
+const arePropsEqual = (prev: Mannequin2DProps, next: Mannequin2DProps) => {
+  if (prev.activeSlot !== next.activeSlot) return false;
+  if (prev.xrayOuterwear !== next.xrayOuterwear) return false;
+  if (prev.zoomMode !== next.zoomMode) return false;
+  if (prev.viewBoxOverride !== next.viewBoxOverride) return false;
+  if (prev.occasionScene !== next.occasionScene) return false;
+  if (prev.skinTone !== next.skinTone) return false;
+  if (prev.hairStyle !== next.hairStyle) return false;
+  if (prev.hairColor !== next.hairColor) return false;
+  if (prev.faceStyle !== next.faceStyle) return false;
+  if (prev.compact !== next.compact) return false;
+  if (prev.staticPreview !== next.staticPreview) return false;
+  if (prev.profile?.gender !== next.profile?.gender) return false;
+  if (prev.profile?.heightCm !== next.profile?.heightCm) return false;
+  if (prev.profile?.weightKg !== next.profile?.weightKg) return false;
+  if (prev.profile?.fitPreference !== next.profile?.fitPreference) return false;
+
+  const prevItems = prev.items || [];
+  const nextItems = next.items || [];
+  if (prevItems.length !== nextItems.length) return false;
+  for (let i = 0; i < prevItems.length; i++) {
+    if (prevItems[i]?.id !== nextItems[i]?.id) return false;
+    if (prevItems[i]?.color !== nextItems[i]?.color) return false;
+    if (prevItems[i]?.hexColor !== nextItems[i]?.hexColor) return false;
+  }
+  return true;
+};
+
+const Mannequin2D = React.memo(Mannequin2DComponent, arePropsEqual);
+export default Mannequin2D;
+export { Mannequin2D };
+
 const styles = StyleSheet.create({
   container: {
     width: '100%',
@@ -1185,6 +1361,29 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     color: '#264C3B',
+  },
+  xrayBadge: {
+    position: 'absolute',
+    top: 8,
+    alignSelf: 'center',
+    zIndex: 25,
+    backgroundColor: 'rgba(38, 76, 59, 0.94)',
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: '#78C488',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  xrayBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
   touchZone: {
     position: 'absolute',

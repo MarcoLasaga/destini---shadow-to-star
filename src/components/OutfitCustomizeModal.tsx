@@ -19,6 +19,16 @@ import { GeneratedOutfit, OutfitClothingItem, UserProfile, WeatherData } from '.
 import { MiniGarmentSvg, resolveGarmentImageUrl } from '../utils/garmentImageHelper';
 import { computeAccurateOutfitScore } from '../services/hybridScoreService';
 import { useToast } from '../contexts/ToastContext';
+import { inferAccessoryZone, AccessoryZone } from '../services/outfitRecommendationService';
+
+const ACCESSORY_ZONES: { id: 'ALL' | AccessoryZone; label: string }[] = [
+  { id: 'ALL', label: 'All Zones' },
+  { id: 'ears', label: '💎 Ears' },
+  { id: 'neck', label: '📿 Neck' },
+  { id: 'wrist', label: '⌚ Wrist' },
+  { id: 'waist_bag', label: '👜 Waist/Bag' },
+  { id: 'head', label: '🕶️ Head/Eyes' },
+];
 
 const SLOT_LABELS: Record<MannequinSlot, string> = {
   TOP: 'Inner Top',
@@ -76,8 +86,12 @@ export default function OutfitCustomizeModal({
 }: Props) {
   const { showToast } = useToast();
   const [activeSlot, setActiveSlot] = useState<MannequinSlot>('TOP');
+  const [accessoryZoneFilter, setAccessoryZoneFilter] = useState<'ALL' | AccessoryZone>('ALL');
   const equipped = outfit.clothingItems || [];
   const activeItem = equipped.find((item) => toSlot(item) === activeSlot) ?? null;
+
+  const hasOuter = equipped.some((item) => toSlot(item) === 'OUTERWEAR');
+  const isXrayOuterwear = hasOuter && activeSlot === 'TOP';
 
   // Choreographed In-Place Transition Animations
   const zoomAnim = useRef(new Animated.Value(0.94)).current;
@@ -202,10 +216,14 @@ export default function OutfitCustomizeModal({
     handleClose();
   };
 
-  // Filter compatible suggestions for this slot
+  // Filter compatible suggestions for this slot (with multi-zone accessory filtering)
   const slotSuggestions = useMemo(() => {
-    return suggestions.filter((item) => toSlot(item) === activeSlot);
-  }, [suggestions, activeSlot]);
+    const list = suggestions.filter((item) => toSlot(item) === activeSlot);
+    if (activeSlot === 'ACCESSORIES' && accessoryZoneFilter !== 'ALL') {
+      return list.filter((item) => inferAccessoryZone(item) === accessoryZoneFilter);
+    }
+    return list;
+  }, [suggestions, activeSlot, accessoryZoneFilter]);
 
   // Repeated dataset for true seamless infinite loop
   const loopedData = useMemo(() => {
@@ -337,6 +355,7 @@ export default function OutfitCustomizeModal({
               activeSlot={activeSlot}
               onSelectSlot={setActiveSlot}
               occasionScene={outfit.occasionLabel}
+              xrayOuterwear={isXrayOuterwear}
             />
           </Animated.View>
 
@@ -376,7 +395,7 @@ export default function OutfitCustomizeModal({
                           <View
                             style={[
                               styles.slotColorDot,
-                              { backgroundColor: resolveGarmentHex(item, '#4B1D6F') },
+                              { backgroundColor: resolveGarmentHex(item, '#F5F5F0') },
                             ]}
                           />
                         )}
@@ -432,6 +451,38 @@ export default function OutfitCustomizeModal({
               <Text style={styles.countText}>{slotSuggestions.length} options</Text>
             </View>
           </View>
+
+          {/* Multi-Zone Accessory Filter Pills */}
+          {activeSlot === 'ACCESSORIES' && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.zoneFilterRow}
+            >
+              {ACCESSORY_ZONES.map((zone) => {
+                const isActive = accessoryZoneFilter === zone.id;
+                return (
+                  <Pressable
+                    key={zone.id}
+                    onPress={() => setAccessoryZoneFilter(zone.id)}
+                    style={[
+                      styles.zoneFilterPill,
+                      isActive && styles.zoneFilterPillActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.zoneFilterText,
+                        isActive && styles.zoneFilterTextActive,
+                      ]}
+                    >
+                      {zone.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          )}
 
           <FlatList
             ref={flatListRef}
@@ -908,5 +959,31 @@ const styles = StyleSheet.create({
   },
   sourcePillTextDataset: {
     color: '#4B3AA6',
+  },
+  zoneFilterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    gap: 8,
+    paddingBottom: 10,
+  },
+  zoneFilterPill: {
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D8DECE',
+  },
+  zoneFilterPillActive: {
+    backgroundColor: '#264C3B',
+    borderColor: '#264C3B',
+  },
+  zoneFilterText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#657468',
+  },
+  zoneFilterTextActive: {
+    color: '#FFFFFF',
   },
 });

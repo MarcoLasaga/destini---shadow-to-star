@@ -37,7 +37,7 @@ export default function CommunityScreen() {
   const [tab, setTab] = useState<'forYou' | 'following'>('forYou');
   const [shareVisible, setShareVisible] = useState(false);
   const [shareOutfit, setShareOutfit] = useState(currentOutfit ?? savedOutfits[0] ?? null);
-  const [following, setFollowing] = useState<string[]>(['Marcus Lin', 'Elena Vance']);
+  const [following, setFollowing] = useState<string[]>([]);
   const [myPostIds, setMyPostIds] = useState<string[]>([]);
 
   // Social List Modal state (for viewing likes, followers, following)
@@ -47,6 +47,16 @@ export default function CommunityScreen() {
 
   useEffect(() => {
     community.refresh();
+    AsyncStorage.getItem('@stylesense_social_following_names').then((raw) => {
+      if (raw) {
+        try {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) setFollowing(list);
+        } catch {
+          // ignore
+        }
+      }
+    });
     AsyncStorage.getItem(MY_POST_IDS_KEY).then((raw) => {
       if (raw) {
         try {
@@ -144,7 +154,7 @@ export default function CommunityScreen() {
               { color: tab === 'following' ? '#264C3B' : theme.textMuted },
             ]}
           >
-            Following ({following.length})
+            Following
           </Text>
         </Pressable>
       </View>

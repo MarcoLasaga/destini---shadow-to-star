@@ -35,24 +35,9 @@ interface SocialListModalProps {
   onFollowCountChange?: (followingCount: number, followersCount: number) => void;
 }
 
-const INITIAL_FOLLOWERS: UserEntry[] = [
-  { id: 'u1', name: 'Elena Vance', handle: '@elena.style', styleVibe: 'Clean Casual', isFollowing: true },
-  { id: 'u2', name: 'Marcus Lin', handle: '@marcus.fits', styleVibe: 'Streetwear & Layers', isFollowing: false },
-  { id: 'u3', name: 'Maya Rodriguez', handle: '@maya.in.color', styleVibe: 'Warm Earth Tones', isFollowing: true },
-  { id: 'u4', name: 'Leo Chen', handle: '@leochen_daily', styleVibe: 'Minimalist Smart', isFollowing: false },
-  { id: 'u5', name: 'Sophia Alcantara', handle: '@sophia_mnl', styleVibe: 'Campus Chic', isFollowing: false },
-  { id: 'u6', name: 'Liam Santos', handle: '@liam.looks', styleVibe: 'Tailored Office', isFollowing: true },
-];
-
-const INITIAL_LIKES: LikeEntry[] = [
-  { id: 'l1', name: 'Elena Vance', handle: '@elena.style', postTitle: 'White Jacket & White Jeans', timeAgo: '32m ago' },
-  { id: 'l2', name: 'Marcus Lin', handle: '@marcus.fits', postTitle: 'Streetwear Layer Look', timeAgo: '2h ago' },
-  { id: 'l3', name: 'Maya Rodriguez', handle: '@maya.in.color', postTitle: 'Campus Style Look', timeAgo: '1D ago' },
-  { id: 'l4', name: 'Sophia Alcantara', handle: '@sophia_mnl', postTitle: 'Everyday Casual Fit', timeAgo: '2D ago' },
-  { id: 'l5', name: 'Leo Chen', handle: '@leochen_daily', postTitle: 'Office Smart Look', timeAgo: '3D ago' },
-];
-
 const FOLLOWING_STORAGE_KEY = '@stylesense_social_following_names';
+const FOLLOWERS_STORAGE_KEY = '@stylesense_social_followers';
+const LIKES_STORAGE_KEY = '@stylesense_social_likes';
 
 export default function SocialListModal({
   visible,
@@ -63,8 +48,9 @@ export default function SocialListModal({
 }: SocialListModalProps) {
   const theme = useAppTheme();
   const [tab, setTab] = useState<'followers' | 'following' | 'likes'>(initialTab);
-  const [followers, setFollowers] = useState<UserEntry[]>(INITIAL_FOLLOWERS);
-  const [followingNames, setFollowingNames] = useState<string[]>(['Elena Vance', 'Maya Rodriguez', 'Liam Santos']);
+  const [followers, setFollowers] = useState<UserEntry[]>([]);
+  const [likes, setLikes] = useState<LikeEntry[]>([]);
+  const [followingNames, setFollowingNames] = useState<string[]>([]);
 
   useEffect(() => {
     if (visible) {
@@ -73,10 +59,38 @@ export default function SocialListModal({
         if (raw) {
           try {
             const list: string[] = JSON.parse(raw);
-            setFollowingNames(list);
+            if (Array.isArray(list)) setFollowingNames(list);
           } catch {
-            // fallback
+            setFollowingNames([]);
           }
+        } else {
+          setFollowingNames([]);
+        }
+      });
+
+      AsyncStorage.getItem(FOLLOWERS_STORAGE_KEY).then((raw) => {
+        if (raw) {
+          try {
+            const list: UserEntry[] = JSON.parse(raw);
+            if (Array.isArray(list)) setFollowers(list);
+          } catch {
+            setFollowers([]);
+          }
+        } else {
+          setFollowers([]);
+        }
+      });
+
+      AsyncStorage.getItem(LIKES_STORAGE_KEY).then((raw) => {
+        if (raw) {
+          try {
+            const list: LikeEntry[] = JSON.parse(raw);
+            if (Array.isArray(list)) setLikes(list);
+          } catch {
+            setLikes([]);
+          }
+        } else {
+          setLikes([]);
         }
       });
     }
@@ -169,7 +183,7 @@ export default function SocialListModal({
                   { color: tab === 'likes' ? '#264C3B' : theme.textMuted },
                 ]}
               >
-                Likes ({INITIAL_LIKES.length})
+                Likes ({likes.length})
               </Text>
             </Pressable>
           </View>
@@ -177,37 +191,45 @@ export default function SocialListModal({
           {/* List Content */}
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
             {tab === 'followers' && (
-              followers.map((user) => {
-                const isFollowing = followingNames.includes(user.name);
-                return (
-                  <View key={user.id} style={[styles.userRow, { borderColor: theme.border }]}>
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>{user.name.charAt(0)}</Text>
-                    </View>
+              followers.length === 0 ? (
+                <View style={styles.empty}>
+                  <Text style={[styles.emptyText, { color: theme.textMuted }]}>
+                    No followers yet. Publish your favorite looks to the Community to inspire others!
+                  </Text>
+                </View>
+              ) : (
+                followers.map((user) => {
+                  const isFollowing = followingNames.includes(user.name);
+                  return (
+                    <View key={user.id} style={[styles.userRow, { borderColor: theme.border }]}>
+                      <View style={styles.avatar}>
+                        <Text style={styles.avatarText}>{user.name.charAt(0)}</Text>
+                      </View>
 
-                    <View style={styles.userInfo}>
-                      <Text style={[styles.userName, { color: theme.text }]}>{user.name}</Text>
-                      <Text style={[styles.userHandle, { color: theme.textMuted }]}>
-                        {user.handle} · <Text style={{ color: '#4D9A65' }}>{user.styleVibe}</Text>
-                      </Text>
-                    </View>
+                      <View style={styles.userInfo}>
+                        <Text style={[styles.userName, { color: theme.text }]}>{user.name}</Text>
+                        <Text style={[styles.userHandle, { color: theme.textMuted }]}>
+                          {user.handle} · <Text style={{ color: '#4D9A65' }}>{user.styleVibe}</Text>
+                        </Text>
+                      </View>
 
-                    <Pressable
-                      onPress={() => toggleFollow(user.name)}
-                      style={[styles.actionBtn, isFollowing && styles.actionBtnActive]}
-                    >
-                      <Text
-                        style={[
-                          styles.actionBtnText,
-                          isFollowing && styles.actionBtnTextActive,
-                        ]}
+                      <Pressable
+                        onPress={() => toggleFollow(user.name)}
+                        style={[styles.actionBtn, isFollowing && styles.actionBtnActive]}
                       >
-                        {isFollowing ? 'Following' : 'Follow Back'}
-                      </Text>
-                    </Pressable>
-                  </View>
-                );
-              })
+                        <Text
+                          style={[
+                            styles.actionBtnText,
+                            isFollowing && styles.actionBtnTextActive,
+                          ]}
+                        >
+                          {isFollowing ? 'Following' : 'Follow Back'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  );
+                })
+              )
             )}
 
             {tab === 'following' && (
@@ -245,37 +267,45 @@ export default function SocialListModal({
             )}
 
             {tab === 'likes' && (
-              INITIAL_LIKES.map((item) => {
-                const isFollowing = followingNames.includes(item.name);
-                return (
-                  <View key={item.id} style={[styles.userRow, { borderColor: theme.border }]}>
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>{item.name.charAt(0)}</Text>
-                    </View>
+              likes.length === 0 ? (
+                <View style={styles.empty}>
+                  <Text style={[styles.emptyText, { color: theme.textMuted }]}>
+                    No likes yet. Tap the heart on looks in the Community feed to save and appreciate styles!
+                  </Text>
+                </View>
+              ) : (
+                likes.map((item) => {
+                  const isFollowing = followingNames.includes(item.name);
+                  return (
+                    <View key={item.id} style={[styles.userRow, { borderColor: theme.border }]}>
+                      <View style={styles.avatar}>
+                        <Text style={styles.avatarText}>{item.name.charAt(0)}</Text>
+                      </View>
 
-                    <View style={styles.userInfo}>
-                      <Text style={[styles.userName, { color: theme.text }]}>{item.name}</Text>
-                      <Text style={[styles.userHandle, { color: theme.textMuted }]}>
-                        Liked <Text style={{ fontWeight: '800' }}>{item.postTitle}</Text> · {item.timeAgo}
-                      </Text>
-                    </View>
+                      <View style={styles.userInfo}>
+                        <Text style={[styles.userName, { color: theme.text }]}>{item.name}</Text>
+                        <Text style={[styles.userHandle, { color: theme.textMuted }]}>
+                          Liked <Text style={{ fontWeight: '800' }}>{item.postTitle}</Text> · {item.timeAgo}
+                        </Text>
+                      </View>
 
-                    <Pressable
-                      onPress={() => toggleFollow(item.name)}
-                      style={[styles.actionBtn, isFollowing && styles.actionBtnActive]}
-                    >
-                      <Text
-                        style={[
-                          styles.actionBtnText,
-                          isFollowing && styles.actionBtnTextActive,
-                        ]}
+                      <Pressable
+                        onPress={() => toggleFollow(item.name)}
+                        style={[styles.actionBtn, isFollowing && styles.actionBtnActive]}
                       >
-                        {isFollowing ? 'Following' : 'Follow'}
-                      </Text>
-                    </Pressable>
-                  </View>
-                );
-              })
+                        <Text
+                          style={[
+                            styles.actionBtnText,
+                            isFollowing && styles.actionBtnTextActive,
+                          ]}
+                        >
+                          {isFollowing ? 'Following' : 'Follow'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  );
+                })
+              )
             )}
           </ScrollView>
         </View>
