@@ -244,7 +244,7 @@ export default function OnboardingScreen({
     if (page === 1) return 'cool_hoodie';
     if (page === 2) return 'smart_layered';
     if (page === 3) return 'formal_suit';
-    if (page === 4) return 'cool_hoodie';
+    if (page === 4) return 'rain_active';
     return 'casual_sunny';
   }, [page]);
 

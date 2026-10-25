@@ -19,7 +19,7 @@ import OccasionDropdown from '../components/OccasionDropdown';
 import Mannequin2D, { MannequinSlot } from '../components/Mannequin2D';
 import OutfitCustomizeModal from '../components/OutfitCustomizeModal';
 import CharacterCustomizeModal from '../components/CharacterCustomizeModal';
-import { MelMascot, MelSpeechBubble } from '../components/MelMascot';
+import { MelMascot, MelSpeechBubble, melOutfitForOccasion } from '../components/MelMascot';
 import { GeneratedOutfit, OutfitClothingItem } from '../types';
 import {
   classifyAnatomicalSlot,
@@ -449,8 +449,15 @@ export default function OutfitScreen() {
 
         {/* Dedicated Mel Mascot & Coach Speech Bubble Row (ZERO OVERLAP with Mannequin) */}
         <View style={styles.melRow}>
-          <MelMascot size={60} outfit="smart_layered" />
-          <MelSpeechBubble variant="smart_layered" message={reaction} position="inline" />
+          <MelMascot
+            size={58}
+            outfit={melOutfitForOccasion(activeOutfit?.occasionLabel || occasion)}
+          />
+          <MelSpeechBubble
+            variant={melOutfitForOccasion(activeOutfit?.occasionLabel || occasion)}
+            message={reaction}
+            position="inline"
+          />
         </View>
 
         {/* Interactive Styling Stage: 2D Human Avatar on Left + Rotary Wheel on Right */}
