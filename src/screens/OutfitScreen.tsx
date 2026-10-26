@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   Animated,
   PanResponder,
@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useWardrobe } from '../contexts/WardrobeContext';
@@ -33,6 +34,15 @@ import { computeAccurateOutfitScore } from '../services/hybridScoreService';
 
 const toAnatomical = (slot: MannequinSlot) =>
   slot === 'OUTERWEAR' ? 'outerLayer' : slot === 'BOTTOM' ? 'bottom' : slot === 'SHOES' ? 'shoes' : slot === 'ACCESSORIES' ? 'accessory' : 'innerTop';
+
+const PERMANENT_RANKS = ['TOP 1', 'TOP 2', 'TOP 3'] as const;
+
+const getRelOffset = (i: number, active: number): -1 | 0 | 1 => {
+  const diff = (i - active + 3) % 3;
+  if (diff === 0) return 0;
+  if (diff === 1) return 1;
+  return -1;
+};
 
 interface RimCardProps {
   outfit: GeneratedOutfit;
@@ -69,43 +79,29 @@ function RimCard({ outfit, rankLabel, position, onPress }: RimCardProps) {
           style={{ marginLeft: 'auto' }}
         />
       </View>
-      <Text style={styles.rimHintText}>Swipe to rotate</Text>
+      <Text style={styles.rimHintText}>Tap to select · Swipe to rotate</Text>
     </Pressable>
   );
 }
 
 interface ActiveWheelCardProps {
   outfit: GeneratedOutfit;
+  rankLabel: string;
   onPress: () => void;
-  scaleAnim: Animated.Value;
 }
 
-function ActiveWheelCard({ outfit, onPress, scaleAnim }: ActiveWheelCardProps) {
+function ActiveWheelCard({ outfit, rankLabel, onPress }: ActiveWheelCardProps) {
   const garments = outfit.clothingItems || [];
   const topPieces = garments.slice(0, 4);
   const score = outfit.hybridScore ?? outfit.matchPercent ?? 92;
 
   return (
-    <Animated.View
-      style={[
-        styles.activeWheelCard,
-        {
-          transform: [
-            {
-              scale: scaleAnim.interpolate({
-                inputRange: [-1, 0, 1],
-                outputRange: [0.96, 1.0, 0.96],
-              }),
-            },
-          ],
-        },
-      ]}
-    >
+    <View style={styles.activeWheelCard}>
       <Pressable onPress={onPress} style={styles.cardInner}>
         {/* Top Header Row: Rank badge & Hybrid Match Score */}
         <View style={styles.rankRow}>
           <View style={styles.rankBadgeActive}>
-            <Text style={styles.rankTextActive}>TOP 1</Text>
+            <Text style={styles.rankTextActive}>{rankLabel}</Text>
           </View>
           <View style={styles.scoreBadge}>
             <Ionicons name="sparkles" size={11} color="#4D9A65" />
@@ -141,12 +137,13 @@ function ActiveWheelCard({ outfit, onPress, scaleAnim }: ActiveWheelCardProps) {
           <Ionicons name="options-outline" size={14} color="#F07E57" />
         </View>
       </Pressable>
-    </Animated.View>
+    </View>
   );
 }
 
 export default function OutfitScreen() {
   const theme = useAppTheme();
+  const navigation = useNavigation<any>();
   const { items } = useWardrobe();
   const { profile } = useProfile();
   const { weather } = useWeather();
@@ -210,33 +207,86 @@ export default function OutfitScreen() {
   const activeOutfit = top3[activeIndex] || currentOutfit || null;
   const catalogOnly = items.length === 0;
 
-  // Rotary Wheel animation values for vertical 60fps circular drum loop
-  const panY = useRef(new Animated.Value(0)).current;
+  // Check if wardrobe has minimum required pieces (Top + Bottom + Shoes)
+  const hasTop = useMemo(() => items.some((i) => {
+    const cat = (i.category || '').toUpperCase().trim();
+    const name = (i.name || '').toLowerCase();
+    return cat.startsWith('TOP') || /shirt|tee|polo|blouse|top|crewneck|tank/.test(name);
+  }), [items]);
 
-  // True Rotary Wheel mapping:
-  // Upper rim card: offset = -1 (top)
-  // Active card: offset = 0 (middle / center)
-  // Lower rim card: offset = +1 (bottom)
-  const wheel = useMemo(() => {
-    if (!top3.length) return [];
-    return [
-      {
-        outfit: top3[(activeIndex + top3.length - 1) % top3.length],
-        rankLabel: 'TOP 3',
-        position: -1 as const,
-      },
-      {
-        outfit: top3[activeIndex % top3.length],
-        rankLabel: 'TOP 1',
-        position: 0 as const,
-      },
-      {
-        outfit: top3[(activeIndex + 1) % top3.length],
-        rankLabel: 'TOP 2',
-        position: 1 as const,
-      },
-    ];
-  }, [top3, activeIndex]);
+  const hasBottom = useMemo(() => items.some((i) => {
+    const cat = (i.category || '').toUpperCase().trim();
+    const name = (i.name || '').toLowerCase();
+    return cat.startsWith('BOTTOM') || /pant|jean|short|skirt|trouser|chino/.test(name);
+  }), [items]);
+
+  const hasShoes = useMemo(() => items.some((i) => {
+    const cat = (i.category || '').toUpperCase().trim();
+    const name = (i.name || '').toLowerCase();
+    return cat.startsWith('SHOE') || /shoe|sneaker|boot|loafer|sandal|heel/.test(name);
+  }), [items]);
+
+  const hasCompleteWardrobe = hasTop && hasBottom && hasShoes && items.length >= 3;
+  const isWardrobeMode = outfitSourceMode === 'closet';
+  const showEmptyWardrobePrompt = isWardrobeMode && !hasCompleteWardrobe;
+
+  // 3-Card Animated Tracks for physical slide + scale carousel
+  const cardTranslateY = useRef([
+    new Animated.Value(0),
+    new Animated.Value(108),
+    new Animated.Value(-108),
+  ]).current;
+
+  const cardScale = useRef([
+    new Animated.Value(1.0),
+    new Animated.Value(0.84),
+    new Animated.Value(0.84),
+  ]).current;
+
+  const cardOpacity = useRef([
+    new Animated.Value(1.0),
+    new Animated.Value(0.68),
+    new Animated.Value(0.68),
+  ]).current;
+
+  const animateWheel = useCallback((nextActive: number) => {
+    const anims: Animated.CompositeAnimation[] = [];
+    for (let i = 0; i < 3; i++) {
+      const rel = getRelOffset(i, nextActive);
+      const targetY = rel === 0 ? 0 : rel === 1 ? 108 : -108;
+      const targetScale = rel === 0 ? 1.0 : 0.84;
+      const targetOpacity = rel === 0 ? 1.0 : 0.68;
+
+      anims.push(
+        Animated.spring(cardTranslateY[i], {
+          toValue: targetY,
+          friction: 7,
+          tension: 60,
+          useNativeDriver: true,
+        }),
+        Animated.spring(cardScale[i], {
+          toValue: targetScale,
+          friction: 7,
+          tension: 60,
+          useNativeDriver: true,
+        }),
+        Animated.spring(cardOpacity[i], {
+          toValue: targetOpacity,
+          friction: 7,
+          tension: 60,
+          useNativeDriver: true,
+        })
+      );
+    }
+    Animated.parallel(anims).start();
+  }, [cardTranslateY, cardScale, cardOpacity]);
+
+  const cycle = useCallback((direction: number) => {
+    if (!top3.length) return;
+    const next = (activeIndex + direction + top3.length) % top3.length;
+    setActiveIndex(next);
+    animateWheel(next);
+  }, [activeIndex, top3.length, animateWheel]);
 
   // Combined suggestions for customizer (combining user wardrobe + dataset catalog)
   const allSuggestions = useMemo(() => {
@@ -275,56 +325,54 @@ export default function OutfitScreen() {
     return Array.from(unique.values());
   }, [items, currentOutfits]);
 
-  // Rotate wheel circularly: activeIndex = (activeIndex + direction + top3.length) % top3.length
-  const cycle = (direction: number) => {
-    if (!top3.length) return;
-    panY.setValue(direction > 0 ? 38 : -38);
-    Animated.spring(panY, {
-      toValue: 0,
-      friction: 7,
-      tension: 75,
-      useNativeDriver: true,
-    }).start();
-
-    setActiveIndex((current) => (current + direction + top3.length) % top3.length);
-  };
-
   // PanResponder for smooth 60fps vertical swipe gestures on the wheel
   const panResponder = useMemo(
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 7,
+        onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 10,
         onPanResponderMove: (_, gesture) => {
-          panY.setValue(gesture.dy * 0.42);
+          const dy = gesture.dy * 0.45;
+          for (let i = 0; i < 3; i++) {
+            const rel = getRelOffset(i, activeIndex);
+            const baseY = rel === 0 ? 0 : rel === 1 ? 108 : -108;
+            cardTranslateY[i].setValue(baseY + dy);
+          }
         },
         onPanResponderRelease: (_, gesture) => {
-          if (gesture.dy < -20) {
+          if (gesture.dy < -24) {
             cycle(1);
-          } else if (gesture.dy > 20) {
+          } else if (gesture.dy > 24) {
             cycle(-1);
           } else {
-            Animated.spring(panY, {
-              toValue: 0,
-              friction: 7,
-              tension: 75,
-              useNativeDriver: true,
-            }).start();
+            for (let i = 0; i < 3; i++) {
+              const rel = getRelOffset(i, activeIndex);
+              const baseY = rel === 0 ? 0 : rel === 1 ? 108 : -108;
+              Animated.spring(cardTranslateY[i], {
+                toValue: baseY,
+                friction: 7,
+                tension: 60,
+                useNativeDriver: true,
+              }).start();
+            }
           }
         },
       }),
-    [top3.length]
+    [activeIndex, top3.length, cycle, cardTranslateY]
   );
 
-  const handleSelectCard = (position: number) => {
-    if (position === 0) {
+  const handleSelectCard = useCallback((relPosition: number, targetCardIndex?: number) => {
+    if (relPosition === 0) {
       setCustomizing(true);
-    } else if (position === -1) {
+    } else if (targetCardIndex !== undefined) {
+      setActiveIndex(targetCardIndex);
+      animateWheel(targetCardIndex);
+    } else if (relPosition === -1) {
       cycle(-1);
     } else {
       cycle(1);
     }
-  };
+  }, [cycle, animateWheel]);
 
   const chooseItem = (item: OutfitClothingItem | null, slot: MannequinSlot) => {
     if (!activeOutfit) return;
@@ -432,7 +480,7 @@ export default function OutfitScreen() {
                   outfitSourceMode === 'bestForOccasion' && styles.sourceTextActive,
                 ]}
               >
-                Style Suggestions
+                Mix & Match
               </Text>
             </Pressable>
           </View>
@@ -460,98 +508,105 @@ export default function OutfitScreen() {
           />
         </View>
 
-        {/* Interactive Styling Stage: 2D Human Avatar on Left + Rotary Wheel on Right */}
-        <View style={styles.stage}>
-          {/* Left Pane: 2D Human Avatar */}
-          <View style={styles.leftPane}>
-            <Mannequin2D
-              profile={profile}
-              items={activeOutfit?.clothingItems || []}
-              onSelectSlot={() => setCustomizing(true)}
-              occasionScene={activeOutfit?.occasionLabel || occasion}
-              viewBoxOverride="0 0 240 385"
-            />
-          </View>
-
-          {/* Right Pane: True Rotary Circular Wheel with PanResponder */}
-          <View style={styles.rightPane} {...panResponder.panHandlers}>
-            {isLoading ? (
-              <View style={styles.loadingBox}>
-                <Ionicons name="sync-outline" size={24} color="#4D9A65" />
-                <Text style={styles.loading}>Mel is styling your look…</Text>
+        {/* Empty or Incomplete Wardrobe Guard for My Wardrobe mode */}
+        {showEmptyWardrobePrompt ? (
+          <View style={[styles.emptyPromptCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View style={styles.emptyPromptMelRow}>
+              <MelMascot outfit="casual_sunny" size={82} waving />
+              <View style={{ flex: 1 }}>
+                <MelSpeechBubble
+                  variant="casual_sunny"
+                  message="Add at least a Top, Bottom, and Shoes to build outfits from your own closet—or try Mix & Match to explore AI-styled looks right now!"
+                  position="inline"
+                />
               </View>
-            ) : wheel.length ? (
-              <View style={styles.rotaryWheelContainer}>
-                {/* Upper Rim Card (Top 3) at translateY: -104 */}
-                <Animated.View
-                  style={[
-                    styles.rotaryCardWrapper,
-                    {
-                      transform: [
-                        { translateY: Animated.add(new Animated.Value(-104), panY) },
-                        { scale: 0.85 },
-                      ],
-                      opacity: 0.72,
-                      zIndex: 1,
-                    },
-                  ]}
-                >
-                  <RimCard
-                    outfit={wheel[0].outfit}
-                    rankLabel={wheel[0].rankLabel}
-                    position={-1}
-                    onPress={() => handleSelectCard(-1)}
-                  />
-                </Animated.View>
+            </View>
 
-                {/* Center Active Card (Top 1) at translateY: 0 */}
-                <Animated.View
-                  style={[
-                    styles.rotaryCardWrapper,
-                    {
-                      transform: [
-                        { translateY: panY },
-                        { scale: 1.0 },
-                      ],
-                      opacity: 1.0,
-                      zIndex: 3,
-                    },
-                  ]}
-                >
-                  <ActiveWheelCard
-                    outfit={wheel[1].outfit}
-                    onPress={() => handleSelectCard(0)}
-                    scaleAnim={panY}
-                  />
-                </Animated.View>
+            <View style={styles.emptyPromptActions}>
+              <Pressable
+                onPress={() => navigation.navigate('Wardrobe')}
+                style={styles.emptyPromptBtnPrimary}
+              >
+                <Ionicons name="camera-outline" size={17} color="#FFFFFF" />
+                <Text style={styles.emptyPromptBtnTextPrimary}>📸 Add to My Wardrobe</Text>
+              </Pressable>
 
-                {/* Lower Rim Card (Top 2) at translateY: +104 */}
-                <Animated.View
-                  style={[
-                    styles.rotaryCardWrapper,
-                    {
-                      transform: [
-                        { translateY: Animated.add(new Animated.Value(104), panY) },
-                        { scale: 0.85 },
-                      ],
-                      opacity: 0.72,
-                      zIndex: 1,
-                    },
-                  ]}
-                >
-                  <RimCard
-                    outfit={wheel[2].outfit}
-                    rankLabel={wheel[2].rankLabel}
-                    position={1}
-                    onPress={() => handleSelectCard(1)}
-                  />
-                </Animated.View>
-              </View>
-            ) : (
-              <Text style={styles.loading}>Preparing your first three looks…</Text>
-            )}
+              <Pressable
+                onPress={() => setOutfitSourceMode('bestForOccasion')}
+                style={[styles.emptyPromptBtnSecondary, { borderColor: theme.border }]}
+              >
+                <Ionicons name="sparkles" size={16} color="#6B3F93" />
+                <Text style={styles.emptyPromptBtnTextSecondary}>✨ Try Mix & Match</Text>
+              </Pressable>
+            </View>
           </View>
-        </View>
+        ) : (
+          /* Interactive Styling Stage: 2D Human Avatar on Left + Rotary Wheel on Right */
+          <View style={styles.stage}>
+            {/* Left Pane: 2D Human Avatar */}
+            <View style={styles.leftPane}>
+              <Mannequin2D
+                profile={profile}
+                items={activeOutfit?.clothingItems || []}
+                onSelectSlot={() => setCustomizing(true)}
+                occasionScene={activeOutfit?.occasionLabel || occasion}
+                viewBoxOverride="0 0 240 385"
+              />
+            </View>
+
+            {/* Right Pane: True Rotary Circular Wheel with PanResponder */}
+            <View style={styles.rightPane} {...panResponder.panHandlers}>
+              {isLoading ? (
+                <View style={styles.loadingBox}>
+                  <Ionicons name="sync-outline" size={24} color="#4D9A65" />
+                  <Text style={styles.loading}>Mel is styling your look…</Text>
+                </View>
+              ) : top3.length ? (
+                <View style={styles.rotaryWheelContainer}>
+                  {top3.slice(0, 3).map((outfit, i) => {
+                    const rel = getRelOffset(i, activeIndex);
+                    const rankLabel = PERMANENT_RANKS[i];
+                    const isCenter = rel === 0;
+
+                    return (
+                      <Animated.View
+                        key={outfit.id || `wheel-card-${i}`}
+                        style={[
+                          styles.rotaryCardWrapper,
+                          {
+                            transform: [
+                              { translateY: cardTranslateY[i] },
+                              { scale: cardScale[i] },
+                            ],
+                            opacity: cardOpacity[i],
+                            zIndex: isCenter ? 5 : 1,
+                          },
+                        ]}
+                      >
+                        {isCenter ? (
+                          <ActiveWheelCard
+                            outfit={outfit}
+                            rankLabel={rankLabel}
+                            onPress={() => handleSelectCard(0)}
+                          />
+                        ) : (
+                          <RimCard
+                            outfit={outfit}
+                            rankLabel={rankLabel}
+                            position={rel as -1 | 1}
+                            onPress={() => handleSelectCard(rel, i)}
+                          />
+                        )}
+                      </Animated.View>
+                    );
+                  })}
+                </View>
+              ) : (
+                <Text style={styles.loading}>Preparing your first three looks…</Text>
+              )}
+            </View>
+          </View>
+        )}
       </ScrollView>
 
       {/* Character Customization Modal */}
@@ -569,6 +624,7 @@ export default function OutfitScreen() {
           profile={profile}
           weather={weather}
           suggestions={allSuggestions}
+          sourceMode={outfitSourceMode === 'closet' ? 'wardrobe' : 'mix'}
           onClose={() => setCustomizing(false)}
           onEquip={chooseItem}
         />
@@ -699,6 +755,56 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 5,
     elevation: 2,
+  },
+  emptyPromptCard: {
+    marginVertical: 12,
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 16,
+    gap: 16,
+    shadowColor: '#264C3B',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  emptyPromptMelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  emptyPromptActions: {
+    gap: 10,
+    marginTop: 4,
+  },
+  emptyPromptBtnPrimary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#4D9A65',
+    paddingVertical: 13,
+    borderRadius: 14,
+  },
+  emptyPromptBtnTextPrimary: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  emptyPromptBtnSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#F3E8FF',
+    borderWidth: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+  },
+  emptyPromptBtnTextSecondary: {
+    color: '#6B3F93',
+    fontWeight: '800',
+    fontSize: 14,
   },
   stage: {
     flexDirection: 'row',

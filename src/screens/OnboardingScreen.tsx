@@ -93,31 +93,30 @@ const STYLE_OPTIONS = [
 ];
 
 const OCCASION_OPTIONS = [
-  { label: 'School / Campus', icon: 'school-outline' },
-  { label: 'Work / Internship', icon: 'briefcase-outline' },
-  { label: 'Casual Hangouts', icon: 'cafe-outline' },
-  { label: 'Parties & Nightlife', icon: 'musical-notes-outline' },
-  { label: 'Formal Events', icon: 'ribbon-outline' },
-  { label: 'Gym & Sports', icon: 'fitness-outline' },
+  { label: 'School / Campus', emoji: '🎓', icon: 'school-outline' },
+  { label: 'Work / Office', emoji: '💼', icon: 'briefcase-outline' },
+  { label: 'Casual Hangouts', emoji: '☕', icon: 'cafe-outline' },
+  { label: 'Parties & Events', emoji: '✨', icon: 'sparkles-outline' },
+  { label: 'Workout & Gym', emoji: '🏃', icon: 'fitness-outline' },
 ];
 
 const FIT_OPTIONS = [
   {
     id: 'Baggy / Oversized',
-    title: 'Baggy & Oversized',
-    description: 'Relaxed streetwear silhouette with extra drape and drop shoulders.',
+    title: 'Baggy',
+    description: 'Relaxed streetwear drape',
     icon: 'resize-outline',
   },
   {
     id: 'Regular / Relaxed Fit',
-    title: 'Regular & Relaxed',
-    description: 'Balanced, timeless everyday fit designed for natural ease and comfort.',
+    title: 'Regular',
+    description: 'Natural everyday comfort',
     icon: 'body-outline',
   },
   {
     id: 'Slim / Tailored Fit',
-    title: 'Slim & Tailored',
-    description: 'Sharp contour that follows body lines for an elongated, crisp profile.',
+    title: 'Slim',
+    description: 'Contoured clean profile',
     icon: 'cut-outline',
   },
 ];
@@ -251,19 +250,19 @@ export default function OnboardingScreen({
   const melMessage = useMemo(() => {
     switch (page) {
       case 0:
-        return "Hi! I'm Mel, your AI chameleon stylist. Let's customize your wardrobe avatar in 60 seconds!";
+        return "Hi! I'm Mel—let's build your style profile!";
       case 1:
-        return 'Tell me your stage in life so I can tailor campus dress codes & daily vibes!';
+        return 'Pick your life stage and age group!';
       case 2:
-        return 'Watch your 2D mannequin adapt in real time as you adjust gender, hair, skin, and face style!';
+        return 'Set your build so your 2D mannequin fits you!';
       case 3:
-        return 'Which palettes make up your core closet? I use these for smart color harmonics.';
+        return 'Pick your favorite go-to colors!';
       case 4:
-        return 'Fabrics and styles define how your clothes feel and look on you!';
+        return 'Select your vibe and textures!';
       case 5:
-        return 'Almost ready! Where do you go and how do you like your clothes to fit?';
+        return 'Where do you go & how should it fit?';
       default:
-        return 'StyleSense adapts to your closet!';
+        return "Hi! I'm Mel—let's build your style profile!";
     }
   }, [page]);
 
@@ -386,10 +385,10 @@ export default function OnboardingScreen({
           {page === 0 && (
             <View style={styles.pageContainer}>
               <Text style={[styles.heroHeading, { color: theme.text }]}>
-                Your Personal AI Wardrobe Stylist
+                Your AI Wardrobe Stylist
               </Text>
               <Text style={[styles.heroSubheading, { color: theme.textMuted }]}>
-                Mix, match, and preview outfits on your custom 2D avatar powered by real-time weather and closet intelligence.
+                Real-time outfit recommendations on your 2D avatar.
               </Text>
 
               {/* Duo Preview Card (Avatar + Mel) */}
@@ -412,9 +411,9 @@ export default function OnboardingScreen({
                       <Ionicons name="camera-outline" size={18} color="#2E7D32" />
                     </View>
                     <View style={styles.featureTextWrap}>
-                      <Text style={[styles.featurePillTitle, { color: theme.text }]}>Snap Your Closet</Text>
+                      <Text style={[styles.featurePillTitle, { color: theme.text }]}>Snap Wardrobe</Text>
                       <Text style={[styles.featurePillSub, { color: theme.textMuted }]}>
-                        Auto background removal & instant tagging
+                        Instant auto cutout
                       </Text>
                     </View>
                   </View>
@@ -424,9 +423,9 @@ export default function OnboardingScreen({
                       <Ionicons name="body-outline" size={18} color="#673AB7" />
                     </View>
                     <View style={styles.featureTextWrap}>
-                      <Text style={[styles.featurePillTitle, { color: theme.text }]}>2D Outfit Avatar</Text>
+                      <Text style={[styles.featurePillTitle, { color: theme.text }]}>2D Mannequin</Text>
                       <Text style={[styles.featurePillSub, { color: theme.textMuted }]}>
-                        Try on full looks before stepping out
+                        Preview before wearing
                       </Text>
                     </View>
                   </View>
@@ -436,9 +435,9 @@ export default function OnboardingScreen({
                       <Ionicons name="partly-sunny-outline" size={18} color="#E65100" />
                     </View>
                     <View style={styles.featureTextWrap}>
-                      <Text style={[styles.featurePillTitle, { color: theme.text }]}>Weather-Smart Looks</Text>
+                      <Text style={[styles.featurePillTitle, { color: theme.text }]}>Weather-Smart</Text>
                       <Text style={[styles.featurePillSub, { color: theme.textMuted }]}>
-                        Tailored to humidity, rain & temp
+                        Adapts to rain & temp
                       </Text>
                     </View>
                   </View>
@@ -450,9 +449,9 @@ export default function OnboardingScreen({
           {/* ================= PAGE 1: AGE GROUP ================= */}
           {page === 1 && (
             <View style={styles.pageContainer}>
-              <Text style={[styles.heroHeading, { color: theme.text }]}>What is your life stage?</Text>
+              <Text style={[styles.heroHeading, { color: theme.text }]}>Choose Your Stage</Text>
               <Text style={[styles.heroSubheading, { color: theme.textMuted }]}>
-                Mel curates age-appropriate trends, campus dress codes, and fit guidelines for you.
+                Tailors recommendations to your daily life.
               </Text>
 
               <View style={styles.twoColumnCardsRow}>
@@ -475,9 +474,6 @@ export default function OnboardingScreen({
                   </View>
                   <Text style={[styles.ageNumber, { color: theme.text }]}>13–17</Text>
                   <Text style={[styles.ageTitle, { color: theme.text }]}>Teen & High School</Text>
-                  <Text style={[styles.ageDesc, { color: theme.textMuted }]}>
-                    Comfortable daily fits, school casual, athletic trends, and weekend hangouts.
-                  </Text>
                   <View style={styles.tagChipsWrap}>
                     <Text style={styles.tagPill}>#SchoolFit</Text>
                     <Text style={styles.tagPill}>#Activewear</Text>
@@ -504,9 +500,6 @@ export default function OnboardingScreen({
                   </View>
                   <Text style={[styles.ageNumber, { color: theme.text }]}>18–22</Text>
                   <Text style={[styles.ageTitle, { color: theme.text }]}>Campus & Young Adult</Text>
-                  <Text style={[styles.ageDesc, { color: theme.textMuted }]}>
-                    College campus style, internships, smart casual networking, and nightlife.
-                  </Text>
                   <View style={styles.tagChipsWrap}>
                     <Text style={styles.tagPill}>#CampusStyle</Text>
                     <Text style={styles.tagPill}>#SmartCasual</Text>
@@ -520,9 +513,9 @@ export default function OnboardingScreen({
           {/* ================= PAGE 2: GENDER, HEIGHT, WEIGHT & CHARACTER CUSTOMIZER ================= */}
           {page === 2 && (
             <View style={styles.pageContainer}>
-              <Text style={[styles.heroHeading, { color: theme.text }]}>Let's shape your mannequin</Text>
+              <Text style={[styles.heroHeading, { color: theme.text }]}>Shape Your Mannequin</Text>
               <Text style={[styles.heroSubheading, { color: theme.textMuted }]}>
-                Tailor avatar proportions, hairstyle, skin tone, and face style in real time.
+                Adjust proportions and styling in real time.
               </Text>
 
               {/* Live Morphing Mannequin Box */}
@@ -754,9 +747,9 @@ export default function OnboardingScreen({
           {/* ================= PAGE 3: USUAL STYLE COLORS ================= */}
           {page === 3 && (
             <View style={styles.pageContainer}>
-              <Text style={[styles.heroHeading, { color: theme.text }]}>Which colors do you reach for?</Text>
+              <Text style={[styles.heroHeading, { color: theme.text }]}>Go-To Color Palettes</Text>
               <Text style={[styles.heroSubheading, { color: theme.textMuted }]}>
-                Choose the color palettes that dominate your wardrobe. Select all that fit your personal style.
+                Select the palettes you wear most often.
               </Text>
 
               <View style={styles.palettesList}>
@@ -775,9 +768,6 @@ export default function OnboardingScreen({
                       <View style={styles.paletteHeaderRow}>
                         <View style={styles.paletteTextWrap}>
                           <Text style={[styles.paletteName, { color: theme.text }]}>{pal.name}</Text>
-                          <Text style={[styles.paletteDesc, { color: theme.textMuted }]}>
-                            {pal.description}
-                          </Text>
                         </View>
                         <Ionicons
                           name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
@@ -808,9 +798,9 @@ export default function OnboardingScreen({
           {/* ================= PAGE 4: TEXTURES & STYLES ================= */}
           {page === 4 && (
             <View style={styles.pageContainer}>
-              <Text style={[styles.heroHeading, { color: theme.text }]}>Textures & Fashion Styles</Text>
+              <Text style={[styles.heroHeading, { color: theme.text }]}>Vibes & Textures</Text>
               <Text style={[styles.heroSubheading, { color: theme.textMuted }]}>
-                Pick the fabrics and aesthetics you feel most confident wearing.
+                Pick the aesthetics and fabrics you love.
               </Text>
 
               {/* Textures Section */}
@@ -892,9 +882,9 @@ export default function OnboardingScreen({
           {/* ================= PAGE 5: OCCASIONS & FIT ================= */}
           {page === 5 && (
             <View style={styles.pageContainer}>
-              <Text style={[styles.heroHeading, { color: theme.text }]}>Occasions & Preferred Fit</Text>
+              <Text style={[styles.heroHeading, { color: theme.text }]}>Occasions & Fit</Text>
               <Text style={[styles.heroSubheading, { color: theme.textMuted }]}>
-                Final touch! Tell Mel what cut looks best on your body and where you spend your time.
+                Where you go and how your clothes should fit.
               </Text>
 
               {/* Fit Silhouette Cards */}
@@ -954,11 +944,7 @@ export default function OnboardingScreen({
                         isSelected && styles.filterChipActive,
                       ]}
                     >
-                      <Ionicons
-                        name={item.icon as any}
-                        size={16}
-                        color={isSelected ? '#2E7D32' : theme.textMuted}
-                      />
+                      <Text style={{ fontSize: 16, marginRight: 6 }}>{item.emoji}</Text>
                       <Text
                         style={[
                           styles.filterChipText,
@@ -968,7 +954,7 @@ export default function OnboardingScreen({
                         {item.label}
                       </Text>
                       {isSelected && (
-                        <Ionicons name="checkmark" size={14} color="#2E7D32" />
+                        <Ionicons name="checkmark" size={14} color="#2E7D32" style={{ marginLeft: 4 }} />
                       )}
                     </Pressable>
                   );

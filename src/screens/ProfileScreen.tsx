@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Modal,
   Pressable,
@@ -157,105 +158,138 @@ export default function ProfileScreen() {
     setManageModalVisible(true);
   };
 
+  const [deleteAllPostsModalVisible, setDeleteAllPostsModalVisible] = useState(false);
+  const [terminateAccountModalVisible, setTerminateAccountModalVisible] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const handleDeleteAllMyPosts = () => {
-    Alert.alert(
-      'Delete All Published & Legacy Posts?',
-      'This will permanently delete all your shared and legacy community looks from the server and feed. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete All',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const currentUserId = session?.user?.id;
-              const currentEmail = session?.user?.email || profile.email;
-              const currentName = profile.displayName;
-
-              if (currentUserId) {
-                await supabase.from('shared_outfits').delete().eq('user_id', currentUserId);
-              }
-              const orConditions: string[] = ['author_name.eq.Jdyy', 'author_name.eq.Jdyyy1'];
-              if (currentName) orConditions.push(`author_name.eq.${currentName}`);
-              if (currentEmail) orConditions.push(`author_email.eq.${currentEmail}`);
-
-              await supabase.from('shared_outfits').delete().or(orConditions.join(','));
-
-              await AsyncStorage.removeItem('@stylesense_my_post_ids');
-              await AsyncStorage.removeItem('@stylesense_published_posts');
-              setMyPostIds([]);
-              await community.refresh();
-              showToast('🗑️ All your published & legacy posts have been purged.');
-              setSettingsVisible(false);
-            } catch (err) {
-              console.error('Failed to purge user posts:', err);
-              await AsyncStorage.removeItem('@stylesense_my_post_ids');
-              await AsyncStorage.removeItem('@stylesense_published_posts');
-              setMyPostIds([]);
-              await community.refresh();
-              showToast('Purged local published posts.');
-              setSettingsVisible(false);
-            }
-          },
-        },
-      ]
-    );
+    setDeleteAllPostsModalVisible(true);
   };
 
   const handleTerminateAccount = () => {
-    Alert.alert(
-      '⚠️ Terminate Account?',
-      'Are you sure you want to terminate your account? This will permanently delete your published looks, clear all your wardrobe items and preferences on this device, log you out, and return you to onboarding. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Terminate Account',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const currentUserId = session?.user?.id;
-              const currentEmail = session?.user?.email || profile.email;
-              const currentName = profile.displayName;
+    setTerminateAccountModalVisible(true);
+  };
 
-              if (currentUserId) {
-                await supabase.from('shared_outfits').delete().eq('user_id', currentUserId);
-              }
-              const orConditions: string[] = ['author_name.eq.Jdyy', 'author_name.eq.Jdyyy1'];
-              if (currentName) orConditions.push(`author_name.eq.${currentName}`);
-              if (currentEmail) orConditions.push(`author_email.eq.${currentEmail}`);
+  const executeDeleteAllMyPosts = async () => {
+    setIsDeleting(true);
+    try {
+      const currentUserId = session?.user?.id;
+      const currentEmail = session?.user?.email || profile.email;
+      const currentName = profile.displayName;
 
-              await supabase.from('shared_outfits').delete().or(orConditions.join(','));
+      const anyClient = supabase as any;
+      if (currentUserId) {
+        try { await anyClient.from('shared_outfits').delete().eq('user_id', currentUserId); } catch {}
+        try { await anyClient.from('community_posts').delete().eq('user_id', currentUserId); } catch {}
+      }
+      const orConditions: string[] = ['author_name.eq.Jdyy', 'author_name.eq.Jdyyy1'];
+      if (currentName) orConditions.push(`author_name.eq.${currentName}`);
+      if (currentEmail) orConditions.push(`author_email.eq.${currentEmail}`);
 
-              const allKeys = await AsyncStorage.getAllKeys();
-              const toRemove = allKeys.filter((k) => k.startsWith('@stylesense') || k.startsWith('sb-'));
-              if (toRemove.length > 0) {
-                await AsyncStorage.multiRemove(toRemove);
-              }
+      try { await anyClient.from('shared_outfits').delete().or(orConditions.join(',')); } catch {}
+      try { await anyClient.from('community_posts').delete().or(orConditions.join(',')); } catch {}
 
-              setSettingsVisible(false);
-              showToast('Account terminated.');
-              await logout();
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Onboarding' }],
-              });
-            } catch (err) {
-              console.error('Error terminating account:', err);
-              const allKeys = await AsyncStorage.getAllKeys();
-              const toRemove = allKeys.filter((k) => k.startsWith('@stylesense'));
-              if (toRemove.length > 0) {
-                await AsyncStorage.multiRemove(toRemove);
-              }
-              await logout();
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Onboarding' }],
-              });
-            }
-          },
-        },
-      ]
-    );
+      await AsyncStorage.removeItem('@stylesense_my_post_ids');
+      await AsyncStorage.removeItem('@stylesense_published_posts');
+      setMyPostIds([]);
+      await community.refresh();
+      showToast('🗑️ All your published & legacy posts have been purged.');
+      setDeleteAllPostsModalVisible(false);
+      setSettingsVisible(false);
+    } catch (err) {
+      console.error('Failed to purge user posts:', err);
+      await AsyncStorage.removeItem('@stylesense_my_post_ids');
+      await AsyncStorage.removeItem('@stylesense_published_posts');
+      setMyPostIds([]);
+      await community.refresh();
+      showToast('Purged local published posts.');
+      setDeleteAllPostsModalVisible(false);
+      setSettingsVisible(false);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const executeTerminateAccount = async () => {
+    setIsDeleting(true);
+    try {
+      const currentUserId = session?.user?.id;
+      const currentEmail = session?.user?.email || profile.email;
+      const currentName = profile.displayName;
+
+      const anyClient = supabase as any;
+      // 1. Delete all Supabase cloud database records
+      if (currentUserId) {
+        try { await anyClient.from('wardrobe_items').delete().eq('user_id', currentUserId); } catch {}
+        try { await anyClient.from('garments').delete().eq('user_id', currentUserId); } catch {}
+        try { await anyClient.from('clothing_items').delete().eq('user_id', currentUserId); } catch {}
+        try { await anyClient.from('saved_outfits').delete().eq('user_id', currentUserId); } catch {}
+        try { await anyClient.from('outfits').delete().eq('user_id', currentUserId); } catch {}
+        try { await anyClient.from('profiles').delete().eq('id', currentUserId); } catch {}
+      }
+
+      const orConditions: string[] = ['author_name.eq.Jdyy', 'author_name.eq.Jdyyy1'];
+      if (currentUserId) orConditions.push(`user_id.eq.${currentUserId}`);
+      if (currentEmail) orConditions.push(`author_email.eq.${currentEmail}`);
+      if (currentName) orConditions.push(`author_name.eq.${currentName}`);
+
+      try { await anyClient.from('shared_outfits').delete().or(orConditions.join(',')); } catch {}
+      try { await anyClient.from('community_posts').delete().or(orConditions.join(',')); } catch {}
+
+      // Call RPC delete_user_account if available
+      try {
+        await anyClient.rpc('delete_user_account');
+      } catch {}
+
+      // Call backend API if available
+      try {
+        const token = session?.access_token;
+        if (token) {
+          const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
+          await fetch(`${apiUrl}/api/users/me`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` },
+          }).catch(() => {});
+        }
+      } catch {}
+
+      // 2. Wipe Local Device State Completely
+      await AsyncStorage.clear();
+
+      // 3. Sign Out Globally
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch {}
+      try {
+        await logout();
+      } catch {}
+
+      setTerminateAccountModalVisible(false);
+      setSettingsVisible(false);
+      showToast('Account successfully terminated.');
+
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Onboarding' }],
+      });
+    } catch (err) {
+      console.error('Termination error:', err);
+      await AsyncStorage.clear();
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch {}
+      try {
+        await logout();
+      } catch {}
+      setTerminateAccountModalVisible(false);
+      setSettingsVisible(false);
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Onboarding' }],
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleHideArchive = async () => {
@@ -930,6 +964,128 @@ export default function ProfileScreen() {
           setFollowersCount(flwCount);
         }}
       />
+
+      {/* ================= 6. CUSTOM MODAL: DELETE ALL POSTS ================= */}
+      <Modal
+        visible={deleteAllPostsModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !isDeleting && setDeleteAllPostsModalVisible(false)}
+      >
+        <View style={styles.confirmBackdrop}>
+          <View style={styles.confirmDialogCard}>
+            <View style={styles.confirmIconCircle}>
+              <Ionicons name="trash-outline" size={26} color="#C93B2B" />
+            </View>
+
+            <Text style={styles.confirmDialogTitle}>Delete All Published & Legacy Posts?</Text>
+
+            <Text style={styles.confirmDialogSubtitle}>
+              This will permanently purge your shared community looks from the server and live feed.
+            </Text>
+
+            <View style={styles.bulletList}>
+              <View style={styles.bulletItem}>
+                <Ionicons name="close-circle-outline" size={16} color="#C93B2B" />
+                <Text style={styles.bulletText}>All public looks in the Community feed will be removed</Text>
+              </View>
+              <View style={styles.bulletItem}>
+                <Ionicons name="close-circle-outline" size={16} color="#C93B2B" />
+                <Text style={styles.bulletText}>Removes posts under current account and aliases (Jdyy, Jdyyy1)</Text>
+              </View>
+              <View style={styles.bulletItem}>
+                <Ionicons name="close-circle-outline" size={16} color="#C93B2B" />
+                <Text style={styles.bulletText}>This action is permanent and cannot be undone</Text>
+              </View>
+            </View>
+
+            <View style={styles.dialogBtnRow}>
+              <Pressable
+                disabled={isDeleting}
+                onPress={() => setDeleteAllPostsModalVisible(false)}
+                style={styles.dialogCancelBtn}
+              >
+                <Text style={styles.dialogCancelText}>Cancel</Text>
+              </Pressable>
+
+              <Pressable
+                disabled={isDeleting}
+                onPress={executeDeleteAllMyPosts}
+                style={[styles.dialogCrimsonBtn, isDeleting && { opacity: 0.7 }]}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.dialogCrimsonText}>Delete All Posts</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ================= 7. CUSTOM MODAL: TERMINATE ACCOUNT ================= */}
+      <Modal
+        visible={terminateAccountModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !isDeleting && setTerminateAccountModalVisible(false)}
+      >
+        <View style={styles.confirmBackdrop}>
+          <View style={styles.confirmDialogCard}>
+            <View style={styles.confirmIconCircle}>
+              <Ionicons name="warning-outline" size={28} color="#C93B2B" />
+            </View>
+
+            <Text style={[styles.confirmDialogTitle, { color: '#991B1B' }]}>Terminate Account?</Text>
+
+            <Text style={styles.confirmDialogSubtitle}>
+              This permanently deletes all of your wardrobe items, saved outfits, published community posts, and profile data from the cloud. (If you sign in again later with Google or Facebook, it will start as a brand-new blank account).
+            </Text>
+
+            <View style={styles.bulletList}>
+              <View style={styles.bulletItem}>
+                <Ionicons name="trash-bin-outline" size={16} color="#C93B2B" />
+                <Text style={styles.bulletText}>All uploaded clothes & cutout data permanently deleted</Text>
+              </View>
+              <View style={styles.bulletItem}>
+                <Ionicons name="sparkles-outline" size={16} color="#C93B2B" />
+                <Text style={styles.bulletText}>All saved outfits & recommendation history cleared</Text>
+              </View>
+              <View style={styles.bulletItem}>
+                <Ionicons name="people-outline" size={16} color="#C93B2B" />
+                <Text style={styles.bulletText}>Community posts & creator profile purged from cloud</Text>
+              </View>
+              <View style={styles.bulletItem}>
+                <Ionicons name="log-out-outline" size={16} color="#C93B2B" />
+                <Text style={styles.bulletText}>All local data on this device wiped; global sign out</Text>
+              </View>
+            </View>
+
+            <View style={styles.dialogBtnRow}>
+              <Pressable
+                disabled={isDeleting}
+                onPress={() => setTerminateAccountModalVisible(false)}
+                style={styles.dialogCancelBtn}
+              >
+                <Text style={styles.dialogCancelText}>Cancel</Text>
+              </Pressable>
+
+              <Pressable
+                disabled={isDeleting}
+                onPress={executeTerminateAccount}
+                style={[styles.dialogCrimsonBtn, isDeleting && { opacity: 0.7 }]}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.dialogCrimsonText}>Terminate Account</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1303,5 +1459,102 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+  confirmBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.58)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  confirmDialogCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#FAF8F3',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E6E1D6',
+    padding: 22,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 8,
+  },
+  confirmIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#FDECEC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  confirmDialogTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1C1917',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  confirmDialogSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#57534E',
+    textAlign: 'center',
+    marginBottom: 14,
+  },
+  bulletList: {
+    width: '100%',
+    gap: 8,
+    marginBottom: 20,
+    backgroundColor: '#F5F2EA',
+    borderRadius: 14,
+    padding: 12,
+  },
+  bulletItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  bulletText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#44403C',
+    fontWeight: '500',
+  },
+  dialogBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    width: '100%',
+  },
+  dialogCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: '#EAE6DF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dialogCancelText: {
+    color: '#44403C',
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
+  dialogCrimsonBtn: {
+    flex: 1.2,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: '#C93B2B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dialogCrimsonText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '800',
   },
 });

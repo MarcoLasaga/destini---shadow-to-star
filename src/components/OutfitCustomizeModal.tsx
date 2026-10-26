@@ -4,8 +4,6 @@ import {
   FlatList,
   Image,
   Modal,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -66,14 +64,13 @@ interface Props {
   profile?: Partial<UserProfile> | null;
   weather?: WeatherData | null;
   suggestions: OutfitClothingItem[];
+  sourceMode?: 'wardrobe' | 'mix' | 'closet' | 'bestForOccasion';
   onClose: () => void;
   onEquip: (item: OutfitClothingItem | null, slot: MannequinSlot) => void;
 }
 
 const CARD_WIDTH = 126;
 const CARD_GAP = 10;
-const ITEM_TOTAL_WIDTH = CARD_WIDTH + CARD_GAP;
-const LOOP_FACTOR = 8;
 
 export default function OutfitCustomizeModal({
   visible,
@@ -81,12 +78,14 @@ export default function OutfitCustomizeModal({
   profile,
   weather,
   suggestions,
+  sourceMode = 'mix',
   onClose,
   onEquip,
 }: Props) {
   const { showToast } = useToast();
   const [activeSlot, setActiveSlot] = useState<MannequinSlot>('TOP');
   const [accessoryZoneFilter, setAccessoryZoneFilter] = useState<'ALL' | AccessoryZone>('ALL');
+  const isWardrobeOnly = sourceMode === 'wardrobe' || sourceMode === 'closet';
   const equipped = outfit.clothingItems || [];
   const activeItem = equipped.find((item) => toSlot(item) === activeSlot) ?? null;
 
@@ -216,60 +215,20 @@ export default function OutfitCustomizeModal({
     handleClose();
   };
 
-  // Filter compatible suggestions for this slot (with multi-zone accessory filtering)
+  // Filter compatible suggestions for this slot (with strict wardrobe separation)
   const slotSuggestions = useMemo(() => {
-    const list = suggestions.filter((item) => toSlot(item) === activeSlot);
+    let list = suggestions.filter((item) => toSlot(item) === activeSlot);
+
+    // In strict My Wardrobe mode, ONLY display items from the user's uploaded wardrobe
+    if (isWardrobeOnly) {
+      list = list.filter((item) => item.isSuggested !== true && !item.id?.startsWith('dataset-'));
+    }
+
     if (activeSlot === 'ACCESSORIES' && accessoryZoneFilter !== 'ALL') {
       return list.filter((item) => inferAccessoryZone(item) === accessoryZoneFilter);
     }
     return list;
-  }, [suggestions, activeSlot, accessoryZoneFilter]);
-
-  // Repeated dataset for true seamless infinite loop
-  const loopedData = useMemo(() => {
-    if (slotSuggestions.length === 0) return [];
-    const arr: { item: OutfitClothingItem; loopKey: string }[] = [];
-    for (let loop = 0; loop < LOOP_FACTOR; loop++) {
-      slotSuggestions.forEach((it, idx) => {
-        arr.push({ item: it, loopKey: `${it.id || 'sug'}-${loop}-${idx}` });
-      });
-    }
-    return arr;
-  }, [slotSuggestions]);
-
-  const flatListRef = useRef<FlatList>(null);
-
-  // Jump to middle loop on slot change or visibility
-  useEffect(() => {
-    if (visible && slotSuggestions.length > 0) {
-      const midIndex = Math.floor(LOOP_FACTOR / 2) * slotSuggestions.length;
-      setTimeout(() => {
-        flatListRef.current?.scrollToOffset({
-          offset: midIndex * ITEM_TOTAL_WIDTH,
-          animated: false,
-        });
-      }, 60);
-    }
-  }, [activeSlot, visible, slotSuggestions.length]);
-
-  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (slotSuggestions.length === 0) return;
-    const offsetX = e.nativeEvent.contentOffset.x;
-    const singleSetWidth = slotSuggestions.length * ITEM_TOTAL_WIDTH;
-    if (singleSetWidth <= 0) return;
-
-    if (offsetX < singleSetWidth * 1.5) {
-      flatListRef.current?.scrollToOffset({
-        offset: offsetX + singleSetWidth * 3,
-        animated: false,
-      });
-    } else if (offsetX > singleSetWidth * 5.5) {
-      flatListRef.current?.scrollToOffset({
-        offset: offsetX - singleSetWidth * 3,
-        animated: false,
-      });
-    }
-  };
+  }, [suggestions, activeSlot, accessoryZoneFilter, isWardrobeOnly]);
 
   let reaction = `Live outfit match score: ${currentScore}%. Tap any piece below to equip on your avatar!`;
   if (scoreDelta !== null && lastEquippedItem) {
@@ -441,14 +400,16 @@ export default function OutfitCustomizeModal({
           <View style={styles.drawerHeader}>
             <View>
               <Text style={styles.drawerTitle}>
-                Style Suggestions · {SLOT_LABELS[activeSlot]}
+                {isWardrobeOnly ? 'My Wardrobe' : 'Mix & Match'} · {SLOT_LABELS[activeSlot]}
               </Text>
               <Text style={styles.drawerHint}>
                 Swipe cards · Tap to equip or deselect any piece
               </Text>
             </View>
             <View style={styles.countBadge}>
-              <Text style={styles.countText}>{slotSuggestions.length} options</Text>
+              <Text style={styles.countText}>
+                {slotSuggestions.length} {slotSuggestions.length === 1 ? 'option' : 'options'}
+              </Text>
             </View>
           </View>
 
@@ -485,19 +446,11 @@ export default function OutfitCustomizeModal({
           )}
 
           <FlatList
-            ref={flatListRef}
             horizontal
-            data={loopedData}
-            keyExtractor={(entry) => entry.loopKey}
+            data={slotSuggestions}
+            keyExtractor={(item, index) => item.id || `sug-${index}-${item.name}`}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.suggestionRow}
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
-            getItemLayout={(_, index) => ({
-              length: ITEM_TOTAL_WIDTH,
-              offset: ITEM_TOTAL_WIDTH * index,
-              index,
-            })}
             ListHeaderComponent={
               <Pressable
                 onPress={() => handleItemEquip(null, activeSlot)}
@@ -523,8 +476,7 @@ export default function OutfitCustomizeModal({
                 </View>
               </Pressable>
             }
-            renderItem={({ item: entry }) => {
-              const item = entry.item;
+            renderItem={({ item }) => {
               const imageUrl = resolveGarmentImageUrl(item);
               const isDataset = item.isSuggested || (item.id && item.id.startsWith('dataset-'));
               const isEquipped = equipped.some((eq) => eq.id === item.id);
@@ -579,7 +531,7 @@ export default function OutfitCustomizeModal({
                         isDataset ? styles.sourcePillTextDataset : styles.sourcePillTextWardrobe,
                       ]}
                     >
-                      {isDataset ? 'Style Suggestion' : 'My Wardrobe'}
+                      {isDataset ? 'Mix & Match' : 'My Wardrobe'}
                     </Text>
                   </View>
                 </Pressable>

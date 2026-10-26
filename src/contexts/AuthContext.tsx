@@ -193,8 +193,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    try {
+      await supabase.auth.signOut({ scope: 'global' });
+    } catch {
+      await supabase.auth.signOut().catch(() => {});
+    }
+    setSession(null);
   };
 
   const value: AuthContextValue = {
