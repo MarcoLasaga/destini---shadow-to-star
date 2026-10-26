@@ -239,10 +239,74 @@ CATEGORY_DEFAULT_METADATA: Dict[str, Tuple[str, Material, Style, Occasion, Layer
 
 NEUTRAL_COLORS = {"Black", "White", "Gray", "Beige", "Khaki", "Cream", "Navy"}
 
-BLOCKED_TERMS_PATTERN = re.compile(
-    r"\b(nigger|nigga|faggot|fuck|shit|bitch|cunt|whore|slut|retard|porn|nsfw|nude|naked|sex)\b",
+# ─────────────────────────────────────────────────────────────────────────────
+# BILINGUAL (TAGALOG + ENGLISH) & SPECIAL-CHARACTER PROFANITY FILTER PATTERNS
+# ─────────────────────────────────────────────────────────────────────────────
+LEET_MAP = str.maketrans({
+    "@": "a", "4": "a", "^": "a",
+    "$": "s", "5": "s",
+    "0": "o",
+    "1": "i", "!": "i", "|": "i",
+    "3": "e",
+    "7": "t", "+": "t",
+    "8": "b",
+    "9": "g", "6": "g",
+})
+
+SPACED_PATTERN = re.compile(r"\b(?:[a-zA-Z0-9][\s._\-\*#~/]+)+[a-zA-Z0-9]\b")
+REPEATED_PATTERN = re.compile(r"([a-zA-Z0-9])\1{2,}")
+
+ENGLISH_TERMS = [
+    "fuck", "fucking", "fucked", "fucker", "fck", "fuk", "motherfucker",
+    "shit", "shitty", "bullshit",
+    "bitch", "bitches", "bastard", "asshole", "assholes",
+    "dick", "dicks", "cock", "cocks", "pussy", "pussies", "cunt", "cunts",
+    "whore", "whores", "slut", "sluts",
+    "faggot", "faggots", "nigger", "niggers", "nigga", "niggas", "retard", "retards",
+    "porn", "nsfw", "nude", "nudes", "naked", "sex", "blowjob", "handjob"
+]
+
+TAGALOG_TERMS = [
+    "putangina", "putang ina", "tangina", "tang ina", "tanginamo", "tang ina mo", "taena",
+    "pota", "puta", "putragis", "punyeta", "pucha", "pakshet", "pakingshet",
+    "gago", "gaga", "ogag", "ulol", "ulul", "tarantado", "tarantada", "tanga",
+    "bobo", "obob", "inutil", "kupal", "epal", "hinayupak", "hayop ka", "hayopka",
+    "lintik", "leche", "letse", "siraulo", "bwisit", "pokpok",
+    "kantot", "kantutan", "iyot", "hindot", "jakol", "jakul", "chupa", "tsupa",
+    "burat", "tite", "titi", "pekpek", "pepe", "puke", "puki", "kiki",
+    "bayag", "betlog", "bold", "hubad", "bastos"
+]
+
+MASKED_TERMS = [
+    r"\bp[\*#_]+t[aou\*#_]*ng[\s_-]*[i\*#_]*n[a\*#_]*(?:\s*m[o\*#_]+)?\b",
+    r"\bt[\*#_]+ng[\s_-]*[i\*#_]*n[a\*#_]*(?:\s*m[o\*#_]+)?\b",
+    r"\bp[\*#_]+t[aou\*#_]+\b",
+    r"\bg[\*#_]+g[oau\*#_]+\b",
+    r"\bb[\*#_]+b[o\*#_]+\b",
+    r"\bf[\*#_]+(?:ck|k)\b",
+    r"\bsh[\*#_]+t\b",
+    r"\bb[\*#_]+tch\b",
+    r"\bk[\*#_]+nt[o\*#_]+t\b",
+    r"\bm[\*#_]+th[\*#_]+rf[\*#_]+ck[\*#_]+r\b",
+    r"\bb[\*#_]+llsh[\*#_]+t\b",
+    r"\bp[\*#_]+ssy\b",
+    r"\bc[\*#_]+nt\b",
+    r"\bd[\*#_]+ck\b",
+    r"\bwh[\*#_]+r[e\*#_]?\b",
+    r"\bsl[\*#_]+t\b",
+]
+
+ALL_TERMS_REGEX = re.compile(
+    r"\b(?:" + "|".join(re.escape(t) for t in sorted(ENGLISH_TERMS + TAGALOG_TERMS, key=len, reverse=True)) + r")\b",
     re.IGNORECASE,
 )
+
+MASKED_REGEX = re.compile(
+    r"(?:" + "|".join(MASKED_TERMS) + r")",
+    re.IGNORECASE,
+)
+
+BLOCKED_TERMS_PATTERN = ALL_TERMS_REGEX
 
 
 class ColorClusterInfo(BaseModel):
@@ -627,12 +691,84 @@ def estimate_skin_exposure_ratio(image: Image.Image) -> Tuple[float, float]:
 
 
 def check_text_moderation(text: str) -> Tuple[bool, str, Optional[str]]:
-    """Check and sanitize captions/notes against profanity and slurs."""
-    match = BLOCKED_TERMS_PATTERN.search(text or "")
-    if match:
-        sanitized = BLOCKED_TERMS_PATTERN.sub("***", text)
-        return False, sanitized, "Post blocked: Caption contains inappropriate or prohibited language."
-    return True, (text or "").strip(), None
+    """Multi-layer bilingual (Tagalog + English) profanity and slur detector.
+
+    Layer A: Leetspeak & symbol normalization + repeated character collapse.
+    Layer B: Masked / asterisk pattern detection (e.g., p*ta, p*tangina, f*ck, sh*t).
+    Layer C: Comprehensive English & Tagalog profanity, slur, and insult lexicon.
+    """
+    raw = (text or "").strip()
+    if not raw:
+        return True, "", None
+
+    is_bad = False
+    sanitized = raw
+
+    # 1. Direct masked regex check & sanitize
+    if MASKED_REGEX.search(sanitized):
+        is_bad = True
+        sanitized = MASKED_REGEX.sub("***", sanitized)
+
+    # 2. Direct term regex check & sanitize
+    if ALL_TERMS_REGEX.search(sanitized):
+        is_bad = True
+        sanitized = ALL_TERMS_REGEX.sub("***", sanitized)
+
+    # 3. Check obfuscated variants (Layer A - Leetspeak, Spaced, Repeated characters)
+    lower = raw.lower()
+    variants = []
+
+    # Spaced / symbol separated letters: 'p u t a' or 'g.a.g.o'
+    c_spaced = SPACED_PATTERN.sub(lambda m: re.sub(r"[\s._\-\*#~/]+", "", m.group(0)), lower)
+    variants.append(c_spaced)
+
+    # Leetspeak translation
+    leet = lower.translate(LEET_MAP)
+    variants.append(leet)
+
+    # Leet + spaced collapse
+    leet_c_spaced = SPACED_PATTERN.sub(lambda m: re.sub(r"[\s._\-\*#~/]+", "", m.group(0)), leet)
+    variants.append(leet_c_spaced)
+
+    for v in list(variants):
+        dedup = REPEATED_PATTERN.sub(r"\1", v)
+        variants.append(dedup)
+        no_sym = re.sub(r"(?<=[a-z0-9])[\s._\-\*#~/]+(?=[a-z0-9])", "", v)
+        variants.append(no_sym)
+
+    for v in variants:
+        if ALL_TERMS_REGEX.search(v) or MASKED_REGEX.search(v):
+            is_bad = True
+            break
+
+    if is_bad:
+        # Mask spaced tokens
+        def repl_spaced(m):
+            token = re.sub(r"[\s._\-\*#~/]+", "", m.group(0)).lower().translate(LEET_MAP)
+            token = REPEATED_PATTERN.sub(r"\1", token)
+            if ALL_TERMS_REGEX.search(token) or MASKED_REGEX.search(token):
+                return "***"
+            return m.group(0)
+
+        sanitized = SPACED_PATTERN.sub(repl_spaced, sanitized)
+
+        # Mask individual leet / repeated words
+        def repl_words(m):
+            w = m.group(0)
+            w_norm = w.lower().translate(LEET_MAP)
+            w_norm = REPEATED_PATTERN.sub(r"\1", w_norm)
+            if ALL_TERMS_REGEX.search(w_norm) or MASKED_REGEX.search(w_norm):
+                return "***"
+            return w
+
+        sanitized = re.sub(r"\b\S+\b", repl_words, sanitized)
+
+        if sanitized == raw:
+            sanitized = "***"
+
+        return False, sanitized, "Post blocked: Caption contains inappropriate or prohibited language (English/Tagalog profanity filter)."
+
+    return True, raw, None
 
 
 def _infer_2d_vector_subtype(
@@ -1320,37 +1456,29 @@ def recommend_outfits(req: HybridRecommendationRequest) -> List[ScoredOutfitReco
 
     source_mode_req = (req.source_mode or "wardrobe").lower()
 
-    if source_mode_req == "system_catalog" or not has_complete_wardrobe:
-        catalog_raw = get_system_catalog_items(req.gender or "unisex")
-        pool = [WardrobeItemInput(**c) for c in catalog_raw]
-        used_catalog = True
-        actual_source_mode = "system_catalog"
-    elif source_mode_req == "mix":
+    if source_mode_req == "wardrobe":
+        # Strict My Wardrobe mode: NEVER silently substitute or inject SYSTEM_DATASET_CATALOG!
+        if not has_complete_wardrobe:
+            # If user's uploaded wardrobe is empty or lacks at least 1 TOP, 1 BOTTOM, and 1 SHOES,
+            # return an empty list [] so mobile app displays "Add Wardrobe First or Try Mix & Match" card.
+            return []
+        pool = eligible_wardrobe
+        used_catalog = False
+        actual_source_mode = "wardrobe"
+    else:
+        # Mix & Match mode ("mix" or "system_catalog"):
+        # Combine user's eligible_wardrobe with SYSTEM_DATASET_CATALOG (from DeepFashion & Re-Polyvore)
+        # so the engine blends user's real wardrobe items with system dataset items (or uses catalog if empty).
         catalog_raw = get_system_catalog_items(req.gender or "unisex")
         catalog_items = [WardrobeItemInput(**c) for c in catalog_raw]
         pool = eligible_wardrobe + catalog_items
         used_catalog = True
         actual_source_mode = "mix"
-    else:
-        pool = eligible_wardrobe
-        used_catalog = False
-        actual_source_mode = "wardrobe"
 
     tops = [i for i in pool if i.category == "TOP"]
     bottoms = [i for i in pool if i.category == "BOTTOM"]
     shoes = [i for i in pool if i.category == "SHOES"]
     outerwear = [i for i in pool if i.category == "OUTERWEAR"]
-
-    if not tops or not bottoms or not shoes:
-        # Fallback to system catalog if still empty
-        catalog_raw = get_system_catalog_items(req.gender or "unisex")
-        pool = [WardrobeItemInput(**c) for c in catalog_raw]
-        tops = [i for i in pool if i.category == "TOP"]
-        bottoms = [i for i in pool if i.category == "BOTTOM"]
-        shoes = [i for i in pool if i.category == "SHOES"]
-        outerwear = [i for i in pool if i.category == "OUTERWEAR"]
-        used_catalog = True
-        actual_source_mode = "system_catalog"
 
     is_rainy_or_cool = (
         req.weather.temperature_c < 24.0
