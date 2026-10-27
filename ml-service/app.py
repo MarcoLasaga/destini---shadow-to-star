@@ -83,8 +83,9 @@ async def _run_dummy_inference_warmup() -> None:
         def _sync_warmup():
             client = TestClient(fastapi_app)
             resp = client.post(
-                "/analyze",
-                files={"file": ("warmup.png", buf.getvalue(), "image/png")},
+                "/analyze?force_rembg=true",
+                content=buf.getvalue(),
+                headers={"Content-Type": "image/png"},
             )
             return resp.status_code
 

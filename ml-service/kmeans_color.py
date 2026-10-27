@@ -221,6 +221,18 @@ NAMED_FASHION_COLORS: dict[str, tuple[float, float, float]] = {
 def lab_to_color_name(lab: np.ndarray) -> str:
     """Find closest fashion color name by minimizing Delta E CIE76 in CIELAB space."""
     lab_vec = np.asarray(lab, dtype=np.float64).reshape(3)
+    L, a, b = float(lab_vec[0]), float(lab_vec[1]), float(lab_vec[2])
+    C = float(np.hypot(a, b))
+
+    # Achromatic & Indoor White / Cream Calibration
+    if L >= 75.0 and C < 10.5:
+        return 'White'
+    if L >= 80.0 and 10.5 <= C < 18.0 and b > 5.5 and abs(a) < 8.0:
+        return 'Cream'
+    if L < 22.0 and C < 12.0:
+        return 'Black'
+    if 22.0 <= L < 75.0 and C < 8.5:
+        return 'Gray'
     best_name = 'Gray'
     min_dist = float('inf')
 
