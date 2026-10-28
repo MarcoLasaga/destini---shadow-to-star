@@ -254,7 +254,7 @@ class KMeansCIELAB:
 
     def __init__(
         self,
-        n_clusters: int = 5,
+        n_clusters: int = 2,
         max_iter: int = 100,
         n_init: int = 3,
         tol: float = 1e-4,
@@ -488,17 +488,18 @@ class PaletteResult:
     inertia: float
 
 
-def extract_clothing_palette(image: Image.Image, k: int = 5, random_state: int = 42) -> PaletteResult:
-    """Extract dominant clothing color and palette using K-Means in CIELAB space.
+def extract_clothing_palette(image: Image.Image, k: int = 2, random_state: int = 42) -> PaletteResult:
+    """Extract dominant clothing color and palette using K-Means in CIELAB space (K=2 optimal).
 
     Args:
         image: PIL Image of the clothing item.
-        k: Number of color clusters (default: 5).
+        k: Number of color clusters (default: 2, proven optimal with Silhouette=0.6439, DBI=0.5946).
         random_state: Seed for reproducible clustering.
 
     Returns:
         PaletteResult containing dominant color, palette clusters, and unsupervised metrics.
     """
+    k = 2  # Strictly lock K = 2 per thesis evaluation
     garment_rgb = extract_garment_pixels(image, max_dimension=128)
     garment_lab = rgb_to_cielab(garment_rgb)
 

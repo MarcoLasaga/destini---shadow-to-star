@@ -39,7 +39,8 @@ if os.path.isfile(main_py_path):
     spec.loader.exec_module(mod)  # type: ignore[union-attr]
     fastapi_app = mod.app
 else:
-    from app.main import app as fastapi_app  # type: ignore[import-not-found]
+    import app.main as mod  # type: ignore[import-not-found]
+    fastapi_app = mod.app
 
 
 def _gpu_decorator(fn):
@@ -61,13 +62,12 @@ _lifespan_cm = None
 
 async def _run_dummy_inference_warmup() -> None:
     """
-    Passes a tiny 64x64 synthetic image through /analyze at container boot so
+    Passes a tiny 64x64 synthetic image through the inference pipeline at container boot so
     ONNX Runtime (u2netp), PyTorch ResNet-50, and K-Means++ compile their CPU kernels
     BEFORE the user uploads their first real garment photo.
     """
     try:
         from PIL import Image
-        from fastapi.testclient import TestClient
 
         t0 = time.perf_counter()
         img = Image.new("RGB", (64, 64), color=(60, 90, 140))
@@ -78,16 +78,14 @@ async def _run_dummy_inference_warmup() -> None:
 
         buf = io.BytesIO()
         img.save(buf, format="PNG")
-        buf.seek(0)
+        raw_bytes = buf.getvalue()
 
         def _sync_warmup():
-            client = TestClient(fastapi_app)
-            resp = client.post(
-                "/analyze?force_rembg=true",
-                content=buf.getvalue(),
-                headers={"Content-Type": "image/png"},
-            )
-            return resp.status_code
+            analyze_fn = getattr(mod, "_analyze_single_image_bytes", None)
+            if callable(analyze_fn):
+                analyze_fn(raw_bytes, force_rembg=True, beautify=False)
+                return 200
+            return 204
 
         status = await asyncio.to_thread(_sync_warmup)
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
@@ -143,6 +141,8 @@ _API_POST_ENDPOINTS = {
     "/analyze",
     "/analyze-batch",
     "/remove-bg",
+    "/beautify",
+    "/try-on-2d",
     "/moderate",
     "/recommend",
     "/score-outfit",
@@ -229,8 +229,9 @@ demo = None
 if gr is not None:
     with gr.Blocks(title="StyleSense ML Service") as demo:
         gr.Markdown(
-            "### StyleSense FastAPI + ZeroGPU ML Service\n"
-            "Active REST endpoints: `POST /analyze`, `POST /analyze-batch`, `POST /recommend`, `GET /health`."
+            "### StyleSense FastAPI + ZeroGPU ML Service (v6.0)\n"
+            "Active REST endpoints: `POST /analyze`, `POST /analyze-batch`, `POST /beautify`, "
+            "`POST /try-on-2d`, `POST /moderate`, `POST /recommend`, `GET /health`."
         )
         status_btn = gr.Button("Verify ZeroGPU Readiness")
         status_out = gr.Textbox(label="Status")
