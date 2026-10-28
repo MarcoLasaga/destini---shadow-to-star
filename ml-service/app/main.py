@@ -318,6 +318,7 @@ BLOCKED_TERMS_PATTERN = ALL_TERMS_REGEX
 
 class ColorClusterInfo(BaseModel):
     color_name: str
+    hex_code: Optional[str] = None
     proportion: float
     lab: Tuple[float, float, float]
 
@@ -335,6 +336,7 @@ class Prediction(BaseModel):
     secondary_color: Optional[str] = None
     secondary_color_hex: Optional[str] = None
     color_confidence: Optional[float] = None
+    color_harmony_note: Optional[str] = None
     pattern: Optional[str] = None
     palette: List[ColorClusterInfo] = Field(default_factory=list)
     style: Optional[Style] = None
@@ -390,6 +392,7 @@ class BeautifyRequest(BaseModel):
     sub_category: Optional[str] = None
     color: Optional[str] = None
     color_hex: Optional[str] = None
+    gemini_api_key: Optional[str] = None
 
 
 class BeautifyResponse(BaseModel):
@@ -421,6 +424,7 @@ class TryOn2DRequest(BaseModel):
     user_photo_base64: str
     items: List[WardrobeItemInput] = Field(default_factory=list)
     skin_tone_hex: Optional[str] = None
+    gemini_api_key: Optional[str] = None
 
 
 class TryOn2DResponse(BaseModel):
@@ -684,6 +688,31 @@ def extract_garment_cutout(
     return cutout, fg_mask, cutout_data_uri, bg_source
 
 
+def _describe_k2_color_harmony(
+    dom_color: str,
+    dom_prop: float,
+    sec_color: Optional[str],
+    sec_prop: float,
+    dom_lab: np.ndarray,
+    sec_lab: Optional[np.ndarray],
+) -> str:
+    """Generate a defensible CIELAB K=2 color extraction & harmony note for the user UI."""
+    dom_pct = int(round(dom_prop * 100))
+    sec_pct = max(0, 100 - dom_pct)
+    if not sec_color or sec_color == dom_color or sec_prop < 0.10 or sec_lab is None:
+        return f"CIELAB K=2 Solid Palette: {dom_color} ({dom_pct}% dominant, L*={dom_lab[0]:.0f})"
+    delta_e = float(np.sqrt(np.sum((dom_lab - sec_lab) ** 2)))
+    if dom_color in NEUTRAL_COLORS and sec_color not in NEUTRAL_COLORS:
+        rel = "Neutral Base + Chromatic Accent"
+    elif dom_color in NEUTRAL_COLORS and sec_color in NEUTRAL_COLORS:
+        rel = "Monochrome / Neutral Contrast"
+    elif delta_e >= 42.0:
+        rel = "High-Contrast Complementary Pair"
+    else:
+        rel = "Analogous Tonal Harmony"
+    return f"CIELAB K=2 {rel}: {dom_color} ({dom_pct}%) + {sec_color} ({sec_pct}%) · ΔE={delta_e:.1f}"
+
+
 def extract_color_palette_kmeans(
     cutout: Image.Image,
     fg_mask: Optional[np.ndarray] = None,
@@ -694,10 +723,14 @@ def extract_color_palette_kmeans(
 ) -> Tuple[str, str, Optional[str], Optional[str], float, List[ColorClusterInfo]]:
     """Extract dominant colors and CIELAB palette using ml-service/kmeans_color.py with strict K = 2.
 
+    Upgrades in v6.5:
     1. Strictly locks K = 2 (Silhouette = 0.6439, DBI = 0.5946).
-    2. Composites cutout onto a pure white background (255, 255, 255, 255) first for RGB pixel reading.
-    3. Builds a strict interior foreground mask (alpha > 210) eroded by 1 iteration with a 3x3 elliptical kernel.
-    4. Applies Shadow Crevice Outlier Filtering: when median L* > 65.0, filters out deep shadow crevice pixels (L* < 25.0).
+    2. Eliminates specular window glare on dark garments (e.g., shiny black quarter-zip in image_9a9d28.jpg
+       that previously turned 'Gray #667475') by checking 25th-percentile lightness L*_p25 and filtering glare outliers.
+    3. Eliminates muddy shadow hexes on white garments (e.g., '#BCC4BB' in image_9a9d20.jpg) via
+       kmeans_color.lab_to_display_hex().
+    4. Preserves chromatic graphic prints & shoe accents (e.g., Green print on Black Tee in image_9a9d41.jpg,
+       Yellow accents on Running Shoes in image_9a9d08.jpg) in Cluster #2 (secondary_color + secondary_color_hex).
     """
     k = 2  # Strictly lock K = 2 per thesis evaluation
     cutout_rgba = cutout.convert("RGBA")
@@ -708,18 +741,18 @@ def extract_color_palette_kmeans(
     white_canvas = Image.new("RGBA", cutout_rgba.size, (255, 255, 255, 255))
     comp_rgb = np.asarray(Image.alpha_composite(white_canvas, cutout_rgba).convert("RGB"), dtype=np.uint8)
 
-    # 2. Strict interior foreground mask (alpha > 210) + 1-iteration 3x3 elliptical erosion
-    interior_mask = (alpha > 210).astype(np.uint8)
+    # 2. Strict interior foreground mask (alpha > 215) eroded by 2 iterations so zero boundary halo pixels enter K=2
+    interior_mask = (alpha > 215).astype(np.uint8)
     if cv2 is not None:
         try:
             kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-            interior_mask = cv2.erode(interior_mask, kernel, iterations=1)
+            interior_mask = cv2.erode(interior_mask, kernel, iterations=2)
         except Exception:
             pass
 
     interior_bool = interior_mask > 0
     if int(np.sum(interior_bool)) < 30:
-        interior_bool = alpha > 128
+        interior_bool = alpha > 140
     if int(np.sum(interior_bool)) < 20:
         if fg_mask is not None and fg_mask.shape[:2] == comp_rgb.shape[:2] and int(np.sum(fg_mask)) >= 20:
             interior_bool = fg_mask
@@ -731,21 +764,35 @@ def extract_color_palette_kmeans(
     else:
         fg_pixels = comp_rgb.reshape(-1, 3).astype(np.float64)
 
-    # Subsample at most 1200 foreground pixels for <4ms CIELAB K-Means++
-    if len(fg_pixels) > 1200:
+    if len(fg_pixels) > 1500:
         rng = np.random.default_rng(random_state)
-        idx = rng.choice(len(fg_pixels), size=1200, replace=False)
+        idx = rng.choice(len(fg_pixels), size=1500, replace=False)
         fg_pixels = fg_pixels[idx]
 
     fg_lab = kmeans_color.rgb_to_cielab(fg_pixels)
 
-    # 3. Shadow Crevice Outlier Filter: if light-colored item (median L* > 65.0), remove deep crevices (L* < 25.0)
-    if len(fg_lab) > k and float(np.median(fg_lab[:, 0])) > 65.0:
-        non_shadow_lab = fg_lab[fg_lab[:, 0] >= 25.0]
-        if len(non_shadow_lab) >= max(k, 10):
-            fg_lab = non_shadow_lab
+    # 3. Illumination & Specular Glare Outlier Filtering before K = 2 fit:
+    if len(fg_lab) > 20:
+        l_vals = fg_lab[:, 0]
+        c_vals = np.hypot(fg_lab[:, 1], fg_lab[:, 2])
+        med_l = float(np.median(l_vals))
+        p25_l = float(np.percentile(l_vals, 25))
+        p75_c = float(np.percentile(c_vals, 75))
 
-    # Use KMeansCIELAB from ml-service/kmeans_color.py with n_clusters=2, max_iter=30 and tol=1e-3
+        # Case A: Light-colored garment (median L* > 62.0) -> strip deep fold/collar shadows (L* < 38.0 and C* < 12.0)
+        # so white hoodies/shirts never get dragged down to muddy #BCC4BB
+        if med_l > 62.0:
+            clean_light = fg_lab[(l_vals >= 38.0) | (c_vals >= 15.0)]
+            if len(clean_light) >= 15:
+                fg_lab = clean_light
+        # Case B: Dark achromatic garment (p25_l < 28.0 and med_l < 50.0 and p75_c < 11.0) -> strip harsh window specular glare
+        # (L* > 56.0 and C* < 10.0) so shiny black rashguards/jackets (image_9a9d28.jpg) stay 'Black' instead of 'Gray'
+        elif p25_l < 28.0 and med_l < 50.0 and p75_c < 11.0:
+            non_glare = fg_lab[(l_vals <= 48.0) | (c_vals >= 14.0)]
+            if len(non_glare) >= 15:
+                fg_lab = non_glare
+
+    # 4. Fit Chromatic-Aware KMeansCIELAB with strictly K = 2
     km = kmeans_color.KMeansCIELAB(n_clusters=2, max_iter=max_iter, tol=tol, random_state=random_state)
     km.fit(fg_lab)
 
@@ -755,13 +802,35 @@ def extract_color_palette_kmeans(
     weights = counts / max(1, len(labels))
     sorted_order = np.argsort(-weights)
 
+    # 5. If both clusters are low-chroma achromatic on a dark garment where Cluster 0 is glare-gray and Cluster 1 is true Black,
+    # promote the true Black base when p25_l < 27.0
+    c0_lab = centers[sorted_order[0]]
+    c1_lab = centers[sorted_order[1]]
+    n0 = kmeans_color.lab_to_color_name(c0_lab)
+    n1 = kmeans_color.lab_to_color_name(c1_lab)
+    if (
+        n0 == "Gray"
+        and n1 == "Black"
+        and weights[sorted_order[1]] >= 0.28
+        and float(np.hypot(c0_lab[1], c0_lab[2])) < 9.0
+        and float(c0_lab[0]) < 52.0
+    ):
+        sorted_order = np.array([sorted_order[1], sorted_order[0]])
+
     clusters: List[ColorClusterInfo] = []
     for idx in sorted_order:
-        c_lab = centers[idx]
+        c_lab = centers[idx].copy()
         c_name = kmeans_color.lab_to_color_name(c_lab)
+        hex_fn = getattr(kmeans_color, "lab_to_display_hex", None)
+        if callable(hex_fn):
+            c_hex = hex_fn(c_lab, c_name)
+        else:
+            c_rgb = kmeans_color.cielab_to_rgb(c_lab)
+            c_hex = f"#{int(c_rgb[0]):02x}{int(c_rgb[1]):02x}{int(c_rgb[2]):02x}".upper()
         clusters.append(
             ColorClusterInfo(
                 color_name=c_name,
+                hex_code=c_hex,
                 proportion=round(float(weights[idx]), 4),
                 lab=(round(float(c_lab[0]), 2), round(float(c_lab[1]), 2), round(float(c_lab[2]), 2)),
             )
@@ -769,17 +838,13 @@ def extract_color_palette_kmeans(
 
     dom_cluster = clusters[0] if clusters else None
     dom_color = dom_cluster.color_name if dom_cluster else "White"
-    dom_lab = centers[sorted_order[0]] if len(centers) > 0 else np.array([95.0, 0.0, 0.0])
-    dom_rgb = kmeans_color.cielab_to_rgb(dom_lab)
-    color_hex = f"#{int(dom_rgb[0]):02x}{int(dom_rgb[1]):02x}{int(dom_rgb[2]):02x}".upper()
+    color_hex = (dom_cluster.hex_code if (dom_cluster and dom_cluster.hex_code) else "#F8FAFC")
 
     sec_color: Optional[str] = None
     sec_color_hex: Optional[str] = None
     if len(clusters) > 1:
         sec_color = clusters[1].color_name
-        sec_lab = centers[sorted_order[1]]
-        sec_rgb = kmeans_color.cielab_to_rgb(sec_lab)
-        sec_color_hex = f"#{int(sec_rgb[0]):02x}{int(sec_rgb[1]):02x}{int(sec_rgb[2]):02x}".upper()
+        sec_color_hex = clusters[1].hex_code
 
     color_conf = round(float(dom_cluster.proportion), 4) if dom_cluster else 1.0
 
@@ -1571,41 +1636,51 @@ def _calibrate_category_and_subtype(
         if center_strip_edge > 4.0 and hem_placket_edge > 3.5 and not (has_graphic and hem_placket_edge < 5.0):
             center_placket_score = float(center_strip_edge / max(panel_edge, 2.5))
 
-        # 2) Top Hood / High-Collar Projection (y in [0.0, 0.18*H], x in [0.28*W, 0.72*W])
-        hy1 = max(2, int(0.18 * ch))
-        hx0, hx1 = int(0.28 * cw), max(int(0.28 * cw) + 2, int(0.72 * cw))
+        # 2) Top Hood / High-Collar Projection (y in [0.0, 0.16*H], x in [0.30*W, 0.70*W])
+        # A real hood rises above the shoulders as a dome in the top 10% of the bounding box while the outer shoulder corners (x < 0.24*W, x > 0.76*W) are empty.
+        hy1 = max(2, int(0.16 * ch))
+        hx0, hx1 = int(0.30 * cw), max(int(0.30 * cw) + 2, int(0.70 * cw))
         top_center_cov = float(np.mean(crop_alpha[0:hy1, hx0:hx1] > 128))
-        top_left_cov = float(np.mean(crop_alpha[0:hy1, 0 : max(1, int(0.22 * cw))] > 128))
-        top_right_cov = float(np.mean(crop_alpha[0:hy1, min(cw - 1, int(0.78 * cw)) : cw] > 128))
+        top_left_cov = float(np.mean(crop_alpha[0:hy1, 0 : max(1, int(0.24 * cw))] > 128))
+        top_right_cov = float(np.mean(crop_alpha[0:hy1, min(cw - 1, int(0.76 * cw)) : cw] > 128))
         corner_cov = 0.5 * (top_left_cov + top_right_cov)
-        # Also verify the top 8% strip has substantial hood width (> 0.32 * cw) so a collar rim never triggers hood_score
-        top8_cov = float(np.mean(crop_alpha[0 : max(1, int(0.08 * ch)), int(0.32 * cw) : int(0.68 * cw)] > 128))
-        if top8_cov > 0.45 and corner_cov < 0.20:
-            hood_score = top_center_cov * max(0.0, 1.0 - 0.90 * corner_cov)
+        top6_cov = float(np.mean(crop_alpha[0 : max(1, int(0.06 * ch)), int(0.35 * cw) : int(0.65 * cw)] > 128))
+        # A T-shirt crewneck or track-jacket stand collar has wide shoulders right below the top edge; only score a hood when the top dome is tall & narrow
+        shoulder_band_y = crop_alpha[int(0.06 * ch) : int(0.18 * ch), :] > 128
+        shoulder_spread = float(np.mean(shoulder_band_y)) if shoulder_band_y.size > 0 else 0.0
+        if top6_cov > 0.52 and corner_cov < 0.14 and shoulder_spread < 0.46 and not has_graphic:
+            hood_score = top_center_cov * max(0.0, 1.0 - 1.1 * corner_cov)
 
         # 3) Step B — Short-Sleeve T-Shirt Detector (is_short_sleeve_tee)
-        ul_sleeve = crop_alpha[int(0.12 * ch) : int(0.48 * ch), 0 : max(1, int(0.25 * cw))]
-        ur_sleeve = crop_alpha[int(0.12 * ch) : int(0.48 * ch), min(cw - 1, int(0.75 * cw)) : cw]
+        # Compare horizontal row span in the upper sleeve band (0.18..0.48*ch) vs lower torso band (0.58..0.88*ch),
+        # plus outer 12% wrist columns (x < 0.12*cw and x > 0.88*cw) in the lower half!
+        upper_rows = []
+        for ry in range(int(0.18 * ch), int(0.48 * ch)):
+            r_xs = np.where(crop_alpha[ry, :] > 64)[0]
+            if len(r_xs) >= 4:
+                upper_rows.append(float(r_xs[-1] - r_xs[0] + 1))
+        lower_rows = []
+        for ry in range(int(0.58 * ch), int(0.88 * ch)):
+            r_xs = np.where(crop_alpha[ry, :] > 64)[0]
+            if len(r_xs) >= 4:
+                lower_rows.append(float(r_xs[-1] - r_xs[0] + 1))
+
+        max_upper_span = float(np.percentile(upper_rows, 90)) if upper_rows else float(cw)
+        mean_lower_span = float(np.median(lower_rows)) if lower_rows else float(cw)
+
+        ul_sleeve = crop_alpha[int(0.16 * ch) : int(0.48 * ch), 0 : max(1, int(0.22 * cw))]
+        ur_sleeve = crop_alpha[int(0.16 * ch) : int(0.48 * ch), min(cw - 1, int(0.78 * cw)) : cw]
         upper_sleeve_cov = 0.5 * (float(np.mean(ul_sleeve > 64)) + float(np.mean(ur_sleeve > 64)))
 
-        ll_drop = crop_alpha[int(0.52 * ch) : int(0.88 * ch), 0 : max(1, int(0.22 * cw))]
-        lr_drop = crop_alpha[int(0.52 * ch) : int(0.88 * ch), min(cw - 1, int(0.78 * cw)) : cw]
-        lower_sleeve_cov = 0.5 * (float(np.mean(ll_drop > 64)) + float(np.mean(lr_drop > 64)))
-
-        ll_outer = crop_alpha[int(0.52 * ch) : int(0.88 * ch), 0 : max(1, int(0.15 * cw))]
-        lr_outer = crop_alpha[int(0.52 * ch) : int(0.88 * ch), min(cw - 1, int(0.85 * cw)) : cw]
+        ll_outer = crop_alpha[int(0.56 * ch) : int(0.90 * ch), 0 : max(1, int(0.12 * cw))]
+        lr_outer = crop_alpha[int(0.56 * ch) : int(0.90 * ch), min(cw - 1, int(0.88 * cw)) : cw]
         lower_outer_cov = 0.5 * (float(np.mean(ll_outer > 64)) + float(np.mean(lr_outer > 64)))
 
-        # Compare upper sleeve-spread width (0.12..0.46*ch) vs lower torso width (0.55..0.88*ch)
-        upper_band = crop_alpha[int(0.12 * ch) : int(0.46 * ch), :] > 64
-        lower_band = crop_alpha[int(0.55 * ch) : int(0.88 * ch), :] > 64
-        upper_row_w = float(np.mean(np.sum(upper_band, axis=1))) if upper_band.size > 0 else 0.0
-        lower_row_w = float(np.mean(np.sum(lower_band, axis=1))) if lower_band.size > 0 else 1.0
-
-        if upper_sleeve_cov > 0.20 and (
-            lower_sleeve_cov < 0.06
-            or (lower_outer_cov < 0.04 and lower_sleeve_cov < 0.20)
-            or (upper_row_w >= 1.12 * max(lower_row_w, 1.0) and lower_outer_cov < 0.08)
+        # Also check if a vertical gap exists between sleeve cuff and torso in y in [0.42*ch, 0.58*ch]
+        if upper_sleeve_cov > 0.18 and (
+            (max_upper_span >= 1.14 * max(mean_lower_span, 1.0) and lower_outer_cov < 0.12)
+            or lower_outer_cov < 0.045
+            or (has_graphic and bbox_aspect_ratio >= 0.72 and lower_outer_cov < 0.16)
         ):
             is_short_sleeve_tee = True
             short_sleeve_score = 1.0
@@ -1627,7 +1702,9 @@ def _calibrate_category_and_subtype(
         in_r = float(np.mean(grad_x[sy0:sy1, int(0.60 * cw) : max(int(0.60 * cw) + 2, int(0.78 * cw))]))
         mid_edge = 0.5 * (in_l + in_r)
         sec_prop = clusters[1].proportion if len(clusters) > 1 else 0.0
-        if sec_prop >= 0.08 and side_edge > 7.5 and side_edge > 1.25 * max(mid_edge, 3.0):
+        # Require distinct secondary color name for side stripes so shiny fabric folds on a solid black top never trigger 'Striped'!
+        has_distinct_sec_color = (len(clusters) > 1 and clusters[1].color_name != clusters[0].color_name and sec_prop >= 0.10)
+        if has_distinct_sec_color and side_edge > 8.5 and side_edge > 1.32 * max(mid_edge, 3.5):
             has_stripes = True
 
     if "graphic" in fn:
@@ -1636,7 +1713,7 @@ def _calibrate_category_and_subtype(
         has_stripes = True
 
     # ─────────────────────────────────────────────────────────────────────────
-    # B) Resolve TOP vs. OUTERWEAR Confusion (Hard Rule for is_short_sleeve_tee)
+    # B) Resolve TOP vs. OUTERWEAR Confusion (Hard Rule for is_short_sleeve_tee & Graphic Tee)
     # ─────────────────────────────────────────────────────────────────────────
     prob_top = float(class_probabilities.get("TOP", 0.0))
     prob_outer = float(class_probabilities.get("OUTERWEAR", 0.0))
@@ -1651,7 +1728,7 @@ def _calibrate_category_and_subtype(
     ):
         if not any(w in fn for w in ("hoodie", "jacket", "blazer", "cardigan", "coat", "windbreaker")):
             pred_cat = "TOP"
-            raw_conf = max(raw_conf, round(min(0.95, prob_top + prob_outer * 0.75), 4), CONFIDENCE_THRESHOLD + 0.08)
+            raw_conf = max(raw_conf, round(min(0.96, prob_top + prob_outer * 0.85), 4), CONFIDENCE_THRESHOLD + 0.10)
     elif (
         top2_set == {"TOP", "OUTERWEAR"}
         or (pred_cat in ("TOP", "OUTERWEAR") and abs(prob_top - prob_outer) < 0.28)
@@ -1697,6 +1774,11 @@ def _calibrate_category_and_subtype(
     _, material, pred_style, occasion, layer_role = CATEGORY_DEFAULT_METADATA[pred_cat]
     sub_category = "T-Shirt"
     vector_subtype = "tshirt"
+    is_two_tone = (
+        len(clusters) > 1
+        and clusters[1].proportion >= 0.20
+        and clusters[0].color_name != clusters[1].color_name
+    )
 
     if pred_cat == "TOP":
         if is_short_sleeve_tee and has_graphic and "crop" not in fn and "polo" not in fn:
@@ -1724,13 +1806,14 @@ def _calibrate_category_and_subtype(
             sub_category, vector_subtype = "T-Shirt", "tshirt"
 
     elif pred_cat == "OUTERWEAR":
-        if ("zip" in fn and ("hood" in fn or "sweat" in fn)) or (hood_score > 0.36 and center_placket_score > 1.42):
+        # Note: Do NOT trigger Overcoat/Trench from bbox_aspect_ratio < 0.64 (fixes image_9a9d28.jpg)!
+        if ("zip" in fn and ("hood" in fn or "sweat" in fn)) or (hood_score > 0.40 and center_placket_score > 1.42):
             sub_category, vector_subtype = "Zip-Up Hoodie", "zip_hoodie"
             pred_style = "STREETWEAR"
-        elif "track" in fn or (has_stripes and center_placket_score > 1.25):
+        elif "track" in fn or (is_two_tone and hood_score <= 0.38) or (has_stripes and center_placket_score > 1.20):
             sub_category, vector_subtype = "Track Jacket", "windbreaker"
             pred_style = "SPORTY"
-        elif "windbreaker" in fn or "anorak" in fn:
+        elif "windbreaker" in fn or "anorak" in fn or (center_placket_score > 1.32 and hood_score <= 0.36 and not has_graphic):
             sub_category, vector_subtype = "Windbreaker Jacket", "windbreaker"
             pred_style, occasion = "SPORTY", "OUTDOOR"
         elif "blazer" in fn or "suit" in top_imagenet_name:
@@ -1742,12 +1825,9 @@ def _calibrate_category_and_subtype(
         elif "cardigan" in fn or "cardigan" in top_imagenet_name:
             sub_category, vector_subtype = "Knit Cardigan", "cardigan"
             pred_style = "CLASSIC"
-        elif "coat" in fn or "trench" in fn or any(k in top_imagenet_name for k in ("trench coat", "fur coat", "lab coat", "cloak")) or bbox_aspect_ratio < 0.64:
+        elif "coat" in fn or "trench" in fn or any(k in top_imagenet_name for k in ("trench coat", "fur coat", "lab coat", "cloak")):
             sub_category, vector_subtype = "Overcoat / Trench", "coat"
             pred_style, occasion = "FORMAL", "WORK"
-        elif center_placket_score > 1.50 and hood_score <= 0.30 and not has_graphic:
-            sub_category, vector_subtype = "Windbreaker Jacket", "windbreaker"
-            pred_style = "CASUAL"
         else:
             sub_category, vector_subtype = "Pullover Hoodie", "hoodie"
             pred_style = "STREETWEAR"
@@ -1774,16 +1854,17 @@ def _calibrate_category_and_subtype(
             pred_style = "CASUAL"
 
     elif pred_cat == "SHOES":
-        if "boot" in fn or "cowboy boot" in top_imagenet_name or bbox_aspect_ratio < 0.85:
+        # Note: Do NOT trigger Combat Boots from bbox_aspect_ratio < 0.85 (fixes side-by-side Running Shoes in image_9a9d08.jpg)!
+        if "boot" in fn or any(k in top_imagenet_name for k in ("cowboy boot", "boot")):
             sub_category, vector_subtype = "Combat Boots", "combat_boots"
             pred_style = "STREETWEAR"
         elif "heel" in fn or "stiletto" in fn or "sandal" in top_imagenet_name:
             sub_category, vector_subtype = "Strappy Heels", "heels"
             pred_style, occasion = "FORMAL", "PARTY"
-        elif "loafer" in fn or "oxford" in fn or "clog" in top_imagenet_name or (dom_color in ("Brown", "Black", "Tan", "Burgundy") and len(clusters) > 0 and clusters[0].proportion > 0.82):
+        elif "loafer" in fn or "oxford" in fn or "clog" in top_imagenet_name or (dom_color in ("Brown", "Black", "Burgundy") and len(clusters) > 0 and clusters[0].proportion > 0.86):
             sub_category, vector_subtype = "Leather Loafers", "loafers"
             pred_style, occasion = "FORMAL", "WORK"
-        elif "run" in fn or "running shoe" in top_imagenet_name or (len(clusters) > 1 and clusters[1].proportion >= 0.22):
+        elif "run" in fn or "running shoe" in top_imagenet_name or (len(clusters) > 1 and clusters[1].proportion >= 0.14):
             sub_category, vector_subtype = "Running Shoes", "running_shoes"
             pred_style, occasion = "SPORTY", "GYM"
         else:
@@ -1791,7 +1872,7 @@ def _calibrate_category_and_subtype(
             pred_style = "CASUAL"
 
     elif pred_cat == "ACCESSORIES":
-        if "watch" in fn or any(k in top_imagenet_name for k in ("watch", "stopwatch")):
+        if "watch" in fn or any(k in top_imagenet_name for k in ("watch", "stopwatch", "digital watch", "analog clock")):
             sub_category, vector_subtype = "Wristwatch", "watch"
             pred_style = "CLASSIC"
         elif "choker" in fn:
@@ -2022,6 +2103,17 @@ async def run_garment_analysis(
     )
 
     dom_l_star = float(clusters[0].lab[0]) if clusters else 50.0
+    dom_lab_arr = np.asarray(clusters[0].lab, dtype=np.float64) if clusters else np.array([50.0, 0.0, 0.0])
+    sec_lab_arr = np.asarray(clusters[1].lab, dtype=np.float64) if len(clusters) > 1 else None
+    sec_prop_val = float(clusters[1].proportion) if len(clusters) > 1 else 0.0
+    harmony_note = _describe_k2_color_harmony(
+        dom_color=dom_color,
+        dom_prop=color_conf,
+        sec_color=sec_color,
+        sec_prop=sec_prop_val,
+        dom_lab=dom_lab_arr,
+        sec_lab=sec_lab_arr,
+    )
     try:
         beautified_data_uri = beautify_garment_geometric_studio(
             cutout_pil, category=pred_cat, sub_category=sub_category, dom_l_star=dom_l_star
@@ -2030,9 +2122,9 @@ async def run_garment_analysis(
         logger.warning(f"Studio beautify fallback to cutoutDataUri: {e}")
         beautified_data_uri = cutout_data_uri
 
-    # Terminal Log: clear log line on every analyze call
+    # Terminal Log: clear log line on every analyze call including K=2 Secondary Color & Harmony Note
     print(
-        f"[ML-ANALYZE] checkpoint_loaded={IS_FINETUNED_HEAD} | pred_cat={pred_cat} (conf={calibrated_conf:.4f}, sub={sub_category}, vec={vector_subtype}, mat={material}, pattern={pattern_label}) | remove_bg_source={bg_source} | fg_cov={fg_coverage:.3f} | color={dom_color} ({color_hex})",
+        f"[ML-ANALYZE] checkpoint_loaded={IS_FINETUNED_HEAD} | pred_cat={pred_cat} (conf={calibrated_conf:.4f}, sub={sub_category}, vec={vector_subtype}, mat={material}, pattern={pattern_label}) | remove_bg_source={bg_source} | fg_cov={fg_coverage:.3f} | K=2 color={dom_color} ({color_hex}, {color_conf*100:.0f}%) + sec={sec_color} ({sec_color_hex})",
         flush=True,
     )
 
@@ -2049,6 +2141,7 @@ async def run_garment_analysis(
         secondary_color=sec_color,
         secondary_color_hex=sec_color_hex,
         color_confidence=color_conf,
+        color_harmony_note=harmony_note,
         pattern=pattern_label,
         palette=clusters,
         style=pred_style,
@@ -2059,7 +2152,7 @@ async def run_garment_analysis(
         nsfw_scores=nsfw_scores,
         cutoutDataUri=cutout_data_uri,
         beautifiedDataUri=beautified_data_uri,
-        is_safe_garment=pred_cat is not None or calibrated_conf >= CONFIDENCE_THRESHOLD,
+        is_safe_garment=(pred_cat is not None and calibrated_conf >= CONFIDENCE_THRESHOLD),
         moderation_reason=moderation_reason,
     )
 
@@ -2347,7 +2440,7 @@ def moderate_post(payload: ModerationRequest) -> ModerationResponse:
 
 
 @app.post("/beautify", response_model=BeautifyResponse)
-def beautify_garment_endpoint(req: BeautifyRequest) -> BeautifyResponse:
+def beautify_garment_endpoint(req: BeautifyRequest, request: Request) -> BeautifyResponse:
     """True Acloset-Style On-Demand POST /beautify Endpoint (2-Tier Studio Reconstruction Pipeline):
     Tier 1: Free-Tier Cloud AI Studio Flat-Lay Reconstruction (GEMINI_API_KEY or HF_TOKEN if configured).
     Tier 2: Local OpenCV Piece-Wise Contour Symmetrization + Frequency-Separated CIELAB L* Steam-Ironing.
@@ -2361,7 +2454,13 @@ def beautify_garment_endpoint(req: BeautifyRequest) -> BeautifyResponse:
         raise HTTPException(status_code=422, detail=f"Invalid image_base64 for beautify: {e}") from e
 
     # Tier 1 — Free-Tier Cloud AI Studio Flat-Lay Reconstruction (Google Gemini Free Tier)
-    gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
+    gemini_key = (
+        (req.gemini_api_key or "").strip()
+        or request.headers.get("x-gemini-api-key", "").strip()
+        or os.getenv("GEMINI_API_KEY", "").strip()
+        or os.getenv("GOOGLE_API_KEY", "").strip()
+    )
+    print(f"[ML-BEAUTIFY] POST /beautify invoked | cat={req.category} | sub={req.sub_category} | gemini_key_present={bool(gemini_key)}", flush=True)
     if gemini_key:
         try:
             white_bg = Image.new("RGBA", cutout_pil.size, (255, 255, 255, 255))
@@ -2428,7 +2527,11 @@ def _decode_item_cutout_or_render_placeholder(item: WardrobeItemInput, target_w:
         try:
             r = requests.get(img_url, timeout=6)
             if r.status_code == 200:
-                pil_rgba = Image.open(BytesIO(r.content)).convert("RGBA")
+                raw_http_img = Image.open(BytesIO(r.content))
+                if REMBG_AVAILABLE and remove is not None and REMBG_SESSION is not None:
+                    pil_rgba = remove(raw_http_img.convert("RGB"), session=REMBG_SESSION, alpha_matting=False).convert("RGBA")
+                else:
+                    pil_rgba = raw_http_img.convert("RGBA")
         except Exception:
             pil_rgba = None
 
@@ -2450,8 +2553,24 @@ def _decode_item_cutout_or_render_placeholder(item: WardrobeItemInput, target_w:
     return layer
 
 
+CANONICAL_OUTFIT_ORDER: Dict[str, int] = {
+    "TOP": 1,
+    "OUTERWEAR": 2,
+    "BOTTOM": 3,
+    "SHOES": 4,
+    "ACCESSORIES": 5,
+}
+
+
+def sort_outfit_items_canonically(items: List[WardrobeItemInput]) -> List[WardrobeItemInput]:
+    """Sort outfit items in industry-standard anatomical order:
+    1. TOP -> 2. OUTERWEAR -> 3. BOTTOM -> 4. SHOES -> 5. ACCESSORIES.
+    """
+    return sorted(items, key=lambda it: CANONICAL_OUTFIT_ORDER.get((it.category or "").upper(), 99))
+
+
 @app.post("/try-on-2d", response_model=TryOn2DResponse)
-def try_on_2d_endpoint(req: TryOn2DRequest) -> TryOn2DResponse:
+def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse:
     """Cladwell-Style 2D Virtual Try-On Endpoint ('See It On Me'):
     Step 1: 5-Class NSFW Safety Check on user's full-body photo (Neutral dominant, rejecting Drawing, Hentai, Porn, Sexy).
     Step 2: 2D Body Landmark Proportion & Garment Composite keeping Head & Face Zone (top 14%) 100% visible.
@@ -2468,6 +2587,61 @@ def try_on_2d_endpoint(req: TryOn2DRequest) -> TryOn2DResponse:
     is_safe, nsfw_scores, safety_reason = evaluate_5class_nsfw_safety(user_img)
     if not is_safe:
         raise HTTPException(status_code=422, detail=safety_reason or "User photo did not pass 5-class safety check.")
+
+    req.items = sort_outfit_items_canonically(req.items)
+    gemini_key = (
+        (req.gemini_api_key or "").strip()
+        or request.headers.get("x-gemini-api-key", "").strip()
+        or os.getenv("GEMINI_API_KEY", "").strip()
+        or os.getenv("GOOGLE_API_KEY", "").strip()
+    )
+    print(f"[ML-TRYON-2D] POST /try-on-2d invoked | items={len(req.items)} | gemini_key_present={bool(gemini_key)}", flush=True)
+
+    if gemini_key and req.items:
+        try:
+            u_buf = BytesIO()
+            user_img.save(u_buf, format="PNG")
+            u_b64 = base64.b64encode(u_buf.getvalue()).decode("utf-8")
+            item_desc = ", ".join(
+                f"{it.color} {it.clothing_name} ({it.category})" for it in req.items if it.category != "ACCESSORIES"
+            )
+            vton_prompt = (
+                f"Generate a photorealistic 2D virtual try-on ('See It On Me') image of this exact standing person "
+                f"wearing the following outfit: {item_desc}. Keep the person's exact face, head, hair, skin tone, "
+                f"body build, standing posture, and background identical, and naturally fit the garments onto their body."
+            )
+            for model_id in ("gemini-2.5-flash-image", "gemini-2.0-flash-exp-image-generation"):
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:generateContent?key={gemini_key}"
+                payload = {
+                    "contents": [
+                        {
+                            "parts": [
+                                {"text": vton_prompt},
+                                {"inlineData": {"mimeType": "image/png", "data": u_b64}},
+                            ]
+                        }
+                    ],
+                    "generationConfig": {"responseModalities": ["TEXT", "IMAGE"]},
+                }
+                resp = requests.post(url, json=payload, timeout=20)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    for cand in data.get("candidates", []):
+                        for part in cand.get("content", {}).get("parts", []):
+                            inline = part.get("inlineData") or part.get("inline_data")
+                            if inline and inline.get("data"):
+                                gen_bytes = base64.b64decode(inline["data"])
+                                gen_img = Image.open(BytesIO(gen_bytes)).convert("RGB")
+                                out_b = BytesIO()
+                                gen_img.save(out_b, format="WEBP", quality=88, method=4)
+                                vton_uri = f"data:image/webp;base64,{base64.b64encode(out_b.getvalue()).decode('utf-8')}"
+                                return TryOn2DResponse(
+                                    tryOnDataUri=vton_uri,
+                                    skinHexDetected=req.skin_tone_hex or "#D8A988",
+                                    nsfw_scores=nsfw_scores,
+                                )
+        except Exception as e:
+            logger.warning(f"Gemini Try-On fallback to 2D landmark composite: {e}")
 
     # Resize working full-body photo to max 512px height for sub-second try-on composite
     base_rgba = user_img.copy()
@@ -2657,19 +2831,32 @@ CORPORATE_FORBIDDEN_SUBTYPES = {
     "sweatpants",
     "flip_flops",
     "slippers",
+    "hoodie",
+    "zip_hoodie",
+    "windbreaker",
+    "choker",
+    "cap",
+    "running_shoes",
+    "combat_boots",
 }
-FORMAL_EXTRA_FORBIDDEN_SUBTYPES = {"tshirt", "hoodie", "zip_hoodie"}
+FORMAL_EXTRA_FORBIDDEN_SUBTYPES = {"tshirt", "jeans", "cargo_pants", "sneakers"}
 
 
 def _is_item_dress_code_violation(item: WardrobeItemInput, target_occasion: str) -> bool:
-    """Tier 1 Hard Dress-Code Exclusion check for Work/Office/Corporate/Formal occasions."""
+    """Tier 1 Hard Dress-Code Exclusion check for Work/Office/Corporate/Formal occasions.
+    Fixes image_9a3048.jpg so Office/Formal never recommends Pullover Hoodies, Spiked Leather Chokers, or Chrome Spike Earrings!
+    """
     occ_low = (target_occasion or "").strip().lower()
     if occ_low not in ("work", "office", "corporate", "formal"):
         return False
     sub = (item.vector_subtype or "").strip().lower()
     name_low = (item.clothing_name or "").strip().lower()
+    style_up = (item.style or "").strip().upper()
     if not sub:
         sub = _infer_2d_vector_subtype(item.category, filename=name_low, hint_labels=[item.clothing_name, item.style])
+
+    if style_up in ("PUNK", "ROCKSTAR", "WORKOUT", "SPORTY"):
+        return True
 
     forbidden = set(CORPORATE_FORBIDDEN_SUBTYPES)
     if occ_low == "formal":
@@ -2677,9 +2864,15 @@ def _is_item_dress_code_violation(item: WardrobeItemInput, target_occasion: str)
 
     if sub in forbidden:
         return True
-    if any(w in name_low for w in ("short", "tank top", "crop top", "track pant", "sweatpant", "flip flop", "slipper")):
+    if any(
+        w in name_low
+        for w in (
+            "short", "tank top", "crop top", "track pant", "sweatpant",
+            "flip flop", "slipper", "hoodie", "spiked", "spike", "choker", "punk",
+        )
+    ):
         return True
-    if occ_low == "formal" and any(w in name_low for w in ("t-shirt", "tshirt", "hoodie")):
+    if occ_low == "formal" and any(w in name_low for w in ("t-shirt", "tshirt", "hoodie", "jean", "cargo")):
         return True
     return False
 
@@ -2909,7 +3102,9 @@ def recommend_outfits(req: HybridRecommendationRequest) -> List[ScoredOutfitReco
         for bottom in bottoms:
             for shoe in shoes:
                 # 1) Base 3-piece unlayered candidate (TOP + BOTTOM + SHOES)
-                base_items = [top, bottom, shoe]
+                raw_accessories = [i for i in pool if i.category == "ACCESSORIES" and not _is_item_dress_code_violation(i, req.target_occasion)]
+                matching_acc = next((a for a in raw_accessories if a.style == top.style), raw_accessories[0] if raw_accessories else None)
+                base_items = sort_outfit_items_canonically([top, bottom, shoe] + ([matching_acc] if matching_acc else []))
                 s_cb_u, s_cf_u, s_hyb_u, weather_tag_u, reasons_u = score_outfit_combination(
                     items=base_items,
                     target_occasion=req.target_occasion,
@@ -2958,7 +3153,7 @@ def recommend_outfits(req: HybridRecommendationRequest) -> List[ScoredOutfitReco
                         matching_out = next((o for o in outerwear if o.vector_subtype == "blazer"), outerwear[0])
                     else:
                         matching_out = next((o for o in outerwear if o.style == top.style), outerwear[0])
-                    layered_items = [top, bottom, shoe, matching_out]
+                    layered_items = sort_outfit_items_canonically([top, outline_it if (outline_it := matching_out) else matching_out, bottom, shoe] + ([matching_acc] if matching_acc else []))
                     s_cb_l, s_cf_l, s_hyb_l, weather_tag_l, reasons_l = score_outfit_combination(
                         items=layered_items,
                         target_occasion=req.target_occasion,
