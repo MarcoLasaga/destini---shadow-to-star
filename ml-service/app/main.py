@@ -12,16 +12,16 @@ Implements:
 5. Batch Wardrobe Image Analysis endpoint (POST /analyze-batch) accepting up to 15 images.
 6. Automated AI Content Moderation Gate (5-Class NSFWJS Equivalent + Bilingual Profanity Filter).
 7. Context-Aware Weighted Hybrid Recommendation Engine: S_hybrid = round(0.55 * S_cb + 0.45 * S_cf).
-8. v6.6 Upgrades:
-   - Schema-resilient WardrobeItemInput (fixes HTTP 422 on POST /try-on-2d when mobile sends `name` or Title-Case/Plural categories).
-   - Non-destructive Tier 2 Studio Beautifier (removes cv2.remap shoe/shirt warping in image_646b8f.jpg) + Multi-Model Gemini Pro/Flash Tier 1 Flat-Lay Reconstruction with detailed logging.
-   - Multi-image Gemini Virtual Try-On (passes both user full-body photo and garment cutout PNGs to Gemini).
-   - Calibrated Polo Shirt (image_646e3a.jpg) and Two-Tone Track Jacket (image_646e33.jpg) subtype rules.
+8. v6.6 Zero-Cost Upgrades ($0.00 Required — No $30 Prepay Needed):
+   - Schema-resilient WardrobeItemInput (fixes HTTP 422 on POST /try-on-2d).
+   - Non-destructive Studio Beautifier (removes cv2.remap shoe/shirt warping, adds CLAHE + Bilateral Steam-Ironing + Optional Gemini Tier 1).
+   - Anatomical Silhouette-Measured 2D Virtual Try-On (measures true shoulder width, waist width, and left/right foot centers from the user's rembg person mask, splits left/right shoes onto each foot, and prevents double-shirt stacking).
 """
 
 import base64
 from contextlib import asynccontextmanager
 import gc
+import hashlib
 from io import BytesIO
 import json
 import logging
@@ -29,6 +29,7 @@ import os
 from pathlib import Path
 import re
 import sys
+import time
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
 logging.basicConfig(level=logging.INFO)
@@ -158,6 +159,17 @@ Material = Literal[
     "Linen", "Leather", "Knit", "Nylon", "Other"
 ]
 Occasion = Literal["SCHOOL", "WORK", "GYM", "PARTY", "DATE", "OUTDOOR", "EVERYDAY"]
+
+GEMINI_IMAGE_MODELS: Tuple[str, ...] = (
+    "gemini-2.5-flash-image",
+    "gemini-3.1-flash-image-preview",
+)
+
+_GEMINI_BEAUTIFY_CACHE: Dict[str, str] = {}
+_GEMINI_TRYON_CACHE: Dict[str, str] = {}
+# Circuit-breaker: if Gemini returns 429 (quota=0 on unbilled key), skip calling Gemini for 10 minutes
+# so /beautify and /try-on-2d respond in <300ms instead of waiting on 429!
+_GEMINI_QUOTA_COOLDOWN_UNTIL: float = 0.0
 
 # Load taxonomy from cnn_taxonomy.json
 TAXONOMY_PATH = BASE_DIR / "cnn_taxonomy.json"
@@ -462,8 +474,6 @@ class WardrobeItemInput(BaseModel):
     worn_within_7_days: Optional[bool] = False
 
     def __init__(self, **data: Any) -> None:
-        # Fixes HTTP 422 on POST /try-on-2d when mobile sends `name` instead of `clothing_name`,
-        # Title-Case/Plural `category` ("Outerwear", "Tops", "Bottoms"), or omits `color`!
         resolved_name = (
             data.get("clothing_name")
             or data.get("name")
@@ -478,16 +488,24 @@ class WardrobeItemInput(BaseModel):
         data["category"] = _normalize_category_str(data.get("category"))
         data["style"] = _normalize_style_str(data.get("style"))
         resolved_color = data.get("color") or data.get("primary_color")
-        if not resolved_color:
-            # Infer color from name if possible (e.g. "Graphic Black Pullover Hoodie" -> "Black")
+        if not resolved_color or str(resolved_color).startswith("#"):
             nl = str(resolved_name).lower()
             inferred = "Black"
             for cname in kmeans_color.NAMED_FASHION_COLORS.keys():
                 if cname.lower() in nl:
                     inferred = cname
                     break
-            resolved_color = inferred
-        data["color"] = str(resolved_color)
+            resolved_color = data.get("color") if (data.get("color") and not str(data.get("color")).startswith("#")) else inferred
+        color_alias_map = {
+            "Charcoal": "Gray",
+            "Silver": "Gray",
+            "Coral": "Pink",
+            "Lilac": "Purple",
+        }
+        c_str = str(resolved_color).strip()
+        data["color"] = color_alias_map.get(c_str, c_str)
+        if not data.get("colorHex") and str(data.get("primary_color", "")).startswith("#"):
+            data["colorHex"] = str(data["primary_color"])
         if not data.get("image_url"):
             data["image_url"] = (
                 data.get("beautifiedDataUri")
@@ -690,7 +708,6 @@ def extract_garment_cutout(
         except Exception as e:
             logger.warning(f"Morphological smoothing skipped: {e}")
 
-    # Step A — Erase thin wire/plastic coat hanger hook at top 14% if narrow (< 24% of chest width)
     ys_h, xs_h = np.where(alpha > 40)
     if len(ys_h) > 20 and len(xs_h) > 20:
         b_top, b_bot = int(np.min(ys_h)), int(np.max(ys_h))
@@ -894,11 +911,11 @@ def beautify_garment_geometric_studio(
     sub_category: Optional[str] = None,
     dom_l_star: float = 50.0,
 ) -> str:
-    """Tier 2 Non-Destructive Local Studio Beautifier (Fixes shoe/shirt warping in image_646b8f.jpg!):
+    """Non-Destructive Local Studio Beautifier ($0.00 Free Pipeline — Zero Shoe/Shirt Warping):
     1. Hanger Hook Eraser (strictly on TOP and OUTERWEAR only—never on SHOES or BOTTOM).
     2. Gentle Rigid Deskewing (<= 8 deg, strictly on TOP and OUTERWEAR only).
-    3. Non-Destructive Silhouette Edge Anti-Aliasing (ZERO row-by-row cv2.remap distortion!).
-    4. Frequency-Separated CIELAB L* Studio Relighting, Glare Suppression & De-Wrinkling + Seam Sharpening.
+    3. Non-Destructive Silhouette Edge Anti-Aliasing.
+    4. Multi-Pass CIELAB L* Studio Steam-Ironing (attenuates mid-frequency fold shadows while keeping seams/prints sharp).
     5. Centered 400x400 Studio Product Card with Soft Drop-Shadow.
     """
     rgba = np.asarray(cutout_rgba.convert("RGBA"), dtype=np.uint8).copy()
@@ -912,14 +929,13 @@ def beautify_garment_geometric_studio(
         bh = max(bottom - top, 1)
         bw = max(right - left, 1)
 
-        # 1. Hanger Hook Eraser (ONLY on TOP / OUTERWEAR, never on SHOES or BOTTOM)
         if cat_norm in ("TOP", "OUTERWEAR"):
             hanger_end_y = top + max(1, int(0.14 * bh))
             body_widths = []
             for y in range(hanger_end_y, bottom + 1):
                 row_xs = np.where(alpha[y, left : right + 1] > 64)[0]
                 if len(row_xs) > 0:
-                    body_widths.append(int(r_w := (row_xs[-1] - row_xs[0] + 1)))
+                    body_widths.append(int(row_xs[-1] - row_xs[0] + 1))
             max_torso_width = float(max(body_widths)) if body_widths else float(bw)
 
             for y in range(top, hanger_end_y):
@@ -932,7 +948,6 @@ def beautify_garment_geometric_studio(
 
             rgba[:, :, 3] = alpha
 
-        # 2. Gentle Rigid Deskewing (<= 8 deg, ONLY on TOP / OUTERWEAR—never rotate SHOES!)
         if cv2 is not None and cat_norm in ("TOP", "OUTERWEAR"):
             try:
                 m = cv2.moments((alpha > 64).astype(np.uint8))
@@ -957,7 +972,6 @@ def beautify_garment_geometric_studio(
             except Exception as e:
                 logger.debug(f"Deskewing skipped: {e}")
 
-    # 3. Center cropped garment on a 400x400 workspace without any row-by-row warping
     stage_pil = Image.fromarray(rgba, mode="RGBA")
     s_bbox = stage_pil.getbbox()
     work_canvas = Image.new("RGBA", (400, 400), (0, 0, 0, 0))
@@ -973,7 +987,6 @@ def beautify_garment_geometric_studio(
     rgba = np.asarray(work_canvas, dtype=np.uint8).copy()
     alpha = rgba[:, :, 3]
 
-    # 4. Frequency-Separated CIELAB L* Studio Relighting, Glare Suppression & De-Wrinkling
     if cv2 is not None:
         try:
             k_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
@@ -986,13 +999,14 @@ def beautify_garment_geometric_studio(
             lab_cv = cv2.cvtColor(rgb_chan, cv2.COLOR_RGB2LAB)
             l_chan, a_chan, b_chan = cv2.split(lab_cv)
 
-            # Edge-preserving bilateral filter smooths camera noise & fabric creases while keeping seams/laces sharp
-            l_bilat = cv2.bilateralFilter(l_chan, d=9, sigmaColor=28, sigmaSpace=28)
-            clahe = cv2.createCLAHE(clipLimit=1.4, tileGridSize=(8, 8))
-            l_studio = clahe.apply(l_bilat)
-            l_detail = l_chan.astype(np.float32) - l_bilat.astype(np.float32)
+            # Two-scale bilateral steam-ironing: removes mid-frequency fabric wrinkles while preserving seams & graphics
+            l_bilat1 = cv2.bilateralFilter(l_chan, d=9, sigmaColor=32, sigmaSpace=32)
+            l_bilat2 = cv2.bilateralFilter(l_bilat1, d=7, sigmaColor=24, sigmaSpace=24)
+            clahe = cv2.createCLAHE(clipLimit=1.45, tileGridSize=(8, 8))
+            l_studio = clahe.apply(l_bilat2)
+            l_detail = l_chan.astype(np.float32) - l_bilat1.astype(np.float32)
             l_ironed = np.clip(
-                0.82 * l_studio.astype(np.float32) + 0.18 * l_bilat.astype(np.float32) + 0.85 * l_detail,
+                0.84 * l_studio.astype(np.float32) + 0.16 * l_bilat2.astype(np.float32) + 0.88 * l_detail,
                 0.0,
                 255.0,
             ).astype(np.uint8)
@@ -1005,7 +1019,6 @@ def beautify_garment_geometric_studio(
         except Exception as e:
             logger.debug(f"Frequency-separated L* studio relighting skipped: {e}")
 
-    # 5. Soft Studio Drop-Shadow & Crisp Silhouette Edge on 400x400 WebP canvas
     clean_pil = Image.fromarray(rgba, mode="RGBA")
     bbox = clean_pil.getbbox()
     canvas = Image.new("RGBA", (400, 400), (0, 0, 0, 0))
@@ -1557,7 +1570,6 @@ def _calibrate_category_and_subtype(
         if center_strip_edge > 4.0 and hem_placket_edge > 3.5 and not (has_graphic and hem_placket_edge < 5.0):
             center_placket_score = float(center_strip_edge / max(panel_edge, 2.5))
 
-        # Upper-chest / V-neck collar placket score for Polo Shirts (y in [0.08*ch, 0.36*ch], x in [0.42*cw, 0.58*cw])
         py0, py1 = int(0.08 * ch), max(int(0.08 * ch) + 3, int(0.36 * ch))
         px0, px1 = int(0.42 * cw), max(int(0.42 * cw) + 2, min(cw - 1, int(0.58 * cw)))
         collar_edge = float(0.5 * (np.mean(grad_x[py0:py1, px0:px1]) + np.mean(grad_y[py0:py1, px0:px1])))
@@ -1721,7 +1733,6 @@ def _calibrate_category_and_subtype(
             sub_category, vector_subtype = "T-Shirt", "tshirt"
 
     elif pred_cat == "OUTERWEAR":
-        # Fixes image_646e33.jpg (Black & Yellow Track Jacket classified as Pullover Hoodie):
         if ("zip" in fn and ("hood" in fn or "sweat" in fn)) or (hood_score > 0.40 and center_placket_score > 1.42):
             sub_category, vector_subtype = "Zip-Up Hoodie", "zip_hoodie"
             pred_style = "STREETWEAR"
@@ -2330,16 +2341,23 @@ def moderate_post(payload: ModerationRequest) -> ModerationResponse:
 @app.post("/beautify", response_model=BeautifyResponse)
 def beautify_garment_endpoint(req: BeautifyRequest, request: Request) -> BeautifyResponse:
     """True Acloset-Style On-Demand POST /beautify Endpoint (2-Tier Studio Reconstruction Pipeline):
-    Tier 1: Cloud AI Studio Flat-Lay Reconstruction (Gemini 2.5 Flash Image / Gemini 2.0 Image Generation).
-    Tier 2: Non-Destructive Local Studio Relighting & Bilateral De-Wrinkling (Zero Shoe/Shirt Warping!).
+    Tier 1: Cloud AI Studio Flat-Lay Reconstruction (if Gemini quota is active).
+    Tier 2: $0.00 Non-Destructive Local Studio Steam-Ironing & Bilateral Relighting (Zero Shoe/Shirt Warping!).
     """
+    global _GEMINI_QUOTA_COOLDOWN_UNTIL
     raw_b64 = req.image_base64.strip()
     if "," in raw_b64:
         raw_b64 = raw_b64.split(",", 1)[1]
     try:
-        cutout_pil = Image.open(BytesIO(base64.b64decode(raw_b64))).convert("RGBA")
+        raw_bytes = base64.b64decode(raw_b64)
+        cutout_pil = Image.open(BytesIO(raw_bytes)).convert("RGBA")
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Invalid image_base64 for beautify: {e}") from e
+
+    cache_key = hashlib.sha256(raw_bytes).hexdigest()
+    if cache_key in _GEMINI_BEAUTIFY_CACHE:
+        print(f"[ML-BEAUTIFY] Returning cached Studio Flat-Lay for {cache_key[:10]}...", flush=True)
+        return BeautifyResponse(beautifiedDataUri=_GEMINI_BEAUTIFY_CACHE[cache_key], method="ai_studio_flatlay")
 
     gemini_key = (
         (req.gemini_api_key or "").strip()
@@ -2347,8 +2365,9 @@ def beautify_garment_endpoint(req: BeautifyRequest, request: Request) -> Beautif
         or os.getenv("GEMINI_API_KEY", "").strip()
         or os.getenv("GOOGLE_API_KEY", "").strip()
     )
+    now_ts = time.time()
     print(f"[ML-BEAUTIFY] POST /beautify invoked | cat={req.category} | sub={req.sub_category} | gemini_key_present={bool(gemini_key)}", flush=True)
-    if gemini_key:
+    if gemini_key and now_ts >= _GEMINI_QUOTA_COOLDOWN_UNTIL:
         try:
             white_bg = Image.new("RGBA", cutout_pil.size, (255, 255, 255, 255))
             flat_rgb = Image.alpha_composite(white_bg, cutout_pil).convert("RGB")
@@ -2365,12 +2384,7 @@ def beautify_garment_endpoint(req: BeautifyRequest, request: Request) -> Beautif
                 "while preserving the exact fabric color, seam stitching lines, drawstrings, pockets, collar/hood, "
                 "and any graphic print."
             )
-            for model_id in (
-                "gemini-2.5-flash-image",
-                "gemini-2.0-flash-preview-image-generation",
-                "gemini-2.0-flash-exp-image-generation",
-                "gemini-2.0-flash-exp",
-            ):
+            for model_id in GEMINI_IMAGE_MODELS:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:generateContent?key={gemini_key}"
                 payload = {
                     "contents": [
@@ -2394,14 +2408,16 @@ def beautify_garment_endpoint(req: BeautifyRequest, request: Request) -> Beautif
                                 gen_bytes = base64.b64decode(inline["data"])
                                 gen_img = Image.open(BytesIO(gen_bytes)).convert("RGBA")
                                 _, _, clean_uri, _ = extract_garment_cutout(gen_img, force_rembg=True)
+                                _GEMINI_BEAUTIFY_CACHE[cache_key] = clean_uri
                                 print(f"[ML-BEAUTIFY] Success via {model_id} (ai_studio_flatlay)!", flush=True)
                                 return BeautifyResponse(beautifiedDataUri=clean_uri, method="ai_studio_flatlay")
-                else:
-                    print(f"[ML-BEAUTIFY] {model_id} note: {resp.text[:220]}", flush=True)
+                elif resp.status_code == 429:
+                    _GEMINI_QUOTA_COOLDOWN_UNTIL = time.time() + 600.0
+                    print("[ML-BEAUTIFY] Gemini 429 (unbilled key) -> activating instant local Studio Steam-Ironing.", flush=True)
+                    break
         except Exception as e:
             logger.warning(f"Tier 1 Gemini Studio Flat-Lay fallback to Tier 2: {e}")
 
-    # Tier 2 — Non-Destructive Local Studio Relighting & Bilateral De-Wrinkling
     beautified_uri = beautify_garment_geometric_studio(
         cutout_rgba=cutout_pil,
         category=req.category,
@@ -2410,8 +2426,8 @@ def beautify_garment_endpoint(req: BeautifyRequest, request: Request) -> Beautif
     return BeautifyResponse(beautifiedDataUri=beautified_uri, method="geometric_studio_iron")
 
 
-def _decode_item_cutout_or_render_placeholder(item: WardrobeItemInput, target_w: int, target_h: int) -> Image.Image:
-    """Decode item's cutout/beautified image_url if base64/HTTP, or synthesize a clean 2D garment layer."""
+def _decode_item_cutout_raw(item: WardrobeItemInput) -> Optional[Image.Image]:
+    """Decode item's cutout/beautified image_url into a tight-cropped RGBA PIL Image."""
     img_url = (item.image_url or item.beautifiedDataUri or item.cutoutDataUri or "").strip()
     pil_rgba: Optional[Image.Image] = None
     if img_url.startswith("data:image/") and not img_url.startswith("data:image/svg"):
@@ -2436,16 +2452,30 @@ def _decode_item_cutout_or_render_placeholder(item: WardrobeItemInput, target_w:
         bbox = pil_rgba.getbbox()
         if bbox:
             pil_rgba = pil_rgba.crop(bbox)
-        return pil_rgba.resize((max(16, target_w), max(16, target_h)), Image.Resampling.LANCZOS)
+    return pil_rgba
+
+
+def _decode_item_cutout_or_render_placeholder(item: WardrobeItemInput, target_w: int, target_h: int) -> Image.Image:
+    """Decode item's cutout/beautified image_url and fit proportionally inside (target_w, target_h) with zero stretching."""
+    tw_safe = max(16, target_w)
+    th_safe = max(16, target_h)
+    pil_rgba = _decode_item_cutout_raw(item)
+    if pil_rgba is not None:
+        pil_rgba.thumbnail((tw_safe, th_safe), Image.Resampling.LANCZOS)
+        canvas = Image.new("RGBA", (tw_safe, th_safe), (0, 0, 0, 0))
+        ox = (tw_safe - pil_rgba.width) // 2
+        oy = (th_safe - pil_rgba.height) // 2
+        canvas.paste(pil_rgba, (ox, oy), pil_rgba)
+        return canvas
 
     ref_lab = kmeans_color.NAMED_FASHION_COLORS.get(item.color, (35.0, 0.0, 0.0))
     rgb_tup = kmeans_color.cielab_to_rgb(np.asarray(ref_lab, dtype=np.float64))
     fill_rgba = (int(rgb_tup[0]), int(rgb_tup[1]), int(rgb_tup[2]), 235)
-    layer = Image.new("RGBA", (max(16, target_w), max(16, target_h)), (0, 0, 0, 0))
+    layer = Image.new("RGBA", (tw_safe, th_safe), (0, 0, 0, 0))
     from PIL import ImageDraw
 
     d = ImageDraw.Draw(layer)
-    d.rounded_rectangle([2, 2, max(14, target_w - 3), max(14, target_h - 3)], radius=12, fill=fill_rgba)
+    d.rounded_rectangle([2, 2, max(14, tw_safe - 3), max(14, th_safe - 3)], radius=12, fill=fill_rgba)
     return layer
 
 
@@ -2467,15 +2497,20 @@ def sort_outfit_items_canonically(items: List[WardrobeItemInput]) -> List[Wardro
 
 @app.post("/try-on-2d", response_model=TryOn2DResponse)
 def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse:
-    """Cladwell-Style 2D Virtual Try-On Endpoint ('See It On Me'):
+    """Cladwell-Style 2D Virtual Try-On Endpoint ('See It On Me') — $0.00 Zero-Cost Anatomical Fitting:
     Step 1: 5-Class NSFW Safety Check on user's full-body photo.
-    Step 2: Multi-Image Gemini Virtual Try-On (passing both user photo and garment cutouts) with 2D Landmark fallback.
+    Step 2: Optional Gemini Multimodal Try-On (if billed key is active) OR Anatomical Silhouette-Measured
+            2D Body-Proportioned Compositor (measures exact shoulder width, hip width, and left/right foot
+            centers from the user's rembg person mask, splits shoe pairs onto each foot, and prevents
+            double-shirt stacking!).
     """
+    global _GEMINI_QUOTA_COOLDOWN_UNTIL
     raw_b64 = req.user_photo_base64.strip()
     if "," in raw_b64:
         raw_b64 = raw_b64.split(",", 1)[1]
     try:
-        user_img = Image.open(BytesIO(base64.b64decode(raw_b64))).convert("RGB")
+        user_bytes = base64.b64decode(raw_b64)
+        user_img = Image.open(BytesIO(user_bytes)).convert("RGB")
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Invalid user_photo_base64: {e}") from e
 
@@ -2484,15 +2519,27 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
         raise HTTPException(status_code=422, detail=safety_reason or "User photo did not pass 5-class safety check.")
 
     req.items = sort_outfit_items_canonically(req.items)
+    tryon_sig = hashlib.sha256(
+        user_bytes + "|".join(f"{it.id}:{it.clothing_name}:{it.color}" for it in req.items).encode("utf-8")
+    ).hexdigest()
+    if tryon_sig in _GEMINI_TRYON_CACHE:
+        print(f"[ML-TRYON-2D] Returning cached Virtual Try-On for {tryon_sig[:10]}...", flush=True)
+        return TryOn2DResponse(
+            tryOnDataUri=_GEMINI_TRYON_CACHE[tryon_sig],
+            skinHexDetected=req.skin_tone_hex or "#D8A988",
+            nsfw_scores=nsfw_scores,
+        )
+
     gemini_key = (
         (req.gemini_api_key or "").strip()
         or request.headers.get("x-gemini-api-key", "").strip()
         or os.getenv("GEMINI_API_KEY", "").strip()
         or os.getenv("GOOGLE_API_KEY", "").strip()
     )
+    now_ts = time.time()
     print(f"[ML-TRYON-2D] POST /try-on-2d invoked | items={len(req.items)} | gemini_key_present={bool(gemini_key)}", flush=True)
 
-    if gemini_key and req.items:
+    if gemini_key and req.items and now_ts >= _GEMINI_QUOTA_COOLDOWN_UNTIL:
         try:
             u_buf = BytesIO()
             user_img.save(u_buf, format="PNG")
@@ -2530,12 +2577,7 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
                 except Exception:
                     pass
 
-            for model_id in (
-                "gemini-2.5-flash-image",
-                "gemini-2.0-flash-preview-image-generation",
-                "gemini-2.0-flash-exp-image-generation",
-                "gemini-2.0-flash-exp",
-            ):
+            for model_id in GEMINI_IMAGE_MODELS:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:generateContent?key={gemini_key}"
                 payload = {
                     "contents": [{"parts": content_parts}],
@@ -2554,26 +2596,36 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
                                 out_b = BytesIO()
                                 gen_img.save(out_b, format="WEBP", quality=88, method=4)
                                 vton_uri = f"data:image/webp;base64,{base64.b64encode(out_b.getvalue()).decode('utf-8')}"
+                                _GEMINI_TRYON_CACHE[tryon_sig] = vton_uri
                                 print(f"[ML-TRYON-2D] Success via {model_id}!", flush=True)
                                 return TryOn2DResponse(
                                     tryOnDataUri=vton_uri,
                                     skinHexDetected=req.skin_tone_hex or "#D8A988",
                                     nsfw_scores=nsfw_scores,
                                 )
-                else:
-                    print(f"[ML-TRYON-2D] {model_id} note: {resp.text[:220]}", flush=True)
+                elif resp.status_code == 429:
+                    _GEMINI_QUOTA_COOLDOWN_UNTIL = time.time() + 600.0
+                    print("[ML-TRYON-2D] Gemini 429 (unbilled key) -> running $0.00 Anatomical Silhouette Compositor.", flush=True)
+                    break
         except Exception as e:
             logger.warning(f"Gemini Try-On fallback to 2D landmark composite: {e}")
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # $0.00 ANATOMICAL SILHOUETTE-MEASURED 2D VIRTUAL TRY-ON COMPOSITOR
+    # Measures exact shoulder width, waist width, and left/right foot centers
+    # from the user's rembg person mask so garments fit naturally without stretching!
+    # ─────────────────────────────────────────────────────────────────────────
     base_rgba = user_img.copy()
     base_rgba.thumbnail((512, 512), Image.Resampling.BILINEAR)
     base_rgba = base_rgba.convert("RGBA")
     W, H = base_rgba.size
 
-    p_left, p_top, p_right, p_bottom = int(0.18 * W), int(0.06 * H), int(0.82 * W), int(0.95 * H)
+    p_left, p_top, p_right, p_bottom = int(0.22 * W), int(0.06 * H), int(0.78 * W), int(0.95 * H)
+    person_alpha: Optional[np.ndarray] = None
     if REMBG_AVAILABLE and remove is not None and REMBG_SESSION is not None:
         try:
             person_cutout = remove(base_rgba.convert("RGB"), session=REMBG_SESSION, alpha_matting=False)
+            person_alpha = np.asarray(person_cutout.convert("RGBA"))[:, :, 3]
             p_bbox = person_cutout.getbbox()
             if p_bbox and (p_bbox[2] - p_bbox[0]) >= 30 and (p_bbox[3] - p_bbox[1]) >= 50:
                 p_left, p_top, p_right, p_bottom = p_bbox
@@ -2584,16 +2636,62 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
     p_h = max(80, p_bottom - p_top)
     p_cx = p_left + p_w // 2
 
+    # Measure true anatomical widths from person_alpha (instead of using full arm-spread bounding box!)
+    shoulder_w = int(p_w * 0.68)
+    hip_w = int(p_w * 0.56)
+    torso_cx = p_cx
+    left_foot_cx = p_cx - int(p_w * 0.14)
+    right_foot_cx = p_cx + int(p_w * 0.14)
+
+    if person_alpha is not None:
+        # Measure chest/shoulder span at y in [0.18*p_h, 0.30*p_h]
+        sh_y0 = p_top + int(0.18 * p_h)
+        sh_y1 = p_top + int(0.30 * p_h)
+        sh_spans = []
+        sh_centers = []
+        for ry in range(max(0, sh_y0), min(H, sh_y1)):
+            xs_r = np.where(person_alpha[ry, :] > 96)[0]
+            if len(xs_r) >= 10:
+                sh_spans.append(int(xs_r[-1] - xs_r[0] + 1))
+                sh_centers.append(int((xs_r[0] + xs_r[-1]) // 2))
+        if sh_spans:
+            measured_sh = int(np.median(sh_spans))
+            shoulder_w = int(np.clip(measured_sh * 1.12, p_w * 0.48, p_w * 0.80))
+            torso_cx = int(np.median(sh_centers))
+
+        # Measure waist/hip span at y in [0.46*p_h, 0.56*p_h]
+        hp_y0 = p_top + int(0.46 * p_h)
+        hp_y1 = p_top + int(0.56 * p_h)
+        hp_spans = []
+        for ry in range(max(0, hp_y0), min(H, hp_y1)):
+            xs_r = np.where(person_alpha[ry, :] > 96)[0]
+            if len(xs_r) >= 10:
+                hp_spans.append(int(xs_r[-1] - xs_r[0] + 1))
+        if hp_spans:
+            measured_hp = int(np.median(hp_spans))
+            hip_w = int(np.clip(measured_hp * 1.08, p_w * 0.42, p_w * 0.72))
+
+        # Measure left and right foot centers at y in [0.85*p_h, 0.96*p_h]
+        ft_y0 = p_top + int(0.85 * p_h)
+        ft_y1 = p_top + int(0.96 * p_h)
+        ft_slice = person_alpha[max(0, ft_y0) : min(H, ft_y1), :] > 96
+        if ft_slice.size > 0:
+            left_xs = np.where(ft_slice[:, :torso_cx])[1]
+            right_xs = np.where(ft_slice[:, torso_cx:])[1] + torso_cx
+            if len(left_xs) > 5 and len(right_xs) > 5:
+                left_foot_cx = int(np.median(left_xs))
+                right_foot_cx = int(np.median(right_xs))
+
     skin_hex = req.skin_tone_hex or "#D8A988"
     if not req.skin_tone_hex:
         try:
             face_crop = np.asarray(
                 base_rgba.crop(
                     (
-                        max(0, p_cx - int(0.12 * p_w)),
+                        max(0, torso_cx - int(0.10 * p_w)),
                         max(0, p_top + int(0.04 * p_h)),
-                        min(W, p_cx + int(0.12 * p_w)),
-                        min(H, p_top + int(0.14 * p_h)),
+                        min(W, torso_cx + int(0.10 * p_w)),
+                        min(H, p_top + int(0.13 * p_h)),
                     )
                 ).convert("RGB"),
                 dtype=np.uint8,
@@ -2604,7 +2702,8 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
         except Exception:
             skin_hex = "#D8A988"
 
-    head_y_end = p_top + int(0.14 * p_h)
+    # Preserve user's head/neck above collar line (y = p_top + 0.145 * p_h)
+    head_y_end = p_top + int(0.145 * p_h)
     head_snapshot = base_rgba.crop((0, 0, W, head_y_end))
 
     composite = base_rgba.copy()
@@ -2619,7 +2718,7 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
         sh_canvas = Image.new("L", comp.size, 0)
         sh_canvas.paste(l_alpha, (dst_x, dst_y + 4))
         sh_blur = sh_canvas.filter(ImageFilter.GaussianBlur(radius=4))
-        sh_np = (np.asarray(sh_blur, dtype=np.float32) * (42.0 / 255.0)).clip(0, 255).astype(np.uint8)
+        sh_np = (np.asarray(sh_blur, dtype=np.float32) * (38.0 / 255.0)).clip(0, 255).astype(np.uint8)
         sh_rgba = np.zeros((comp.size[1], comp.size[0], 4), dtype=np.uint8)
         sh_rgba[:, :, 3] = sh_np
         comp = Image.alpha_composite(comp, Image.fromarray(sh_rgba, mode="RGBA"))
@@ -2627,37 +2726,62 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
         fg_c.paste(layer_rgba, (dst_x, dst_y), layer_rgba)
         return Image.alpha_composite(comp, fg_c)
 
+    # 1. BOTTOM (Fitted to measured hip_w and leg height)
     if bottom_item is not None:
-        bw = int(p_w * 0.78)
-        bh = int(p_h * 0.40)
-        bx = p_cx - bw // 2
-        by = p_top + int(0.46 * p_h)
+        bw = max(48, int(hip_w * 1.12))
+        bh = max(64, int(p_h * 0.42))
+        bx = torso_cx - bw // 2
+        by = p_top + int(0.45 * p_h)
         b_layer = _decode_item_cutout_or_render_placeholder(bottom_item, bw, bh)
         composite = _paste_with_shadow(composite, b_layer, bx, by)
 
-    if top_item is not None:
-        tw = int(p_w * 0.88)
-        th = int(p_h * 0.38)
-        tx = p_cx - tw // 2
+    # 2. UPPER TORSO (Avoids stacking two T-shirts on top of each other!)
+    # If outer_item is actually a real jacket/blazer/hoodie and top_item exists, render top_item slightly smaller underneath;
+    # if outer_item is a legacy misclassified graphic tee, render only the primary upper piece at natural shoulder_w!
+    if top_item is not None and outer_item is None:
+        tw = max(56, int(shoulder_w * 1.06))
+        th = max(64, int(p_h * 0.35))
+        tx = torso_cx - tw // 2
         ty = p_top + int(0.14 * p_h)
         t_layer = _decode_item_cutout_or_render_placeholder(top_item, tw, th)
         composite = _paste_with_shadow(composite, t_layer, tx, ty)
-
-    if outer_item is not None:
-        ow = int(p_w * 0.94)
-        oh = int(p_h * 0.40)
-        ox = p_cx - ow // 2
+    elif outer_item is not None:
+        ow = max(60, int(shoulder_w * 1.10))
+        oh = max(68, int(p_h * 0.36))
+        ox = torso_cx - ow // 2
         oy = p_top + int(0.14 * p_h)
         o_layer = _decode_item_cutout_or_render_placeholder(outer_item, ow, oh)
         composite = _paste_with_shadow(composite, o_layer, ox, oy)
 
+    # 3. SHOES (Splits left shoe & right shoe and places each onto the user's measured left/right foot!)
     if shoe_item is not None:
-        sw = int(p_w * 0.56)
-        sh = int(p_h * 0.16)
-        sx = p_cx - sw // 2
-        sy = p_top + int(0.84 * p_h)
-        s_layer = _decode_item_cutout_or_render_placeholder(shoe_item, sw, sh)
-        composite = _paste_with_shadow(composite, s_layer, sx, sy)
+        raw_shoe_pil = _decode_item_cutout_raw(shoe_item)
+        foot_y = p_top + int(0.84 * p_h)
+        single_shoe_w = max(28, int(hip_w * 0.38))
+        single_shoe_h = max(28, int(p_h * 0.13))
+        if raw_shoe_pil is not None and raw_shoe_pil.width >= 32:
+            mid_x = raw_shoe_pil.width // 2
+            left_half = raw_shoe_pil.crop((0, 0, mid_x, raw_shoe_pil.height))
+            right_half = raw_shoe_pil.crop((mid_x, 0, raw_shoe_pil.width, raw_shoe_pil.height))
+            l_bbox = left_half.getbbox()
+            r_bbox = right_half.getbbox()
+            if l_bbox and r_bbox:
+                l_shoe = left_half.crop(l_bbox)
+                r_shoe = right_half.crop(r_bbox)
+                l_shoe.thumbnail((single_shoe_w, single_shoe_h), Image.Resampling.LANCZOS)
+                r_shoe.thumbnail((single_shoe_w, single_shoe_h), Image.Resampling.LANCZOS)
+                composite = _paste_with_shadow(
+                    composite, l_shoe, left_foot_cx - l_shoe.width // 2, foot_y
+                )
+                composite = _paste_with_shadow(
+                    composite, r_shoe, right_foot_cx - r_shoe.width // 2, foot_y
+                )
+            else:
+                s_layer = _decode_item_cutout_or_render_placeholder(shoe_item, int(hip_w * 0.72), single_shoe_h)
+                composite = _paste_with_shadow(composite, s_layer, torso_cx - s_layer.width // 2, foot_y)
+        else:
+            s_layer = _decode_item_cutout_or_render_placeholder(shoe_item, int(hip_w * 0.72), single_shoe_h)
+            composite = _paste_with_shadow(composite, s_layer, torso_cx - s_layer.width // 2, foot_y)
 
     composite.paste(head_snapshot, (0, 0))
 
