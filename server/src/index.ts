@@ -9,6 +9,8 @@ import wardrobeRoutes from './routes/wardrobe.routes'
 import outfitRoutes from './routes/outfit.routes'
 import adminRoutes from './routes/admin.routes'
 import aiRoutes from './routes/ai.routes'
+import { wardrobeController } from './controllers/wardrobe.controller'
+import { requireAuth } from './middleware/auth.middleware'
 
 const app = express()
 
@@ -35,6 +37,8 @@ app.get('/api/health', (_req, res) => {
 })
 
 // ── Routes ────────────────────────────────────────────────────────────────────
+app.post('/api/verify-full-body', requireAuth, wardrobeController.verifyFullBody)
+app.post('/api/try-on-2d', requireAuth, wardrobeController.tryOn2D)
 app.use('/api/wardrobe', wardrobeRoutes)
 app.use('/api/ai', aiRoutes)
 app.use('/api/ml', aiRoutes)

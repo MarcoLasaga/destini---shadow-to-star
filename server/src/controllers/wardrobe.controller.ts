@@ -391,6 +391,34 @@ export const wardrobeController = {
     }
   },
 
+  async verifyFullBody(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { user_photo_base64 } = req.body || {}
+      if (typeof user_photo_base64 !== 'string' || !user_photo_base64.trim()) {
+        sendError(res, 'user_photo_base64 is required.', 422)
+        return
+      }
+      const mlUrl = (process.env.ML_SERVICE_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '')
+      const { data } = await axios.post(
+        `${mlUrl}/verify-full-body`,
+        { user_photo_base64 },
+        {
+          headers: { 'ngrok-skip-browser-warning': 'true' },
+          timeout: 30_000,
+          maxBodyLength: Infinity,
+          maxContentLength: Infinity,
+        }
+      )
+      return res.status(200).json({ success: true, data, ...data })
+    } catch (err: any) {
+      if (err.response?.status) {
+        sendError(res, err.response.data?.detail || err.message, err.response.status)
+        return
+      }
+      next(err)
+    }
+  },
+
   async tryOn2D(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { user_photo_base64, items, skin_tone_hex, hf_token } = req.body || {}

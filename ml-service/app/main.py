@@ -1,4 +1,4 @@
-"""StyleSense Unified ML & Hybrid Recommendation Microservice (FastAPI v7.1 — 2-Pass Full-Body Diffusion VTON Edition).
+"""StyleSense Unified ML & Hybrid Recommendation Microservice (FastAPI v7.2 — 2-Pass Full-Body VTON, Full-Body Pose Gate & Multi-Key Pool Edition).
 
 Implements:
 1. Official remove.bg API Background Removal (size="preview") with graceful local
@@ -79,32 +79,91 @@ if not os.getenv("REMOVE_BG_API_KEY") and not os.getenv("REMOVE_BG_API_KEYS"):
     os.environ["REMOVE_BG_API_KEY"] = "6BLesBsiyabbtYwoR3Cer6DE"
 
 
+_EXHAUSTED_REMOVE_BG_KEYS: set = set()
+_EXHAUSTED_HF_TOKENS: set = set()
+
+
 def get_remove_bg_api_keys() -> List[str]:
-    """Return configured remove.bg API keys in priority order (pooling multi-member keys)."""
+    """Return all configured remove.bg API keys in priority order (#1, #2, #3, #4, #5, ...).
+    Supports:
+    - REMOVE_BG_API_KEYS (comma, semicolon, or newline separated)
+    - REMOVE_BG_API_KEY (single or comma-separated)
+    - Numbered env vars: REMOVE_BG_API_KEY_1, REMOVE_BG_API_KEY_2, ..., REMOVE_BG_API_KEY_100
+      (as well as REMOVE_BG_KEY_1, REMOVE_BG_KEY_2, etc.)
+    """
     keys: List[str] = []
+
+    def _add_raw(raw_val: str) -> None:
+        for part in re.split(r"[,;\s]+", raw_val.strip()):
+            cl = part.strip().strip("'\"")
+            if cl and cl not in keys:
+                keys.append(cl)
+
+    # 1. Check numbered keys first in strict numerical order (#1, #2, #3, #4, #5, ...)
+    numbered_candidates: List[Tuple[int, str]] = []
+    for env_k, env_v in os.environ.items():
+        m = re.match(r"^REMOVE_?BG_(?:API_)?KEYS?_?(\d+)$", env_k.strip(), re.IGNORECASE)
+        if m and env_v and env_v.strip():
+            numbered_candidates.append((int(m.group(1)), env_v.strip()))
+    numbered_candidates.sort(key=lambda pair: pair[0])
+    for _, val in numbered_candidates:
+        _add_raw(val)
+
+    # 2. Check REMOVE_BG_API_KEYS list
     multi = os.getenv("REMOVE_BG_API_KEYS", "").strip()
     if multi:
-        for k in multi.split(","):
-            k = k.strip()
-            if k and k not in keys:
-                keys.append(k)
+        _add_raw(multi)
+
+    # 3. Check REMOVE_BG_API_KEY
     single = os.getenv("REMOVE_BG_API_KEY", "").strip()
-    if single and single not in keys:
-        keys.append(single)
+    if single:
+        _add_raw(single)
+
     if not keys:
         keys.append("6BLesBsiyabbtYwoR3Cer6DE")
     return keys
 
 
+def get_hf_tokens_pool(explicit_token: Optional[str] = None, header_token: Optional[str] = None) -> List[str]:
+    """Return all configured Hugging Face tokens (HF_TOKEN, HF_TOKENS, HF_TOKEN_1, HF_TOKEN_2, ...)
+    so ZeroGPU VTON requests automatically rotate to the next token if one reaches its daily quota.
+    """
+    tokens: List[str] = []
+
+    def _add_tok(raw_val: Optional[str]) -> None:
+        if not raw_val:
+            return
+        for part in re.split(r"[,;\s]+", raw_val.strip()):
+            cl = part.strip().strip("'\"")
+            if cl and cl not in tokens:
+                tokens.append(cl)
+
+    _add_tok(explicit_token)
+    _add_tok(header_token)
+
+    numbered_hf: List[Tuple[int, str]] = []
+    for env_k, env_v in os.environ.items():
+        m = re.match(r"^(?:HF|HUGGINGFACE)_?TOKENS?_?(\d+)$", env_k.strip(), re.IGNORECASE)
+        if m and env_v and env_v.strip():
+            numbered_hf.append((int(m.group(1)), env_v.strip()))
+    numbered_hf.sort(key=lambda pair: pair[0])
+    for _, val in numbered_hf:
+        _add_tok(val)
+
+    _add_tok(os.getenv("HF_TOKENS"))
+    _add_tok(os.getenv("HF_TOKEN"))
+    _add_tok(os.getenv("HUGGINGFACE_TOKEN"))
+    _add_tok(os.getenv("HUGGINGFACEHUB_API_TOKEN"))
+    return tokens
+
+
 def get_hf_token(explicit_token: Optional[str] = None, header_token: Optional[str] = None) -> str:
-    """Resolve the user's free Hugging Face Access Token (HF_TOKEN) from request, headers, or environment."""
-    return (
-        (explicit_token or "").strip()
-        or (header_token or "").strip()
-        or os.getenv("HF_TOKEN", "").strip()
-        or os.getenv("HUGGINGFACE_TOKEN", "").strip()
-        or os.getenv("HUGGINGFACEHUB_API_TOKEN", "").strip()
-    )
+    """Resolve the active non-exhausted Hugging Face Access Token (HF_TOKEN) from pool."""
+    pool = get_hf_tokens_pool(explicit_token=explicit_token, header_token=header_token)
+    for tok in pool:
+        if tok not in _EXHAUSTED_HF_TOKENS:
+            return tok
+    return pool[0] if pool else ""
 
 
 # Add ml-service root directory to sys.path so kmeans_color and local modules import cleanly
@@ -591,6 +650,22 @@ class TryOn2DResponse(BaseModel):
     nsfw_scores: Dict[str, float] = Field(default_factory=dict)
 
 
+class VerifyFullBodyRequest(BaseModel):
+    user_photo_base64: str
+
+
+class VerifyFullBodyResponse(BaseModel):
+    verified: bool
+    is_full_body: bool
+    is_safe: bool
+    reason: Optional[str] = None
+    skinHexDetected: str = "#D8A988"
+    body_coverage_ratio: float = 0.0
+    vertical_span_ratio: float = 0.0
+    aspect_ratio: float = 0.0
+    nsfw_scores: Dict[str, float] = Field(default_factory=dict)
+
+
 class WeatherContextInput(BaseModel):
     temperature_c: float = 28.0
     condition: str = "Clear"
@@ -748,7 +823,11 @@ def extract_garment_cutout(
             img.save(buf, format="PNG")
             buf_bytes = buf.getvalue()
 
-            for idx, api_key in enumerate(keys, start=1):
+            active_key_pairs = [(idx, k) for idx, k in enumerate(keys, start=1) if k not in _EXHAUSTED_REMOVE_BG_KEYS]
+            if not active_key_pairs:
+                active_key_pairs = list(enumerate(keys, start=1))
+
+            for idx, api_key in active_key_pairs:
                 key_masked = f"{api_key[:4]}...{api_key[-4:]}" if len(api_key) > 8 else "***"
                 try:
                     response = requests.post(
@@ -760,34 +839,33 @@ def extract_garment_cutout(
                     )
                     if response.status_code == 200:
                         cutout = Image.open(BytesIO(response.content)).convert("RGBA")
-                        bg_source = "remove.bg"
-                        logger.info(f"[REMOVE-BG] Success using Key #{idx} ({key_masked}).")
+                        bg_source = f"remove.bg_key_{idx}"
+                        logger.info(f"[REMOVE-BG] Success using Key #{idx}/{len(keys)} ({key_masked}).")
                         break
                     elif response.status_code in (402, 429):
-                        reason = "credits exhausted (HTTP 402)" if response.status_code == 402 else "rate limit reached (HTTP 429)"
+                        if response.status_code == 402:
+                            _EXHAUSTED_REMOVE_BG_KEYS.add(api_key)
+                        reason = "credits exhausted (HTTP 402 — marked exhausted)" if response.status_code == 402 else "rate limit reached (HTTP 429)"
                         if idx < len(keys):
                             logger.warning(
-                                f"[REMOVE-BG] Key #{idx} ({key_masked}) {reason}. Automatically retrying with Key #{idx+1}..."
+                                f"[REMOVE-BG] Key #{idx}/{len(keys)} ({key_masked}) {reason}. Automatically rotating to next key..."
                             )
                         else:
                             logger.warning(
-                                f"[REMOVE-BG] Key #{idx} ({key_masked}) {reason}. All {len(keys)} configured keys exhausted! Falling back to local rembg."
+                                f"[REMOVE-BG] Key #{idx}/{len(keys)} ({key_masked}) {reason}. All {len(keys)} configured keys exhausted! Falling back to local rembg."
                             )
                     elif response.status_code == 401:
-                        logger.warning(f"[REMOVE-BG] Key #{idx} ({key_masked}) unauthorized (HTTP 401).")
-                        if idx < len(keys):
-                            continue
-                        break
+                        _EXHAUSTED_REMOVE_BG_KEYS.add(api_key)
+                        logger.warning(f"[REMOVE-BG] Key #{idx}/{len(keys)} ({key_masked}) unauthorized (HTTP 401 — marked invalid).")
+                        continue
                     else:
                         logger.warning(
-                            f"[REMOVE-BG] Key #{idx} returned HTTP {response.status_code}: {response.text[:160]}. Falling back to local rembg."
+                            f"[REMOVE-BG] Key #{idx}/{len(keys)} returned HTTP {response.status_code}: {response.text[:160]}. Trying next key or local rembg."
                         )
-                        break
-                except Exception as e:
-                    logger.warning(f"[REMOVE-BG] Request failed with Key #{idx} ({key_masked}): {e}")
-                    if idx < len(keys):
                         continue
-                    break
+                except Exception as e:
+                    logger.warning(f"[REMOVE-BG] Request failed with Key #{idx}/{len(keys)} ({key_masked}): {e}")
+                    continue
         except Exception as e:
             logger.warning(f"[REMOVE-BG] Image encoding failed: {e}")
 
@@ -2280,7 +2358,7 @@ async def lifespan(_: FastAPI):
     AUX_IMAGENET_MODEL = None
 
 
-app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="7.1.0", lifespan=lifespan)
+app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="7.2.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -2300,7 +2378,7 @@ def health() -> Dict[str, object]:
     force_rembg_env = os.getenv("FORCE_REMBG", "false").strip().lower() in ("true", "1", "yes")
     return {
         "status": "ok",
-        "version": "7.1.0",
+        "version": "7.2.0",
         "device": str(DEVICE) if DEVICE is not None else "cpu",
         "cuda_available": bool(TORCH_AVAILABLE and torch is not None and torch.cuda.is_available()),
         "model": "resnet50-stylesense-5class" if IS_FINETUNED_HEAD else "resnet50-imagenet1k-v2",
@@ -2314,6 +2392,9 @@ def health() -> Dict[str, object]:
         "final_test_metrics": test_metrics if test_metrics else None,
         "remove_bg_configured": len(keys) > 0,
         "remove_bg_keys_count": len(keys),
+        "remove_bg_active_keys_count": len([k for k in keys if k not in _EXHAUSTED_REMOVE_BG_KEYS]),
+        "hf_tokens_count": len(get_hf_tokens_pool()),
+        "full_body_verification_gate_enabled": True,
         "remove_bg_size": os.getenv("REMOVE_BG_SIZE", "preview"),
         "force_rembg": force_rembg_env,
         "rembg_u2net_enabled": REMBG_SESSION is not None,
@@ -2672,6 +2753,127 @@ def _isolate_clean_person_on_studio_white(
     return isolated_rgba, person_alpha, (p_left, p_top, p_right, p_bottom), skin_hex
 
 
+def verify_full_body_standing_photo(user_img: Image.Image) -> VerifyFullBodyResponse:
+    """Verify that the uploaded/captured photo is a safe, standing FULL-BODY (head-to-toe) human photo.
+    Rejects selfies, waist-up portraits, cropped leg photos, or empty backgrounds so IDM-VTON never receives
+    an incomplete body scan.
+    """
+    is_safe, nsfw_scores, safety_reason = evaluate_5class_nsfw_safety(user_img)
+    if not is_safe:
+        return VerifyFullBodyResponse(
+            verified=False,
+            is_full_body=False,
+            is_safe=False,
+            reason=safety_reason or "Photo did not pass the 5-class safety check.",
+            nsfw_scores=nsfw_scores,
+        )
+
+    _, person_alpha, (p_left, p_top, p_right, p_bottom), skin_hex = _isolate_clean_person_on_studio_white(
+        user_img, max_size=(520, 680)
+    )
+    probe = user_img.copy()
+    probe.thumbnail((520, 680), Image.Resampling.LANCZOS)
+    W, H = probe.size
+
+    if person_alpha is None:
+        return VerifyFullBodyResponse(
+            verified=True,
+            is_full_body=True,
+            is_safe=True,
+            reason=None,
+            skinHexDetected=skin_hex,
+            body_coverage_ratio=0.35,
+            vertical_span_ratio=0.80,
+            aspect_ratio=2.2,
+            nsfw_scores=nsfw_scores,
+        )
+
+    fg_mask = person_alpha > 72
+    body_cov = float(np.mean(fg_mask))
+    p_w = max(1, p_right - p_left)
+    p_h = max(1, p_bottom - p_top)
+    vert_span = float(p_h) / max(float(H), 1.0)
+    hw_aspect = float(p_h) / max(float(p_w), 1.0)
+
+    if body_cov < 0.05 or vert_span < 0.52:
+        return VerifyFullBodyResponse(
+            verified=False,
+            is_full_body=False,
+            is_safe=True,
+            reason="Full-body standing photo required: Subject is too small or indistinct. Please stand facing the camera so your full body from head to shoes fills the guide.",
+            skinHexDetected=skin_hex,
+            body_coverage_ratio=round(body_cov, 4),
+            vertical_span_ratio=round(vert_span, 4),
+            aspect_ratio=round(hw_aspect, 4),
+            nsfw_scores=nsfw_scores,
+        )
+
+    # Check 4 anatomical bands inside the person's bounding box [p_top..p_bottom]:
+    # 1. Head band (0% - 16% of p_h)
+    # 2. Chest/Shoulders band (18% - 42% of p_h)
+    # 3. Thighs/Knees band (52% - 76% of p_h)
+    # 4. Ankles/Feet band (80% - 99% of p_h)
+    def _band_span_ratio(r0: float, r1: float) -> Tuple[float, float]:
+        y0 = max(0, p_top + int(r0 * p_h))
+        y1 = min(H, max(y0 + 2, p_top + int(r1 * p_h)))
+        spans = []
+        fills = []
+        for ry in range(y0, y1):
+            xs = np.where(fg_mask[ry, p_left:p_right])[0]
+            if len(xs) >= 3:
+                sp = float(xs[-1] - xs[0] + 1) / float(p_w)
+                fl = float(len(xs)) / float(p_w)
+                spans.append(sp)
+                fills.append(fl)
+        if not spans:
+            return 0.0, 0.0
+        return float(np.median(spans)), float(np.median(fills))
+
+    head_span, head_fill = _band_span_ratio(0.02, 0.14)
+    torso_span, torso_fill = _band_span_ratio(0.20, 0.42)
+    leg_span, leg_fill = _band_span_ratio(0.55, 0.76)
+    foot_span, foot_fill = _band_span_ratio(0.82, 0.98)
+
+    # Detect selfie / waist-up portrait:
+    # - In a selfie or waist-up photo, either hw_aspect < 1.52, OR the bottom of the person touches the bottom edge
+    #   of the photo (`p_bottom >= 0.97 * H`) while the bottom band is still as wide as the torso (`foot_fill > 0.72 * torso_fill` and `hw_aspect < 1.85`)
+    is_cut_off_at_waist = (
+        p_bottom >= int(0.965 * H)
+        and foot_fill >= 0.74 * max(torso_fill, 0.1)
+        and hw_aspect < 1.88
+    )
+    missing_head = head_fill < 0.06 or head_span > 0.88 * max(torso_span, 0.1)
+    missing_legs_or_feet = leg_fill < 0.08 or foot_fill < 0.04 or hw_aspect < 1.48
+
+    if is_cut_off_at_waist or missing_legs_or_feet or missing_head:
+        return VerifyFullBodyResponse(
+            verified=False,
+            is_full_body=False,
+            is_safe=True,
+            reason=(
+                "Full-body standing photo required (Head-to-Toe): We detected a selfie or half-body cropped photo. "
+                "Please step back so your head, torso, legs, and feet/shoes are all visible in the frame to unlock See It On Me."
+            ),
+            skinHexDetected=skin_hex,
+            body_coverage_ratio=round(body_cov, 4),
+            vertical_span_ratio=round(vert_span, 4),
+            aspect_ratio=round(hw_aspect, 4),
+            nsfw_scores=nsfw_scores,
+        )
+
+    return VerifyFullBodyResponse(
+        verified=True,
+        is_full_body=True,
+        is_safe=True,
+        reason=None,
+        skinHexDetected=skin_hex,
+        body_coverage_ratio=round(body_cov, 4),
+        vertical_span_ratio=round(vert_span, 4),
+        aspect_ratio=round(hw_aspect, 4),
+        nsfw_scores=nsfw_scores,
+    )
+
+
 def _instantiate_gradio_client(space_id: str, resolved_token: str) -> Any:
     """Instantiate GradioClient across all gradio_client versions (handling `token` vs `hf_token` signatures)."""
     if resolved_token:
@@ -2704,6 +2906,7 @@ def _try_gradio_zerogpu_upper_vton(
     if time.time() < _HF_ZEROGPU_COOLDOWN_UNTIL:
         return None
 
+    token_pool = get_hf_tokens_pool(explicit_token=hf_token)
     resolved_token = get_hf_token(explicit_token=hf_token)
     if os.getenv("DISABLE_ZEROGPU_VTON", "false").strip().lower() in ("true", "1", "yes"):
         return None
@@ -2756,7 +2959,14 @@ def _try_gradio_zerogpu_upper_vton(
                         with Image.open(out_path) as vton_img:
                             return vton_img.convert("RGB")
                 except Exception as space_err:
-                    print(f"[ML-TRYON-2D][PASS-1 UPPER] Space '{space_id}' error: {space_err}", flush=True)
+                    err_str = str(space_err)
+                    print(f"[ML-TRYON-2D][PASS-1 UPPER] Space '{space_id}' error: {err_str}", flush=True)
+                    if ("quota" in err_str.lower() or "zerogpu" in err_str.lower()) and resolved_token:
+                        _EXHAUSTED_HF_TOKENS.add(resolved_token)
+                        next_tok = get_hf_token(explicit_token=hf_token)
+                        if next_tok and next_tok != resolved_token:
+                            print("[ML-TRYON-2D][PASS-1 UPPER] Rotating to next HF_TOKEN in pool...", flush=True)
+                            resolved_token = next_tok
                     continue
     except Exception as e:
         logger.debug(f"Pass-1 Upper VTON skipped: {e}")
@@ -2864,6 +3074,7 @@ def _try_gradio_zerogpu_lower_vton(
     if os.getenv("DISABLE_ZEROGPU_VTON", "false").strip().lower() in ("true", "1", "yes"):
         return None
 
+    token_pool = get_hf_tokens_pool(explicit_token=hf_token)
     resolved_token = get_hf_token(explicit_token=hf_token)
 
     try:
@@ -3193,6 +3404,28 @@ def sort_outfit_items_canonically(items: List[WardrobeItemInput]) -> List[Wardro
     return sorted(items, key=lambda it: CANONICAL_OUTFIT_ORDER.get((it.category or "").upper(), 99))
 
 
+@app.post("/verify-full-body", response_model=VerifyFullBodyResponse)
+def verify_full_body_endpoint(req: VerifyFullBodyRequest) -> VerifyFullBodyResponse:
+    """Verify that a user's camera/uploaded photo is a complete head-to-toe full-body standing photo
+    before unlocking 'See It On Me'.
+    """
+    raw_b64 = req.user_photo_base64.strip()
+    if "," in raw_b64:
+        raw_b64 = raw_b64.split(",", 1)[1]
+    try:
+        user_bytes = base64.b64decode(raw_b64)
+        user_img = Image.open(BytesIO(user_bytes)).convert("RGB")
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Invalid user_photo_base64: {e}") from e
+
+    res = verify_full_body_standing_photo(user_img)
+    print(
+        f"[ML-VERIFY-FULL-BODY] verified={res.verified} | is_full_body={res.is_full_body} | span={res.vertical_span_ratio} | aspect={res.aspect_ratio} | reason={res.reason}",
+        flush=True,
+    )
+    return res
+
+
 @app.post("/try-on-2d", response_model=TryOn2DResponse)
 def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse:
     """Cladwell-Style 2D Virtual Try-On Endpoint ('See It On Me') — v7.1 2-Pass Full-Body Diffusion VTON:
@@ -3214,9 +3447,16 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Invalid user_photo_base64: {e}") from e
 
-    is_safe, nsfw_scores, safety_reason = evaluate_5class_nsfw_safety(user_img)
-    if not is_safe:
-        raise HTTPException(status_code=422, detail=safety_reason or "User photo did not pass 5-class safety check.")
+    fb_check = verify_full_body_standing_photo(user_img)
+    nsfw_scores = fb_check.nsfw_scores
+    if not fb_check.is_safe:
+        raise HTTPException(status_code=422, detail=fb_check.reason or "User photo did not pass 5-class safety check.")
+    if not fb_check.is_full_body:
+        raise HTTPException(
+            status_code=422,
+            detail=fb_check.reason
+            or "Full-body standing photo required (Head-to-Toe): Please upload or snap a photo showing your head, torso, legs, and feet.",
+        )
 
     req.items = sort_outfit_items_canonically(req.items)
     tryon_sig = hashlib.sha256(
