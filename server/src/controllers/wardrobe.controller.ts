@@ -359,6 +359,76 @@ export const wardrobeController = {
     }
   },
 
+  async beautify(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { image_base64, category, sub_category, color, color_hex, hf_token } = req.body || {}
+      if (typeof image_base64 !== 'string' || !image_base64.trim()) {
+        sendError(res, 'image_base64 is required.', 422)
+        return
+      }
+      const mlUrl = (process.env.ML_SERVICE_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '')
+      const headerToken = req.header('x-hf-token')
+      const { data } = await axios.post(
+        `${mlUrl}/beautify`,
+        { image_base64, category, sub_category, color, color_hex, hf_token: hf_token || undefined },
+        {
+          headers: {
+            'ngrok-skip-browser-warning': 'true',
+            ...(headerToken ? { 'x-hf-token': headerToken } : {}),
+          },
+          timeout: 65_000,
+          maxBodyLength: Infinity,
+          maxContentLength: Infinity,
+        }
+      )
+      return res.status(200).json({ success: true, data, ...data })
+    } catch (err: any) {
+      if (err.response?.status) {
+        sendError(res, err.response.data?.detail || err.message, err.response.status)
+        return
+      }
+      next(err)
+    }
+  },
+
+  async tryOn2D(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { user_photo_base64, items, skin_tone_hex, hf_token } = req.body || {}
+      if (typeof user_photo_base64 !== 'string' || !user_photo_base64.trim()) {
+        sendError(res, 'user_photo_base64 is required.', 422)
+        return
+      }
+      if (!Array.isArray(items) || items.length === 0) {
+        sendError(res, 'At least one outfit item is required for try-on.', 422)
+        return
+      }
+      const mlUrl = (process.env.ML_SERVICE_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '')
+      const headerToken = req.header('x-hf-token')
+      // 65 s timeout so yisol/IDM-VTON has time for its 15–25 s diffusion pass on Hugging Face ZeroGPU
+      // (ml-service falls back to its local Cladwell Studio compositor after ~50 s).
+      const { data } = await axios.post(
+        `${mlUrl}/try-on-2d`,
+        { user_photo_base64, items, skin_tone_hex: skin_tone_hex || null, hf_token: hf_token || undefined },
+        {
+          headers: {
+            'ngrok-skip-browser-warning': 'true',
+            ...(headerToken ? { 'x-hf-token': headerToken } : {}),
+          },
+          timeout: 65_000,
+          maxBodyLength: Infinity,
+          maxContentLength: Infinity,
+        }
+      )
+      return res.status(200).json({ success: true, data, ...data })
+    } catch (err: any) {
+      if (err.response?.status) {
+        sendError(res, err.response.data?.detail || err.message, err.response.status)
+        return
+      }
+      next(err)
+    }
+  },
+
   async update(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { clothingName, clothing_name, brand, notes } = req.body || {}
