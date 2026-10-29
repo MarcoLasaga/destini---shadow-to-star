@@ -1,8 +1,12 @@
 import dotenv from 'dotenv'
 import path from 'path'
 
-// Local server overrides are optional; the workspace .env remains the fallback.
-dotenv.config({ path: [path.join(process.cwd(), 'server', '.env'), path.join(process.cwd(), '.env')] })
+// The workspace .env is shared with Vite. Load it first so an unfilled server
+// template cannot replace real Supabase values; server/.env adds server-only
+// settings such as CNN_ANALYSIS_URL.
+dotenv.config({ path: [path.join(process.cwd(), '.env'), path.join(process.cwd(), 'server', '.env')] })
+
+const rawMlUrl = (process.env.ML_SERVICE_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '')
 
 export const ENV = {
   PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 5000,
@@ -13,8 +17,8 @@ export const ENV = {
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || 'dev_jwt_refresh_secret_min_length',
   SUPABASE_URL: process.env.VITE_SUPABASE_URL || 'https://wdvndocbxxzpltywtpub.supabase.co',
   SUPABASE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || '',
-  // URL of the separately deployed clothing CNN. It receives a normalized image body
-  // and returns category, color, style and optional confidence scores.
-  CNN_ANALYSIS_URL: process.env.CNN_ANALYSIS_URL || '',
+  // URL of the separately deployed clothing CNN & ML microservice
+  CNN_ANALYSIS_URL: (process.env.CNN_ANALYSIS_URL || (process.env.ML_SERVICE_URL ? `${rawMlUrl}/analyze` : 'https://jdyyy1-stylesense-ml.hf.space/analyze')).replace(/\/+$/, ''),
+  ML_SERVICE_URL: rawMlUrl,
+  OPENWEATHER_API_KEY: process.env.OPENWEATHER_API_KEY || '',
 }
-

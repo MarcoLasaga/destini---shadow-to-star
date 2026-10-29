@@ -1,0 +1,10 @@
+{
+  "version": "1.0",
+  "classes": [
+    {"id": 0, "name": "TOP"},
+    {"id": 1, "name": "BOTTOM"},
+    {"id": 2, "name": "SHOES"},
+    {"id": 3, "name": "OUTERWEAR"},
+    {"id": 4, "name": "ACCESSORIES"}
+  ]
+}
