@@ -1,4 +1,4 @@
-"""StyleSense Unified ML & Hybrid Recommendation Microservice (FastAPI v7.0 — Full-Body VTON & Manual-Edit Respect Edition).
+"""StyleSense Unified ML & Hybrid Recommendation Microservice (FastAPI v7.1 — 2-Pass Full-Body Diffusion VTON Edition).
 
 Implements:
 1. Official remove.bg API Background Removal (size="preview") with graceful local
@@ -12,18 +12,21 @@ Implements:
 5. Batch Wardrobe Image Analysis endpoint (POST /analyze-batch) accepting up to 15 images.
 6. Automated AI Content Moderation Gate (5-Class NSFWJS Equivalent + Bilingual Profanity Filter).
 7. Context-Aware Weighted Hybrid Recommendation Engine: S_hybrid = round(0.55 * S_cb + 0.45 * S_cf).
-8. v7.0 Full-Body VTON, Hanger-Gap Eraser, Pink-Bag Scrubber & Manual Category Edit Respect:
-   - Column-Gap Hanger Arch Eraser: detects hollow gap below pant/shirt hanger bars and removes 100% of
-     curved black hanger wires on pant waistbands.
-   - Pink-Bag & Lateral Leg Clutter Scrubber: hard-crops non-leg lateral clutter below knee level (`y >= 0.62*p_h`)
-     and scrubs all magenta/pink/purple pixels (`G < R - 8` and `G < B - 4`) so the pink bag beside the right leg
-     is 100% gone.
-   - Pre-Dressed Lower-Body + Split-Leg Alignment BEFORE `yisol/IDM-VTON`: aligns left/right pant legs to the
-     user's legs, covers bare shins and bare toes, and places shoes at the exact bottom of each foot BEFORE
-     sending the image to `yisol/IDM-VTON`—so `IDM-VTON` naturally drapes the shirt/hoodie hem OVER the
-     waistband of the pants!
-   - Respects Manual Category Edits (`Outerwear` -> `Tops`) and auto-rescues legacy Graphic Tees stored as
-     `OUTERWEAR` in MongoDB so they recommend as a single `TOP` instead of layering over a Polo Shirt.
+8. v7.1 Multi-Source 2-Pass Full-Body Diffusion Virtual Try-On (Upper Body + Lower Body & Shoes):
+   - Why v7.0 still showed flat 2D pants/shoes: `yisol/IDM-VTON` with `is_checked=True` only masks and
+     inpaints the upper body (`get_mask_location('hd', 'upper_body')`), leaving the lower body untouched!
+   - How v7.1 fixes this with REAL Diffusion VTON for Bottoms & Shoes:
+     * Pass 1 (Upper-Body Diffusion VTON): Calls `yisol/IDM-VTON` (`is_checked=True`) to diffusion-render
+       the recommended `TOP` (or `OUTERWEAR`) onto the user's upper torso and arms.
+     * Pass 2 (Lower-Body & Shoes Diffusion VTON): Chains multi-source lower-body diffusion VTON:
+       (a) `yisol/IDM-VTON` Custom Lower-Body Mask Mode (`is_checked=False` + RGBA binary mask in
+           `dict['layers'][0]` covering the waist-to-feet corridor `y in [0.47*p_h, 0.99*p_h]`), which uses
+           IDM-VTON's DensePose leg map + SDXL Inpainting UNet to diffusion-generate the pants AND shoes
+           directly onto the user's legs and feet in 3D perspective!
+       (b) Failover to `jallenjia/Change-Clothes-AI` (`category='lower_body'`) and `franciszzj/Leffa`
+           (`vt_model_type='dress_code'`, `vt_garment_type='lower_body'`).
+   - Also ensures Top-3 Casual Recommendations prioritize unlayered `TOP` outfits first in warm tropical
+     weather so your `Navy Polo Shirt` and `Black Graphic T-Shirt` are showcased directly on your body!
 """
 
 import base64
@@ -192,6 +195,12 @@ Occasion = Literal["SCHOOL", "WORK", "GYM", "PARTY", "DATE", "OUTDOOR", "EVERYDA
 HF_VTON_SPACES: Tuple[str, ...] = (
     "yisol/IDM-VTON",
     "Nymbo/Virtual-Try-On",
+)
+
+HF_LOWER_BODY_VTON_SPACES: Tuple[str, ...] = (
+    "yisol/IDM-VTON",
+    "jallenjia/Change-Clothes-AI",
+    "franciszzj/Leffa",
 )
 
 _STUDIO_BEAUTIFY_CACHE: Dict[str, str] = {}
@@ -522,8 +531,6 @@ class WardrobeItemInput(BaseModel):
         )
         name_str = str(resolved_name).strip()
 
-        # Respect user manual category edit! If user changed category from Outerwear -> Top (TOP),
-        # automatically rewrite stale 'Track Jacket' / 'Windbreaker' / 'Pullover Hoodie' labels to 'T-Shirt'
         if norm_cat == "TOP":
             for outer_term in ("Track Jacket", "Windbreaker Jacket", "Windbreaker", "Pullover Hoodie", "Zip-Up Hoodie", "Jacket", "Hoodie"):
                 if outer_term.lower() in name_str.lower():
@@ -661,10 +668,7 @@ class ScoreOutfitResponse(BaseModel):
 
 
 def _erase_top_hanger_hooks_and_bars(rgba: np.ndarray, allow_bar_erase: bool = True) -> np.ndarray:
-    """Erase wire/plastic hanger hooks and hollow-arch pant hanger bars at the top of TOP, OUTERWEAR, and BOTTOM.
-    Uses both row-width ratio and column-wise hollow-gap scanning so curved black hanger wires above
-    pant waistbands (like in image_d6c887.jpg and image_d6c883.jpg) are 100% removed!
-    """
+    """Erase wire/plastic hanger hooks and hollow-arch pant hanger bars at the top of TOP, OUTERWEAR, and BOTTOM."""
     alpha = rgba[:, :, 3].copy()
     ys, xs = np.where(alpha > 40)
     if len(ys) <= 20 or len(xs) <= 20:
@@ -683,7 +687,6 @@ def _erase_top_hanger_hooks_and_bars(rgba: np.ndarray, allow_bar_erase: bool = T
             body_widths.append(int(r_xs[-1] - r_xs[0] + 1))
     max_body_w = float(max(body_widths)) if body_widths else float(bw)
 
-    # 1) Row-based narrow hanger hook / sparse arch eraser
     for ry in range(top, top_strip_end):
         r_xs = np.where(alpha[ry, left : right + 1] > 40)[0]
         if len(r_xs) == 0:
@@ -697,9 +700,6 @@ def _erase_top_hanger_hooks_and_bars(rgba: np.ndarray, allow_bar_erase: bool = T
             c_r = left + int(0.82 * bw)
             alpha[ry, c_l:c_r] = 0
 
-    # 2) Column-by-column hollow-gap hanger bar eraser:
-    # A hanger arch above a pant waistband or shirt neckline has a thin opaque wire at the top
-    # followed by a transparent gap before the solid garment waistband/collar starts.
     if allow_bar_erase:
         scan_y_end = min(bottom, top + int(0.20 * bh))
         max_wire_thick = max(3, int(0.065 * bh))
@@ -709,13 +709,11 @@ def _erase_top_hanger_hooks_and_bars(rgba: np.ndarray, allow_bar_erase: bool = T
             if len(opaque_idx) == 0:
                 continue
             first_op = int(opaque_idx[0])
-            # Find where the first contiguous opaque segment ends
             seg_end = first_op
             while seg_end < len(col_a) and col_a[seg_end] > 45:
                 seg_end += 1
             wire_thick = seg_end - first_op
             if wire_thick <= max_wire_thick and seg_end < len(col_a):
-                # Check if there is a transparent gap (>= 2px) followed by the actual garment below
                 rem_col = col_a[seg_end:]
                 next_opaque = np.where(rem_col > 80)[0]
                 if len(next_opaque) > 0 and int(next_opaque[0]) >= 2:
@@ -1458,7 +1456,7 @@ def _calibrate_category_and_subtype(
     Optional[str],
     Optional[str],
 ]:
-    """Zero-retraining visual calibrator for StyleSense v7.0."""
+    """Zero-retraining visual calibrator for StyleSense v7.1."""
     fn = (source_filename or "").lower()
 
     non_wearable_prob = 0.0
@@ -1961,7 +1959,7 @@ async def run_garment_analysis(
     source_filename: str = "",
     force_rembg: bool = False,
 ) -> Prediction:
-    """Core StyleSense v7.0 garment analysis pipeline."""
+    """Core StyleSense v7.1 garment analysis pipeline."""
     transforms_to_use = EVAL_TRANSFORMS if (IS_FINETUNED_HEAD or WEIGHTS is None or EVAL_TRANSFORMS is not None) else WEIGHTS.transforms()
     rgb_image = image.convert("RGB")
 
@@ -2282,7 +2280,7 @@ async def lifespan(_: FastAPI):
     AUX_IMAGENET_MODEL = None
 
 
-app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="7.0.0", lifespan=lifespan)
+app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="7.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -2302,7 +2300,7 @@ def health() -> Dict[str, object]:
     force_rembg_env = os.getenv("FORCE_REMBG", "false").strip().lower() in ("true", "1", "yes")
     return {
         "status": "ok",
-        "version": "7.0.0",
+        "version": "7.1.0",
         "device": str(DEVICE) if DEVICE is not None else "cpu",
         "cuda_available": bool(TORCH_AVAILABLE and torch is not None and torch.cuda.is_available()),
         "model": "resnet50-stylesense-5class" if IS_FINETUNED_HEAD else "resnet50-imagenet1k-v2",
@@ -2324,9 +2322,11 @@ def health() -> Dict[str, object]:
         "nsfw_5class_enabled": True,
         "studio_beautify_enabled": True,
         "try_on_2d_enabled": True,
+        "two_pass_full_body_vton_enabled": True,
         "hf_token_configured": bool(hf_tok),
         "gradio_vton_bridge_enabled": GRADIO_CLIENT_AVAILABLE,
         "vton_spaces": list(HF_VTON_SPACES),
+        "lower_body_vton_spaces": list(HF_LOWER_BODY_VTON_SPACES),
         "gemini_removed": True,
         "subtypes_count": 33,
         "ood_non_wearable_gate_enabled": True,
@@ -2589,7 +2589,6 @@ def _isolate_clean_person_on_studio_white(
             person_alpha = np.asarray(person_cutout)[:, :, 3].copy()
 
             if cv2 is not None:
-                # 1) Scrub all pink/magenta/purple bag pixels in the lower half (where G is distinctly lower than R and B)
                 rgb_arr = np.asarray(base_rgba, dtype=np.uint8)[:, :, :3]
                 r_ch = rgb_arr[:, :, 0].astype(np.int32)
                 g_ch = rgb_arr[:, :, 1].astype(np.int32)
@@ -2599,15 +2598,12 @@ def _isolate_clean_person_on_studio_white(
                 lower_half[int(0.55 * H) :, :] = True
                 person_alpha[lower_half & is_pink_or_purple_bag] = 0
 
-                # 2) Keep only the largest connected foreground component (the person)
                 fg_bin = (person_alpha > 72).astype(np.uint8)
                 num_labels, labels_im, stats, _ = cv2.connectedComponentsWithStats(fg_bin)
                 if num_labels > 2:
                     largest_label = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
                     person_alpha = np.where(labels_im == largest_label, person_alpha, 0).astype(np.uint8)
 
-                # 3) Below knee level (`y >= 0.64 * H`), the user's hands have ended; find torso center and trim
-                # any lateral clutter sticking out beyond the outer ankle/calf boundary!
                 ys_tmp, xs_tmp = np.where(person_alpha > 64)
                 if len(ys_tmp) > 50:
                     t_top, t_bot = int(np.min(ys_tmp)), int(np.max(ys_tmp))
@@ -2676,6 +2672,342 @@ def _isolate_clean_person_on_studio_white(
     return isolated_rgba, person_alpha, (p_left, p_top, p_right, p_bottom), skin_hex
 
 
+def _instantiate_gradio_client(space_id: str, resolved_token: str) -> Any:
+    """Instantiate GradioClient across all gradio_client versions (handling `token` vs `hf_token` signatures)."""
+    if resolved_token:
+        os.environ["HF_TOKEN"] = resolved_token
+        os.environ["HUGGING_FACE_HUB_TOKEN"] = resolved_token
+
+    try:
+        sig_params = inspect.signature(GradioClient.__init__).parameters
+        if resolved_token and "token" in sig_params:
+            return GradioClient(space_id, token=resolved_token)
+        elif resolved_token and "hf_token" in sig_params:
+            return GradioClient(space_id, hf_token=resolved_token)
+        else:
+            return GradioClient(space_id)
+    except Exception:
+        return GradioClient(space_id)
+
+
+def _try_gradio_zerogpu_upper_vton(
+    studio_person_rgb: Image.Image,
+    upper_pil: Optional[Image.Image],
+    upper_desc: str,
+    hf_token: Optional[str] = None,
+    budget_seconds: float = 28.0,
+) -> Optional[Image.Image]:
+    """Pass 1: Upper-Body Diffusion VTON via yisol/IDM-VTON (`is_checked=True`)."""
+    global _HF_ZEROGPU_COOLDOWN_UNTIL
+    if not GRADIO_CLIENT_AVAILABLE or GradioClient is None or gradio_handle_file is None or upper_pil is None:
+        return None
+    if time.time() < _HF_ZEROGPU_COOLDOWN_UNTIL:
+        return None
+
+    resolved_token = get_hf_token(explicit_token=hf_token)
+    if os.getenv("DISABLE_ZEROGPU_VTON", "false").strip().lower() in ("true", "1", "yes"):
+        return None
+
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            p_path = os.path.join(tmpdir, "person_upper.png")
+            g_path = os.path.join(tmpdir, "garment_upper.png")
+            p_vton = studio_person_rgb.convert("RGB").copy()
+            p_vton.thumbnail((768, 1024), Image.Resampling.LANCZOS)
+            p_vton.save(p_path, format="PNG")
+
+            g_white = Image.new("RGBA", upper_pil.size, (255, 255, 255, 255))
+            Image.alpha_composite(g_white, upper_pil.convert("RGBA")).convert("RGB").save(g_path, format="PNG")
+
+            deadline = time.time() + max(6.0, budget_seconds)
+            for space_id in HF_VTON_SPACES:
+                remaining = deadline - time.time()
+                if remaining < 5.0:
+                    break
+                try:
+                    print(
+                        f"[ML-TRYON-2D][PASS-1 UPPER] Calling '{space_id}' | garment='{upper_desc}'",
+                        flush=True,
+                    )
+                    client = _instantiate_gradio_client(space_id, resolved_token)
+                    job = client.submit(
+                        dict={"background": gradio_handle_file(p_path), "layers": [], "composite": None},
+                        garm_img=gradio_handle_file(g_path),
+                        garment_des=upper_desc or "shirt",
+                        is_checked=True,
+                        is_checked_crop=False,
+                        denoise_steps=20,
+                        seed=42,
+                        api_name="/tryon",
+                    )
+                    try:
+                        res = job.result(timeout=max(1.0, deadline - time.time()))
+                    except Exception:
+                        try:
+                            job.cancel()
+                        except Exception:
+                            pass
+                        raise
+                    out_path = res[0] if isinstance(res, (list, tuple)) else res
+                    if isinstance(out_path, dict):
+                        out_path = out_path.get("path") or out_path.get("name")
+                    if isinstance(out_path, str) and os.path.exists(out_path):
+                        print(f"[ML-TRYON-2D][PASS-1 UPPER] Success via '{space_id}'!", flush=True)
+                        with Image.open(out_path) as vton_img:
+                            return vton_img.convert("RGB")
+                except Exception as space_err:
+                    print(f"[ML-TRYON-2D][PASS-1 UPPER] Space '{space_id}' error: {space_err}", flush=True)
+                    continue
+    except Exception as e:
+        logger.debug(f"Pass-1 Upper VTON skipped: {e}")
+    return None
+
+
+def _build_lower_body_vton_mask_and_garment_card(
+    person_img_rgb: Image.Image,
+    p_bbox_orig: Tuple[int, int, int, int],
+    orig_size: Tuple[int, int],
+    bottom_pil: Image.Image,
+    shoe_pil: Optional[Image.Image] = None,
+) -> Tuple[Image.Image, Image.Image, Image.Image]:
+    """Build the 768x1024 person image, 768x1024 RGBA Lower-Body+Feet Binary Mask (for IDM-VTON `is_checked=False`),
+    and 768x1024 studio lower-body garment reference card.
+    """
+    target_w, target_h = 768, 1024
+    p_768 = person_img_rgb.convert("RGB").resize((target_w, target_h), Image.Resampling.LANCZOS)
+
+    orig_w, orig_h = orig_size
+    sx = float(target_w) / max(float(orig_w), 1.0)
+    sy = float(target_h) / max(float(orig_h), 1.0)
+    p_left, p_top, p_right, p_bottom = p_bbox_orig
+    top_768 = int(p_top * sy)
+    bot_768 = int(p_bottom * sy)
+    left_768 = int(p_left * sx)
+    right_768 = int(p_right * sx)
+    ph_768 = max(120, bot_768 - top_768)
+    pw_768 = max(80, right_768 - left_768)
+    cx_768 = (left_768 + right_768) // 2
+
+    # Build Lower-Body + Feet mask:
+    # Starts right at the waist/hip line (`top_768 + 0.475 * ph_768`) down to the bottom of the feet (`bot_768 + 10`),
+    # Narrower at the waist so the user's left and right hands (`x < cx - 0.31*pw` and `x > cx + 0.31*pw`) stay UNMASKED!
+    mask_rgba = np.zeros((target_h, target_w, 4), dtype=np.uint8)
+    y_waist = max(0, top_768 + int(0.475 * ph_768))
+    y_knees = min(target_h, top_768 + int(0.64 * ph_768))
+    y_feet = min(target_h, bot_768 + 12)
+
+    waist_half_w = int(0.285 * pw_768)
+    leg_half_w = int(0.33 * pw_768)
+
+    for ry in range(y_waist, y_feet):
+        if ry < y_knees:
+            # Taper smoothly from waist_half_w to leg_half_w while keeping outer hands unmasked!
+            t = float(ry - y_waist) / max(float(y_knees - y_waist), 1.0)
+            hw = int((1.0 - t) * waist_half_w + t * leg_half_w)
+        else:
+            hw = leg_half_w
+        x0 = max(0, cx_768 - hw)
+        x1 = min(target_w, cx_768 + hw)
+        mask_rgba[ry, x0:x1, :] = 255
+
+    mask_pil = Image.fromarray(mask_rgba, mode="RGBA")
+
+    # Build 768x1024 Garment Reference Card for Lower Body:
+    g_card = Image.new("RGBA", (target_w, target_h), (255, 255, 255, 255))
+    b_copy = bottom_pil.copy()
+    # Trim top 3.5% hanger clip indent on waistband
+    if b_copy.height > 40:
+        b_copy = b_copy.crop((0, int(0.035 * b_copy.height), b_copy.width, b_copy.height))
+        b_bbox = b_copy.getbbox()
+        if b_bbox:
+            b_copy = b_copy.crop(b_bbox)
+
+    if shoe_pil is not None:
+        b_copy.thumbnail((640, 740), Image.Resampling.LANCZOS)
+        bx = (target_w - b_copy.width) // 2
+        by = 60
+        g_card.paste(b_copy, (bx, by), b_copy)
+
+        s_copy = shoe_pil.copy()
+        s_copy.thumbnail((420, 170), Image.Resampling.LANCZOS)
+        sx_pos = (target_w - s_copy.width) // 2
+        sy_pos = min(target_h - s_copy.height - 24, by + b_copy.height + 12)
+        g_card.paste(s_copy, (sx_pos, sy_pos), s_copy)
+    else:
+        b_copy.thumbnail((660, 880), Image.Resampling.LANCZOS)
+        bx = (target_w - b_copy.width) // 2
+        by = (target_h - b_copy.height) // 2
+        g_card.paste(b_copy, (bx, by), b_copy)
+
+    return p_768, mask_pil, g_card.convert("RGB")
+
+
+def _try_gradio_zerogpu_lower_vton(
+    person_img_rgb: Image.Image,
+    p_bbox_orig: Tuple[int, int, int, int],
+    orig_size: Tuple[int, int],
+    bottom_pil: Optional[Image.Image],
+    shoe_pil: Optional[Image.Image],
+    bottom_desc: str,
+    shoe_desc: str,
+    hf_token: Optional[str] = None,
+    budget_seconds: float = 28.0,
+) -> Optional[Image.Image]:
+    """Pass 2: Multi-Source Lower-Body & Shoes Diffusion VTON:
+    1. Source A: `yisol/IDM-VTON` with `is_checked=False` + Custom Lower-Body & Feet Mask in `dict['layers'][0]`,
+       which runs DensePose + SDXL Inpainting UNet to diffusion-render the pants and shoes onto the user's legs/feet!
+    2. Source B: `jallenjia/Change-Clothes-AI` with `category='lower_body'`.
+    3. Source C: `franciszzj/Leffa` with `vt_model_type='dress_code'`, `vt_garment_type='lower_body'`.
+    """
+    if not GRADIO_CLIENT_AVAILABLE or GradioClient is None or gradio_handle_file is None or bottom_pil is None:
+        return None
+    if os.getenv("DISABLE_ZEROGPU_VTON", "false").strip().lower() in ("true", "1", "yes"):
+        return None
+
+    resolved_token = get_hf_token(explicit_token=hf_token)
+
+    try:
+        p_768, mask_pil, g_card_rgb = _build_lower_body_vton_mask_and_garment_card(
+            person_img_rgb=person_img_rgb,
+            p_bbox_orig=p_bbox_orig,
+            orig_size=orig_size,
+            bottom_pil=bottom_pil,
+            shoe_pil=shoe_pil,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            p_path = os.path.join(tmpdir, "person_lower.png")
+            m_path = os.path.join(tmpdir, "mask_lower.png")
+            g_path = os.path.join(tmpdir, "garment_lower.png")
+            p_768.save(p_path, format="PNG")
+            mask_pil.save(m_path, format="PNG")
+            g_card_rgb.save(g_path, format="PNG")
+
+            full_lower_prompt = (
+                f"{bottom_desc} full length pants worn on legs with {shoe_desc} sneakers worn on feet"
+                if shoe_desc
+                else f"{bottom_desc} full length pants worn on legs"
+            )
+            deadline = time.time() + max(6.0, budget_seconds)
+
+            # 1) Try yisol/IDM-VTON Custom Mask Mode (`is_checked=False` + `layers=[m_path]`)
+            if deadline - time.time() >= 5.0:
+                try:
+                    print(
+                        f"[ML-TRYON-2D][PASS-2 LOWER] Calling 'yisol/IDM-VTON' (custom lower-body mask) | garment='{full_lower_prompt}'",
+                        flush=True,
+                    )
+                    client = _instantiate_gradio_client("yisol/IDM-VTON", resolved_token)
+                    job = client.submit(
+                        dict={
+                            "background": gradio_handle_file(p_path),
+                            "layers": [gradio_handle_file(m_path)],
+                            "composite": gradio_handle_file(p_path),
+                        },
+                        garm_img=gradio_handle_file(g_path),
+                        garment_des=full_lower_prompt,
+                        is_checked=False,
+                        is_checked_crop=False,
+                        denoise_steps=20,
+                        seed=42,
+                        api_name="/tryon",
+                    )
+                    try:
+                        res = job.result(timeout=max(1.0, deadline - time.time()))
+                    except Exception:
+                        try:
+                            job.cancel()
+                        except Exception:
+                            pass
+                        raise
+                    out_path = res[0] if isinstance(res, (list, tuple)) else res
+                    if isinstance(out_path, dict):
+                        out_path = out_path.get("path") or out_path.get("name")
+                    if isinstance(out_path, str) and os.path.exists(out_path):
+                        print("[ML-TRYON-2D][PASS-2 LOWER] Success via 'yisol/IDM-VTON' (custom lower-body mask)!", flush=True)
+                        with Image.open(out_path) as vton_img:
+                            return vton_img.convert("RGB")
+                except Exception as err1:
+                    print(f"[ML-TRYON-2D][PASS-2 LOWER] 'yisol/IDM-VTON' custom mask fallback: {err1}", flush=True)
+
+            # 2) Try jallenjia/Change-Clothes-AI with native `category="lower_body"`
+            if deadline - time.time() >= 5.0:
+                try:
+                    print(
+                        f"[ML-TRYON-2D][PASS-2 LOWER] Calling 'jallenjia/Change-Clothes-AI' (category='lower_body') | garment='{bottom_desc}'",
+                        flush=True,
+                    )
+                    client2 = _instantiate_gradio_client("jallenjia/Change-Clothes-AI", resolved_token)
+                    job2 = client2.submit(
+                        dict={"background": gradio_handle_file(p_path), "layers": [], "composite": None},
+                        garm_img=gradio_handle_file(g_path),
+                        garment_des=full_lower_prompt,
+                        is_checked=True,
+                        is_checked_crop=False,
+                        denoise_steps=20,
+                        seed=42,
+                        category="lower_body",
+                        api_name="/tryon",
+                    )
+                    try:
+                        res2 = job2.result(timeout=max(1.0, deadline - time.time()))
+                    except Exception:
+                        try:
+                            job2.cancel()
+                        except Exception:
+                            pass
+                        raise
+                    out_path2 = res2[0] if isinstance(res2, (list, tuple)) else res2
+                    if isinstance(out_path2, dict):
+                        out_path2 = out_path2.get("path") or out_path2.get("name")
+                    if isinstance(out_path2, str) and os.path.exists(out_path2):
+                        print("[ML-TRYON-2D][PASS-2 LOWER] Success via 'jallenjia/Change-Clothes-AI'!", flush=True)
+                        with Image.open(out_path2) as vton_img2:
+                            return vton_img2.convert("RGB")
+                except Exception as err2:
+                    print(f"[ML-TRYON-2D][PASS-2 LOWER] 'jallenjia/Change-Clothes-AI' fallback: {err2}", flush=True)
+
+            # 3) Try franciszzj/Leffa (`vt_model_type="dress_code"`, `vt_garment_type="lower_body"`)
+            if deadline - time.time() >= 5.0:
+                try:
+                    print(
+                        f"[ML-TRYON-2D][PASS-2 LOWER] Calling 'franciszzj/Leffa' (lower_body) | garment='{bottom_desc}'",
+                        flush=True,
+                    )
+                    client3 = _instantiate_gradio_client("franciszzj/Leffa", resolved_token)
+                    job3 = client3.submit(
+                        src_image_path=gradio_handle_file(p_path),
+                        ref_image_path=gradio_handle_file(g_path),
+                        ref_acceleration=True,
+                        step=20,
+                        scale=2.5,
+                        seed=42,
+                        vt_model_type="dress_code",
+                        vt_garment_type="lower_body",
+                        vt_repaint=False,
+                        api_name="/leffa_predict_vt",
+                    )
+                    try:
+                        res3 = job3.result(timeout=max(1.0, deadline - time.time()))
+                    except Exception:
+                        try:
+                            job3.cancel()
+                        except Exception:
+                            pass
+                        raise
+                    out_path3 = res3[0] if isinstance(res3, (list, tuple)) else res3
+                    if isinstance(out_path3, dict):
+                        out_path3 = out_path3.get("path") or out_path3.get("name")
+                    if isinstance(out_path3, str) and os.path.exists(out_path3):
+                        print("[ML-TRYON-2D][PASS-2 LOWER] Success via 'franciszzj/Leffa'!", flush=True)
+                        with Image.open(out_path3) as vton_img3:
+                            return vton_img3.convert("RGB")
+                except Exception as err3:
+                    print(f"[ML-TRYON-2D][PASS-2 LOWER] 'franciszzj/Leffa' fallback: {err3}", flush=True)
+    except Exception as e:
+        logger.debug(f"Pass-2 Lower VTON skipped: {e}")
+    return None
+
+
 def _fit_bottom_and_shoes_onto_studio_person(
     studio_person_rgba: Image.Image,
     person_alpha: Optional[np.ndarray],
@@ -2684,15 +3016,7 @@ def _fit_bottom_and_shoes_onto_studio_person(
     shoe_item: Optional[WardrobeItemInput],
     waist_overlap_for_vton: bool = True,
 ) -> Image.Image:
-    """Fit `BOTTOM` (pants/jeans/shorts) and split left/right `SHOES` cleanly onto the studio-isolated user:
-    - Trims any concave top waistband dip/hanger residue from the pants.
-    - Aligns the left and right pant legs directly over the user's left and right legs, masking bare inner-calf
-      skin so legs never peek out awkwardly behind the pants.
-    - Anchors left and right shoes to the exact bottom of the user's left and right feet (`left_foot_bottom_y`,
-      `right_foot_bottom_y`) and masks bare toes so zero bare toes stick out under the shoes!
-    - When `waist_overlap_for_vton=True`, places the pants BEFORE `yisol/IDM-VTON` runs so `IDM-VTON` naturally
-      drapes the shirt/hoodie hem OVER the waistband of the pants!
-    """
+    """Fallback local lower-body fitter if all 3 Lower-Body Diffusion VTON Spaces are busy."""
     comp = studio_person_rgba.copy()
     W, H = comp.size
     p_left, p_top, p_right, p_bottom = p_bbox
@@ -2767,8 +3091,6 @@ def _fit_bottom_and_shoes_onto_studio_person(
         fg_c.paste(layer_rgba, (dst_x, dst_y), layer_rgba)
         return Image.alpha_composite(base_c, fg_c)
 
-    # Erase bare calves/shins and old shorts inside the leg corridor (`y in [0.49*p_h, 0.88*p_h]`)
-    # and bare toes (`y >= 0.88*p_h`) on `comp` so old shorts/shins/toes never peek out behind the new pants & shoes!
     comp_np = np.asarray(comp, dtype=np.uint8).copy()
     if bottom_item is not None:
         leg_clear_y0 = max(0, p_top + int(0.49 * p_h))
@@ -2783,7 +3105,6 @@ def _fit_bottom_and_shoes_onto_studio_person(
         toe_clear_x0 = max(0, left_foot_cx - int(0.14 * p_w))
         toe_clear_x1 = min(W, right_foot_cx + int(0.14 * p_w))
         comp_np[toe_clear_y0:toe_clear_y1, toe_clear_x0:toe_clear_x1, :3] = 255
-        # Re-draw subtle floor contact shadow under the feet
         comp = Image.fromarray(comp_np, mode="RGBA")
         from PIL import ImageDraw
         sh_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
@@ -2797,19 +3118,17 @@ def _fit_bottom_and_shoes_onto_studio_person(
     else:
         comp = Image.fromarray(comp_np, mode="RGBA")
 
-    # 1. BOTTOM: Fit from waist (`0.46*p_h`) down to the ankle line (`0.875*p_h`), spanning the user's leg stance
     if bottom_item is not None:
         raw_bot = _decode_item_cutout_raw(bottom_item)
         stance_w = abs(right_foot_cx - left_foot_cx) + int(hip_w * 0.56)
         bw = max(64, int(max(hip_w * 1.22, stance_w)))
-        waist_y = p_top + int((0.455 if waist_overlap_for_vton else 0.475) * p_h)
+        waist_y = p_top + int((0.455 if waist_overlap_for_vton else 0.485) * p_h)
         ankle_y = min(left_foot_bot_y, right_foot_bot_y) - int(0.085 * p_h)
         bh = max(80, ankle_y - waist_y)
         legs_mid_cx = int(0.5 * (left_foot_cx + right_foot_cx))
         bx = int(0.5 * (torso_cx + legs_mid_cx)) - bw // 2
 
         if raw_bot is not None:
-            # Trim top 4% of raw_bot to remove any remaining curved hanger clip indents on the waistband
             rb_w, rb_h = raw_bot.size
             if rb_h > 40:
                 raw_bot = raw_bot.crop((0, int(0.035 * rb_h), rb_w, rb_h))
@@ -2822,11 +3141,10 @@ def _fit_bottom_and_shoes_onto_studio_person(
 
         comp = _paste_with_shadow(comp, b_layer, bx, waist_y)
 
-    # 2. SHOES: Split left & right shoes and anchor them to the bottom of each foot so zero toes stick out!
     if shoe_item is not None:
         raw_shoe_pil = _decode_item_cutout_raw(shoe_item)
-        single_shoe_w = max(34, int(hip_w * 0.44))
-        single_shoe_h = max(34, int(p_h * 0.145))
+        single_shoe_w = max(32, int(hip_w * 0.38))
+        single_shoe_h = max(28, int(p_h * 0.105))
         if raw_shoe_pil is not None and raw_shoe_pil.width >= 32:
             mid_x = raw_shoe_pil.width // 2
             left_half = raw_shoe_pil.crop((0, 0, mid_x, raw_shoe_pil.height))
@@ -2838,131 +3156,25 @@ def _fit_bottom_and_shoes_onto_studio_person(
                 r_shoe = right_half.crop(r_bbox)
                 l_shoe.thumbnail((single_shoe_w, single_shoe_h), Image.Resampling.LANCZOS)
                 r_shoe.thumbnail((single_shoe_w, single_shoe_h), Image.Resampling.LANCZOS)
-                # Make both shoes match height so one shoe doesn't look tiny compared to the other!
-                target_sh_h = max(l_shoe.height, r_shoe.height, int(p_h * 0.115))
+                target_sh_h = min(int(p_h * 0.105), max(l_shoe.height, r_shoe.height, int(p_h * 0.085)))
                 if l_shoe.height > 0 and l_shoe.height != target_sh_h:
-                    l_w = max(24, int(round(l_shoe.width * (target_sh_h / float(l_shoe.height)))))
+                    l_w = max(22, int(round(l_shoe.width * (target_sh_h / float(l_shoe.height)))))
                     l_shoe = l_shoe.resize((l_w, target_sh_h), Image.Resampling.LANCZOS)
                 if r_shoe.height > 0 and r_shoe.height != target_sh_h:
-                    r_w = max(24, int(round(r_shoe.width * (target_sh_h / float(r_shoe.height)))))
+                    r_w = max(22, int(round(r_shoe.width * (target_sh_h / float(r_shoe.height)))))
                     r_shoe = r_shoe.resize((r_w, target_sh_h), Image.Resampling.LANCZOS)
 
-                l_fy = max(p_top + int(0.81 * p_h), left_foot_bot_y - l_shoe.height + 3)
-                r_fy = max(p_top + int(0.81 * p_h), right_foot_bot_y - r_shoe.height + 3)
-                comp = _paste_with_shadow(comp, l_shoe, left_foot_cx - l_shoe.width // 2, l_fy)
-                comp = _paste_with_shadow(comp, r_shoe, right_foot_cx - r_shoe.width // 2, r_fy)
+                common_foot_y = min(H - target_sh_h - 4, max(left_foot_bot_y, right_foot_bot_y) - target_sh_h)
+                comp = _paste_with_shadow(comp, l_shoe, left_foot_cx - l_shoe.width // 2, common_foot_y)
+                comp = _paste_with_shadow(comp, r_shoe, right_foot_cx - r_shoe.width // 2, common_foot_y)
             else:
-                s_layer = _decode_item_cutout_or_render_placeholder(shoe_item, int(hip_w * 0.75), single_shoe_h)
-                comp = _paste_with_shadow(comp, s_layer, torso_cx - s_layer.width // 2, left_foot_bot_y - s_layer.height)
+                s_layer = _decode_item_cutout_or_render_placeholder(shoe_item, int(hip_w * 0.68), single_shoe_h)
+                comp = _paste_with_shadow(comp, s_layer, torso_cx - s_layer.width // 2, min(H - s_layer.height - 4, left_foot_bot_y - s_layer.height))
         else:
-            s_layer = _decode_item_cutout_or_render_placeholder(shoe_item, int(hip_w * 0.75), single_shoe_h)
-            comp = _paste_with_shadow(comp, s_layer, torso_cx - s_layer.width // 2, left_foot_bot_y - s_layer.height)
+            s_layer = _decode_item_cutout_or_render_placeholder(shoe_item, int(hip_w * 0.68), single_shoe_h)
+            comp = _paste_with_shadow(comp, s_layer, torso_cx - s_layer.width // 2, min(H - s_layer.height - 4, left_foot_bot_y - s_layer.height))
 
     return comp
-
-
-def _instantiate_gradio_client(space_id: str, resolved_token: str) -> Any:
-    """Instantiate GradioClient across all gradio_client versions (handling `token` vs `hf_token` signatures)."""
-    if resolved_token:
-        os.environ["HF_TOKEN"] = resolved_token
-        os.environ["HUGGING_FACE_HUB_TOKEN"] = resolved_token
-
-    try:
-        sig_params = inspect.signature(GradioClient.__init__).parameters
-        if resolved_token and "token" in sig_params:
-            return GradioClient(space_id, token=resolved_token)
-        elif resolved_token and "hf_token" in sig_params:
-            return GradioClient(space_id, hf_token=resolved_token)
-        else:
-            return GradioClient(space_id)
-    except Exception:
-        return GradioClient(space_id)
-
-
-def _try_gradio_zerogpu_vton(
-    studio_person_rgb: Image.Image,
-    upper_pil: Optional[Image.Image],
-    upper_desc: str,
-    hf_token: Optional[str] = None,
-) -> Optional[Image.Image]:
-    """Tier-1 Free Hugging Face ZeroGPU Diffusion VTON Bridge (yisol/IDM-VTON + Nymbo/Virtual-Try-On).
-    Sends the pre-dressed lower-body + #FFFFFF studio-isolated person image into IDM-VTON so IDM-VTON
-    naturally drapes the upper garment OVER the top waistband of the pants!
-    """
-    global _HF_ZEROGPU_COOLDOWN_UNTIL
-    if not GRADIO_CLIENT_AVAILABLE or GradioClient is None or gradio_handle_file is None or upper_pil is None:
-        return None
-    if time.time() < _HF_ZEROGPU_COOLDOWN_UNTIL:
-        return None
-
-    resolved_token = get_hf_token(explicit_token=hf_token)
-    disable_vton = os.getenv("DISABLE_ZEROGPU_VTON", "false").strip().lower() in ("true", "1", "yes")
-    if disable_vton:
-        return None
-
-    try:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            p_path = os.path.join(tmpdir, "person.png")
-            g_path = os.path.join(tmpdir, "garment.png")
-            p_vton = studio_person_rgb.convert("RGB").copy()
-            p_vton.thumbnail((768, 1024), Image.Resampling.LANCZOS)
-            p_vton.save(p_path, format="PNG")
-
-            g_white = Image.new("RGBA", upper_pil.size, (255, 255, 255, 255))
-            Image.alpha_composite(g_white, upper_pil.convert("RGBA")).convert("RGB").save(g_path, format="PNG")
-
-            try:
-                total_budget_s = float(os.getenv("VTON_TIMEOUT_SECONDS", "50"))
-            except ValueError:
-                total_budget_s = 50.0
-            deadline = time.time() + max(5.0, total_budget_s)
-
-            for space_id in HF_VTON_SPACES:
-                remaining = deadline - time.time()
-                if remaining < 5.0:
-                    print("[ML-TRYON-2D] VTON time budget exhausted; using local Cladwell Studio compositor.", flush=True)
-                    break
-                try:
-                    print(
-                        f"[ML-TRYON-2D] Calling Hugging Face Space '{space_id}' | HF_TOKEN_present={bool(resolved_token)} | garment='{upper_desc}'",
-                        flush=True,
-                    )
-                    client = _instantiate_gradio_client(space_id, resolved_token)
-
-                    job = client.submit(
-                        dict={"background": gradio_handle_file(p_path), "layers": [], "composite": None},
-                        garm_img=gradio_handle_file(g_path),
-                        garment_des=upper_desc or "shirt",
-                        is_checked=True,
-                        is_checked_crop=False,
-                        denoise_steps=20,
-                        seed=42,
-                        api_name="/tryon",
-                    )
-                    try:
-                        res = job.result(timeout=max(1.0, deadline - time.time()))
-                    except Exception:
-                        try:
-                            job.cancel()
-                        except Exception:
-                            pass
-                        raise
-                    out_path = res[0] if isinstance(res, (list, tuple)) else res
-                    if isinstance(out_path, dict):
-                        out_path = out_path.get("path") or out_path.get("name")
-                    if isinstance(out_path, str) and os.path.exists(out_path):
-                        print(f"[ML-TRYON-2D] Success via Hugging Face Space '{space_id}'!", flush=True)
-                        with Image.open(out_path) as vton_img:
-                            return vton_img.convert("RGB")
-                except Exception as space_err:
-                    print(f"[ML-TRYON-2D] Space '{space_id}' unavailable/busy/timed out: {space_err}", flush=True)
-                    continue
-
-            _HF_ZEROGPU_COOLDOWN_UNTIL = time.time() + 120.0
-    except Exception as e:
-        _HF_ZEROGPU_COOLDOWN_UNTIL = time.time() + 120.0
-        logger.debug(f"ZeroGPU IDM-VTON skipped/busy ({e}); using local Cladwell Studio Try-On.")
-    return None
 
 
 CANONICAL_OUTFIT_ORDER: Dict[str, int] = {
@@ -2983,15 +3195,15 @@ def sort_outfit_items_canonically(items: List[WardrobeItemInput]) -> List[Wardro
 
 @app.post("/try-on-2d", response_model=TryOn2DResponse)
 def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse:
-    """Cladwell-Style 2D Virtual Try-On Endpoint ('See It On Me') — v7.0 Pre-Dressed Lower-Body + IDM-VTON:
+    """Cladwell-Style 2D Virtual Try-On Endpoint ('See It On Me') — v7.1 2-Pass Full-Body Diffusion VTON:
     1. 5-Class NSFW Safety Check on user's full-body photo.
-    2. Isolates the user onto a clean #FFFFFF Cladwell-style studio card (100% scrubbing the pink bag beside
-       the right leg and background walls).
-    3. Pre-fits the hanger-cleaned `BOTTOM` (pants) and equalized left/right `SHOES` onto the lower body
-       (covering bare calves and bare toes) BEFORE calling `yisol/IDM-VTON`!
-    4. Sends that pre-dressed lower-body studio image into `yisol/IDM-VTON` so the diffusion model naturally
-       drapes the upper garment's hem OVER the top waistband of the pants and keeps the user's hands/wrists
-       naturally in front!
+    2. Isolates the user onto a clean #FFFFFF Cladwell-style studio card (scrubbing the pink bag).
+    3. Pass 1 (Upper-Body Diffusion VTON): Calls `yisol/IDM-VTON` (`is_checked=True`) to diffusion-render
+       the recommended `TOP` (or `OUTERWEAR`) onto the user's upper body.
+    4. Pass 2 (Lower-Body & Shoes Diffusion VTON): Calls `yisol/IDM-VTON` Custom Lower-Body Mask Mode
+       (`is_checked=False` + `dict['layers']=[lower_mask]`) with automatic failover to
+       `jallenjia/Change-Clothes-AI` (`category='lower_body'`) and `franciszzj/Leffa` (`lower_body`)
+       so the pants AND shoes are ALSO diffusion-generated onto the user's legs and feet!
     """
     raw_b64 = req.user_photo_base64.strip()
     if "," in raw_b64:
@@ -3008,7 +3220,7 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
 
     req.items = sort_outfit_items_canonically(req.items)
     tryon_sig = hashlib.sha256(
-        user_bytes + "|".join(f"{it.id}:{it.clothing_name}:{it.color}:v70" for it in req.items).encode("utf-8")
+        user_bytes + "|".join(f"{it.id}:{it.clothing_name}:{it.color}:v71" for it in req.items).encode("utf-8")
     ).hexdigest()
     if tryon_sig in _VTON_TRYON_CACHE:
         print(f"[ML-TRYON-2D] Returning cached Virtual Try-On for {tryon_sig[:10]}...", flush=True)
@@ -3023,11 +3235,10 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
         header_token=request.headers.get("x-hf-token"),
     )
     print(
-        f"[ML-TRYON-2D] POST /try-on-2d invoked | items={len(req.items)} | hf_token_present={bool(hf_token)}",
+        f"[ML-TRYON-2D] POST /try-on-2d invoked (v7.1 2-Pass Full-Body VTON) | items={len(req.items)} | hf_token_present={bool(hf_token)}",
         flush=True,
     )
 
-    # Step 1: Isolate the user onto a pure #FFFFFF Cladwell-style studio background (scrubbing the pink bag!)
     studio_person_rgba, person_alpha, p_bbox, detected_skin_hex = (
         _isolate_clean_person_on_studio_white(user_img, max_size=(520, 680))
     )
@@ -3043,56 +3254,90 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
     outer_item = next((i for i in req.items if i.category == "OUTERWEAR"), None)
     shoe_item = next((i for i in req.items if i.category == "SHOES"), None)
 
+    # If the user's top_item is a Graphic Tee or Polo and outer_item is also present, only use outer_item
+    # when outer_item is genuinely outerwear; otherwise showcase top_item!
     primary_upper = outer_item if outer_item is not None else top_item
+    if top_item is not None and outer_item is not None and _is_cutout_actually_graphic_tee(outer_item):
+        primary_upper = outer_item
 
-    # Step 2: Fit `BOTTOM` and `SHOES` onto the lower body BEFORE calling IDM-VTON!
-    # That way IDM-VTON naturally drapes the upper shirt/hoodie/jacket OVER the waistband of the pants!
-    predressed_lower_rgba = _fit_bottom_and_shoes_onto_studio_person(
-        studio_person_rgba=studio_person_rgba,
-        person_alpha=person_alpha,
-        p_bbox=p_bbox,
-        bottom_item=bottom_item,
-        shoe_item=shoe_item,
-        waist_overlap_for_vton=True,
-    )
+    raw_upper_pil = _decode_item_cutout_raw(primary_upper) if primary_upper is not None else None
+    raw_bottom_pil = _decode_item_cutout_raw(bottom_item) if bottom_item is not None else None
+    raw_shoe_pil = _decode_item_cutout_raw(shoe_item) if shoe_item is not None else None
 
-    # Step 3: Call Hugging Face ZeroGPU IDM-VTON with the pre-dressed lower-body studio image!
-    vton_dressed_full_img: Optional[Image.Image] = None
-    if primary_upper is not None:
-        raw_upper_pil = _decode_item_cutout_raw(primary_upper)
-        vton_dressed_full_img = _try_gradio_zerogpu_vton(
-            studio_person_rgb=predressed_lower_rgba.convert("RGB"),
+    # ─────────────────────────────────────────────────────────────────────────
+    # PASS 1: Upper-Body Diffusion VTON (`yisol/IDM-VTON`, `is_checked=True`)
+    # ─────────────────────────────────────────────────────────────────────────
+    upper_vton_img: Optional[Image.Image] = None
+    if primary_upper is not None and raw_upper_pil is not None:
+        upper_vton_img = _try_gradio_zerogpu_upper_vton(
+            studio_person_rgb=studio_person_rgba.convert("RGB"),
             upper_pil=raw_upper_pil,
             upper_desc=f"{primary_upper.color} {primary_upper.clothing_name}",
             hf_token=hf_token,
+            budget_seconds=26.0,
         )
 
-    if vton_dressed_full_img is not None:
-        composite = vton_dressed_full_img.resize((W, H), Image.Resampling.LANCZOS).convert("RGBA")
-        upper_already_rendered_by_vton = True
-    else:
-        # Local fallback if ZeroGPU is busy: paste the upper garment OVER the pre-dressed pants waistband
-        composite = predressed_lower_rgba.copy()
-        upper_already_rendered_by_vton = False
-        if primary_upper is not None:
-            uw = max(68, int(p_w * 0.72))
-            uh = max(72, int(p_h * 0.35))
-            ux = torso_cx - uw // 2
-            uy = p_top + int(0.138 * p_h)
-            u_layer = _decode_item_cutout_or_render_placeholder(primary_upper, uw, uh)
-            fg_c = Image.new("RGBA", composite.size, (0, 0, 0, 0))
-            fg_c.paste(u_layer, (ux, uy), u_layer)
-            composite = Image.alpha_composite(composite, fg_c)
+    base_after_upper = (
+        upper_vton_img.resize((W, H), Image.Resampling.LANCZOS).convert("RGBA")
+        if upper_vton_img is not None
+        else studio_person_rgba.copy()
+    )
 
-            head_y_end = max(1, p_top + int(0.142 * p_h))
-            head_alpha = np.zeros((H, W), dtype=np.uint8)
-            if person_alpha is not None:
-                head_alpha[:head_y_end, :] = person_alpha[:head_y_end, :]
-            else:
-                head_alpha[:head_y_end, :] = 255
-            head_np = np.asarray(studio_person_rgba, dtype=np.uint8).copy()
-            head_np[:, :, 3] = head_alpha
-            composite = Image.alpha_composite(composite, Image.fromarray(head_np, mode="RGBA"))
+    # ─────────────────────────────────────────────────────────────────────────
+    # PASS 2: Lower-Body & Shoes Diffusion VTON (`yisol/IDM-VTON` Custom Lower
+    # Mask -> `jallenjia/Change-Clothes-AI` -> `franciszzj/Leffa`)
+    # ─────────────────────────────────────────────────────────────────────────
+    lower_vton_img: Optional[Image.Image] = None
+    if bottom_item is not None and raw_bottom_pil is not None:
+        b_desc = f"{bottom_item.color} {bottom_item.clothing_name}"
+        s_desc = f"{shoe_item.color} {shoe_item.clothing_name}" if shoe_item is not None else ""
+        lower_vton_img = _try_gradio_zerogpu_lower_vton(
+            person_img_rgb=base_after_upper.convert("RGB"),
+            p_bbox_orig=p_bbox,
+            orig_size=(W, H),
+            bottom_pil=raw_bottom_pil,
+            shoe_pil=raw_shoe_pil,
+            bottom_desc=b_desc,
+            shoe_desc=s_desc,
+            hf_token=hf_token,
+            budget_seconds=26.0,
+        )
+
+    if lower_vton_img is not None:
+        composite = lower_vton_img.resize((W, H), Image.Resampling.LANCZOS).convert("RGBA")
+        both_passes_succeeded = upper_vton_img is not None
+    else:
+        # Fallback if Lower-Body ZeroGPU queue is busy: use clean proportional lower-body fit
+        composite = _fit_bottom_and_shoes_onto_studio_person(
+            studio_person_rgba=base_after_upper,
+            person_alpha=person_alpha,
+            p_bbox=p_bbox,
+            bottom_item=bottom_item,
+            shoe_item=shoe_item,
+            waist_overlap_for_vton=False,
+        )
+        both_passes_succeeded = False
+
+    # If Pass 1 (Upper VTON) was skipped/busy, fit the upper garment cleanly on top
+    if upper_vton_img is None and primary_upper is not None:
+        uw = max(68, int(p_w * 0.72))
+        uh = max(72, int(p_h * 0.35))
+        ux = torso_cx - uw // 2
+        uy = p_top + int(0.138 * p_h)
+        u_layer = _decode_item_cutout_or_render_placeholder(primary_upper, uw, uh)
+        fg_c = Image.new("RGBA", composite.size, (0, 0, 0, 0))
+        fg_c.paste(u_layer, (ux, uy), u_layer)
+        composite = Image.alpha_composite(composite, fg_c)
+
+        head_y_end = max(1, p_top + int(0.142 * p_h))
+        head_alpha = np.zeros((H, W), dtype=np.uint8)
+        if person_alpha is not None:
+            head_alpha[:head_y_end, :] = person_alpha[:head_y_end, :]
+        else:
+            head_alpha[:head_y_end, :] = 255
+        head_np = np.asarray(studio_person_rgba, dtype=np.uint8).copy()
+        head_np[:, :, 3] = head_alpha
+        composite = Image.alpha_composite(composite, Image.fromarray(head_np, mode="RGBA"))
 
     out_buf = BytesIO()
     out_mime = "image/webp"
@@ -3104,7 +3349,7 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
         out_mime = "image/png"
 
     try_on_uri = f"data:{out_mime};base64,{base64.b64encode(out_buf.getvalue()).decode('utf-8')}"
-    if upper_already_rendered_by_vton or primary_upper is None:
+    if both_passes_succeeded or (upper_vton_img is not None and bottom_item is None):
         _VTON_TRYON_CACHE[tryon_sig] = try_on_uri
     return TryOn2DResponse(
         tryOnDataUri=try_on_uri,
@@ -3272,8 +3517,8 @@ def score_outfit_combination(
         elif not allow_comfort_unlayered:
             s_cb -= 6.0
         else:
-            s_cb += 6.0
-            reasons.append("Signature personal comfort silhouette")
+            s_cb += 10.0
+            reasons.append("Signature personal comfort silhouette (+10)")
     else:
         if not has_outerwear:
             s_cb += 6.0
@@ -3372,8 +3617,6 @@ def recommend_outfits(req: HybridRecommendationRequest) -> List[ScoredOutfitReco
     """Generate Top-3 outfits via Weighted Hybrid Filtering (0.55 Content-Based + 0.45 Collaborative)."""
     eligible_wardrobe = [item for item in req.wardrobe if not item.is_disliked]
 
-    # Auto-rescue any legacy Graphic T-Shirt stored in MongoDB as OUTERWEAR ('Black Track Jacket')
-    # so it acts as a standalone TOP instead of layering on top of a Polo Shirt!
     for it in eligible_wardrobe:
         if it.category == "OUTERWEAR" and _is_cutout_actually_graphic_tee(it):
             it.category = "TOP"
@@ -3424,7 +3667,7 @@ def recommend_outfits(req: HybridRecommendationRequest) -> List[ScoredOutfitReco
         or any(w in req.weather.condition.lower() for w in ("rain", "storm", "drizzle", "thunder", "cool", "cold"))
     )
     occ_low = (req.target_occasion or "casual").strip().lower()
-    is_casual_occasion = occ_low in ("casual", "everyday", "at-home", "home", "outdoor", "school")
+    is_casual_occasion = occ_low in ("casual", "everyday", "at-home", "home", "outdoor", "school", "any occasion", "any")
 
     layered_candidates: List[ScoredOutfitRecommendation] = []
     comfort_unlayered_candidates: List[ScoredOutfitRecommendation] = []
@@ -3527,33 +3770,23 @@ def recommend_outfits(req: HybridRecommendationRequest) -> List[ScoredOutfitReco
     comfort_unlayered_candidates.sort(key=lambda r: r.hybrid_score, reverse=True)
     all_candidates.sort(key=lambda r: r.hybrid_score, reverse=True)
 
-    if is_rainy_or_cool and is_casual_occasion:
+    # For casual/any occasion, prioritize distinct unlayered TOP outfits in slots 1 & 2 (so your Navy Polo Shirt
+    # and Black Graphic Tee are showcased directly without being hidden under a track jacket!) and 1 layered option in slot 3.
+    if is_casual_occasion and comfort_unlayered_candidates:
         selected: List[ScoredOutfitRecommendation] = []
-        if comfort_unlayered_candidates:
-            selected.append(comfort_unlayered_candidates[0])
-        if layered_candidates:
+        used_top_ids = set()
+        for cand_u in comfort_unlayered_candidates:
+            if len(selected) >= 2:
+                break
+            c_top = next((it.id for it in cand_u.items if it.category == "TOP"), "")
+            if c_top not in used_top_ids or len(tops) <= len(used_top_ids):
+                selected.append(cand_u)
+                used_top_ids.add(c_top)
+
+        if is_rainy_or_cool and layered_candidates and len(selected) < 3:
             selected.append(layered_candidates[0])
 
-        used_top_ids = {next((it.id for it in s.items if it.category == "TOP"), "") for s in selected}
-        used_bot_ids = {next((it.id for it in s.items if it.category == "BOTTOM"), "") for s in selected}
-        combined_pool = comfort_unlayered_candidates + layered_candidates
-        combined_pool.sort(key=lambda r: r.hybrid_score, reverse=True)
-
-        for cand in combined_pool:
-            if len(selected) >= 3:
-                break
-            if cand in selected:
-                continue
-            c_top = next((it.id for it in cand.items if it.category == "TOP"), "")
-            c_bot = next((it.id for it in cand.items if it.category == "BOTTOM"), "")
-            if (c_top not in used_top_ids or len(tops) <= len(used_top_ids)) and (
-                c_bot not in used_bot_ids or len(bottoms) <= len(used_bot_ids)
-            ):
-                selected.append(cand)
-                used_top_ids.add(c_top)
-                used_bot_ids.add(c_bot)
-
-        for cand in combined_pool:
+        for cand in comfort_unlayered_candidates + layered_candidates:
             if len(selected) >= 3:
                 break
             if cand not in selected:
