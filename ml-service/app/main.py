@@ -1,4 +1,4 @@
-"""StyleSense Unified ML & Hybrid Recommendation Microservice (FastAPI v6.8 — HF_TOKEN + IDM-VTON Edition).
+"""StyleSense Unified ML & Hybrid Recommendation Microservice (FastAPI v6.9 — IDM-VTON Fix & Cladwell Studio Edition).
 
 Implements:
 1. Official remove.bg API Background Removal (size="preview") with graceful local
@@ -9,27 +9,25 @@ Implements:
 3. Foreground Garment Color & Palette Extraction using ml-service/kmeans_color.py
    (CIE XYZ -> CIELAB D65, Delta-E CIE76, and KMeansCIELAB clustering with K = 2 locked).
 4. 5-Class Fashion Taxonomy wired directly to ml-service/cnn_taxonomy.json + 33 Granular Subtypes
-   (including Wireless Earbuds / AirPods & Headphones under ACCESSORIES, plus Track Pants / Joggers
-   vs. Denim Jeans geometric + sheen calibration).
+   (including Wireless Earbuds / AirPods & Headphones under ACCESSORIES, Track Pants / Joggers
+   vs. Denim Jeans calibration, and Graphic T-Shirt vs. Track Jacket rescue).
 5. Batch Wardrobe Image Analysis endpoint (POST /analyze-batch) accepting up to 15 images.
 6. Automated AI Content Moderation Gate (5-Class NSFWJS Equivalent + Bilingual Profanity Filter).
 7. Context-Aware Weighted Hybrid Recommendation Engine: S_hybrid = round(0.55 * S_cb + 0.45 * S_cf).
-8. v6.8 HF_TOKEN + IDM-VTON & Acloset Studio Upgrades ($0.00 Free Pipeline — GEMINI_API_KEY Removed):
-   - Completely removes GEMINI_API_KEY (zero paid billing required, zero 429/404 logs).
-   - Uses free Hugging Face Access Token (HF_TOKEN) with gradio_client to call yisol/IDM-VTON
-     on Hugging Face Spaces for real Diffusion Virtual Try-On in POST /try-on-2d, then isolates
-     the dressed user onto a Cladwell-style #FFFFFF studio card with fitted bottoms/shoes.
-   - Instant fallback to the Cladwell Studio Body-Worn Compositor (clean #FFFFFF studio card,
-     old-clothing erasure, row-wise body contour warping, and foreground arm/hand/neck occlusion)
-     if ZeroGPU queues are busy.
-   - Fixes false 'Non-Wearable Object Blocked' on hanging Track Pants / Bottoms and accepts
-     Earphones / AirPods / Headphones as wearable ACCESSORIES.
+8. v6.9 IDM-VTON `gradio_client` Signature Fix & Cladwell Studio Try-On:
+   - Fixes `Client.__init__() got an unexpected keyword argument 'hf_token'` by inspecting
+     `GradioClient.__init__` parameters (`token` vs `hf_token`) and setting `os.environ["HF_TOKEN"]`.
+   - Isolates the user onto a clean #FFFFFF Cladwell-style studio card first (removing bedroom walls
+     and stray floor objects like the pink bag beside the leg) before running IDM-VTON.
+   - Removes the destructive hole-cutting `erase_region`, removes the sleeve-eating arm occlusion mask,
+     and removes wavy row-by-row warping so garments stay 100% intact and sharp.
 """
 
 import base64
 from contextlib import asynccontextmanager
 import gc
 import hashlib
+import inspect
 from io import BytesIO
 import json
 import logging
@@ -964,127 +962,15 @@ def beautify_garment_geometric_studio(
     sub_category: Optional[str] = None,
     dom_l_star: float = 50.0,
 ) -> str:
-    """Acloset-Style Non-Destructive Studio Flat-Lay Beautifier ($0.00 Pipeline):
-    1. Universal Hanger Hook & Waistband Hanger-Bar Eraser (works on TOP, OUTERWEAR, and BOTTOM).
-    2. Rigid Principal-Axis Deskewing (straightens tilted shirts, jackets, and pants).
-    3. Bilateral Silhouette Symmetry Recovery (fills shallow crumpled edge indentations on left/right sides).
-    4. 2D Homomorphic Illumination Flattening (removes uneven room glare & flash hotspots on dark clothes).
-    5. OpenCV Domain-Transform Steam-Ironing (cv2.edgePreservingFilter + Bilateral L*) that removes fabric
-       wrinkles while keeping seams, collars, drawstrings, stripes, and graphic prints 100% sharp.
-    6. Centered 400x400 Studio Product Card with Soft Drop-Shadow.
+    """1:1 Faithful Studio Cutout & Hanger-Hook Cleaner ($0.00 Pipeline — Zero Garment Distortion):
+    Removes hanger hooks/bars, centers the garment on a 400x400 canvas with a soft studio drop-shadow,
+    and preserves 100% of the original garment texture and color without artificial blurring or warping.
     """
     rgba = np.asarray(cutout_rgba.convert("RGBA"), dtype=np.uint8).copy()
     cat_norm = _normalize_category_str(category) if category else "TOP"
 
     if cat_norm in ("TOP", "OUTERWEAR", "BOTTOM"):
         rgba = _erase_top_hanger_hooks_and_bars(rgba, allow_bar_erase=True)
-
-    alpha = rgba[:, :, 3].copy()
-    ys, xs = np.where(alpha > 40)
-    if len(ys) > 20 and len(xs) > 20:
-        top, bottom = int(np.min(ys)), int(np.max(ys))
-        left, right = int(np.min(xs)), int(np.max(xs))
-
-        if cv2 is not None and cat_norm in ("TOP", "OUTERWEAR", "BOTTOM"):
-            try:
-                m = cv2.moments((alpha > 64).astype(np.uint8))
-                if m["m00"] > 50:
-                    denom = m["mu02"] - m["mu20"]
-                    if abs(denom) > 1e-3:
-                        theta_rad = 0.5 * math.atan2(2.0 * m["mu11"], denom)
-                        theta_deg = math.degrees(theta_rad)
-                        if 0.8 <= abs(theta_deg) <= 9.5:
-                            cx = float(left + right) * 0.5
-                            cy = float(top + bottom) * 0.5
-                            rot_mat = cv2.getRotationMatrix2D((cx, cy), -theta_deg, 1.0)
-                            rgba = cv2.warpAffine(
-                                rgba,
-                                rot_mat,
-                                (rgba.shape[1], rgba.shape[0]),
-                                flags=cv2.INTER_LINEAR,
-                                borderMode=cv2.BORDER_CONSTANT,
-                                borderValue=(0, 0, 0, 0),
-                            )
-                            alpha = rgba[:, :, 3]
-            except Exception as e:
-                logger.debug(f"Deskewing skipped: {e}")
-
-    stage_pil = Image.fromarray(rgba, mode="RGBA")
-    s_bbox = stage_pil.getbbox()
-    work_canvas = Image.new("RGBA", (400, 400), (0, 0, 0, 0))
-    if s_bbox:
-        s_crop = stage_pil.crop(s_bbox)
-        s_crop.thumbnail((358, 358), Image.Resampling.LANCZOS)
-        sox = (400 - s_crop.width) // 2
-        soy = (400 - s_crop.height) // 2
-        work_canvas.paste(s_crop, (sox, soy), s_crop)
-    else:
-        work_canvas = stage_pil.resize((400, 400), Image.Resampling.LANCZOS)
-
-    rgba = np.asarray(work_canvas, dtype=np.uint8).copy()
-    alpha = rgba[:, :, 3]
-
-    if cv2 is not None:
-        try:
-            k_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
-            alpha_clean = cv2.morphologyEx(alpha, cv2.MORPH_CLOSE, k_close)
-            alpha_clean = cv2.GaussianBlur(alpha_clean, (3, 3), 0)
-            rgba[:, :, 3] = alpha_clean
-            alpha = alpha_clean
-
-            fg_mask_bool = alpha > 128
-            rgb_chan = rgba[:, :, :3].copy()
-            if int(np.sum(fg_mask_bool)) > 50:
-                med_rgb = np.median(rgb_chan[fg_mask_bool], axis=0).astype(np.uint8)
-                bg_fill = np.full_like(rgb_chan, med_rgb)
-                work_rgb = np.where(alpha[:, :, None] > 32, rgb_chan, bg_fill)
-            else:
-                work_rgb = rgb_chan.copy()
-
-            lab_cv = cv2.cvtColor(work_rgb, cv2.COLOR_RGB2LAB)
-            l_chan, a_chan, b_chan = cv2.split(lab_cv)
-            l_float = l_chan.astype(np.float32)
-
-            if int(np.sum(fg_mask_bool)) > 80:
-                target_l = float(np.percentile(l_float[fg_mask_bool], 42))
-                illum_field = cv2.GaussianBlur(l_float, (0, 0), sigmaX=38.0, sigmaY=38.0)
-                l_flat = l_float - 0.55 * (illum_field - target_l)
-                l_flat = np.clip(l_flat, 0.0, 255.0).astype(np.uint8)
-            else:
-                l_flat = l_chan
-
-            l_bilat1 = cv2.bilateralFilter(l_flat, d=9, sigmaColor=36, sigmaSpace=36)
-            l_bilat2 = cv2.bilateralFilter(l_bilat1, d=7, sigmaColor=28, sigmaSpace=28)
-            clahe = cv2.createCLAHE(clipLimit=1.35, tileGridSize=(8, 8))
-            l_studio = clahe.apply(l_bilat2)
-
-            l_fine_detail = l_flat.astype(np.float32) - cv2.GaussianBlur(l_flat.astype(np.float32), (3, 3), 0)
-            l_ironed = np.clip(
-                0.82 * l_studio.astype(np.float32) + 0.18 * l_bilat2.astype(np.float32) + 0.95 * l_fine_detail,
-                0.0,
-                255.0,
-            ).astype(np.uint8)
-
-            erode_k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-            interior_fg = cv2.erode((alpha > 160).astype(np.uint8), erode_k, iterations=1) > 0
-            l_out = np.where(interior_fg, l_ironed, l_chan).astype(np.uint8)
-            lab_merged = cv2.merge((l_out, a_chan, b_chan))
-            ironed_rgb = cv2.cvtColor(lab_merged, cv2.COLOR_LAB2RGB)
-
-            if hasattr(cv2, "edgePreservingFilter"):
-                try:
-                    ep_rgb = cv2.edgePreservingFilter(ironed_rgb, flags=cv2.RECURS_FILTER, sigma_s=28, sigma_r=0.18)
-                    ironed_rgb = np.clip(
-                        0.65 * ep_rgb.astype(np.float32) + 0.35 * ironed_rgb.astype(np.float32),
-                        0.0,
-                        255.0,
-                    ).astype(np.uint8)
-                except Exception:
-                    pass
-
-            rgba[:, :, :3] = np.where(interior_fg[:, :, None], ironed_rgb, rgba[:, :, :3])
-        except Exception as e:
-            logger.debug(f"Frequency-separated L* studio relighting skipped: {e}")
 
     clean_pil = Image.fromarray(rgba, mode="RGBA")
     bbox = clean_pil.getbbox()
@@ -1099,7 +985,7 @@ def beautify_garment_geometric_studio(
         shadow_alpha_canvas = Image.new("L", (400, 400), 0)
         shadow_alpha_canvas.paste(crop_alpha, (ox, min(400 - cropped.height, oy + 5)))
         shadow_blurred = shadow_alpha_canvas.filter(ImageFilter.GaussianBlur(radius=6))
-        shadow_np = (np.asarray(shadow_blurred, dtype=np.float32) * (38.0 / 255.0)).clip(0, 255).astype(np.uint8)
+        shadow_np = (np.asarray(shadow_blurred, dtype=np.float32) * (34.0 / 255.0)).clip(0, 255).astype(np.uint8)
 
         shadow_rgba = np.zeros((400, 400, 4), dtype=np.uint8)
         shadow_rgba[:, :, 0] = 15
@@ -1133,7 +1019,7 @@ def create_studio_beautified_cutout(
     category: Optional[str] = None,
     sub_category: Optional[str] = None,
 ) -> str:
-    """Wrapper invoking the non-destructive studio beautifier."""
+    """Wrapper invoking the 1:1 faithful studio cutout cleaner."""
     return beautify_garment_geometric_studio(
         cutout_rgba=cutout_rgba,
         category=category,
@@ -1517,11 +1403,11 @@ def _calibrate_category_and_subtype(
     Optional[str],
     Optional[str],
 ]:
-    """Zero-retraining visual calibrator for StyleSense v6.8:
+    """Zero-retraining visual calibrator for StyleSense v6.9:
+    - Rescues Graphic T-Shirts (e.g. Black T-Shirt with Green graphic print) so they are classified as TOP
+      instead of OUTERWEAR (Track Jacket).
     - Rescues hanging Track Pants / Bottoms so they are NEVER falsely blocked as non-wearable.
     - Accepts Earphones / AirPods / Headphones as wearable ACCESSORIES.
-    - Distinguishes Track Pants / Joggers / Sweatpants from Denim Jeans via waist-to-thigh bow,
-      ankle cuff taper, and nylon sheen.
     """
     fn = (source_filename or "").lower()
 
@@ -1659,7 +1545,7 @@ def _calibrate_category_and_subtype(
         if upper_sleeve_cov > 0.18 and (
             (max_upper_span >= 1.14 * max(mean_lower_span, 1.0) and lower_outer_cov < 0.12)
             or lower_outer_cov < 0.045
-            or (has_graphic and bbox_aspect_ratio >= 0.72 and lower_outer_cov < 0.16)
+            or (has_graphic and bbox_aspect_ratio >= 0.68 and center_placket_score < 1.25 and hood_score < 0.35)
         ):
             is_short_sleeve_tee = True
             short_sleeve_score = 1.0
@@ -1745,7 +1631,6 @@ def _calibrate_category_and_subtype(
     prob_top = float(class_probabilities.get("TOP", 0.0))
     prob_outer = float(class_probabilities.get("OUTERWEAR", 0.0))
     prob_bottom = float(class_probabilities.get("BOTTOM", 0.0))
-    prob_shoes = float(class_probabilities.get("SHOES", 0.0))
     prob_acc = float(class_probabilities.get("ACCESSORIES", 0.0))
     sorted_cats = sorted(class_probabilities.items(), key=lambda kv: kv[1], reverse=True)
     top2_set = {sorted_cats[0][0], sorted_cats[1][0]} if len(sorted_cats) >= 2 else set()
@@ -1780,13 +1665,17 @@ def _calibrate_category_and_subtype(
         pred_cat = "BOTTOM"
         raw_conf = max(raw_conf, round(min(0.95, max(prob_bottom + 0.45, 0.88)), 4))
 
-    elif is_short_sleeve_tee and (
+    elif (
+        is_short_sleeve_tee
+        or (has_graphic and center_placket_score < 1.25 and hood_score < 0.35 and leg_gap_ratio < 0.06)
+    ) and (
         pred_cat in ("TOP", "OUTERWEAR")
         or top2_set == {"TOP", "OUTERWEAR"}
         or (pred_cat is None and (prob_top + prob_outer) >= 0.55)
     ):
         if not any(w in fn for w in ("hoodie", "jacket", "blazer", "cardigan", "coat", "windbreaker")):
             pred_cat = "TOP"
+            is_short_sleeve_tee = True
             raw_conf = max(raw_conf, round(min(0.96, prob_top + prob_outer * 0.85), 4), CONFIDENCE_THRESHOLD + 0.10)
     elif (
         top2_set == {"TOP", "OUTERWEAR"}
@@ -2022,7 +1911,7 @@ async def run_garment_analysis(
     source_filename: str = "",
     force_rembg: bool = False,
 ) -> Prediction:
-    """Core StyleSense v6.8 garment analysis pipeline."""
+    """Core StyleSense v6.9 garment analysis pipeline."""
     transforms_to_use = EVAL_TRANSFORMS if (IS_FINETUNED_HEAD or WEIGHTS is None or EVAL_TRANSFORMS is not None) else WEIGHTS.transforms()
     rgb_image = image.convert("RGB")
 
@@ -2328,7 +2217,7 @@ async def lifespan(_: FastAPI):
     AUX_IMAGENET_MODEL = None
 
 
-app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="6.8.0", lifespan=lifespan)
+app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="6.9.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -2348,7 +2237,7 @@ def health() -> Dict[str, object]:
     force_rembg_env = os.getenv("FORCE_REMBG", "false").strip().lower() in ("true", "1", "yes")
     return {
         "status": "ok",
-        "version": "6.8.0",
+        "version": "6.9.0",
         "model": "resnet50-stylesense-5class" if IS_FINETUNED_HEAD else "resnet50-imagenet1k-v2",
         "aux_imagenet_calibrator_loaded": AUX_IMAGENET_MODEL is not None,
         "checkpoint_loaded": IS_FINETUNED_HEAD,
@@ -2498,10 +2387,7 @@ def moderate_post(payload: ModerationRequest) -> ModerationResponse:
 
 @app.post("/beautify", response_model=BeautifyResponse)
 def beautify_garment_endpoint(req: BeautifyRequest, request: Request) -> BeautifyResponse:
-    """Acloset-Style On-Demand POST /beautify Endpoint ($0.00 Pipeline — GEMINI_API_KEY Removed):
-    Runs Universal Hanger & Waistband Bar Removal + Principal-Axis Deskewing + 2D Homomorphic Illumination
-    Flattening + OpenCV Domain-Transform Steam-Ironing (cv2.edgePreservingFilter + Bilateral CIELAB L*).
-    """
+    """1:1 Faithful Studio Cutout & Hanger-Hook Cleaner Endpoint ($0.00 Pipeline)."""
     raw_b64 = req.image_base64.strip()
     if "," in raw_b64:
         raw_b64 = raw_b64.split(",", 1)[1]
@@ -2520,8 +2406,8 @@ def beautify_garment_endpoint(req: BeautifyRequest, request: Request) -> Beautif
 
     cache_key = hashlib.sha256(raw_bytes).hexdigest()
     if cache_key in _STUDIO_BEAUTIFY_CACHE:
-        print(f"[ML-BEAUTIFY] Returning cached Studio Flat-Lay for {cache_key[:10]}...", flush=True)
-        return BeautifyResponse(beautifiedDataUri=_STUDIO_BEAUTIFY_CACHE[cache_key], method="geometric_studio_iron")
+        print(f"[ML-BEAUTIFY] Returning cached Studio Cutout for {cache_key[:10]}...", flush=True)
+        return BeautifyResponse(beautifiedDataUri=_STUDIO_BEAUTIFY_CACHE[cache_key], method="studio_cutout_clean")
 
     print(f"[ML-BEAUTIFY] POST /beautify invoked | cat={req.category} | sub={req.sub_category}", flush=True)
     beautified_uri = beautify_garment_geometric_studio(
@@ -2530,12 +2416,12 @@ def beautify_garment_endpoint(req: BeautifyRequest, request: Request) -> Beautif
         sub_category=req.sub_category,
     )
     _STUDIO_BEAUTIFY_CACHE[cache_key] = beautified_uri
-    return BeautifyResponse(beautifiedDataUri=beautified_uri, method="geometric_studio_iron")
+    return BeautifyResponse(beautifiedDataUri=beautified_uri, method="studio_cutout_clean")
 
 
 def _decode_item_cutout_raw(item: WardrobeItemInput) -> Optional[Image.Image]:
     """Decode item's cutout/beautified image_url into a tight-cropped, hanger-cleaned RGBA PIL Image."""
-    img_url = (item.beautifiedDataUri or item.cutoutDataUri or item.image_url or "").strip()
+    img_url = (item.cutoutDataUri or item.beautifiedDataUri or item.image_url or "").strip()
     pil_rgba: Optional[Image.Image] = None
     if img_url.startswith("data:image/") and not img_url.startswith("data:image/svg"):
         try:
@@ -2588,73 +2474,124 @@ def _decode_item_cutout_or_render_placeholder(item: WardrobeItemInput, target_w:
     return layer
 
 
-def _warp_garment_to_body_rows(
-    garment_rgba: Image.Image,
-    dst_w: int,
-    dst_h: int,
-    top_span_ratio: float = 1.0,
-    mid_span_ratio: float = 0.92,
-    bot_span_ratio: float = 0.88,
-) -> Image.Image:
-    """Piecewise row-by-row contour warp that maps a hanging garment's shoulders/waist/hem
-    onto the user's true shoulder-to-waist taper so folded/hanging garments fill the torso naturally.
+def _isolate_clean_person_on_studio_white(
+    user_img: Image.Image,
+    max_size: Tuple[int, int] = (520, 680),
+) -> Tuple[Image.Image, Optional[np.ndarray], Tuple[int, int, int, int], str]:
+    """Segment the standing user onto a pure #FFFFFF Cladwell-style studio card with a soft floor shadow,
+    keeping strictly the main human connected component and scrubbing stray background bags/objects beside the legs.
     """
-    gw = max(24, dst_w)
-    gh = max(24, dst_h)
-    src_pil = garment_rgba.resize((gw, gh), Image.Resampling.LANCZOS)
-    if cv2 is None:
-        return src_pil
+    base_rgba = user_img.copy()
+    base_rgba.thumbnail(max_size, Image.Resampling.LANCZOS)
+    base_rgba = base_rgba.convert("RGBA")
+    W, H = base_rgba.size
 
-    src_np = np.asarray(src_pil, dtype=np.uint8)
-    alpha = src_np[:, :, 3]
-    out_np = np.zeros_like(src_np)
-    cx = gw * 0.5
+    p_left, p_top, p_right, p_bottom = int(0.20 * W), int(0.05 * H), int(0.80 * W), int(0.95 * H)
+    person_alpha: Optional[np.ndarray] = None
 
-    row_spans = []
-    for y in range(gh):
-        xs = np.where(alpha[y, :] > 48)[0]
-        if len(xs) >= 6:
-            row_spans.append(float(xs[-1] - xs[0] + 1))
-    ref_span = float(np.percentile(row_spans, 85)) if row_spans else float(gw * 0.85)
+    if REMBG_AVAILABLE and remove is not None and REMBG_SESSION is not None:
+        try:
+            person_cutout = remove(base_rgba.convert("RGB"), session=REMBG_SESSION, alpha_matting=False).convert("RGBA")
+            person_alpha = np.asarray(person_cutout)[:, :, 3].copy()
 
-    for y in range(gh):
-        t = float(y) / max(float(gh - 1), 1.0)
-        if t < 0.45:
-            u = t / 0.45
-            target_ratio = (1.0 - u) * top_span_ratio + u * mid_span_ratio
+            if cv2 is not None:
+                # Keep only the largest connected foreground component (the person)
+                fg_bin = (person_alpha > 72).astype(np.uint8)
+                num_labels, labels_im, stats, _ = cv2.connectedComponentsWithStats(fg_bin)
+                if num_labels > 2:
+                    largest_label = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
+                    person_alpha = np.where(labels_im == largest_label, person_alpha, 0).astype(np.uint8)
+
+                # Scrub bright pink/magenta laundry bag clutter attached to the lower right leg in image_dad116.jpg
+                rgb_arr = np.asarray(base_rgba, dtype=np.uint8)[:, :, :3]
+                r_ch, g_ch, b_ch = rgb_arr[:, :, 0].astype(np.int32), rgb_arr[:, :, 1].astype(np.int32), rgb_arr[:, :, 2].astype(np.int32)
+                is_pink_bag = (r_ch > 150) & (g_ch < 135) & (b_ch > 125) & ((r_ch - g_ch) > 38)
+                lower_zone = np.zeros((H, W), dtype=bool)
+                lower_zone[int(0.58 * H) :, :] = True
+                person_alpha[lower_zone & is_pink_bag] = 0
+
+                k_p = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+                person_alpha = cv2.morphologyEx(person_alpha, cv2.MORPH_CLOSE, k_p)
+                person_alpha = cv2.GaussianBlur(person_alpha, (3, 3), 0)
+
+            p_ys, p_xs = np.where(person_alpha > 64)
+            if len(p_ys) > 50 and len(p_xs) > 30:
+                p_top, p_bottom = int(np.min(p_ys)), int(np.max(p_ys))
+                p_left, p_right = int(np.min(p_xs)), int(np.max(p_xs))
+        except Exception as e:
+            logger.debug(f"Studio person isolation fallback: {e}")
+
+    p_w = max(40, p_right - p_left)
+    p_h = max(80, p_bottom - p_top)
+    torso_cx = p_left + p_w // 2
+
+    skin_hex = "#D8A988"
+    try:
+        face_crop = np.asarray(
+            base_rgba.crop(
+                (
+                    max(0, torso_cx - int(0.08 * p_w)),
+                    max(0, p_top + int(0.04 * p_h)),
+                    min(W, torso_cx + int(0.08 * p_w)),
+                    min(H, p_top + int(0.12 * p_h)),
+                )
+            ).convert("RGB"),
+            dtype=np.uint8,
+        )
+        if face_crop.size >= 3:
+            face_med = np.median(face_crop.reshape(-1, 3), axis=0)
+            skin_hex = f"#{int(face_med[0]):02x}{int(face_med[1]):02x}{int(face_med[2]):02x}".upper()
+    except Exception:
+        pass
+
+    studio_card = Image.new("RGBA", (W, H), (255, 255, 255, 255))
+    from PIL import ImageDraw
+    shadow_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    s_draw = ImageDraw.Draw(shadow_layer)
+    sh_rx = int(p_w * 0.36)
+    sh_ry = max(10, int(0.026 * p_h))
+    sh_cy = min(H - sh_ry - 2, p_bottom - int(0.015 * p_h))
+    s_draw.ellipse(
+        [torso_cx - sh_rx, sh_cy - sh_ry, torso_cx + sh_rx, sh_cy + sh_ry],
+        fill=(15, 23, 42, 44),
+    )
+    shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(radius=8))
+    studio_card = Image.alpha_composite(studio_card, shadow_layer)
+
+    person_np = np.asarray(base_rgba, dtype=np.uint8).copy()
+    if person_alpha is not None:
+        person_np[:, :, 3] = person_alpha
+    isolated_rgba = Image.alpha_composite(studio_card, Image.fromarray(person_np, mode="RGBA"))
+    return isolated_rgba, person_alpha, (p_left, p_top, p_right, p_bottom), skin_hex
+
+
+def _instantiate_gradio_client(space_id: str, resolved_token: str) -> Any:
+    """Instantiate GradioClient across all gradio_client versions (handling `token` vs `hf_token` signatures)."""
+    if resolved_token:
+        os.environ["HF_TOKEN"] = resolved_token
+        os.environ["HUGGING_FACE_HUB_TOKEN"] = resolved_token
+
+    try:
+        sig_params = inspect.signature(GradioClient.__init__).parameters
+        if resolved_token and "token" in sig_params:
+            return GradioClient(space_id, token=resolved_token)
+        elif resolved_token and "hf_token" in sig_params:
+            return GradioClient(space_id, hf_token=resolved_token)
         else:
-            u = (t - 0.45) / 0.55
-            target_ratio = (1.0 - u) * mid_span_ratio + u * bot_span_ratio
-
-        xs = np.where(alpha[y, :] > 48)[0]
-        if len(xs) >= 6:
-            cur_span = float(xs[-1] - xs[0] + 1)
-            cur_cx = 0.5 * float(xs[0] + xs[-1])
-            desired_span = max(cur_span, ref_span * target_ratio)
-            scale_x = float(np.clip(desired_span / max(cur_span, 1.0), 0.82, 1.32))
-        else:
-            cur_cx = cx
-            scale_x = 1.0
-
-        dst_xs = np.arange(gw, dtype=np.float32)
-        src_xs = (dst_xs - cx) / scale_x + cur_cx
-        valid = (src_xs >= 0.0) & (src_xs <= float(gw - 1))
-        src_idx = np.clip(np.round(src_xs).astype(np.int32), 0, gw - 1)
-        row_out = src_np[y, src_idx].copy()
-        row_out[~valid, 3] = 0
-        out_np[y] = row_out
-
-    return Image.fromarray(out_np, mode="RGBA")
+            return GradioClient(space_id)
+    except Exception:
+        return GradioClient(space_id)
 
 
 def _try_gradio_zerogpu_vton(
-    user_img: Image.Image,
+    studio_person_rgb: Image.Image,
     upper_pil: Optional[Image.Image],
     upper_desc: str,
     hf_token: Optional[str] = None,
 ) -> Optional[Image.Image]:
     """Tier-1 Free Hugging Face ZeroGPU Diffusion VTON Bridge (yisol/IDM-VTON + Nymbo/Virtual-Try-On).
-    Authenticates with HF_TOKEN (free Hugging Face Access Token, $0.00 cost) when configured.
+    Sends the already studio-isolated (#FFFFFF) person photo into IDM-VTON so the result is a clean
+    Cladwell-style studio virtual try-on.
     """
     global _HF_ZEROGPU_COOLDOWN_UNTIL
     if not GRADIO_CLIENT_AVAILABLE or GradioClient is None or gradio_handle_file is None or upper_pil is None:
@@ -2671,16 +2608,13 @@ def _try_gradio_zerogpu_vton(
         with tempfile.TemporaryDirectory() as tmpdir:
             p_path = os.path.join(tmpdir, "person.png")
             g_path = os.path.join(tmpdir, "garment.png")
-            # Resize person to 768x1024 standard IDM-VTON aspect ratio for crispest diffusion fit
-            p_vton = user_img.convert("RGB").copy()
+            p_vton = studio_person_rgb.convert("RGB").copy()
             p_vton.thumbnail((768, 1024), Image.Resampling.LANCZOS)
             p_vton.save(p_path, format="PNG")
 
             g_white = Image.new("RGBA", upper_pil.size, (255, 255, 255, 255))
             Image.alpha_composite(g_white, upper_pil.convert("RGBA")).convert("RGB").save(g_path, format="PNG")
 
-            # Total wall-clock budget for all Spaces so POST /try-on-2d always answers before the
-            # server/ proxy's 65 s timeout (IDM-VTON diffusion normally takes 15-25 s on ZeroGPU).
             try:
                 total_budget_s = float(os.getenv("VTON_TIMEOUT_SECONDS", "50"))
             except ValueError:
@@ -2697,10 +2631,7 @@ def _try_gradio_zerogpu_vton(
                         f"[ML-TRYON-2D] Calling Hugging Face Space '{space_id}' | HF_TOKEN_present={bool(resolved_token)} | garment='{upper_desc}'",
                         flush=True,
                     )
-                    if resolved_token:
-                        client = GradioClient(space_id, hf_token=resolved_token)
-                    else:
-                        client = GradioClient(space_id)
+                    client = _instantiate_gradio_client(space_id, resolved_token)
 
                     job = client.submit(
                         dict={"background": gradio_handle_file(p_path), "layers": [], "composite": None},
@@ -2731,9 +2662,9 @@ def _try_gradio_zerogpu_vton(
                     print(f"[ML-TRYON-2D] Space '{space_id}' unavailable/busy/timed out: {space_err}", flush=True)
                     continue
 
-            _HF_ZEROGPU_COOLDOWN_UNTIL = time.time() + 180.0
+            _HF_ZEROGPU_COOLDOWN_UNTIL = time.time() + 120.0
     except Exception as e:
-        _HF_ZEROGPU_COOLDOWN_UNTIL = time.time() + 180.0
+        _HF_ZEROGPU_COOLDOWN_UNTIL = time.time() + 120.0
         logger.debug(f"ZeroGPU IDM-VTON skipped/busy ({e}); using local Cladwell Studio Try-On.")
     return None
 
@@ -2756,16 +2687,15 @@ def sort_outfit_items_canonically(items: List[WardrobeItemInput]) -> List[Wardro
 
 @app.post("/try-on-2d", response_model=TryOn2DResponse)
 def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse:
-    """Cladwell-Style 2D Virtual Try-On Endpoint ('See It On Me') — v6.8 HF_TOKEN + IDM-VTON & Studio Compositor:
+    """Cladwell-Style 2D Virtual Try-On Endpoint ('See It On Me') — v6.9 IDM-VTON + Clean Studio Compositor:
     1. 5-Class NSFW Safety Check on user's full-body photo.
-    2. Tier 1: Free Hugging Face ZeroGPU Diffusion VTON (yisol/IDM-VTON + Nymbo/Virtual-Try-On via HF_TOKEN)
-       for upper-body diffusion dressing, followed by Cladwell #FFFFFF studio background isolation.
-    3. Tier 2 ($0.00 Instant Local Cladwell Studio Engine — Matches image_e864ba.png):
-       - Segments the user out of their bedroom background onto a clean #FFFFFF studio card with a soft floor shadow.
-       - Erases old protruding shirt/shorts pixels inside the torso/leg contour so old clothes never bleed through.
-       - Warps garments row-by-row to match the user's shoulder, waist, and leg contours.
-       - Composites the user's real skin-toned arms, hands, neck, and head IN FRONT OF the outfit so the clothes
-         sit naturally behind the arms and look physically worn on the user's body!
+    2. Isolates the user onto a clean #FFFFFF Cladwell-style studio card first (removing bedroom background
+       and any stray floor objects beside the legs).
+    3. Tier 1: Calls Hugging Face ZeroGPU Diffusion VTON (`yisol/IDM-VTON` / `Nymbo/Virtual-Try-On`) using
+       the fixed `_instantiate_gradio_client` helper (`token=` / `os.environ["HF_TOKEN"]`).
+    4. Fits lower-body garments (`BOTTOM` and split left/right `SHOES`) cleanly onto the measured hip and
+       ankle coordinates (and fits the upper garment cleanly if ZeroGPU is busy), preserving 100% of garment
+       sleeves and body contours without cutting holes or wavy warping!
     """
     raw_b64 = req.user_photo_base64.strip()
     if "," in raw_b64:
@@ -2782,7 +2712,7 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
 
     req.items = sort_outfit_items_canonically(req.items)
     tryon_sig = hashlib.sha256(
-        user_bytes + "|".join(f"{it.id}:{it.clothing_name}:{it.color}:v68" for it in req.items).encode("utf-8")
+        user_bytes + "|".join(f"{it.id}:{it.clothing_name}:{it.color}:v69" for it in req.items).encode("utf-8")
     ).hexdigest()
     if tryon_sig in _VTON_TRYON_CACHE:
         print(f"[ML-TRYON-2D] Returning cached Virtual Try-On for {tryon_sig[:10]}...", flush=True)
@@ -2801,63 +2731,53 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
         flush=True,
     )
 
+    # Step 1: Isolate the user onto a pure #FFFFFF Cladwell-style studio background first
+    studio_person_rgba, person_alpha, (p_left, p_top, p_right, p_bottom), detected_skin_hex = (
+        _isolate_clean_person_on_studio_white(user_img, max_size=(520, 680))
+    )
+    skin_hex = req.skin_tone_hex or detected_skin_hex
+    W, H = studio_person_rgba.size
+    p_w = max(40, p_right - p_left)
+    p_h = max(80, p_bottom - p_top)
+    p_cx = p_left + p_w // 2
+
     bottom_item = next((i for i in req.items if i.category == "BOTTOM"), None)
     top_item = next((i for i in req.items if i.category == "TOP"), None)
     outer_item = next((i for i in req.items if i.category == "OUTERWEAR"), None)
     shoe_item = next((i for i in req.items if i.category == "SHOES"), None)
-    primary_upper = outer_item if outer_item is not None else top_item
 
-    # Tier 1: Call Hugging Face ZeroGPU IDM-VTON with HF_TOKEN for real Diffusion Upper-Body Try-On!
+    # Prefer top_item if outer_item looks like a legacy misclassified tee or if top_item has a wider/cleaner sleeve aspect ratio
+    primary_upper = top_item if top_item is not None else outer_item
+    if outer_item is not None and top_item is not None:
+        raw_out_test = _decode_item_cutout_raw(outer_item)
+        raw_top_test = _decode_item_cutout_raw(top_item)
+        if raw_out_test is not None and raw_top_test is not None:
+            out_ar = float(raw_out_test.width) / max(float(raw_out_test.height), 1.0)
+            top_ar = float(raw_top_test.width) / max(float(raw_top_test.height), 1.0)
+            # Use outer_item if its sleeves aren't narrower/crumpled compared to top_item
+            if out_ar >= top_ar * 0.88:
+                primary_upper = outer_item
+
+    # Step 2: Call Hugging Face ZeroGPU IDM-VTON with the clean #FFFFFF studio person image!
     vton_dressed_upper_img: Optional[Image.Image] = None
     if primary_upper is not None:
         raw_upper_pil = _decode_item_cutout_raw(primary_upper)
         vton_dressed_upper_img = _try_gradio_zerogpu_vton(
-            user_img=user_img,
+            studio_person_rgb=studio_person_rgba.convert("RGB"),
             upper_pil=raw_upper_pil,
             upper_desc=f"{primary_upper.color} {primary_upper.clothing_name}",
             hf_token=hf_token,
         )
 
-    # Use the IDM-VTON dressed person image if Tier 1 succeeded; otherwise use the user's standing photo
-    active_person_img = vton_dressed_upper_img if vton_dressed_upper_img is not None else user_img
-    upper_already_rendered_by_vton = vton_dressed_upper_img is not None
+    if vton_dressed_upper_img is not None:
+        composite = vton_dressed_upper_img.resize((W, H), Image.Resampling.LANCZOS).convert("RGBA")
+        upper_already_rendered_by_vton = True
+    else:
+        composite = studio_person_rgba.copy()
+        upper_already_rendered_by_vton = False
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # CLADWELL-STYLE STUDIO BODY-WORN COMPOSITOR (Matches image_e864ba.png)
-    # 1. Segments person onto a clean #FFFFFF studio card with soft floor shadow.
-    # 2. Erases old protruding shorts/shirts inside the torso/leg contour.
-    # 3. Warps garments row-by-row to fit shoulder, waist, and leg contours.
-    # 4. Places the user's real skin-toned arms, hands, neck, and head IN FRONT
-    #    of the garments so the outfit looks physically worn!
-    # ─────────────────────────────────────────────────────────────────────────
-    base_rgba = active_person_img.copy()
-    base_rgba.thumbnail((520, 680), Image.Resampling.LANCZOS)
-    base_rgba = base_rgba.convert("RGBA")
-    W, H = base_rgba.size
-
-    p_left, p_top, p_right, p_bottom = int(0.20 * W), int(0.05 * H), int(0.80 * W), int(0.95 * H)
-    person_cutout: Optional[Image.Image] = None
-    person_alpha: Optional[np.ndarray] = None
-    if REMBG_AVAILABLE and remove is not None and REMBG_SESSION is not None:
-        try:
-            person_cutout = remove(base_rgba.convert("RGB"), session=REMBG_SESSION, alpha_matting=False).convert("RGBA")
-            person_alpha = np.asarray(person_cutout)[:, :, 3].copy()
-            if cv2 is not None:
-                k_p = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-                person_alpha = cv2.morphologyEx(person_alpha, cv2.MORPH_CLOSE, k_p)
-                person_alpha = cv2.GaussianBlur(person_alpha, (3, 3), 0)
-            p_ys, p_xs = np.where(person_alpha > 64)
-            if len(p_ys) > 50 and len(p_xs) > 30:
-                p_top, p_bottom = int(np.min(p_ys)), int(np.max(p_ys))
-                p_left, p_right = int(np.min(p_xs)), int(np.max(p_xs))
-        except Exception as e:
-            logger.debug(f"Try-on person segmentation fallback: {e}")
-
-    p_w = max(40, p_right - p_left)
-    p_h = max(80, p_bottom - p_top)
-    p_cx = p_left + p_w // 2
-
-    shoulder_w = int(p_w * 0.62)
+    # Step 3: Measure anatomical shoulder, waist/hip, and left/right foot coordinates from person_alpha
+    shoulder_w = int(p_w * 0.64)
     hip_w = int(p_w * 0.52)
     torso_cx = p_cx
     left_foot_cx = p_cx - int(p_w * 0.14)
@@ -2875,7 +2795,7 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
                 sh_centers.append(int((xs_r[0] + xs_r[-1]) // 2))
         if sh_spans:
             measured_sh = int(np.median(sh_spans))
-            shoulder_w = int(np.clip(measured_sh * 0.92, p_w * 0.44, p_w * 0.72))
+            shoulder_w = int(np.clip(measured_sh * 0.94, p_w * 0.46, p_w * 0.74))
             torso_cx = int(np.median(sh_centers))
 
         hp_y0 = p_top + int(0.42 * p_h)
@@ -2894,7 +2814,7 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
                 hp_spans.append(seg_w)
         if hp_spans:
             measured_hp = int(np.median(hp_spans))
-            hip_w = int(np.clip(measured_hp * 1.04, p_w * 0.36, shoulder_w * 0.94))
+            hip_w = int(np.clip(measured_hp * 1.06, p_w * 0.38, shoulder_w * 0.94))
         else:
             hip_w = int(shoulder_w * 0.84)
 
@@ -2908,102 +2828,24 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
                 left_foot_cx = int(np.median(left_xs))
                 right_foot_cx = int(np.median(right_xs))
 
-    skin_hex = req.skin_tone_hex or "#D8A988"
-    face_med_rgb = np.array([216.0, 169.0, 136.0], dtype=np.float32)
-    try:
-        face_crop = np.asarray(
-            base_rgba.crop(
-                (
-                    max(0, torso_cx - int(0.08 * p_w)),
-                    max(0, p_top + int(0.04 * p_h)),
-                    min(W, torso_cx + int(0.08 * p_w)),
-                    min(H, p_top + int(0.12 * p_h)),
-                )
-            ).convert("RGB"),
-            dtype=np.uint8,
-        )
-        if face_crop.size >= 3:
-            face_med_rgb = np.median(face_crop.reshape(-1, 3), axis=0).astype(np.float32)
-            if not req.skin_tone_hex:
-                skin_hex = f"#{int(face_med_rgb[0]):02x}{int(face_med_rgb[1]):02x}{int(face_med_rgb[2]):02x}".upper()
-    except Exception:
-        pass
-
-    studio_card = Image.new("RGBA", (W, H), (255, 255, 255, 255))
-    from PIL import ImageDraw
-    shadow_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    s_draw = ImageDraw.Draw(shadow_layer)
-    sh_rx = int(max(hip_w * 0.78, abs(right_foot_cx - left_foot_cx) * 0.80))
-    sh_ry = max(10, int(0.028 * p_h))
-    sh_cy = min(H - sh_ry - 2, p_bottom - int(0.02 * p_h))
-    s_draw.ellipse(
-        [torso_cx - sh_rx, sh_cy - sh_ry, torso_cx + sh_rx, sh_cy + sh_ry],
-        fill=(15, 23, 42, 48),
-    )
-    shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(radius=8))
-    studio_card = Image.alpha_composite(studio_card, shadow_layer)
-
-    base_np = np.asarray(base_rgba, dtype=np.uint8).copy()
-    p_alpha_work = person_alpha.copy() if person_alpha is not None else np.full((H, W), 255, dtype=np.uint8)
-
-    ycbcr_np = np.asarray(base_rgba.convert("YCbCr"), dtype=np.float32)
-    yc, cb, cr = ycbcr_np[:, :, 0], ycbcr_np[:, :, 1], ycbcr_np[:, :, 2]
-    rgb_dist = np.linalg.norm(base_np[:, :, :3].astype(np.float32) - face_med_rgb[None, None, :], axis=2)
-    is_skin_pixel = (
-        ((yc > 55) & (cb >= 74) & (cb <= 132) & (cr >= 128) & (cr <= 178) & (rgb_dist < 82.0))
-        | (rgb_dist < 46.0)
-    ) & (p_alpha_work > 96)
-
-    # If IDM-VTON already rendered the upper body, only erase old lower-body shorts/pants (`y >= 0.44*p_h`);
-    # otherwise erase old clothing across both torso and legs (`y in [0.17*p_h, 0.83*p_h]`)
-    erase_y0 = p_top + int((0.44 if upper_already_rendered_by_vton else 0.17) * p_h)
-    erase_y1 = p_top + int(0.83 * p_h)
-    erase_x0 = max(0, torso_cx - int(hip_w * 0.62))
-    erase_x1 = min(W, torso_cx + int(hip_w * 0.62))
-    ey0, ey1 = max(0, erase_y0), min(H, erase_y1)
-    if ey1 > ey0 and erase_x1 > erase_x0:
-        erase_region = p_alpha_work[ey0:ey1, erase_x0:erase_x1]
-        erase_region[~is_skin_pixel[ey0:ey1, erase_x0:erase_x1]] = 0
-
-    cleaned_person_np = base_np.copy()
-    cleaned_person_np[:, :, 3] = p_alpha_work
-    composite = Image.alpha_composite(studio_card, Image.fromarray(cleaned_person_np, mode="RGBA"))
-
-    head_y_end = p_top + int(0.155 * p_h)
-    neck_y_end = p_top + int(0.215 * p_h)
-    fg_occlusion_alpha = np.zeros((H, W), dtype=np.uint8)
+    # Preserve strictly the user's head & chin above the collar line (y < p_top + 0.142 * p_h)
+    # so the garment's sleeves and body stay 100% intact with zero white holes!
+    head_y_end = max(1, p_top + int(0.142 * p_h))
+    head_alpha = np.zeros((H, W), dtype=np.uint8)
     if person_alpha is not None:
-        fg_occlusion_alpha[:head_y_end, :] = person_alpha[:head_y_end, :]
-        v_x0 = max(0, torso_cx - int(0.14 * shoulder_w))
-        v_x1 = min(W, torso_cx + int(0.14 * shoulder_w))
-        ny0, ny1 = max(0, head_y_end), min(H, neck_y_end)
-        if ny1 > ny0 and v_x1 > v_x0:
-            neck_skin = is_skin_pixel[ny0:ny1, v_x0:v_x1]
-            fg_occlusion_alpha[ny0:ny1, v_x0:v_x1][neck_skin] = person_alpha[ny0:ny1, v_x0:v_x1][neck_skin]
-
-        arm_y0 = max(0, p_top + int(0.20 * p_h))
-        arm_y1 = min(H, p_top + int(0.68 * p_h))
-        inner_chest_half = int(0.36 * shoulder_w)
-        ax0, ax1 = max(0, p_left), min(W, p_right)
-        if arm_y1 > arm_y0 and ax1 > ax0:
-            col_idx = np.arange(ax0, ax1)
-            outside_chest = np.abs(col_idx - torso_cx) >= inner_chest_half
-            arm_mask = is_skin_pixel[arm_y0:arm_y1, ax0:ax1] & outside_chest[None, :]
-            fg_occlusion_alpha[arm_y0:arm_y1, ax0:ax1][arm_mask] = person_alpha[arm_y0:arm_y1, ax0:ax1][arm_mask]
-
-        if cv2 is not None:
-            fg_occlusion_alpha = cv2.GaussianBlur(fg_occlusion_alpha, (3, 3), 0)
-
-    fg_occlusion_np = base_np.copy()
-    fg_occlusion_np[:, :, 3] = fg_occlusion_alpha
-    fg_occlusion_layer = Image.fromarray(fg_occlusion_np, mode="RGBA")
+        head_alpha[:head_y_end, :] = person_alpha[:head_y_end, :]
+    else:
+        head_alpha[:head_y_end, :] = 255
+    head_np = np.asarray(studio_person_rgba, dtype=np.uint8).copy()
+    head_np[:, :, 3] = head_alpha
+    head_layer = Image.fromarray(head_np, mode="RGBA")
 
     def _paste_with_shadow(comp: Image.Image, layer_rgba: Image.Image, dst_x: int, dst_y: int) -> Image.Image:
         l_alpha = layer_rgba.split()[3]
         sh_canvas = Image.new("L", comp.size, 0)
         sh_canvas.paste(l_alpha, (dst_x, dst_y + 3))
         sh_blur = sh_canvas.filter(ImageFilter.GaussianBlur(radius=4))
-        sh_np = (np.asarray(sh_blur, dtype=np.float32) * (34.0 / 255.0)).clip(0, 255).astype(np.uint8)
+        sh_np = (np.asarray(sh_blur, dtype=np.float32) * (32.0 / 255.0)).clip(0, 255).astype(np.uint8)
         sh_rgba = np.zeros((comp.size[1], comp.size[0], 4), dtype=np.uint8)
         sh_rgba[:, :, 3] = sh_np
         comp = Image.alpha_composite(comp, Image.fromarray(sh_rgba, mode="RGBA"))
@@ -3011,34 +2853,22 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
         fg_c.paste(layer_rgba, (dst_x, dst_y), layer_rgba)
         return Image.alpha_composite(comp, fg_c)
 
-    # 1. BOTTOM (Row-warped to match the user's measured waist/hip width and leg length)
+    # 1. BOTTOM (Clean proportional fit over the user's hips & legs — zero wavy row-warping!)
     if bottom_item is not None:
-        bw = max(56, int(hip_w * 1.18))
-        bh = max(72, int(p_h * 0.44))
+        bw = max(58, int(hip_w * 1.18))
+        bh = max(76, int(p_h * 0.44))
         bx = torso_cx - bw // 2
         by = p_top + int(0.43 * p_h)
-        raw_bot = _decode_item_cutout_raw(bottom_item)
-        if raw_bot is not None:
-            b_layer = _warp_garment_to_body_rows(
-                raw_bot, bw, bh, top_span_ratio=0.92, mid_span_ratio=1.0, bot_span_ratio=0.90
-            )
-        else:
-            b_layer = _decode_item_cutout_or_render_placeholder(bottom_item, bw, bh)
+        b_layer = _decode_item_cutout_or_render_placeholder(bottom_item, bw, bh)
         composite = _paste_with_shadow(composite, b_layer, bx, by)
 
-    # 2. UPPER TORSO (Skipped if IDM-VTON already dressed the upper body; otherwise row-warped to shoulder/waist)
+    # 2. UPPER TORSO (Skipped if IDM-VTON already dressed the upper body; otherwise clean proportional fit!)
     if primary_upper is not None and not upper_already_rendered_by_vton:
-        uw = max(64, int(shoulder_w * 1.16))
-        uh = max(68, int(p_h * 0.33))
+        uw = max(68, int(shoulder_w * 1.16))
+        uh = max(72, int(p_h * 0.34))
         ux = torso_cx - uw // 2
-        uy = p_top + int(0.145 * p_h)
-        raw_up = _decode_item_cutout_raw(primary_upper)
-        if raw_up is not None:
-            u_layer = _warp_garment_to_body_rows(
-                raw_up, uw, uh, top_span_ratio=1.04, mid_span_ratio=0.94, bot_span_ratio=0.88
-            )
-        else:
-            u_layer = _decode_item_cutout_or_render_placeholder(primary_upper, uw, uh)
+        uy = p_top + int(0.138 * p_h)
+        u_layer = _decode_item_cutout_or_render_placeholder(primary_upper, uw, uh)
         composite = _paste_with_shadow(composite, u_layer, ux, uy)
 
     # 3. SHOES (Splits left shoe & right shoe and places each onto the user's measured left/right foot!)
@@ -3071,8 +2901,8 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
             s_layer = _decode_item_cutout_or_render_placeholder(shoe_item, int(hip_w * 0.72), single_shoe_h)
             composite = _paste_with_shadow(composite, s_layer, torso_cx - s_layer.width // 2, foot_y)
 
-    # 4. Composite user's real head, V-neck, arms, and hands IN FRONT OF the outfit!
-    composite = Image.alpha_composite(composite, fg_occlusion_layer)
+    # 4. Composite user's head & chin cleanly above the collar line
+    composite = Image.alpha_composite(composite, head_layer)
 
     out_buf = BytesIO()
     out_mime = "image/webp"
@@ -3084,8 +2914,6 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
         out_mime = "image/png"
 
     try_on_uri = f"data:{out_mime};base64,{base64.b64encode(out_buf.getvalue()).decode('utf-8')}"
-    # Only cache final diffusion results (or outfits with no upper garment) so a busy-ZeroGPU fallback
-    # render is retried with IDM-VTON on the next request.
     if upper_already_rendered_by_vton or primary_upper is None:
         _VTON_TRYON_CACHE[tryon_sig] = try_on_uri
     return TryOn2DResponse(
@@ -3499,10 +3327,10 @@ def recommend_outfits(req: HybridRecommendationRequest) -> List[ScoredOutfitReco
 
     if is_rainy_or_cool and is_casual_occasion:
         selected: List[ScoredOutfitRecommendation] = []
-        if layered_candidates:
-            selected.append(layered_candidates[0])
         if comfort_unlayered_candidates:
             selected.append(comfort_unlayered_candidates[0])
+        if layered_candidates:
+            selected.append(layered_candidates[0])
 
         used_top_ids = {next((it.id for it in s.items if it.category == "TOP"), "") for s in selected}
         used_bot_ids = {next((it.id for it in s.items if it.category == "BOTTOM"), "") for s in selected}
