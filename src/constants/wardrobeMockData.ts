@@ -9,20 +9,57 @@ export const CLOTHING_CATEGORIES = [
   'Accessories',
 ] as const;
 
+export const CATEGORY_TO_LAYER_ROLE: Record<string, string> = {
+  Tops: 'INNER_BASE',
+  Outerwear: 'OUTER_LAYER',
+  Bottoms: 'LOWER_BODY',
+  Shoes: 'FOOTWEAR',
+  Accessories: 'ACCESSORY',
+  TOP: 'INNER_BASE',
+  OUTERWEAR: 'OUTER_LAYER',
+  BOTTOM: 'LOWER_BODY',
+  SHOES: 'FOOTWEAR',
+  ACCESSORIES: 'ACCESSORY',
+};
+
+export const OUTERWEAR_NAME_SUFFIX_REGEX = /\b(Track Jacket|Windbreaker Jacket|Windbreaker|Pullover Hoodie|Zip-Up Hoodie|Jacket|Hoodie)\b/gi;
+
+export function getLayerRoleForCategory(category?: string | null): string {
+  const c = (category || '').toUpperCase().trim();
+  if (c.startsWith('OUTER')) return 'OUTER_LAYER';
+  if (c.startsWith('BOTTOM')) return 'LOWER_BODY';
+  if (c.startsWith('SHOE')) return 'FOOTWEAR';
+  if (c.startsWith('ACCESSOR')) return 'ACCESSORY';
+  return 'INNER_BASE';
+}
+
+export function replaceOuterwearSuffixWithTShirt(nameOrSubtype: string): string {
+  if (!nameOrSubtype) return 'T-Shirt';
+  const replaced = nameOrSubtype.replace(OUTERWEAR_NAME_SUFFIX_REGEX, 'T-Shirt').trim();
+  return replaced || 'T-Shirt';
+}
+
 export const STATUS_FILTERS = ['All', 'Clean', 'Needs Washing', 'Favorites'] as const;
 
 export const COLOR_OPTIONS = [
-  'Blue',
   'Black',
   'White',
   'Gray',
   'Navy',
-  'Red',
-  'Green',
-  'Brown',
   'Beige',
+  'Brown',
+  'Cream',
   'Khaki',
+  'Red',
+  'Burgundy',
   'Pink',
+  'Orange',
+  'Yellow',
+  'Green',
+  'Olive',
+  'Blue',
+  'Light Blue',
+  'Teal',
   'Purple',
 ];
 

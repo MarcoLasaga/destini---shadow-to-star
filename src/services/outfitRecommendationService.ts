@@ -6,7 +6,11 @@ import {
   getDatasetPicksForSlot,
   resolveDatasetGarmentPhoto,
 } from '../data/datasetGarmentCatalog';
-import { CommunityGender, getGenderMatchedInteractions } from './communitySignals';
+import {
+  CommunityGender,
+  getGenderMatchedInteractions,
+  getCommunityTasteSignals,
+} from './communitySignals';
 
 export function isUuid(id?: string | null): boolean {
   if (!id) return false;
@@ -26,19 +30,22 @@ const BOTTOM_REGEX = /\b(jean|denim|chino|trouser|pant|slack|short|skirt|legging
 const SHOES_REGEX = /\b(shoe|sneaker|loafer|boot|sandal|slipper|slide|heel|flat|trainer|oxford shoe)\b/i;
 const ACCESSORY_REGEX = /\b(watch|scarf|belt|bag|tote|purse|backpack|hat|cap|beanie|sunglass|glasses|necklace|chain|bracelet|ring|earring|tie)\b/i;
 
-export function isOuterLayerGarment(name: string, category?: string): boolean {
-  const catUpper = (category || '').toUpperCase();
+export function isOuterLayerGarment(name: string, category?: string, layerRole?: string): boolean {
+  if (layerRole === 'INNER_BASE') return false;
+  if (layerRole === 'OUTER_LAYER') return true;
+  const catUpper = (category || '').toUpperCase().trim();
+  if (catUpper === 'TOP' || catUpper === 'TOPS') return false;
   if (catUpper === 'OUTERWEAR' || catUpper.includes('OUTER')) return true;
   return OUTER_LAYER_REGEX.test(name || '');
 }
 
-export function classifyAnatomicalSlot(name: string, category?: string): AnatomicalSlotType {
-  if (isOuterLayerGarment(name, category)) return 'outerLayer';
-  const catUpper = (category || '').toUpperCase();
+export function classifyAnatomicalSlot(name: string, category?: string, layerRole?: string): AnatomicalSlotType {
+  if (isOuterLayerGarment(name, category, layerRole)) return 'outerLayer';
+  const catUpper = (category || '').toUpperCase().trim();
   const normName = (name || '').toLowerCase();
-  if (catUpper.includes('BOTTOM') || BOTTOM_REGEX.test(normName)) return 'bottom';
-  if (catUpper.includes('SHOE') || SHOES_REGEX.test(normName)) return 'shoes';
-  if (catUpper.includes('ACCESSOR') || ACCESSORY_REGEX.test(normName)) return 'accessory';
+  if (layerRole === 'LOWER_BODY' || catUpper.includes('BOTTOM') || BOTTOM_REGEX.test(normName)) return 'bottom';
+  if (layerRole === 'FOOTWEAR' || catUpper.includes('SHOE') || SHOES_REGEX.test(normName)) return 'shoes';
+  if (layerRole === 'ACCESSORY' || catUpper.includes('ACCESSOR') || ACCESSORY_REGEX.test(normName)) return 'accessory';
   return 'innerTop';
 }
 
@@ -58,17 +65,23 @@ export function inferAccessoryZone(item?: { name?: string; category?: string } |
 export function colorNameToHex(colorName?: string): string {
   const c = (colorName || '').toLowerCase().trim();
   if (c.includes('black')) return '#1E1E24';
-  if (c.includes('white') || c.includes('ivory')) return '#F8F9FA';
+  if (c.includes('cream') || c.includes('ivory') || c.includes('off-white')) return '#F5F0E1';
+  if (c.includes('white')) return '#F8F9FA';
   if (c.includes('navy')) return '#1D2D50';
+  if (c.includes('light blue') || c.includes('sky') || c.includes('baby blue')) return '#7FA8D4';
+  if (c.includes('teal') || c.includes('cyan') || c.includes('turquoise')) return '#2A7B7B';
   if (c.includes('blue') || c.includes('denim')) return '#3B6EA5';
-  if (c.includes('gray') || c.includes('grey') || c.includes('silver') || c.includes('slate')) return '#7D8597';
+  if (c.includes('gray') || c.includes('grey') || c.includes('silver') || c.includes('slate') || c.includes('charcoal')) return '#7D8597';
   if (c.includes('khaki') || c.includes('tan') || c.includes('camel')) return '#C3B091';
-  if (c.includes('beige') || c.includes('cream')) return '#E8DCC4';
-  if (c.includes('brown') || c.includes('leather')) return '#6F4E37';
-  if (c.includes('red') || c.includes('burgundy') || c.includes('maroon')) return '#9E2A2B';
+  if (c.includes('beige') || c.includes('sand') || c.includes('oat')) return '#DFC9A8';
+  if (c.includes('brown') || c.includes('leather') || c.includes('espresso') || c.includes('chocolate')) return '#6F4E37';
+  if (c.includes('burgundy') || c.includes('maroon') || c.includes('wine')) return '#722F37';
+  if (c.includes('red') || c.includes('crimson')) return '#B91C1C';
+  if (c.includes('orange') || c.includes('rust') || c.includes('terracotta') || c.includes('coral')) return '#E07A5F';
   if (c.includes('pink') || c.includes('rose') || c.includes('blush')) return '#E5989B';
-  if (c.includes('green') || c.includes('olive') || c.includes('sage')) return '#4F772D';
-  if (c.includes('purple') || c.includes('plum') || c.includes('lilac')) return '#6B4C82';
+  if (c.includes('olive') || c.includes('army') || c.includes('moss')) return '#556B2F';
+  if (c.includes('green') || c.includes('sage') || c.includes('emerald') || c.includes('forest')) return '#4F772D';
+  if (c.includes('purple') || c.includes('plum') || c.includes('lilac') || c.includes('lavender')) return '#6B4C82';
   if (c.includes('yellow') || c.includes('gold') || c.includes('mustard')) return '#E9C46A';
   return '#3A404A';
 }
@@ -438,13 +451,13 @@ function mapOutfit(
     };
   });
 
-  // Sort items in anatomical head-to-toe order: accessory -> innerTop -> outerLayer -> bottom -> shoes
+  // Sort items in canonical slot order: 1. TOP -> 2. OUTERWEAR -> 3. BOTTOM -> 4. SHOES -> 5. ACCESSORIES
   const slotOrder: Record<AnatomicalSlotType, number> = {
-    accessory: 0,
     innerTop: 1,
     outerLayer: 2,
     bottom: 3,
     shoes: 4,
+    accessory: 5,
   };
   mappedClothingItems.sort(
     (a, b) => (slotOrder[a.slotType || 'innerTop'] ?? 1) - (slotOrder[b.slotType || 'innerTop'] ?? 1)
@@ -792,32 +805,30 @@ function rotateOutfitItems(
       items: [],
     };
 
+    const effOccasion = (requestedOccasion && requestedOccasion !== 'Any occasion' ? requestedOccasion : original.occasion || 'Casual').toLowerCase();
+    const isOfficeOrFormal = effOccasion.includes('office') || effOccasion.includes('formal');
+
     const innerTop = allInnerTops[idx % Math.max(1, allInnerTops.length)];
-    const outer = allOuterwears.length > 0 ? allOuterwears[idx % allOuterwears.length] : undefined;
+    let outer = allOuterwears.length > 0 ? allOuterwears[idx % allOuterwears.length] : undefined;
+    if (isOfficeOrFormal && outer && /hoodie|sweatshirt|pullover/i.test(outer.clothing_name)) {
+      // Omit informal hoodies in formal/office outfits, prefer blazers/coats if present
+      outer = allOuterwears.find((o) => !/hoodie|sweatshirt|pullover/i.test(o.clothing_name));
+    }
     const bottom = allBottoms[idx % Math.max(1, allBottoms.length)];
     const shoe = allShoes[idx % Math.max(1, allShoes.length)];
 
-    // Multi-zone accessory bundling across distinct anatomical zones
-    const bundledAccessories: ApiItem[] = [];
-    const usedZones = new Set<string>();
-
-    if (allAccessories.length > 0) {
-      const primaryAcc = allAccessories[idx % allAccessories.length];
-      if (primaryAcc) {
-        bundledAccessories.push(primaryAcc);
-        usedZones.add(inferAccessoryZone({ name: primaryAcc.clothing_name, category: primaryAcc.category }));
-      }
+    // Limit accessories per recommended outfit to at most 1 at the bottom (Slot #5)
+    // Forbid spiked / rockstar / punk accessories when occasion is Office or Formal
+    let eligibleAccessories = allAccessories;
+    if (isOfficeOrFormal) {
+      eligibleAccessories = allAccessories.filter(
+        (a) => !/spike|spiked|choker|punk|goth|heavy silver cuban/i.test(a.clothing_name)
+      );
     }
+    const primaryAcc = eligibleAccessories.length > 0 ? eligibleAccessories[idx % eligibleAccessories.length] : undefined;
 
-    for (const extra of allAccessories) {
-      const z = inferAccessoryZone({ name: extra.clothing_name, category: extra.category });
-      if (!usedZones.has(z) && bundledAccessories.length < 3) {
-        bundledAccessories.push(extra);
-        usedZones.add(z);
-      }
-    }
-
-    const items = [...bundledAccessories, innerTop, outer, bottom, shoe].filter(Boolean) as ApiItem[];
+    // Canonical order: 1. TOP -> 2. OUTERWEAR -> 3. BOTTOM -> 4. SHOES -> 5. ACCESSORIES
+    const items = [innerTop, outer, bottom, shoe, primaryAcc].filter(Boolean) as ApiItem[];
 
     // Ensure every generated outfit gets a persistent, valid UUID
     const finalId = rawOutfit && isUuid(rawOutfit.id) && !rotated.some((r) => r.id === rawOutfit.id)
@@ -847,7 +858,7 @@ export function styleAroundPinnedSlots(
   weather?: WeatherData | null,
   noNewClothesMode?: boolean
 ): GeneratedOutfit {
-  const slots: AnatomicalSlotType[] = ['accessory', 'innerTop', 'outerLayer', 'bottom', 'shoes'];
+  const slots: AnatomicalSlotType[] = ['innerTop', 'outerLayer', 'bottom', 'shoes', 'accessory'];
   const pinnedColors = Object.values(pinnedSlotItems)
     .filter(Boolean)
     .map((item) => (item!.color || '').toLowerCase());
@@ -859,6 +870,8 @@ export function styleAroundPinnedSlots(
     // Occasion & style match (+10)
     const occLower = (occasion || 'Casual').toLowerCase();
     if (occLower.includes('office') || occLower.includes('formal')) {
+      if (slot === 'outerLayer' && /hoodie|sweatshirt|pullover/i.test(w.name)) cb -= 40;
+      if (slot === 'accessory' && /spike|spiked|choker|punk|goth/i.test(w.name)) cb -= 40;
       if (slot === 'outerLayer' && !/hoodie|sweatshirt/i.test(w.name)) cb += 12;
       if (slot === 'innerTop' && /button|oxford|shirt|blouse|polo/i.test(w.name)) cb += 10;
     } else {
@@ -974,6 +987,7 @@ export async function generateRecommendations(
 ): Promise<GeneratedOutfit[]> {
   const normalizedOccasion = occasion && occasion !== 'Any occasion' ? occasion.toUpperCase() : 'ANY';
   const genderMatchedSignal = options?.actorGender ? (await getGenderMatchedInteractions(options.actorGender)).length : 0;
+  const tasteSignals = await getCommunityTasteSignals(options?.actorGender || 'unknown');
 
   // 1. Try POST /api/wardrobe/recommend as requested by thesis Chapters 1–3
   try {
@@ -986,6 +1000,13 @@ export async function generateRecommendations(
       body: JSON.stringify({
         occasion: normalizedOccasion,
         no_new_clothes_mode: options?.noNewClothesMode ?? false,
+        community_signals: {
+          is_user_liked_cross_gender: tasteSignals.is_user_liked_cross_gender,
+          cross_gender_affinity: tasteSignals.crossGenderAffinity,
+          liked_styles: tasteSignals.likedStyles,
+          liked_colors: tasteSignals.likedColors,
+          liked_subtypes: tasteSignals.likedSubtypes,
+        },
         weather: options?.weather
           ? {
               temp_f: options.weather.tempF,

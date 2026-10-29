@@ -19,10 +19,10 @@ import { useCommunity } from '../contexts/CommunityContext';
 import { useOutfit } from '../contexts/OutfitContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { useSettings } from '../contexts/SettingsContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../integrations/supabase/client';
-import Mannequin2D from '../components/Mannequin2D';
-import CharacterCustomizeModal from '../components/CharacterCustomizeModal';
+import AltaOutfitCollage from '../components/AltaOutfitCollage';
 import SocialListModal from '../components/SocialListModal';
 import {
   CommunityOutfit,
@@ -49,9 +49,9 @@ export default function ProfileScreen() {
   const { savedOutfits } = useOutfit();
   const { logout, session } = useAuth();
   const { showToast } = useToast();
+  const { themePreference, setThemePreference } = useSettings();
 
   const [settingsVisible, setSettingsVisible] = useState(false);
-  const [characterModalVisible, setCharacterModalVisible] = useState(false);
   const [socialModalVisible, setSocialModalVisible] = useState(false);
   const [socialModalTab, setSocialModalTab] = useState<'followers' | 'following' | 'likes'>('followers');
   const [followingCount, setFollowingCount] = useState(0);
@@ -351,19 +351,22 @@ export default function ProfileScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {/* Top Bar */}
         <View style={styles.topBar}>
-          <Text style={[styles.kicker, { color: '#4D9A65' }]}>YOUR STYLE SPACE</Text>
-          <Pressable onPress={() => setSettingsVisible(true)} style={styles.gear}>
-            <Ionicons name="settings-outline" size={21} color="#264C3B" />
+          <Text style={[styles.kicker, { color: theme.primary }]}>YOUR STYLE SPACE</Text>
+          <Pressable
+            onPress={() => setSettingsVisible(true)}
+            style={[styles.gear, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, borderWidth: 1 }]}
+          >
+            <Ionicons name="settings-outline" size={20} color={theme.text} />
           </Pressable>
         </View>
 
         {/* Profile Card */}
         <View style={[styles.profileCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.avatar}>
+          <View style={[styles.avatar, { backgroundColor: theme.accentSoft }]}>
             {profile.avatarUri ? (
               <Image source={{ uri: profile.avatarUri }} style={styles.avatarImage} />
             ) : (
-              <Text style={styles.initial}>{initial}</Text>
+              <Text style={[styles.initial, { color: theme.primary }]}>{initial}</Text>
             )}
           </View>
           <Text style={[styles.name, { color: theme.text }]}>{profile.displayName || 'Style Member'}</Text>
@@ -378,7 +381,7 @@ export default function ProfileScreen() {
                 setSocialModalTab('followers');
                 setSocialModalVisible(true);
               }}
-              style={styles.stat}
+              style={[styles.stat, { backgroundColor: theme.surfaceSecondary }]}
               accessibilityLabel="View followers"
             >
               <Text style={[styles.statValue, { color: theme.text }]}>{followersCount}</Text>
@@ -390,7 +393,7 @@ export default function ProfileScreen() {
                 setSocialModalTab('following');
                 setSocialModalVisible(true);
               }}
-              style={styles.stat}
+              style={[styles.stat, { backgroundColor: theme.surfaceSecondary }]}
               accessibilityLabel="View following creators"
             >
               <Text style={[styles.statValue, { color: theme.text }]}>{followingCount}</Text>
@@ -402,7 +405,7 @@ export default function ProfileScreen() {
                 setSocialModalTab('likes');
                 setSocialModalVisible(true);
               }}
-              style={styles.stat}
+              style={[styles.stat, { backgroundColor: theme.surfaceSecondary }]}
               accessibilityLabel="View post likes"
             >
               <Text style={[styles.statValue, { color: theme.text }]}>{likesCount}</Text>
@@ -424,13 +427,13 @@ export default function ProfileScreen() {
                 <Text
                   style={[
                     styles.tabText,
-                    { color: isActive ? '#264C3B' : theme.textMuted },
+                    { color: isActive ? theme.text : theme.textMuted },
                   ]}
                 >
                   {value}
                 </Text>
                 {isActive && (
-                  <View style={[styles.activeTabIndicator, { backgroundColor: '#4D9A65' }]} />
+                  <View style={[styles.activeTabIndicator, { backgroundColor: theme.primary }]} />
                 )}
               </Pressable>
             );
@@ -448,20 +451,14 @@ export default function ProfileScreen() {
                   { backgroundColor: theme.surface, borderColor: theme.border },
                 ]}
               >
-                <View
-                  style={[
-                    styles.gridMannequin,
-                    { backgroundColor: theme.mode === 'dark' ? '#231B2C' : '#FAF7F0' },
-                  ]}
-                >
-                  <Mannequin2D
-                    items={outfit.clothingItems}
+                <View style={styles.gridMannequin}>
+                  <AltaOutfitCollage
+                    items={outfit.clothingItems || []}
                     compact
-                    staticPreview
-                    occasionScene={outfit.occasionLabel}
+                    interactive={false}
                   />
                 </View>
-                <Text style={[styles.gridKicker, { color: '#4D9A65' }]}>SAVED LOOK</Text>
+                <Text style={[styles.gridKicker, { color: theme.primary }]}>SAVED LOOK</Text>
                 <Text style={[styles.gridTitle, { color: theme.text }]} numberOfLines={2}>
                   {outfit.name}
                 </Text>
@@ -474,7 +471,7 @@ export default function ProfileScreen() {
         ) : (
           <View style={styles.grid}>
             {posts.map((post) => {
-              const mannequinItems: OutfitClothingItem[] = post.items.map((item) => ({
+              const collageItems: OutfitClothingItem[] = post.items.map((item) => ({
                 id: item.id,
                 name: item.name,
                 category: (item.category as any) || 'Top',
@@ -492,17 +489,11 @@ export default function ProfileScreen() {
                     { backgroundColor: theme.surface, borderColor: theme.border },
                   ]}
                 >
-                  <View
-                    style={[
-                      styles.gridMannequin,
-                      { backgroundColor: theme.mode === 'dark' ? '#231B2C' : '#FAF7F0' },
-                    ]}
-                  >
-                    <Mannequin2D
-                      items={mannequinItems}
+                  <View style={styles.gridMannequin}>
+                    <AltaOutfitCollage
+                      items={collageItems}
                       compact
-                      staticPreview
-                      occasionScene={post.occasion || post.style}
+                      interactive={false}
                     />
                   </View>
 
@@ -516,7 +507,7 @@ export default function ProfileScreen() {
                   {tab === 'Published' && (
                     <Pressable
                       onPress={() => openManagePost(post)}
-                      style={styles.gridMenu}
+                      style={[styles.gridMenu, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}
                       hitSlop={8}
                     >
                       <Ionicons
@@ -570,25 +561,58 @@ export default function ProfileScreen() {
               </Pressable>
             </View>
 
-            {/* Row 1: Appearance / Edit Character */}
-            <Pressable
-              onPress={() => {
-                setSettingsVisible(false);
-                setCharacterModalVisible(true);
-              }}
-              style={styles.settingRow}
-            >
-              <Ionicons name="color-palette-outline" size={20} color="#4D9A65" />
+            {/* Row 1: Appearance (Light / Dark Mode Toggle Only) */}
+            <View style={[styles.settingRow, { borderBottomColor: theme.border }]}>
+              <Ionicons
+                name={themePreference === 'dark' ? 'moon-outline' : 'sunny-outline'}
+                size={20}
+                color={theme.primary}
+              />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.settingLabel, { color: theme.text }]}>
-                  Appearance / Edit Character
+                  Appearance
                 </Text>
                 <Text style={[styles.settingSub, { color: theme.textMuted }]}>
-                  Personalize hair style, color, skin tone & face expression
+                  Matte editorial Light & Dark mode
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={17} color={theme.textMuted} />
-            </Pressable>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  backgroundColor: theme.surfaceSecondary,
+                  borderRadius: 999,
+                  padding: 3,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                }}
+              >
+                {(['light', 'dark'] as const).map((mode) => {
+                  const active = themePreference === mode;
+                  return (
+                    <Pressable
+                      key={mode}
+                      onPress={() => setThemePreference(mode)}
+                      style={{
+                        paddingHorizontal: 11,
+                        paddingVertical: 5,
+                        borderRadius: 999,
+                        backgroundColor: active ? theme.primary : 'transparent',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontWeight: '700',
+                          color: active ? theme.primaryText : theme.textMuted,
+                        }}
+                      >
+                        {mode === 'light' ? 'Light' : 'Dark'}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
 
             {/* Standard Nav Rows */}
             {[
@@ -602,9 +626,9 @@ export default function ProfileScreen() {
                   setSettingsVisible(false);
                   navigation.navigate(route);
                 }}
-                style={styles.settingRow}
+                style={[styles.settingRow, { borderBottomColor: theme.border }]}
               >
-                <Ionicons name={icon as any} size={20} color="#4D9A65" />
+                <Ionicons name={icon as any} size={20} color={theme.primary} />
                 <Text style={[styles.settingLabel, { color: theme.text }]}>
                   {label}
                 </Text>
@@ -946,13 +970,6 @@ export default function ProfileScreen() {
           </Pressable>
         </Pressable>
       </Modal>
-
-      {/* ================= 4. CHARACTER CUSTOMIZER MODAL ================= */}
-      <CharacterCustomizeModal
-        visible={characterModalVisible}
-        onClose={() => setCharacterModalVisible(false)}
-        initialGender={profile?.gender === 'female' ? 'female' : 'male'}
-      />
 
       {/* ================= 5. SOCIAL FOLLOWERS / FOLLOWING / LIKES MODAL ================= */}
       <SocialListModal

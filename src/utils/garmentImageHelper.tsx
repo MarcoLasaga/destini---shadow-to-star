@@ -6,13 +6,18 @@ import { colorNameToHex } from '../services/outfitRecommendationService';
 export function resolveGarmentImageUrl(item: any): string | null {
   if (!item) return null;
   const raw =
-    item.cutout_url ||
-    item.cutoutUrl ||
     item.cutoutDataUri ||
     item.cutout_data_uri ||
+    item.cutoutUri ||
+    item.cutout_url ||
+    item.cutoutUrl ||
+    item.beautifiedDataUri ||
+    item.beautified_data_uri ||
+    item.beautifiedUri ||
+    item.beautified_url ||
+    item.imageUri ||
     item.image_url ||
     item.imageUrl ||
-    item.imageUri ||
     item.image ||
     item.uri ||
     null;
@@ -293,4 +298,342 @@ export function MiniGarmentSvg({
     </Svg>
   );
 }
+
+/**
+ * 32 Canonical Garment Vector Subtypes
+ */
+export const GARMENT_32_SUBTYPES = [
+  'hoodie',
+  'zip_hoodie',
+  'windbreaker',
+  'bomber',
+  'blazer',
+  'cardigan',
+  'denim_jacket',
+  'trench_coat',
+  'puffer',
+  'vest',
+  'tshirt',
+  'polo',
+  'button_down',
+  'oxford_shirt',
+  'blouse',
+  'tank_top',
+  'crop_top',
+  'sweater',
+  'crewneck',
+  'long_sleeve',
+  'trousers',
+  'chinos',
+  'jeans',
+  'cargo_pants',
+  'track_pants',
+  'joggers',
+  'shorts',
+  'skirt',
+  'sneakers',
+  'loafers',
+  'boots',
+  'watch',
+] as const;
+
+export type GarmentVectorSubtype = (typeof GARMENT_32_SUBTYPES)[number] | string;
+
+export function inferVectorSubtype(
+  name?: string,
+  category?: string,
+  explicitSubtype?: string
+): string {
+  if (explicitSubtype && explicitSubtype.trim().length > 0) {
+    return explicitSubtype.trim().toLowerCase().replace(/\s+/g, '_');
+  }
+  const n = (name || '').toLowerCase();
+  const c = (category || '').toUpperCase();
+
+  if (c.startsWith('TOP')) {
+    if (/polo/.test(n)) return 'polo';
+    if (/oxford/.test(n)) return 'oxford_shirt';
+    if (/button|dress.*shirt|flannel|chambray/.test(n)) return 'button_down';
+    if (/blouse/.test(n)) return 'blouse';
+    if (/tank|camisole|sleeveless/.test(n)) return 'tank_top';
+    if (/crop/.test(n)) return 'crop_top';
+    if (/crewneck|sweatshirt/.test(n)) return 'crewneck';
+    if (/sweater|knit|jumper|turtleneck/.test(n)) return 'sweater';
+    if (/long.*sleeve|henley/.test(n)) return 'long_sleeve';
+    return 'tshirt';
+  }
+
+  if (c.startsWith('OUTER')) {
+    if (/zip.*hoodie|full.*zip/.test(n)) return 'zip_hoodie';
+    if (/hoodie|pullover/.test(n)) return 'hoodie';
+    if (/windbreaker|anorak|rain/.test(n)) return 'windbreaker';
+    if (/bomber|varsity|flight/.test(n)) return 'bomber';
+    if (/blazer|suit/.test(n)) return 'blazer';
+    if (/cardigan/.test(n)) return 'cardigan';
+    if (/denim.*jacket|trucker/.test(n)) return 'denim_jacket';
+    if (/trench|overcoat|coat/.test(n)) return 'trench_coat';
+    if (/puffer|down.*jacket|quilted/.test(n)) return 'puffer';
+    if (/vest|gilet/.test(n)) return 'vest';
+    return 'jacket';
+  }
+
+  if (/polo/.test(n)) return 'polo';
+  if (/oxford/.test(n)) return 'oxford_shirt';
+  if (/button|dress.*shirt|flannel|chambray/.test(n)) return 'button_down';
+  if (/blouse/.test(n)) return 'blouse';
+  if (/tank|camisole|sleeveless/.test(n)) return 'tank_top';
+  if (/crop/.test(n)) return 'crop_top';
+  if (/crewneck|sweatshirt/.test(n)) return 'crewneck';
+  if (/sweater|knit|jumper|turtleneck/.test(n)) return 'sweater';
+  if (/long.*sleeve|henley/.test(n)) return 'long_sleeve';
+
+  if (/cargo/.test(n)) return 'cargo_pants';
+  if (/track.*pant|sweatpant/.test(n)) return 'track_pants';
+  if (/jogger/.test(n)) return 'joggers';
+  if (/chino|khaki/.test(n)) return 'chinos';
+  if (/trouser|slack|dress.*pant|tailored/.test(n)) return 'trousers';
+  if (/jean|denim/.test(n)) return 'jeans';
+  if (/short/.test(n)) return 'shorts';
+  if (/skirt/.test(n)) return 'skirt';
+
+  if (/loafer|moccasin|oxford.*shoe|derby/.test(n)) return 'loafers';
+  if (/boot|chelsea|combat/.test(n)) return 'boots';
+  if (/sneaker|trainer|runner|shoe/.test(n)) return 'sneakers';
+  if (/watch|bracelet|bag|sunglass|cap|hat|belt/.test(n)) return 'watch';
+
+  if (c.startsWith('OUTER')) return 'hoodie';
+  if (c.startsWith('BOTTOM')) return 'trousers';
+  if (c.startsWith('SHOE')) return 'sneakers';
+  if (c.startsWith('ACCESSOR')) return 'watch';
+  return 'tshirt';
+}
+
+export function formatSubtypeLabel(subtype?: string, fallbackCategory?: string): string {
+  const raw = subtype || fallbackCategory || 'Garment';
+  return raw
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (ch) => ch.toUpperCase());
+}
+
+interface CanonicalStudioGarmentProps {
+  vectorSubtype?: string;
+  name?: string;
+  category?: string;
+  colorHex?: string;
+  secondaryColor?: string;
+  size?: number;
+}
+
+/**
+ * Canonical 2D Studio Garment Vector Renderer
+ * Reconstructs full studio silhouette (hidden hood, folded sleeves, cuffs, collar, and seams)
+ */
+export function CanonicalStudioGarmentSvg({
+  vectorSubtype,
+  name,
+  category,
+  colorHex,
+  secondaryColor,
+  size = 150,
+}: CanonicalStudioGarmentProps) {
+  const subtype = inferVectorSubtype(name, category, vectorSubtype);
+  const baseFill = normalizeHex(colorHex, '#3B414B');
+  const highlight = adjustColor(baseFill, 18);
+  const shadow = adjustColor(baseFill, -20);
+  const seam = adjustColor(baseFill, -36);
+  const accent = secondaryColor ? normalizeHex(secondaryColor, '#E2E8F0') : adjustColor(baseFill, 32);
+
+  const gradId = `studioGrad_${Math.abs(
+    (subtype + baseFill).split('').reduce((a, b) => ((a << 5) - a + b.charCodeAt(0)) | 0, 0)
+  )}`;
+
+  const isOuterSubtype = [
+    'hoodie',
+    'zip_hoodie',
+    'windbreaker',
+    'bomber',
+    'blazer',
+    'cardigan',
+    'denim_jacket',
+    'trench_coat',
+    'puffer',
+    'vest',
+  ].includes(subtype);
+
+  const isBottomSubtype = [
+    'trousers',
+    'chinos',
+    'jeans',
+    'cargo_pants',
+    'track_pants',
+    'joggers',
+    'shorts',
+    'skirt',
+  ].includes(subtype);
+
+  const isShoeSubtype = ['sneakers', 'loafers', 'boots'].includes(subtype);
+
+  return (
+    <Svg width={size} height={size} viewBox="0 0 120 120">
+      <Defs>
+        <LinearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0%" stopColor={highlight} />
+          <Stop offset="65%" stopColor={baseFill} />
+          <Stop offset="100%" stopColor={shadow} />
+        </LinearGradient>
+      </Defs>
+
+      {isOuterSubtype ? (
+        <G>
+          {/* Reconstructed Full Studio Hood (for hoodie / zip_hoodie / windbreaker) */}
+          {(subtype === 'hoodie' || subtype === 'zip_hoodie' || subtype === 'windbreaker') && (
+            <Path
+              d="M 40,28 C 38,10 82,10 80,28 C 72,35 48,35 40,28 Z"
+              fill={shadow}
+              stroke={seam}
+              strokeWidth="2"
+            />
+          )}
+
+          {/* Full Unfolded Studio Sleeves + Torso Silhouette */}
+          <Path
+            d="M 34,28 L 10,68 L 24,74 L 35,48 L 35,96 L 85,96 L 85,48 L 96,74 L 110,68 L 86,28 Z"
+            fill={`url(#${gradId})`}
+            stroke={seam}
+            strokeWidth="2"
+          />
+
+          {/* Ribbed Cuffs & Waistband Hem */}
+          <Rect x="35" y="94" width="50" height="7" rx="2" fill={shadow} stroke={seam} strokeWidth="1.5" />
+          <Path d="M 10,68 L 24,74 L 22,79 L 8,73 Z" fill={shadow} stroke={seam} strokeWidth="1.2" />
+          <Path d="M 110,68 L 96,74 L 98,79 L 112,73 Z" fill={shadow} stroke={seam} strokeWidth="1.2" />
+
+          {/* Zipper or Kangaroo Pocket */}
+          {(subtype === 'zip_hoodie' || subtype === 'windbreaker' || subtype === 'bomber') && (
+            <Line x1="60" y1="30" x2="60" y2="101" stroke={accent} strokeWidth="2.2" />
+          )}
+          {(subtype === 'hoodie' || subtype === 'zip_hoodie') && (
+            <>
+              <Path
+                d="M 43,72 L 77,72 L 80,91 L 40,91 Z"
+                fill={baseFill}
+                stroke={seam}
+                strokeWidth="1.5"
+              />
+              <Line x1="54" y1="31" x2="54" y2="52" stroke={accent} strokeWidth="2" strokeLinecap="round" />
+              <Line x1="66" y1="31" x2="66" y2="52" stroke={accent} strokeWidth="2" strokeLinecap="round" />
+            </>
+          )}
+          {(subtype === 'blazer' || subtype === 'trench_coat') && (
+            <Path
+              d="M 45,28 L 56,58 L 60,36 L 64,58 L 75,28"
+              fill="none"
+              stroke={accent}
+              strokeWidth="2.2"
+            />
+          )}
+        </G>
+      ) : isBottomSubtype ? (
+        <G>
+          {/* Waistband */}
+          <Rect x="34" y="18" width="52" height="8" rx="2" fill={shadow} stroke={seam} strokeWidth="1.8" />
+          {subtype === 'shorts' ? (
+            <Path
+              d="M 34,26 L 86,26 L 90,66 L 65,66 L 60,44 L 55,66 L 30,66 Z"
+              fill={`url(#${gradId})`}
+              stroke={seam}
+              strokeWidth="2"
+            />
+          ) : subtype === 'skirt' ? (
+            <Path
+              d="M 36,26 L 84,26 L 96,86 L 24,86 Z"
+              fill={`url(#${gradId})`}
+              stroke={seam}
+              strokeWidth="2"
+            />
+          ) : (
+            <Path
+              d="M 34,26 L 86,26 L 91,102 L 66,102 L 60,46 L 54,102 L 29,102 Z"
+              fill={`url(#${gradId})`}
+              stroke={seam}
+              strokeWidth="2"
+            />
+          )}
+          {/* Side Stripes for Track Pants */}
+          {subtype === 'track_pants' && (
+            <>
+              <Line x1="33" y1="28" x2="29" y2="100" stroke={accent} strokeWidth="3" />
+              <Line x1="87" y1="28" x2="91" y2="100" stroke={accent} strokeWidth="3" />
+            </>
+          )}
+          {/* Cargo Pockets */}
+          {subtype === 'cargo_pants' && (
+            <>
+              <Rect x="26" y="56" width="9" height="18" rx="2" fill={shadow} stroke={seam} strokeWidth="1.4" />
+              <Rect x="85" y="56" width="9" height="18" rx="2" fill={shadow} stroke={seam} strokeWidth="1.4" />
+            </>
+          )}
+        </G>
+      ) : isShoeSubtype ? (
+        <G>
+          <Path
+            d="M 24,54 C 24,42 40,38 54,46 L 64,58 L 90,62 C 98,66 102,78 98,86 L 22,86 C 18,78 20,62 24,54 Z"
+            fill={`url(#${gradId})`}
+            stroke={seam}
+            strokeWidth="2"
+          />
+          <Rect x="18" y="86" width="84" height="11" rx="4" fill="#FFFFFF" stroke="#94A3B8" strokeWidth="1.6" />
+          <Path d="M 38,74 Q 60,68 86,76" fill="none" stroke={accent} strokeWidth="3.5" strokeLinecap="round" />
+        </G>
+      ) : (
+        /* Canonical Tops: tshirt, polo, button_down, sweater, crewneck, long_sleeve */
+        <G>
+          {subtype === 'long_sleeve' || subtype === 'sweater' || subtype === 'crewneck' || subtype === 'button_down' || subtype === 'oxford_shirt' ? (
+            <Path
+              d="M 34,26 L 12,68 L 25,73 L 36,46 L 36,96 L 84,96 L 84,46 L 95,73 L 108,68 L 86,26 Z"
+              fill={`url(#${gradId})`}
+              stroke={seam}
+              strokeWidth="2"
+            />
+          ) : (
+            <Path
+              d="M 34,26 L 16,48 L 28,56 L 36,44 L 36,96 L 84,96 L 84,44 L 92,56 L 104,48 L 86,26 Z"
+              fill={`url(#${gradId})`}
+              stroke={seam}
+              strokeWidth="2"
+            />
+          )}
+          {subtype === 'polo' || subtype === 'button_down' || subtype === 'oxford_shirt' ? (
+            <>
+              <Path
+                d="M 44,26 L 60,42 L 76,26"
+                fill="none"
+                stroke={accent}
+                strokeWidth="3"
+                strokeLinecap="round"
+              />
+              <Line
+                x1="60"
+                y1="42"
+                x2="60"
+                y2={subtype === 'polo' ? '62' : '94'}
+                stroke={accent}
+                strokeWidth="2"
+              />
+            </>
+          ) : (
+            <Path
+              d="M 45,26 Q 60,38 75,26"
+              fill="none"
+              stroke={seam}
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+          )}
+        </G>
+      )}
+    </Svg>
+  );
+}
+
 

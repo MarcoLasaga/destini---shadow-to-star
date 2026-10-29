@@ -19,15 +19,28 @@ import { useAuth } from '../contexts/AuthContext';
 import { useWardrobe } from '../contexts/WardrobeContext';
 import { useToast } from '../contexts/ToastContext';
 import { supabase } from '../integrations/supabase/client';
-import { analyzeClothingImage, ClothingPrediction } from '../services/imageAnalysisService';
+import { analyzeClothingImage, ClothingPrediction, Nsfw5ClassScores } from '../services/imageAnalysisService';
 import { colorNameToHex } from '../services/outfitRecommendationService';
 import { containsProfanityOrSlurs } from '../services/communityService';
 import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
 import TextField from '../components/TextField';
 import SelectField from '../components/SelectField';
 import ChipGroup from '../components/ChipGroup';
-import { COLOR_OPTIONS, SEASON_OPTIONS, STYLE_OPTIONS } from '../constants/wardrobeMockData';
+import {
+  COLOR_OPTIONS,
+  SEASON_OPTIONS,
+  STYLE_OPTIONS,
+  getLayerRoleForCategory,
+  OUTERWEAR_NAME_SUFFIX_REGEX,
+  replaceOuterwearSuffixWithTShirt,
+} from '../constants/wardrobeMockData';
 import { RootStackParamList } from '../types';
+import CielabPaletteCard from '../components/CielabPaletteCard';
+import {
+  CanonicalStudioGarmentSvg,
+  formatSubtypeLabel,
+  inferVectorSubtype,
+} from '../utils/garmentImageHelper';
 
 const MAX_IMAGE_EDGE = 1600;
 const CATEGORY_FROM_API: Record<string, string> = {
@@ -50,10 +63,23 @@ export interface BatchDraftWardrobeItem {
   id: string;
   originalUri: string;
   cutoutDataUri: string | null;
+  cutoutUri: string | null;
+  beautifiedUri: string | null;
+  beautifiedMethod?: string | null;
+  useBeautified: boolean;
+  useCanonicalStudio: boolean;
   name: string;
   category: string;
+  subCategory: string;
+  vector_subtype: string;
+  layerRole: string;
+  layer_role?: string;
   color: string;
   colorHex: string;
+  secondary_color?: string;
+  secondary_color_hex?: string | null;
+  palette?: any;
+  color_harmony_note?: string | null;
   style: string;
   occasion: string;
   occasions: string[];
@@ -61,9 +87,11 @@ export interface BatchDraftWardrobeItem {
   material: string;
   brand: string;
   confidence: number;
+  moderation_reason: string | null;
   isSafeGarment: boolean;
   isVerified: boolean;
   analyzing: boolean;
+  nsfw_scores?: Partial<Nsfw5ClassScores>;
 }
 
 function buildDraftFromPrediction(
@@ -71,19 +99,81 @@ function buildDraftFromPrediction(
   originalUri: string,
   prediction: ClothingPrediction | null
 ): BatchDraftWardrobeItem {
-  let detectedColor = '';
-  if (prediction?.color) {
-    const matched = COLOR_OPTIONS.find(
-      (c) => c.toLowerCase() === prediction.color!.toLowerCase()
-    );
-    detectedColor = matched || capitalize(prediction.color);
-  }
-  const normalizedColor = COLOR_OPTIONS.includes(detectedColor as any) ? detectedColor : 'Black';
-  const colorHex =
-    prediction?.palette?.dominant_hex || colorNameToHex(normalizedColor);
-
   const rawCategory = prediction?.category || '';
   const category = (rawCategory && CATEGORY_FROM_API[rawCategory.toUpperCase()]) || '';
+  const layerRole =
+    prediction?.layerRole ||
+    prediction?.layer_role ||
+    getLayerRoleForCategory(category || 'Tops');
+
+  // Extract color accurately from primary_color, color, or cluster 0 (never default to Black if light/white)
+  const cluster0Color = Array.isArray(prediction?.palette) ? prediction?.palette[0]?.color_name : undefined;
+  const rawColor = prediction?.primary_color || prediction?.color || cluster0Color || '';
+  let detectedColor = '';
+  if (rawColor) {
+    const matched = COLOR_OPTIONS.find(
+      (c) => c.toLowerCase() === rawColor.toLowerCase()
+    );
+    detectedColor = matched || capitalize(rawColor);
+  }
+  const colorHex =
+    prediction?.colorHex ||
+    prediction?.palette?.dominant_hex ||
+    (detectedColor ? colorNameToHex(detectedColor) : '#264C3B');
+  const normalizedColor = detectedColor || 'White';
+
+  const confidence =
+    typeof prediction?.confidence === 'number'
+      ? prediction.confidence
+      : typeof prediction?.categoryConfidence === 'number'
+      ? prediction.categoryConfidence
+      : 0;
+
+  const neutralScore =
+    typeof prediction?.nsfw_scores?.Neutral === 'number'
+      ? prediction.nsfw_scores.Neutral
+      : 1.0;
+  const isNsfwSafe = neutralScore >= 0.50;
+
+  // Only hard-block if strictly flagged as adult/prohibited content
+  if (!isNsfwSafe) {
+    return {
+      id: draftId,
+      originalUri,
+      cutoutDataUri: prediction?.cutoutDataUri ?? null,
+      cutoutUri: prediction?.cutoutDataUri ?? null,
+      beautifiedUri: null,
+      beautifiedMethod: null,
+      useBeautified: false,
+      useCanonicalStudio: false,
+      name: 'Inappropriate Content',
+      category: '',
+      subCategory: '',
+      vector_subtype: '',
+      layerRole: 'INNER_BASE',
+      layer_role: 'INNER_BASE',
+      color: detectedColor || '',
+      colorHex,
+      secondary_color: prediction?.secondary_color,
+      secondary_color_hex: prediction?.secondary_color_hex,
+      palette: prediction?.palette,
+      color_harmony_note: prediction?.color_harmony_note,
+      style: 'Casual',
+      occasion: 'Casual',
+      occasions: ['Casual'],
+      seasons: ['All'],
+      material: '',
+      brand: '',
+      confidence,
+      moderation_reason:
+        prediction?.moderation_reason ||
+        'Image rejected by safety check. Please upload appropriate clothing items.',
+      isSafeGarment: false,
+      isVerified: false,
+      analyzing: false,
+      nsfw_scores: prediction?.nsfw_scores,
+    };
+  }
 
   const rawSuggested = (prediction?.suggestedName || '').trim();
   const isGenericUppercase =
@@ -100,9 +190,18 @@ function buildDraftFromPrediction(
     finalName = `${detectedColor} ${category}`;
   } else if (category) {
     finalName = category;
+  } else if (detectedColor) {
+    finalName = `${detectedColor} Garment`;
   } else {
     finalName = 'Garment';
   }
+
+  const vectorSubtype = inferVectorSubtype(
+    finalName,
+    category || 'Tops',
+    prediction?.vector_subtype || prediction?.subCategory || prediction?.sub_category
+  );
+  const subCategoryLabel = formatSubtypeLabel(vectorSubtype, category || 'Tops');
 
   const apiStyle = (prediction?.style || '').toUpperCase();
   let style = 'Casual';
@@ -129,23 +228,31 @@ function buildDraftFromPrediction(
     occasions = ['Casual', 'Academic'];
   }
 
-  const confidence =
-    typeof prediction?.confidence === 'number'
-      ? prediction.confidence
-      : typeof prediction?.categoryConfidence === 'number'
-      ? prediction.categoryConfidence
-      : 0;
-  const isSafeGarment = prediction?.is_safe_garment !== false;
-  const isVerified = isSafeGarment && confidence >= 0.55 && Boolean(category);
+  const isVerified = Boolean(category) && confidence >= 0.55 && !prediction?.moderation_reason;
+  const cutoutUri = prediction?.cutoutDataUri ?? null;
+  const beautifiedUri = prediction?.beautifiedDataUri ?? null;
 
   return {
     id: draftId,
     originalUri,
-    cutoutDataUri: prediction?.cutoutDataUri ?? null,
+    cutoutDataUri: cutoutUri,
+    cutoutUri,
+    beautifiedUri,
+    beautifiedMethod: (prediction as any)?.beautifiedMethod ?? null,
+    useBeautified: false,
+    useCanonicalStudio: false,
     name: finalName,
-    category: category || 'Tops',
+    category: category || '',
+    subCategory: subCategoryLabel,
+    vector_subtype: vectorSubtype,
+    layerRole,
+    layer_role: layerRole,
     color: normalizedColor,
     colorHex,
+    secondary_color: prediction?.secondary_color,
+    secondary_color_hex: prediction?.secondary_color_hex,
+    palette: prediction?.palette,
+    color_harmony_note: prediction?.color_harmony_note,
     style,
     occasion: occasions[0] || 'Casual',
     occasions,
@@ -153,9 +260,15 @@ function buildDraftFromPrediction(
     material: prediction?.material ? capitalize(prediction.material) : 'Cotton',
     brand: '',
     confidence,
-    isSafeGarment,
+    moderation_reason:
+      prediction?.moderation_reason ??
+      (!category || confidence < 0.55
+        ? 'Low classification confidence; please confirm category manually.'
+        : null),
+    isSafeGarment: true,
     isVerified,
     analyzing: false,
+    nsfw_scores: prediction?.nsfw_scores,
   };
 }
 
@@ -194,7 +307,7 @@ export default function BatchAddClothesScreen() {
   const ingestAssets = async (
     assets: Array<{ uri: string; width?: number; height?: number; fileName?: string | null }>
   ) => {
-    const sliced = assets.slice(0, 10);
+    const sliced = assets.slice(0, 15);
     setTotalToAnalyze(sliced.length);
     setAnalyzingIndex(1);
 
@@ -203,8 +316,17 @@ export default function BatchAddClothesScreen() {
       id: `draft-${Date.now()}-${idx}`,
       originalUri: asset.uri,
       cutoutDataUri: null,
+      cutoutUri: null,
+      beautifiedUri: null,
+      beautifiedMethod: null,
+      useBeautified: false,
+      useCanonicalStudio: false,
       name: `Analyzing Item #${idx + 1}...`,
       category: 'Tops',
+      subCategory: 'Tshirt',
+      vector_subtype: 'tshirt',
+      layerRole: 'INNER_BASE',
+      layer_role: 'INNER_BASE',
       color: 'Gray',
       colorHex: '#7D8597',
       style: 'Casual',
@@ -214,13 +336,14 @@ export default function BatchAddClothesScreen() {
       material: 'Cotton',
       brand: '',
       confidence: 0,
+      moderation_reason: null,
       isSafeGarment: true,
       isVerified: false,
       analyzing: true,
     }));
 
     setDraftItems((prev) => {
-      const combined = [...prev, ...placeholders].slice(0, 10);
+      const combined = [...prev, ...placeholders].slice(0, 15);
       return combined;
     });
 
@@ -269,9 +392,9 @@ export default function BatchAddClothesScreen() {
   };
 
   const pickMoreImages = async () => {
-    const remaining = Math.max(0, 10 - draftItems.length);
+    const remaining = Math.max(0, 15 - draftItems.length);
     if (remaining === 0) {
-      showToast('Maximum 10 photos per batch reached.');
+      showToast('Maximum 15 photos per batch reached.');
       return;
     }
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -353,6 +476,12 @@ export default function BatchAddClothesScreen() {
   const handleOpenConfirmModal = () => {
     if (draftItems.length === 0 || analyzingIndex !== null) return;
 
+    const validCount = draftItems.filter((d) => d.isSafeGarment !== false && Boolean(d.category)).length;
+    if (validCount === 0) {
+      showToast('Please select a Category from the dropdown for your items before adding to wardrobe.');
+      return;
+    }
+
     for (const item of draftItems) {
       const profanity = containsProfanityOrSlurs(item.name, item.brand, item.material);
       if (profanity.hasProfanity) {
@@ -373,20 +502,43 @@ export default function BatchAddClothesScreen() {
   const handleConfirmBatchSave = async () => {
     setSavingBatch(true);
     try {
-      const itemsToSave = draftItems.filter((d) => d.isSafeGarment !== false);
+      const itemsToSave = draftItems.filter((d) => d.isSafeGarment !== false && Boolean(d.category));
       for (const draft of itemsToSave) {
-        const targetUri = draft.cutoutDataUri || draft.originalUri;
+        const targetUri =
+          draft.cutoutDataUri ||
+          draft.cutoutUri ||
+          draft.beautifiedUri ||
+          draft.originalUri ||
+          '';
         const uploadedUrl = await uploadImage(targetUri);
         await addItem({
           name: draft.name.trim() || `${draft.color} ${draft.category}`,
           category: draft.category,
+          subCategory: draft.subCategory,
+          vector_subtype: draft.vector_subtype,
+          layerRole: draft.layerRole || getLayerRoleForCategory(draft.category),
+          layer_role: draft.layer_role || draft.layerRole || getLayerRoleForCategory(draft.category),
           color: draft.color,
+          colorHex: draft.colorHex,
+          secondary_color: draft.secondary_color,
+          secondary_color_hex: draft.secondary_color_hex,
+          palette: draft.palette,
+          color_harmony_note: draft.color_harmony_note,
           brand: draft.brand.trim(),
           material: draft.material.trim(),
           style: draft.style,
           seasons: draft.seasons,
           occasions: draft.occasions,
           image: uploadedUrl,
+          originalUri: draft.originalUri,
+          cutoutUri: draft.cutoutUri,
+          beautifiedUri: draft.beautifiedUri,
+          beautifiedMethod: draft.beautifiedMethod,
+          useBeautified: draft.useBeautified,
+          useCanonicalStudio: draft.useCanonicalStudio,
+          confidence: draft.confidence,
+          moderation_reason: draft.moderation_reason,
+          isSafeGarment: draft.isSafeGarment,
           status: 'clean',
           favorite: false,
           timesWorn: 0,
@@ -476,7 +628,7 @@ export default function BatchAddClothesScreen() {
                   resizeMode="contain"
                 />
 
-                {/* Remove (×) button */}
+                  {/* Remove (×) button */}
                 <Pressable
                   onPress={() => removeDraftItem(item.id)}
                   style={styles.thumbRemoveBtn}
@@ -485,12 +637,16 @@ export default function BatchAddClothesScreen() {
                   <Ionicons name="close" size={12} color="#FFFFFF" />
                 </Pressable>
 
-                {/* Status Badge: ✓ Pre-filled vs ! Needs Review */}
+                {/* Status Badge: 🚫 Blocked vs ✓ Pre-filled vs ! Needs Review */}
                 {item.analyzing ? (
                   <View style={[styles.thumbStatusPill, { backgroundColor: '#4B1D6F' }]}>
                     <Text style={styles.thumbStatusText}>•••</Text>
                   </View>
-                ) : needsReview ? (
+                ) : !item.isSafeGarment ? (
+                  <View style={[styles.thumbStatusPill, { backgroundColor: '#DC2626' }]}>
+                    <Text style={styles.thumbStatusText}>🚫 Blocked</Text>
+                  </View>
+                ) : !item.category || needsReview ? (
                   <View style={[styles.thumbStatusPill, { backgroundColor: '#D97706' }]}>
                     <Text style={styles.thumbStatusText}>! Needs Review</Text>
                   </View>
@@ -503,7 +659,7 @@ export default function BatchAddClothesScreen() {
             );
           })}
 
-          {draftItems.length < 10 && (
+          {draftItems.length < 15 && (
             <Pressable
               onPress={pickMoreImages}
               style={[
@@ -529,10 +685,17 @@ export default function BatchAddClothesScreen() {
           {/* Large Cutout Preview Card */}
           <View style={[styles.previewBox, { backgroundColor: '#F8F8FA', borderColor: theme.border }]}>
             <Image
-              source={{ uri: activeDraft.cutoutDataUri || activeDraft.originalUri }}
+              source={{
+                uri:
+                  activeDraft.cutoutDataUri ||
+                  activeDraft.cutoutUri ||
+                  activeDraft.beautifiedUri ||
+                  activeDraft.originalUri,
+              }}
               style={styles.previewImage}
               resizeMode="contain"
             />
+
             <View style={styles.previewCornerRow}>
               <View
                 style={[
@@ -544,13 +707,27 @@ export default function BatchAddClothesScreen() {
                   style={[styles.colorPreviewDot, { backgroundColor: activeDraft.colorHex }]}
                 />
                 <Text style={[styles.colorPreviewText, { color: theme.text }]}>
-                  {activeDraft.color} · {activeDraft.confidence > 0 ? `${Math.round(activeDraft.confidence * 100)}% Match` : 'Unanalyzed'}
+                  ● {activeDraft.color} · {activeDraft.subCategory || activeDraft.category} ({Math.round((activeDraft.confidence || 0) * 100)}%)
                 </Text>
               </View>
 
-              {(!activeDraft.isVerified || activeDraft.confidence < 0.55) && (
+              {!activeDraft.isSafeGarment ? (
+                <View style={[styles.amberWarningPill, { backgroundColor: '#FEE2E2', borderColor: '#DC2626', borderWidth: 1 }]}>
+                  <Text style={[styles.amberWarningText, { color: '#B91C1C', fontWeight: '800' }]}>
+                    🚫 Moderation Flag: {activeDraft.moderation_reason || 'Image rejected by safety check.'}
+                  </Text>
+                </View>
+              ) : (!activeDraft.category || activeDraft.confidence < 0.55 || !!activeDraft.moderation_reason) ? (
+                <View style={styles.amberWarningPill}>
+                  <Text style={styles.amberWarningText}>
+                    ⚠️ Needs Review: {activeDraft.moderation_reason || 'Low classification confidence; please confirm category manually.'}
+                  </Text>
+                </View>
+              ) : null}
+
+              {activeDraft.isSafeGarment && Boolean(activeDraft.category) && (!activeDraft.isVerified || activeDraft.confidence < 0.55) && (
                 <Pressable
-                  onPress={() => updateCurrentDraft({ isVerified: true, confidence: activeDraft.confidence > 0 ? activeDraft.confidence : 1.0 })}
+                  onPress={() => updateCurrentDraft({ isVerified: true, confidence: activeDraft.confidence > 0 ? activeDraft.confidence : 1.0, moderation_reason: null })}
                   style={[styles.markVerifiedBtn, { backgroundColor: '#2F8F5B' }]}
                 >
                   <Text style={styles.markVerifiedBtnText}>✓ Mark Reviewed</Text>
@@ -558,6 +735,16 @@ export default function BatchAddClothesScreen() {
               )}
             </View>
           </View>
+
+          {/* 🎨 Extracted CIELAB Palette (K = 2) Card */}
+          <CielabPaletteCard
+            palette={activeDraft.palette}
+            primaryColor={activeDraft.color}
+            primaryHex={activeDraft.colorHex}
+            secondaryColor={activeDraft.secondary_color}
+            secondaryHex={activeDraft.secondary_color_hex}
+            harmonyNote={activeDraft.color_harmony_note}
+          />
 
           <TextField
             label={`Item #${selectedIndex + 1} Name *`}
@@ -570,7 +757,50 @@ export default function BatchAddClothesScreen() {
             label="Category"
             value={activeDraft.category}
             options={ALLOWED_CATEGORIES}
-            onChange={(val) => updateCurrentDraft({ category: val })}
+            onChange={(val) => {
+              const prevCat = activeDraft.category;
+              const nextLayerRole = getLayerRoleForCategory(val);
+              const neutral = activeDraft.nsfw_scores?.Neutral ?? 1.0;
+              const isSafe = neutral >= 0.50;
+
+              let updatedName = activeDraft.name;
+              let updatedSubCategory = activeDraft.subCategory;
+              let updatedVectorSubtype = activeDraft.vector_subtype;
+
+              // Manual Category Edit Sync: If user changes from Outerwear to Tops,
+              // replace outer garment terms with T-Shirt and set vector_subtype = 'tshirt'
+              if (prevCat === 'Outerwear' && val === 'Tops') {
+                if (OUTERWEAR_NAME_SUFFIX_REGEX.test(updatedName)) {
+                  updatedName = replaceOuterwearSuffixWithTShirt(updatedName);
+                }
+                if (OUTERWEAR_NAME_SUFFIX_REGEX.test(updatedSubCategory) || !updatedSubCategory || updatedSubCategory === 'Outerwear') {
+                  updatedSubCategory = 'T-Shirt';
+                }
+                updatedVectorSubtype = 'tshirt';
+              }
+
+              if (
+                !updatedName ||
+                updatedName === 'Non-Wearable Item' ||
+                updatedName === 'Garment' ||
+                updatedName.endsWith(' Garment') ||
+                updatedName === 'Inappropriate Content'
+              ) {
+                updatedName = `${activeDraft.color || 'My'} ${val}`.trim();
+              }
+
+              updateCurrentDraft({
+                category: val,
+                layerRole: nextLayerRole,
+                layer_role: nextLayerRole,
+                name: updatedName,
+                subCategory: updatedSubCategory,
+                vector_subtype: updatedVectorSubtype,
+                isSafeGarment: isSafe,
+                isVerified: true,
+                moderation_reason: isSafe ? null : activeDraft.moderation_reason,
+              });
+            }}
             required
           />
 
@@ -1052,6 +1282,19 @@ const styles = StyleSheet.create({
   yesAddAllButtonText: {
     fontSize: 13,
     fontWeight: '800',
+  },
+  amberWarningPill: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+    borderWidth: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  amberWarningText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#92400E',
   },
 });
 

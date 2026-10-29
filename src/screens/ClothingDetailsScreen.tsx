@@ -10,12 +10,15 @@ import { useToast } from '../contexts/ToastContext';
 import { RootStackParamList } from '../types';
 import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
 import { resolveDatasetGarmentPhoto } from '../data/datasetGarmentCatalog';
+import CielabPaletteCard from '../components/CielabPaletteCard';
+import { CanonicalStudioGarmentSvg, inferVectorSubtype, formatSubtypeLabel } from '../utils/garmentImageHelper';
+import { colorNameToHex } from '../services/outfitRecommendationService';
 
 export default function ClothingDetailsScreen() {
   const theme = useAppTheme();
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RootStackParamList, 'ClothingDetails'>>();
-  const { getItem, toggleFavorite, deleteItem } = useWardrobe();
+  const { getItem, toggleFavorite, deleteItem, updateItem } = useWardrobe();
   const { showToast } = useToast();
 
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
@@ -70,12 +73,50 @@ export default function ClothingDetailsScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        <Image
-          source={{ uri: resolveDatasetGarmentPhoto(item.name, item.category, item.image) }}
-          style={styles.image}
-          contentFit="cover"
-          transition={200}
-        />
+        <View style={styles.imageContainer}>
+          <Image
+            source={{
+              uri:
+                item.cutoutDataUri ||
+                item.cutoutUri ||
+                item.beautifiedDataUri ||
+                item.beautifiedUri ||
+                resolveDatasetGarmentPhoto(item.name, item.category, item.image),
+            }}
+            style={styles.image}
+            contentFit="contain"
+            transition={200}
+          />
+
+          {/* Subtype + Primary Color Pill */}
+          <View style={styles.subtypeFloatingPill}>
+            <View style={[styles.subtypeColorDot, { backgroundColor: colorNameToHex(item.color || 'Black') }]} />
+            <Text style={styles.subtypePillText}>
+              {item.color} · {item.subCategory || formatSubtypeLabel(item.vector_subtype || inferVectorSubtype(item.name, item.category))}
+              {item.confidence ? ` (${Math.round(item.confidence * 100)}%)` : ''}
+            </Text>
+          </View>
+        </View>
+
+        {/* 🎨 Extracted CIELAB Palette (K = 2) Card */}
+        <View style={{ marginHorizontal: 20 }}>
+          <CielabPaletteCard
+            palette={item.palette}
+            primaryColor={item.color}
+            primaryHex={item.colorHex || colorNameToHex(item.color || 'Black')}
+            secondaryColor={item.secondary_color}
+            secondaryHex={item.secondary_color_hex}
+            harmonyNote={item.color_harmony_note}
+          />
+        </View>
+
+        {item.moderation_reason ? (
+          <View style={styles.moderationWarningBanner}>
+            <Text style={styles.moderationWarningText}>
+              ⚠️ Needs Review: {item.moderation_reason}
+            </Text>
+          </View>
+        ) : null}
 
         {/* Info Card styled with theme.surface & theme.border */}
         <View style={[styles.infoCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -170,7 +211,75 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 17, fontWeight: '700' },
   content: { paddingBottom: 32 },
+  imageContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 320,
+  },
   image: { width: '100%', height: 320, backgroundColor: '#D9D9D9' },
+  canonicalStudioBox: {
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  studioPillBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#EAF3D9',
+  },
+  studioPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#264C3B',
+  },
+  subtypeFloatingPill: {
+    position: 'absolute',
+    left: 16,
+    bottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  subtypeColorDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  subtypePillText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  moderationWarningBanner: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  moderationWarningText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#B45309',
+  },
   infoCard: {
     marginHorizontal: 16,
     marginTop: 16,

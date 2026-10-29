@@ -3,6 +3,7 @@ import { ClothingItem, LaundryStatus } from '../types';
 import { useAuth } from './AuthContext';
 import { supabase } from '../integrations/supabase/client';
 import { triggerSmartAlert } from '../services/notificationService';
+import { CATEGORY_TO_LAYER_ROLE, getLayerRoleForCategory } from '../constants/wardrobeMockData';
 
 const CATEGORY_TO_DISPLAY: Record<string, string> = {
   TOP: 'Tops',
@@ -43,11 +44,16 @@ function mapSupabaseToMobile(row: any): ClothingItem {
   const displayCategory = CATEGORY_TO_DISPLAY[row.category] || row.category || '';
   const itemName = row.clothing_name || '';
   const isAccessory = isAccessoryItem(displayCategory, itemName);
+  const resolvedRole = row.layer_role || CATEGORY_TO_LAYER_ROLE[displayCategory] || getLayerRoleForCategory(displayCategory);
 
   return {
     id: row.id,
     name: itemName,
     category: isAccessory && !displayCategory ? 'Accessories' : displayCategory,
+    subCategory: row.subcategory || undefined,
+    vector_subtype: row.vector_subtype || undefined,
+    layerRole: resolvedRole,
+    layer_role: resolvedRole,
     color: row.color || '',
     brand: row.brand || '',
     material: row.material || '',
@@ -77,6 +83,7 @@ function mapMobileToSupabase(item: Partial<ClothingItem>): any {
   
   if (item.name !== undefined) row.clothing_name = item.name;
   if (item.category !== undefined) row.category = CATEGORY_TO_DATABASE[item.category] || item.category;
+  if (item.subCategory !== undefined) row.subcategory = item.subCategory;
   if (item.color !== undefined) row.color = item.color;
   if (item.brand !== undefined) row.brand = item.brand;
   if (item.material !== undefined) row.material = item.material;
@@ -221,8 +228,23 @@ export function WardrobeProvider({ children }: { children: React.ReactNode }) {
 
     if (error) throw error;
     const created = mapSupabaseToMobile(data);
-    setItems((previous) => [created, ...previous]);
-    return created;
+    const completeItem: ClothingItem = {
+      ...item,
+      ...created,
+      layerRole: item.layerRole || created.layerRole,
+      layer_role: item.layer_role || created.layer_role,
+      subCategory: item.subCategory || created.subCategory,
+      vector_subtype: item.vector_subtype || created.vector_subtype,
+      cutoutDataUri: item.cutoutDataUri || created.cutoutDataUri,
+      beautifiedDataUri: item.beautifiedDataUri || created.beautifiedDataUri,
+      palette: item.palette || created.palette,
+      colorHex: item.colorHex || created.colorHex,
+      confidence: item.confidence ?? created.confidence,
+      moderation_reason: item.moderation_reason ?? created.moderation_reason,
+      isSafeGarment: item.isSafeGarment ?? created.isSafeGarment,
+    };
+    setItems((previous) => [completeItem, ...previous]);
+    return completeItem;
   }, [session]);
 
   const deleteItem = useCallback(async (id: string) => {

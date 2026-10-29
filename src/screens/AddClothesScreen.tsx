@@ -17,13 +17,27 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../contexts/AuthContext';
 import { useWardrobe } from '../contexts/WardrobeContext';
 import { supabase } from '../integrations/supabase/client';
-import { analyzeClothingImage, ClothingPrediction } from '../services/imageAnalysisService';
+import { analyzeClothingImage, ClothingPrediction, Nsfw5ClassScores } from '../services/imageAnalysisService';
 import { containsProfanityOrSlurs } from '../services/communityService';
 import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
 import TextField from '../components/TextField';
 import SelectField from '../components/SelectField';
 import ChipGroup from '../components/ChipGroup';
-import { COLOR_OPTIONS, SEASON_OPTIONS, STYLE_OPTIONS } from '../constants/wardrobeMockData';
+import {
+  COLOR_OPTIONS,
+  SEASON_OPTIONS,
+  STYLE_OPTIONS,
+  getLayerRoleForCategory,
+  OUTERWEAR_NAME_SUFFIX_REGEX,
+  replaceOuterwearSuffixWithTShirt,
+} from '../constants/wardrobeMockData';
+import CielabPaletteCard from '../components/CielabPaletteCard';
+import {
+  CanonicalStudioGarmentSvg,
+  formatSubtypeLabel,
+  inferVectorSubtype,
+} from '../utils/garmentImageHelper';
+import { colorNameToHex } from '../services/outfitRecommendationService';
 
 const MAX_IMAGE_EDGE = 1600;
 const CATEGORY_FROM_API: Record<string, string> = {
@@ -45,6 +59,9 @@ function capitalize(str: string): string {
 interface SafePrefillResult {
   name: string;
   category: string;
+  subCategory: string;
+  vector_subtype: string;
+  layerRole: string;
   color: string;
   style: string;
   occasions: string[];
@@ -52,18 +69,39 @@ interface SafePrefillResult {
 }
 
 function buildSafeAutoPrefill(prediction: ClothingPrediction | null): SafePrefillResult {
-  // 1. Detect Color from ML result
-  let detectedColor = '';
-  if (prediction?.color) {
-    const matchedColor = COLOR_OPTIONS.find(
-      (c) => c.toLowerCase() === prediction.color!.toLowerCase()
-    );
-    detectedColor = matchedColor || capitalize(prediction.color);
-  }
-
-  // 2. Detect Category from ML result
+  const isSafe = prediction?.is_safe_garment !== false;
   const rawCategory = prediction?.category || '';
   const category = (rawCategory && CATEGORY_FROM_API[rawCategory.toUpperCase()]) || '';
+  const layerRole =
+    prediction?.layerRole ||
+    prediction?.layer_role ||
+    getLayerRoleForCategory(category || 'Tops');
+
+  // 1. Detect Color from ML result (primary_color || color || cluster0)
+  const cluster0Color = Array.isArray(prediction?.palette) ? prediction?.palette[0]?.color_name : undefined;
+  const rawColor = prediction?.primary_color || prediction?.color || cluster0Color || '';
+  let detectedColor = '';
+  if (rawColor) {
+    const matchedColor = COLOR_OPTIONS.find(
+      (c) => c.toLowerCase() === rawColor.toLowerCase()
+    );
+    detectedColor = matchedColor || capitalize(rawColor);
+  }
+
+  // Block Non-Wearable OOD Items:
+  if (!isSafe || !category) {
+    return {
+      name: prediction?.suggestedName || 'Non-Wearable Item',
+      category: '',
+      subCategory: '',
+      vector_subtype: '',
+      layerRole: 'INNER_BASE',
+      color: detectedColor || '',
+      style: 'Casual',
+      occasions: ['Casual'],
+      seasons: ['All'],
+    };
+  }
 
   // 3. Safe Name Pre-Fill: use result.suggestedName if returned from ml-service, otherwise "${result.color} ${result.category}"
   const rawSuggested = (prediction?.suggestedName || '').trim();
@@ -81,7 +119,16 @@ function buildSafeAutoPrefill(prediction: ClothingPrediction | null): SafePrefil
     finalName = `${detectedColor} ${category}`;
   } else if (category) {
     finalName = category;
+  } else {
+    finalName = 'Garment';
   }
+
+  const vectorSubtype = inferVectorSubtype(
+    finalName,
+    category || 'Tops',
+    prediction?.vector_subtype || prediction?.subCategory || prediction?.sub_category
+  );
+  const subCategoryLabel = formatSubtypeLabel(vectorSubtype, category || 'Tops');
 
   // 4. Determine Style & Occasions
   const apiStyle = (prediction?.style || '').toUpperCase();
@@ -112,7 +159,10 @@ function buildSafeAutoPrefill(prediction: ClothingPrediction | null): SafePrefil
   return {
     name: finalName,
     category: category || 'Tops',
-    color: detectedColor || 'Black',
+    subCategory: subCategoryLabel,
+    vector_subtype: vectorSubtype,
+    layerRole,
+    color: detectedColor || 'White',
     style,
     occasions,
     seasons: ['All'],
@@ -126,6 +176,23 @@ export default function AddClothesScreen() {
   const { addItem } = useWardrobe();
 
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [originalUri, setOriginalUri] = useState<string | null>(null);
+  const [cutoutUri, setCutoutUri] = useState<string | null>(null);
+  const [beautifiedUri, setBeautifiedUri] = useState<string | null>(null);
+  const [beautifiedMethod, setBeautifiedMethod] = useState<string | null>(null);
+  const [useBeautified, setUseBeautified] = useState<boolean>(false);
+  const [subCategory, setSubCategory] = useState<string>('Tshirt');
+  const [vectorSubtype, setVectorSubtype] = useState<string>('tshirt');
+  const [layerRole, setLayerRole] = useState<string>('INNER_BASE');
+  const [confidence, setConfidence] = useState<number>(0);
+  const [moderationReason, setModerationReason] = useState<string | null>(null);
+  const [nsfwScores, setNsfwScores] = useState<Partial<Nsfw5ClassScores> | null>(null);
+  const [palette, setPalette] = useState<any>(null);
+  const [colorHarmonyNote, setColorHarmonyNote] = useState<string | null>(null);
+  const [secondaryColor, setSecondaryColor] = useState<string | undefined>(undefined);
+  const [secondaryColorHex, setSecondaryColorHex] = useState<string | null>(null);
+  const [colorHex, setColorHex] = useState<string>('#264C3B');
+  const [isSafeGarment, setIsSafeGarment] = useState<boolean>(true);
   const [name, setName] = useState('');
   const [category, setCategory] = useState('Tops');
   const [color, setColor] = useState('Black');
@@ -168,6 +235,7 @@ export default function AddClothesScreen() {
     setBrand('');
     setMaterial('');
     setCategory('Tops');
+    setLayerRole('INNER_BASE');
     setColor('Black');
     setPrice('');
     setNotes('');
@@ -184,6 +252,9 @@ export default function AddClothesScreen() {
   const applySafePrefill = (prefill: SafePrefillResult) => {
     setName(prefill.name);
     setCategory(prefill.category);
+    setLayerRole(prefill.layerRole || getLayerRoleForCategory(prefill.category));
+    setSubCategory(prefill.subCategory);
+    setVectorSubtype(prefill.vector_subtype);
     setColor(prefill.color);
     setStyle(prefill.style);
     setOccasions(prefill.occasions);
@@ -231,30 +302,44 @@ export default function AddClothesScreen() {
 
     const asset = result.assets[0];
     setImageUri(asset.uri);
+    setOriginalUri(asset.uri);
+    setCutoutUri(null);
+    setBeautifiedUri(null);
+    setBeautifiedMethod(null);
+    setUseBeautified(false);
+    setConfidence(0);
+    setModerationReason(null);
+    setNsfwScores(null);
 
     if (session?.access_token) {
       setAnalyzing(true);
       setError('');
       try {
         const prediction = await analyzeClothingImage(asset.uri, session.access_token);
+        const scores = prediction.nsfw_scores;
+        setNsfwScores(scores || null);
+        const neutralScore = typeof scores?.Neutral === 'number' ? scores.Neutral : 1.0;
+        const isNsfwSafe = neutralScore >= 0.50;
 
-        if (
-          prediction.is_safe_garment === false ||
-          (prediction.category === null && prediction.moderation_reason)
-        ) {
-          resetInvalidImage();
-          setModerationModal({
-            visible: true,
-            title: 'Unrecognized Image',
-            message:
-              prediction.moderation_reason ||
-              'This photo does not appear to be a valid clothing item. Please upload a clear photo of a garment.',
-          });
+        // Only hard-block if strictly flagged as adult/prohibited content
+        if (!isNsfwSafe) {
+          setIsSafeGarment(false);
+          setModerationReason(
+            prediction.moderation_reason ||
+            'Image blocked by safety check. Please upload an appropriate clothing item.'
+          );
+          setIsImageVerified(false);
+          setCutoutUri(prediction.cutoutDataUri || null);
+          setImageUri(prediction.cutoutDataUri || asset.uri);
+          setName('Inappropriate Image');
+          setCategory('');
           return;
         }
 
         // Store clean background-removed cutout in imageUri when returned from ml-service
         if (prediction.cutoutDataUri && typeof prediction.cutoutDataUri === 'string') {
+          setCutoutUri(prediction.cutoutDataUri);
+          setBeautifiedUri(prediction.beautifiedDataUri || null);
           setImageUri(prediction.cutoutDataUri);
         }
 
@@ -265,13 +350,38 @@ export default function AddClothesScreen() {
             ? prediction.categoryConfidence
             : 0;
 
-        if (!prediction.category || rawConf < 0.55) {
+        setConfidence(rawConf);
+        setModerationReason(prediction.moderation_reason || null);
+        setPalette(prediction.palette || null);
+        setColorHarmonyNote(prediction.color_harmony_note || null);
+        setSecondaryColor(prediction.secondary_color || undefined);
+        setSecondaryColorHex(prediction.secondary_color_hex || null);
+        setColorHex(prediction.colorHex || colorNameToHex(prediction.primary_color || prediction.color || 'White'));
+        setIsSafeGarment(true);
+
+        const mappedCategory = prediction.category
+          ? (CATEGORY_FROM_API[prediction.category.toUpperCase()] || prediction.category)
+          : '';
+
+        if (!mappedCategory || rawConf < 0.55 || !!prediction.moderation_reason) {
           setLowConfidenceWarning(true);
+          setModerationReason(
+            prediction.moderation_reason ||
+            'Low classification confidence; please confirm category manually.'
+          );
+        } else {
+          setLowConfidenceWarning(false);
         }
 
         setIsImageVerified(true);
         const prefill = buildSafeAutoPrefill(prediction);
         applySafePrefill(prefill);
+        if (!mappedCategory) {
+          setCategory('');
+          if (!prediction.suggestedName) {
+            setName(`${prediction.primary_color || prediction.color || 'My'} Garment`.trim());
+          }
+        }
       } catch (err: any) {
         const isModerationError =
           err?.response?.status === 422 ||
@@ -365,6 +475,24 @@ export default function AddClothesScreen() {
       return;
     }
 
+    if (!isSafeGarment) {
+      setInfoModal({
+        visible: true,
+        title: 'Moderation Flag',
+        message: moderationReason || 'Image rejected by safety check. Please upload an appropriate clothing item.',
+      });
+      return;
+    }
+
+    if (!category) {
+      setInfoModal({
+        visible: true,
+        title: 'Category Required',
+        message: moderationReason || 'Please select a Category from the dropdown before adding to wardrobe.',
+      });
+      return;
+    }
+
     if (!name.trim()) {
       setInfoModal({
         visible: true,
@@ -389,18 +517,36 @@ export default function AddClothesScreen() {
     setSaving(true);
     setError('');
     try {
-      const image = imageUri ? await uploadImage(imageUri) : '';
+      const cleanGarmentUri = cutoutUri || beautifiedUri || imageUri || '';
+      const image = cleanGarmentUri ? await uploadImage(cleanGarmentUri) : '';
       const parsedPrice = price.trim() ? parseFloat(price.trim()) || 0 : 0;
       await addItem({
         name: name.trim(),
         category,
+        subCategory,
+        vector_subtype: vectorSubtype,
+        layerRole: layerRole || getLayerRoleForCategory(category),
+        layer_role: layerRole || getLayerRoleForCategory(category),
         color,
+        colorHex,
+        secondary_color: secondaryColor,
+        secondary_color_hex: secondaryColorHex,
+        palette,
+        color_harmony_note: colorHarmonyNote,
         brand: brand.trim(),
         material: material.trim(),
         style,
         seasons,
         occasions,
         image,
+        originalUri: originalUri || undefined,
+        cutoutUri,
+        beautifiedUri,
+        beautifiedMethod,
+        useBeautified,
+        confidence,
+        moderation_reason: moderationReason,
+        isSafeGarment,
         status: 'clean',
         favorite: false,
         timesWorn: 0,
@@ -440,14 +586,63 @@ export default function AddClothesScreen() {
         <View style={[styles.photo, { backgroundColor: '#F8F8FA', borderColor: theme.border }]}>
           {imageUri ? (
             <Image
-              source={{ uri: imageUri }}
+              source={{
+                uri: cutoutUri || beautifiedUri || imageUri,
+              }}
               style={styles.photoImage}
               resizeMode="contain"
             />
           ) : (
             <Ionicons name="shirt-outline" size={48} color={theme.textMuted} />
           )}
+
+          {imageUri && (
+            <View style={styles.previewOverlayBottom}>
+              <View
+                style={[
+                  styles.previewInfoPill,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.previewColorDot,
+                    { backgroundColor: colorNameToHex(color) },
+                  ]}
+                />
+                <Text style={[styles.previewInfoPillText, { color: theme.text }]}>
+                  ● {color} · {subCategory || category} ({Math.round((confidence || 0) * 100)}%)
+                </Text>
+              </View>
+
+              {!isSafeGarment ? (
+                <View style={[styles.amberWarningPill, { backgroundColor: '#FEE2E2', borderColor: '#DC2626', borderWidth: 1 }]}>
+                  <Text style={[styles.amberWarningText, { color: '#B91C1C', fontWeight: '800' }]}>
+                    🚫 Moderation Flag: {moderationReason || 'Image rejected by safety check.'}
+                  </Text>
+                </View>
+              ) : (!category || confidence < 0.55 || !!moderationReason) && isImageVerified ? (
+                <View style={styles.amberWarningPill}>
+                  <Text style={styles.amberWarningText}>
+                    ⚠️ Needs Review: {moderationReason || 'Low confidence; please confirm category manually.'}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          )}
         </View>
+
+        {/* 🎨 Extracted CIELAB Palette (K = 2) Card */}
+        {imageUri && (
+          <CielabPaletteCard
+            palette={palette}
+            primaryColor={color}
+            primaryHex={colorHex}
+            secondaryColor={secondaryColor}
+            secondaryHex={secondaryColorHex}
+            harmonyNote={colorHarmonyNote}
+          />
+        )}
 
         <View style={styles.photoActions}>
           <Pressable
@@ -535,7 +730,35 @@ export default function AddClothesScreen() {
           label="Category"
           value={category}
           options={ALLOWED_CATEGORIES}
-          onChange={setCategory}
+          onChange={(newCat) => {
+            const prevCat = category;
+            const nextLayerRole = getLayerRoleForCategory(newCat);
+            setCategory(newCat);
+            setLayerRole(nextLayerRole);
+
+            // Manual Category Edit Sync: If user changes from Outerwear to Tops,
+            // replace outer garment terms with T-Shirt and set vector_subtype = 'tshirt'
+            if (prevCat === 'Outerwear' && newCat === 'Tops') {
+              if (OUTERWEAR_NAME_SUFFIX_REGEX.test(name)) {
+                setName(replaceOuterwearSuffixWithTShirt(name));
+              }
+              if (OUTERWEAR_NAME_SUFFIX_REGEX.test(subCategory) || !subCategory || subCategory === 'Outerwear') {
+                setSubCategory('T-Shirt');
+              }
+              setVectorSubtype('tshirt');
+            }
+
+            const neutral = nsfwScores?.Neutral ?? 1.0;
+            if (neutral >= 0.50) {
+              setIsSafeGarment(true);
+              setLowConfidenceWarning(false);
+              setIsImageVerified(true);
+              setModerationReason(null);
+            }
+            if (!name || name === 'Non-Wearable Item' || name === 'Inappropriate Image' || name === 'Garment' || name.endsWith(' Garment')) {
+              setName(`${color || 'My'} ${newCat}`.trim());
+            }
+          }}
           required
         />
         <SelectField label="Color" value={color} options={COLOR_OPTIONS} onChange={setColor} />
@@ -609,6 +832,7 @@ export default function AddClothesScreen() {
         showCancel={false}
         onConfirm={() => setInfoModal({ visible: false, title: '', message: '' })}
       />
+
     </SafeAreaView>
   );
 }
@@ -662,4 +886,45 @@ const styles = StyleSheet.create({
   gap: { width: 12 },
   save: { borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 6 },
   saveText: { fontSize: 15, fontWeight: '700' },
+  previewOverlayBottom: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    right: 54,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    alignItems: 'center',
+  },
+  previewInfoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  previewColorDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+  },
+  previewInfoPillText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+  },
+  amberWarningPill: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  amberWarningText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#92400E',
+  },
 });

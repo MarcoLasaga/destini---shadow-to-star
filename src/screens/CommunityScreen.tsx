@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   FlatList,
   Pressable,
@@ -21,32 +21,65 @@ import SocialListModal from '../components/SocialListModal';
 import { useToast } from '../contexts/ToastContext';
 import {
   classifyCommunityPostGender,
+  CommunityOutfit,
   isCurrentUserPost,
   MY_POST_IDS_KEY,
 } from '../services/communityService';
+import {
+  CommunityTasteProfile,
+  getCommunityTasteSignals,
+} from '../services/communitySignals';
+
+type CommunityTab = 'all' | 'forYou' | 'following';
 
 export default function CommunityScreen() {
   const theme = useAppTheme();
   const community = useCommunity();
-  const { currentOutfit, savedOutfits } = useOutfit();
+  const { currentOutfit, savedOutfits, generateOutfit } = useOutfit();
   const { profile } = useProfile();
   const { session } = useAuth();
   const user = session?.user;
   const { showToast } = useToast();
 
-  const [tab, setTab] = useState<'forYou' | 'following'>('forYou');
+  const [tab, setTab] = useState<CommunityTab>('all');
   const [shareVisible, setShareVisible] = useState(false);
   const [shareOutfit, setShareOutfit] = useState(currentOutfit ?? savedOutfits[0] ?? null);
   const [following, setFollowing] = useState<string[]>([]);
   const [myPostIds, setMyPostIds] = useState<string[]>([]);
+  const [tasteSignals, setTasteSignals] = useState<CommunityTasteProfile>({
+    likedStyles: profile.likedStyles || [],
+    likedColors: profile.likedColors || [],
+    likedSubtypes: [],
+    crossGenderAffinity: Boolean(profile.crossGenderAffinity),
+    is_user_liked_cross_gender: Boolean(profile.crossGenderAffinity),
+    likedPostIds: [],
+    totalPositiveSignals: 0,
+  });
 
   // Social List Modal state (for viewing likes, followers, following)
   const [socialModalVisible, setSocialModalVisible] = useState(false);
   const [socialModalTab, setSocialModalTab] = useState<'followers' | 'following' | 'likes'>('likes');
   const [selectedPostTitle, setSelectedPostTitle] = useState('');
 
+  const actorGender =
+    profile.gender === 'female' ? 'female' : profile.gender === 'male' ? 'male' : 'unknown';
+
+  const reloadTasteSignals = useCallback(async () => {
+    const signals = await getCommunityTasteSignals(actorGender);
+    setTasteSignals({
+      ...signals,
+      likedStyles: Array.from(new Set([...(profile.likedStyles || []), ...signals.likedStyles])),
+      likedColors: Array.from(new Set([...(profile.likedColors || []), ...signals.likedColors])),
+      crossGenderAffinity: Boolean(profile.crossGenderAffinity || signals.crossGenderAffinity),
+      is_user_liked_cross_gender: Boolean(
+        profile.crossGenderAffinity || signals.is_user_liked_cross_gender
+      ),
+    });
+  }, [actorGender, profile.likedStyles, profile.likedColors, profile.crossGenderAffinity]);
+
   useEffect(() => {
     community.refresh();
+    reloadTasteSignals();
     AsyncStorage.getItem('@stylesense_social_following_names').then((raw) => {
       if (raw) {
         try {
@@ -66,14 +99,73 @@ export default function CommunityScreen() {
         }
       }
     });
-  }, [community.mode]);
+  }, [community.mode, reloadTasteSignals]);
 
   const ownName = (profile.displayName || '').toLowerCase();
+
+  const scoreForYouPost = useCallback(
+    (post: CommunityOutfit): number => {
+      let score = 50;
+      const postStyle = (post.style || post.occasion || '').toLowerCase();
+      const postColors = (post.items || []).map((i) => (i.color || '').toLowerCase());
+      const postCategories = (post.items || []).map((i) => (i.category || '').toLowerCase());
+
+      // Style affinity match (+20)
+      const userStyles = [
+        ...(profile.preferredStyles || []),
+        ...tasteSignals.likedStyles,
+      ].map((s) => s.toLowerCase());
+      if (userStyles.some((s) => postStyle.includes(s) || s.includes(postStyle))) {
+        score += 20;
+      }
+
+      // Color affinity match (+15)
+      const userColors = [
+        ...(profile.preferredColors || []),
+        ...tasteSignals.likedColors,
+      ].map((c) => c.toLowerCase());
+      if (postColors.some((c) => userColors.some((uc) => uc.includes(c) || c.includes(uc)))) {
+        score += 15;
+      }
+
+      // Subtype / category affinity (+10)
+      if (
+        postCategories.some((cat) =>
+          tasteSignals.likedSubtypes.some((sub) => sub.toLowerCase().includes(cat))
+        )
+      ) {
+        score += 10;
+      }
+
+      // Direct liked/saved signal (+25)
+      if (post.liked || post.saved || tasteSignals.likedPostIds.includes(post.id)) {
+        score += 25;
+      }
+
+      return score;
+    },
+    [profile.preferredStyles, profile.preferredColors, tasteSignals]
+  );
+
   const filtered = useMemo(() => {
-    return community.feed.filter((post) => {
-      if (tab === 'following') return following.includes(post.creatorName);
+    // 1. ALL (Global Tab): Shows all published flat-lay outfits from both Male and Female users
+    if (tab === 'all') {
+      return community.feed;
+    }
+
+    // 2. FOLLOWING Tab: Shows posts from creators the user follows
+    if (tab === 'following') {
+      return community.feed.filter((post) => following.includes(post.creatorName));
+    }
+
+    // 3. FOR YOU (Personalized Hybrid Tab):
+    // Includes own posts, gender-matched posts, AND cross-gender posts when crossGenderAffinity is active
+    // or when the user liked/saved the post or its style/colors match learned cross-gender signals!
+    const eligible = community.feed.filter((post) => {
       if (isCurrentUserPost(post, user, profile, myPostIds)) return true;
       if (post.creatorName.toLowerCase() === ownName) return true;
+      if (post.liked || post.saved || tasteSignals.likedPostIds.includes(post.id)) return true;
+
       const gender =
         post.genderProfile ||
         classifyCommunityPostGender({
@@ -82,9 +174,39 @@ export default function CommunityScreen() {
           caption: post.caption,
           items: post.items,
         });
-      return profile.gender === 'female' ? gender !== 'mens' : gender !== 'womens';
+
+      const isSameGender =
+        profile.gender === 'female' ? gender !== 'mens' : gender !== 'womens';
+      if (isSameGender) return true;
+
+      // Cross-Gender Collaborative Inclusion: if user has crossGenderAffinity, include matching cross-gender posts
+      if (tasteSignals.crossGenderAffinity || tasteSignals.is_user_liked_cross_gender) {
+        const postStyle = (post.style || post.occasion || '').toLowerCase();
+        const postColors = (post.items || []).map((i) => (i.color || '').toLowerCase());
+        const matchesLikedStyle = tasteSignals.likedStyles.some(
+          (s) => postStyle.includes(s.toLowerCase()) || s.toLowerCase().includes(postStyle)
+        );
+        const matchesLikedColor = postColors.some((c) =>
+          tasteSignals.likedColors.some((lc) => lc.toLowerCase() === c)
+        );
+        return matchesLikedStyle || matchesLikedColor || true;
+      }
+
+      return false;
     });
-  }, [community.feed, tab, following, ownName, profile, user, myPostIds]);
+
+    return [...eligible].sort((a, b) => scoreForYouPost(b) - scoreForYouPost(a));
+  }, [
+    community.feed,
+    tab,
+    following,
+    ownName,
+    profile,
+    user,
+    myPostIds,
+    tasteSignals,
+    scoreForYouPost,
+  ]);
 
   const openShare = () => {
     const candidate = currentOutfit ?? savedOutfits[0];
@@ -97,20 +219,54 @@ export default function CommunityScreen() {
   };
 
   const handleToggleFollow = (creatorName: string) => {
-    // Filter out self-follows completely
     if (creatorName.toLowerCase() === ownName) return;
 
-    setFollowing((current) =>
-      current.includes(creatorName)
+    setFollowing((current) => {
+      const next = current.includes(creatorName)
         ? current.filter((name) => name !== creatorName)
-        : [...current, creatorName]
-    );
+        : [...current, creatorName];
+      AsyncStorage.setItem('@stylesense_social_following_names', JSON.stringify(next)).catch(
+        () => {}
+      );
+      return next;
+    });
   };
 
   const handleOpenLikes = (postTitle: string) => {
     setSelectedPostTitle(postTitle);
     setSocialModalTab('likes');
     setSocialModalVisible(true);
+  };
+
+  const handleLikePost = async (item: CommunityOutfit) => {
+    try {
+      await community.toggleLike(item);
+      await reloadTasteSignals();
+      // Trigger collaborative recommendation refresh when cross-gender taste is learned
+      const isCross =
+        (item.authorGender === 'male' && actorGender === 'female') ||
+        (item.authorGender === 'female' && actorGender === 'male');
+      if (!item.liked && isCross) {
+        generateOutfit();
+      }
+    } catch (error: any) {
+      showToast(error?.message || 'Could not update like.');
+    }
+  };
+
+  const handleSavePost = async (item: CommunityOutfit) => {
+    try {
+      await community.toggleSave(item);
+      await reloadTasteSignals();
+      const isCross =
+        (item.authorGender === 'male' && actorGender === 'female') ||
+        (item.authorGender === 'female' && actorGender === 'male');
+      if (!item.saved && isCross) {
+        generateOutfit();
+      }
+    } catch (error: any) {
+      showToast(error?.message || 'Could not update bookmark.');
+    }
   };
 
   return (
@@ -128,8 +284,22 @@ export default function CommunityScreen() {
         </Pressable>
       </View>
 
-      {/* Tabs */}
+      {/* 3 Community Feed Tabs: All | For You | Following */}
       <View style={[styles.tabs, { borderBottomColor: theme.border }]}>
+        <Pressable
+          onPress={() => setTab('all')}
+          style={[styles.tab, tab === 'all' && styles.tabActive]}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              { color: tab === 'all' ? '#264C3B' : theme.textMuted },
+            ]}
+          >
+            All
+          </Text>
+        </Pressable>
+
         <Pressable
           onPress={() => setTab('forYou')}
           style={[styles.tab, tab === 'forYou' && styles.tabActive]}
@@ -159,6 +329,16 @@ export default function CommunityScreen() {
         </Pressable>
       </View>
 
+      {/* Cross-Gender Collaborative Affinity Banner on For You when active */}
+      {tab === 'forYou' && tasteSignals.is_user_liked_cross_gender && (
+        <View style={styles.affinityBanner}>
+          <Ionicons name="sparkles" size={14} color="#264C3B" />
+          <Text style={styles.affinityBannerText}>
+            Personalized with your cross-gender & style likes from the All tab
+          </Text>
+        </View>
+      )}
+
       {/* Community Feed List */}
       <FlatList
         data={filtered}
@@ -173,12 +353,8 @@ export default function CommunityScreen() {
               following={following.includes(item.creatorName)}
               onFollow={() => handleToggleFollow(item.creatorName)}
               onViewLikes={() => handleOpenLikes(item.name)}
-              onLike={() =>
-                community.toggleLike(item).catch((error) => showToast(error.message))
-              }
-              onSave={() =>
-                community.toggleSave(item).catch((error) => showToast(error.message))
-              }
+              onLike={() => handleLikePost(item)}
+              onSave={() => handleSavePost(item)}
               onDislike={() => showToast('Thanks, we’ll show fewer looks like this.')}
               onRepost={() => showToast('Look added to your reposts.')}
             />
@@ -200,7 +376,7 @@ export default function CommunityScreen() {
               No looks here yet
             </Text>
             <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-              Follow a style-minded creator or publish your first dressed mannequin look.
+              Follow a style-minded creator or publish your first studio flat-lay look.
             </Text>
             <Pressable onPress={openShare} style={styles.emptyButton}>
               <Text style={styles.emptyButtonText}>Post Look</Text>
@@ -216,7 +392,7 @@ export default function CommunityScreen() {
           onClose={() => setShareVisible(false)}
           onPublished={() => {
             community.refresh();
-            showToast('Look published to community feed.');
+            showToast('Studio flat-lay look published to community feed.');
           }}
         />
       )}
@@ -278,7 +454,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    gap: 20,
+    gap: 24,
   },
   tab: {
     paddingVertical: 10,
@@ -291,6 +467,25 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 13.5,
     fontWeight: '800',
+  },
+  affinityBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginHorizontal: 20,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 12,
+    backgroundColor: '#EAF3D9',
+    borderWidth: 1,
+    borderColor: '#D4E6BD',
+  },
+  affinityBannerText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#264C3B',
+    flex: 1,
   },
   list: {
     paddingTop: 12,

@@ -14,6 +14,9 @@ import {
   STYLE_OPTIONS,
   SEASON_OPTIONS,
   OCCASION_OPTIONS,
+  getLayerRoleForCategory,
+  OUTERWEAR_NAME_SUFFIX_REGEX,
+  replaceOuterwearSuffixWithTShirt,
 } from '../constants/wardrobeMockData';
 import SelectField from '../components/SelectField';
 import TextField from '../components/TextField';
@@ -34,6 +37,11 @@ export default function EditClothingScreen() {
 
   const [name, setName] = useState(original?.name ?? '');
   const [category, setCategory] = useState(original?.category ?? 'Tops');
+  const [layerRole, setLayerRole] = useState(
+    original?.layerRole || original?.layer_role || getLayerRoleForCategory(original?.category) || 'INNER_BASE'
+  );
+  const [subCategory, setSubCategory] = useState(original?.subCategory ?? '');
+  const [vectorSubtype, setVectorSubtype] = useState(original?.vector_subtype ?? '');
   const [color, setColor] = useState(original?.color ?? 'Blue');
   const [brand, setBrand] = useState(original?.brand ?? '');
   const [material, setMaterial] = useState(original?.material ?? '');
@@ -81,7 +89,20 @@ export default function EditClothingScreen() {
       return;
     }
 
-    updateItem(original.id, { name: name.trim(), category, color, brand, material, style, seasons, occasions });
+    updateItem(original.id, {
+      name: name.trim(),
+      category,
+      layerRole,
+      layer_role: layerRole,
+      subCategory,
+      vector_subtype: vectorSubtype,
+      color,
+      brand,
+      material,
+      style,
+      seasons,
+      occasions,
+    });
     showToast('Clothing item updated.');
     navigation.goBack();
   };
@@ -108,7 +129,24 @@ export default function EditClothingScreen() {
             label="Category"
             value={category}
             options={CLOTHING_CATEGORIES.filter((c) => c !== 'All')}
-            onChange={setCategory}
+            onChange={(newCat) => {
+              const prevCat = category;
+              const nextLayerRole = getLayerRoleForCategory(newCat);
+              setCategory(newCat);
+              setLayerRole(nextLayerRole);
+
+              // Manual Category Edit Sync: If user changes from Outerwear to Tops,
+              // replace outer garment terms with T-Shirt and set vector_subtype = 'tshirt'
+              if (prevCat === 'Outerwear' && newCat === 'Tops') {
+                if (OUTERWEAR_NAME_SUFFIX_REGEX.test(name)) {
+                  setName((prev) => replaceOuterwearSuffixWithTShirt(prev));
+                }
+                if (OUTERWEAR_NAME_SUFFIX_REGEX.test(subCategory) || !subCategory || subCategory === 'Outerwear') {
+                  setSubCategory('T-Shirt');
+                }
+                setVectorSubtype('tshirt');
+              }
+            }}
             required
           />
 

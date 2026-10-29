@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -12,12 +11,15 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { useSettings } from '../contexts/SettingsContext';
 import { useProfile } from '../contexts/ProfileContext';
 import Mannequin2D from './Mannequin2D';
+import CameraSkinScanModal, { SkinScanResult } from './CameraSkinScanModal';
 
 interface CharacterCustomizeModalProps {
   visible: boolean;
   onClose: () => void;
   onSave?: (data: {
     gender: 'male' | 'female';
+    heightCm: string;
+    weightKg: string;
     hairStyle: string;
     hairColor: string;
     skinTone: string;
@@ -84,17 +86,22 @@ export default function CharacterCustomizeModal({
   const [gender, setGender] = useState<'male' | 'female'>(
     initialGender || (profile.gender === 'female' ? 'female' : 'male')
   );
+  const [heightCm, setHeightCm] = useState<string>(profile.heightCm || '170');
+  const [weightKg, setWeightKg] = useState<string>(profile.weightKg || '62');
   const [hairStyle, setHairStyle] = useState<string>(settingsHairStyle || 'male_twoblock');
   const [hairColor, setHairColor] = useState<string>(settingsHairColor || '#1C1613');
   const [skinTone, setSkinTone] = useState<string>(mannequinSkinTone || '#F1CBA9');
   const [faceStyle, setFaceStyle] = useState<string>(settingsFaceStyle || 'friendly');
   const [zoomMode, setZoomMode] = useState<'head' | 'body'>('body');
-  const [categoryTab, setCategoryTab] = useState<'hair' | 'face'>('hair');
+  const [activeTab, setActiveTab] = useState<'hair' | 'skin'>('hair');
+  const [cameraScanVisible, setCameraScanVisible] = useState<boolean>(false);
 
   useEffect(() => {
     if (visible) {
       const g = initialGender || (profile.gender === 'female' ? 'female' : 'male');
       setGender(g);
+      setHeightCm(profile.heightCm || '170');
+      setWeightKg(profile.weightKg || '62');
       setSkinTone(mannequinSkinTone || '#F1CBA9');
       setHairColor(settingsHairColor || '#1C1613');
       setFaceStyle(settingsFaceStyle || 'friendly');
@@ -104,7 +111,17 @@ export default function CharacterCustomizeModal({
         setHairStyle(g === 'female' ? 'female_long_tucked' : 'male_twoblock');
       }
     }
-  }, [visible, initialGender, profile.gender, mannequinSkinTone, settingsHairColor, settingsFaceStyle, settingsHairStyle]);
+  }, [
+    visible,
+    initialGender,
+    profile.gender,
+    profile.heightCm,
+    profile.weightKg,
+    mannequinSkinTone,
+    settingsHairColor,
+    settingsFaceStyle,
+    settingsHairStyle,
+  ]);
 
   const handleGenderChange = (newGender: 'male' | 'female') => {
     setGender(newGender);
@@ -115,6 +132,23 @@ export default function CharacterCustomizeModal({
     }
   };
 
+  const stepValue = (
+    current: string,
+    delta: number,
+    min: number,
+    max: number,
+    setter: (v: string) => void
+  ) => {
+    const parsed = parseInt(current, 10) || min;
+    const next = Math.max(min, Math.min(max, parsed + delta));
+    setter(String(next));
+  };
+
+  const handleApplyScan = (scan: SkinScanResult) => {
+    setSkinTone(scan.skinTone);
+    setHairColor(scan.hairColor);
+  };
+
   const handleSave = async () => {
     await setMannequinSkinTone(skinTone);
     await setSettingsHairStyle(hairStyle);
@@ -123,6 +157,8 @@ export default function CharacterCustomizeModal({
 
     await updateProfile({
       gender,
+      heightCm,
+      weightKg,
       hairStyle,
       hairColor,
       skinTone,
@@ -132,6 +168,8 @@ export default function CharacterCustomizeModal({
     if (onSave) {
       onSave({
         gender,
+        heightCm,
+        weightKg,
         hairStyle,
         hairColor,
         skinTone,
@@ -163,8 +201,13 @@ export default function CharacterCustomizeModal({
             </Pressable>
           </View>
 
-          {/* ZONE 1: PINNED TOP PREVIEW STAGE (Fixed height: 215, never scrolls away) */}
-          <View style={[styles.previewBox, { backgroundColor: theme.mode === 'dark' ? '#231B2C' : '#FAF7F0' }]}>
+          {/* ZONE 1: PINNED TOP PREVIEW STAGE (Fixed height: 210, never scrolls away) */}
+          <View
+            style={[
+              styles.previewBox,
+              { backgroundColor: theme.mode === 'dark' ? '#231B2C' : '#FAF7F0' },
+            ]}
+          >
             {/* Zoom Pill Toggle in top-right */}
             <Pressable
               onPress={() => setZoomMode((m) => (m === 'head' ? 'body' : 'head'))}
@@ -185,7 +228,7 @@ export default function CharacterCustomizeModal({
               <Mannequin2D
                 compact
                 zoomMode={zoomMode}
-                profile={{ gender, heightCm: '170', weightKg: '60' }}
+                profile={{ gender, heightCm, weightKg }}
                 skinTone={skinTone}
                 hairStyle={hairStyle}
                 hairColor={hairColor}
@@ -198,63 +241,129 @@ export default function CharacterCustomizeModal({
           {/* PINNED CATEGORY SWITCHER PILL BAR */}
           <View style={styles.tabBar}>
             <Pressable
-              onPress={() => setCategoryTab('hair')}
-              style={[styles.tabBtn, categoryTab === 'hair' && styles.tabBtnActive]}
+              onPress={() => setActiveTab('hair')}
+              style={[styles.tabBtn, activeTab === 'hair' && styles.tabBtnActive]}
             >
-              <Text style={[styles.tabBtnText, categoryTab === 'hair' && styles.tabBtnTextActive]}>
+              <Text style={[styles.tabBtnText, activeTab === 'hair' && styles.tabBtnTextActive]}>
                 💇 Gender & Hair
               </Text>
             </Pressable>
             <Pressable
-              onPress={() => setCategoryTab('face')}
-              style={[styles.tabBtn, categoryTab === 'face' && styles.tabBtnActive]}
+              onPress={() => setActiveTab('skin')}
+              style={[styles.tabBtn, activeTab === 'skin' && styles.tabBtnActive]}
             >
-              <Text style={[styles.tabBtnText, categoryTab === 'face' && styles.tabBtnTextActive]}>
+              <Text style={[styles.tabBtnText, activeTab === 'skin' && styles.tabBtnTextActive]}>
                 🎨 Skin & Face
               </Text>
             </Pressable>
           </View>
 
-          {/* ZONE 2: SCROLLABLE OPTIONS */}
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            style={styles.optionsScrollView}
-            contentContainerStyle={styles.scrollContent}
-          >
-            {categoryTab === 'hair' ? (
-              <>
-                {/* Gender Toggle */}
-                <View style={styles.genderRow}>
-                  <Pressable
-                    onPress={() => handleGenderChange('male')}
-                    style={[
-                      styles.genderBtn,
-                      gender === 'male' && styles.genderBtnActive,
-                      { borderColor: theme.border },
-                    ]}
-                  >
-                    <Ionicons name="man" size={17} color={gender === 'male' ? '#FFFFFF' : theme.text} />
-                    <Text style={[styles.genderBtnText, { color: gender === 'male' ? '#FFFFFF' : theme.text }]}>
-                      Male
-                    </Text>
-                  </Pressable>
+          {/* ZONE 2: EXPLICIT MIN-HEIGHT OPTIONS CONTAINER (Never collapses to 0px) */}
+          <View style={styles.optionsContainer}>
+            {activeTab === 'hair' ? (
+              <View style={styles.tabPane}>
+                {/* Gender + Height/Weight Steppers Row */}
+                <View style={styles.topControlsRow}>
+                  {/* Gender Toggle */}
+                  <View style={styles.genderRow}>
+                    <Pressable
+                      onPress={() => handleGenderChange('male')}
+                      style={[
+                        styles.genderBtn,
+                        gender === 'male' && styles.genderBtnActive,
+                        { borderColor: theme.border },
+                      ]}
+                    >
+                      <Ionicons
+                        name="man"
+                        size={15}
+                        color={gender === 'male' ? '#FFFFFF' : theme.text}
+                      />
+                      <Text
+                        style={[
+                          styles.genderBtnText,
+                          { color: gender === 'male' ? '#FFFFFF' : theme.text },
+                        ]}
+                      >
+                        Male
+                      </Text>
+                    </Pressable>
 
-                  <Pressable
-                    onPress={() => handleGenderChange('female')}
-                    style={[
-                      styles.genderBtn,
-                      gender === 'female' && styles.genderBtnActive,
-                      { borderColor: theme.border },
-                    ]}
-                  >
-                    <Ionicons name="woman" size={17} color={gender === 'female' ? '#FFFFFF' : theme.text} />
-                    <Text style={[styles.genderBtnText, { color: gender === 'female' ? '#FFFFFF' : theme.text }]}>
-                      Female
-                    </Text>
-                  </Pressable>
+                    <Pressable
+                      onPress={() => handleGenderChange('female')}
+                      style={[
+                        styles.genderBtn,
+                        gender === 'female' && styles.genderBtnActive,
+                        { borderColor: theme.border },
+                      ]}
+                    >
+                      <Ionicons
+                        name="woman"
+                        size={15}
+                        color={gender === 'female' ? '#FFFFFF' : theme.text}
+                      />
+                      <Text
+                        style={[
+                          styles.genderBtnText,
+                          { color: gender === 'female' ? '#FFFFFF' : theme.text },
+                        ]}
+                      >
+                        Female
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  {/* Height & Weight Compact Steppers */}
+                  <View style={styles.steppersRow}>
+                    <View
+                      style={[
+                        styles.stepperPill,
+                        { borderColor: theme.border, backgroundColor: theme.background },
+                      ]}
+                    >
+                      <Pressable
+                        onPress={() => stepValue(heightCm, -1, 140, 210, setHeightCm)}
+                        style={styles.stepIconBtn}
+                      >
+                        <Ionicons name="remove" size={14} color={theme.text} />
+                      </Pressable>
+                      <Text style={[styles.stepperText, { color: theme.text }]}>
+                        {heightCm} cm
+                      </Text>
+                      <Pressable
+                        onPress={() => stepValue(heightCm, 1, 140, 210, setHeightCm)}
+                        style={styles.stepIconBtn}
+                      >
+                        <Ionicons name="add" size={14} color={theme.text} />
+                      </Pressable>
+                    </View>
+
+                    <View
+                      style={[
+                        styles.stepperPill,
+                        { borderColor: theme.border, backgroundColor: theme.background },
+                      ]}
+                    >
+                      <Pressable
+                        onPress={() => stepValue(weightKg, -1, 38, 140, setWeightKg)}
+                        style={styles.stepIconBtn}
+                      >
+                        <Ionicons name="remove" size={14} color={theme.text} />
+                      </Pressable>
+                      <Text style={[styles.stepperText, { color: theme.text }]}>
+                        {weightKg} kg
+                      </Text>
+                      <Pressable
+                        onPress={() => stepValue(weightKg, 1, 38, 140, setWeightKg)}
+                        style={styles.stepIconBtn}
+                      >
+                        <Ionicons name="add" size={14} color={theme.text} />
+                      </Pressable>
+                    </View>
+                  </View>
                 </View>
 
-                {/* Hairstyle Selection */}
+                {/* Hairstyle Chips */}
                 <Text style={[styles.sectionTitle, { color: '#4D9A65' }]}>HAIRSTYLE</Text>
                 <View style={styles.hairstylesGrid}>
                   {availableHairstyles.map((hs) => {
@@ -265,14 +374,21 @@ export default function CharacterCustomizeModal({
                         onPress={() => setHairStyle(hs.id)}
                         style={[
                           styles.hairOptionCard,
-                          { borderColor: isActive ? '#4D9A65' : theme.border, backgroundColor: isActive ? '#F0F9F1' : theme.surface },
+                          {
+                            borderColor: isActive ? '#4D9A65' : theme.border,
+                            backgroundColor: isActive ? '#F0F9F1' : theme.surface,
+                          },
                         ]}
                       >
-                        <Text style={[styles.hairOptionLabel, { color: theme.text }]}>{hs.label}</Text>
-                        <Text style={[styles.hairOptionDesc, { color: theme.textMuted }]}>{hs.desc}</Text>
+                        <Text style={[styles.hairOptionLabel, { color: theme.text }]}>
+                          {hs.label}
+                        </Text>
+                        <Text style={[styles.hairOptionDesc, { color: theme.textMuted }]}>
+                          {hs.desc}
+                        </Text>
                         {isActive && (
                           <View style={styles.activeCheck}>
-                            <Ionicons name="checkmark-circle" size={16} color="#4D9A65" />
+                            <Ionicons name="checkmark-circle" size={15} color="#4D9A65" />
                           </View>
                         )}
                       </Pressable>
@@ -280,8 +396,10 @@ export default function CharacterCustomizeModal({
                   })}
                 </View>
 
-                {/* Hair Color Selection */}
-                <Text style={[styles.sectionTitle, { color: '#4D9A65', marginTop: 14 }]}>HAIR COLOR</Text>
+                {/* Hair Color Swatches */}
+                <Text style={[styles.sectionTitle, { color: '#4D9A65', marginTop: 10 }]}>
+                  HAIR COLOR
+                </Text>
                 <View style={styles.colorSwatchesRow}>
                   {HAIR_COLORS.map((hc) => {
                     const isActive = hairColor === hc.hex;
@@ -291,20 +409,34 @@ export default function CharacterCustomizeModal({
                         onPress={() => setHairColor(hc.hex)}
                         style={[
                           styles.colorSwatchWrap,
-                          isActive && { borderColor: '#4D9A65', transform: [{ scale: 1.1 }] },
+                          isActive && { borderColor: '#4D9A65', transform: [{ scale: 1.06 }] },
                         ]}
                       >
                         <View style={[styles.colorSwatchCircle, { backgroundColor: hc.hex }]} />
-                        <Text style={[styles.colorSwatchLabel, { color: theme.text }]} numberOfLines={1}>
+                        <Text
+                          style={[styles.colorSwatchLabel, { color: theme.text }]}
+                          numberOfLines={1}
+                        >
                           {hc.label}
                         </Text>
                       </Pressable>
                     );
                   })}
                 </View>
-              </>
+              </View>
             ) : (
-              <>
+              <View style={styles.tabPane}>
+                {/* 1-Tap Camera Skin Tone Scan Button */}
+                <Pressable
+                  onPress={() => setCameraScanVisible(true)}
+                  style={styles.cameraScanBtn}
+                >
+                  <Ionicons name="camera" size={17} color="#FFFFFF" />
+                  <Text style={styles.cameraScanBtnText}>
+                    📸 Scan Skin Tone with Camera
+                  </Text>
+                </Pressable>
+
                 {/* Skin Tone Selection */}
                 <Text style={[styles.sectionTitle, { color: '#4D9A65' }]}>SKIN TONE</Text>
                 <View style={styles.colorSwatchesRow}>
@@ -316,11 +448,14 @@ export default function CharacterCustomizeModal({
                         onPress={() => setSkinTone(st.hex)}
                         style={[
                           styles.colorSwatchWrap,
-                          isActive && { borderColor: '#4D9A65', transform: [{ scale: 1.1 }] },
+                          isActive && { borderColor: '#4D9A65', transform: [{ scale: 1.06 }] },
                         ]}
                       >
                         <View style={[styles.colorSwatchCircle, { backgroundColor: st.hex }]} />
-                        <Text style={[styles.colorSwatchLabel, { color: theme.text }]} numberOfLines={1}>
+                        <Text
+                          style={[styles.colorSwatchLabel, { color: theme.text }]}
+                          numberOfLines={1}
+                        >
                           {st.label.split(' ')[0]}
                         </Text>
                       </Pressable>
@@ -329,7 +464,9 @@ export default function CharacterCustomizeModal({
                 </View>
 
                 {/* Face Style Selection */}
-                <Text style={[styles.sectionTitle, { color: '#4D9A65', marginTop: 16 }]}>FACE STYLE</Text>
+                <Text style={[styles.sectionTitle, { color: '#4D9A65', marginTop: 12 }]}>
+                  FACE STYLE
+                </Text>
                 <View style={styles.faceStylesRow}>
                   {FACE_STYLES.map((fs) => {
                     const isActive = faceStyle === fs.id;
@@ -339,18 +476,27 @@ export default function CharacterCustomizeModal({
                         onPress={() => setFaceStyle(fs.id)}
                         style={[
                           styles.faceStyleBtn,
-                          { borderColor: isActive ? '#4D9A65' : theme.border, backgroundColor: isActive ? '#F0F9F1' : theme.surface },
+                          {
+                            borderColor: isActive ? '#4D9A65' : theme.border,
+                            backgroundColor: isActive ? '#F0F9F1' : theme.surface,
+                          },
                         ]}
                       >
-                        <Ionicons name={fs.icon as any} size={18} color={isActive ? '#2E7D32' : theme.text} />
-                        <Text style={[styles.faceStyleLabel, { color: theme.text }]}>{fs.label}</Text>
+                        <Ionicons
+                          name={fs.icon as any}
+                          size={16}
+                          color={isActive ? '#2E7D32' : theme.text}
+                        />
+                        <Text style={[styles.faceStyleLabel, { color: theme.text }]}>
+                          {fs.label}
+                        </Text>
                       </Pressable>
                     );
                   })}
                 </View>
-              </>
+              </View>
             )}
-          </ScrollView>
+          </View>
 
           {/* ZONE 3: PINNED BOTTOM ACTION ROW (flexShrink: 0) */}
           <View style={styles.footerRow}>
@@ -359,11 +505,20 @@ export default function CharacterCustomizeModal({
             </Pressable>
 
             <Pressable onPress={handleSave} style={styles.saveBtn}>
-              <Text style={styles.saveBtnText}>Save Character</Text>
+              <Text style={styles.saveBtnText}>Save Changes</Text>
             </Pressable>
           </View>
         </View>
       </View>
+
+      {/* Camera Skin Tone & Hair Scanner Modal */}
+      <CameraSkinScanModal
+        visible={cameraScanVisible}
+        onClose={() => setCameraScanVisible(false)}
+        onApplyScan={handleApplyScan}
+        currentSkinTone={skinTone}
+        currentHairColor={hairColor}
+      />
     </Modal>
   );
 }
@@ -378,10 +533,9 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 32,
-    maxHeight: '90%',
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 24,
   },
   dragHandle: {
     width: 40,
@@ -389,46 +543,40 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: '#D1D5DB',
     alignSelf: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   title: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: '900',
   },
   subtitle: {
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: 11.5,
+    marginTop: 1,
   },
   closeBtn: {
     padding: 4,
   },
-  scrollContent: {
-    paddingBottom: 16,
-  },
-  optionsScrollView: {
-    flex: 1,
-  },
   previewBox: {
-    height: 215,
-    minHeight: 215,
+    height: 210,
+    minHeight: 210,
     flexShrink: 0,
     paddingVertical: 4,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
     position: 'relative',
     overflow: 'hidden',
   },
   mannequinWrap: {
     width: 145,
-    height: 200,
+    height: 198,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -438,7 +586,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#EEF2EA',
     padding: 3,
     gap: 4,
-    marginBottom: 12,
+    marginBottom: 4,
     flexShrink: 0,
   },
   tabBtn: {
@@ -458,6 +606,18 @@ const styles = StyleSheet.create({
   },
   tabBtnTextActive: {
     color: '#FFFFFF',
+  },
+  optionsContainer: {
+    minHeight: 240,
+    paddingVertical: 12,
+    justifyContent: 'flex-start',
+  },
+  tabPane: {
+    gap: 4,
+  },
+  topControlsRow: {
+    gap: 8,
+    marginBottom: 8,
   },
   zoomTogglePill: {
     position: 'absolute',
@@ -486,57 +646,98 @@ const styles = StyleSheet.create({
   },
   genderRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
+    gap: 8,
   },
   genderBtn: {
     flex: 1,
-    height: 44,
-    borderRadius: 12,
+    height: 36,
+    borderRadius: 10,
     borderWidth: 1.5,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
   },
   genderBtnActive: {
     backgroundColor: '#24513B',
     borderColor: '#24513B',
   },
   genderBtnText: {
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  steppersRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  stepperPill: {
+    flex: 1,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+  },
+  stepIconBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEF2EA',
+  },
+  stepperText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  cameraScanBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#264C3B',
+    paddingVertical: 11,
+    borderRadius: 12,
+    marginBottom: 10,
+  },
+  cameraScanBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12.5,
     fontWeight: '800',
   },
   sectionTitle: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '900',
     letterSpacing: 1,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   hairstylesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
   hairOptionCard: {
-    width: '48%',
-    borderRadius: 12,
+    width: '48.5%',
+    borderRadius: 10,
     borderWidth: 1.5,
-    padding: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 9,
     position: 'relative',
   },
   hairOptionLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
   },
   hairOptionDesc: {
-    fontSize: 11,
-    marginTop: 2,
+    fontSize: 10,
+    marginTop: 1,
   },
   activeCheck: {
     position: 'absolute',
-    right: 8,
-    top: 8,
+    right: 6,
+    top: 6,
   },
   colorSwatchesRow: {
     flexDirection: 'row',
@@ -545,72 +746,72 @@ const styles = StyleSheet.create({
   },
   colorSwatchWrap: {
     alignItems: 'center',
-    padding: 4,
-    borderRadius: 12,
+    padding: 3,
+    borderRadius: 10,
     borderWidth: 1.5,
     borderColor: 'transparent',
-    width: '18%',
+    width: '18.5%',
   },
   colorSwatchCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.1)',
   },
   colorSwatchLabel: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '700',
-    marginTop: 4,
+    marginTop: 3,
     textAlign: 'center',
   },
   faceStylesRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
   },
   faceStyleBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 12,
+    gap: 5,
+    paddingVertical: 9,
+    borderRadius: 10,
     borderWidth: 1.5,
   },
   faceStyleLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
   },
   footerRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 14,
+    gap: 10,
+    marginTop: 8,
+    flexShrink: 0,
   },
   cancelBtn: {
     flex: 1,
-    height: 48,
+    height: 44,
     borderRadius: 999,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelBtnText: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '800',
   },
   saveBtn: {
     flex: 1.5,
-    height: 48,
+    height: 44,
     borderRadius: 999,
     backgroundColor: '#24513B',
     alignItems: 'center',
     justifyContent: 'center',
   },
   saveBtnText: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '900',
     color: '#FFFFFF',
   },
 });
-

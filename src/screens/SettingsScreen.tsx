@@ -196,10 +196,6 @@ export default function SettingsScreen() {
               </Pressable>
             </View>
           </View>
-          <View style={styles.themeRow}>
-            <Text style={[styles.label, { color: theme.text }]}>2D mannequin skin</Text>
-            <View style={styles.skinRow}>{['#F7E1D3', '#F1CBA9', '#E2B187', '#C99266', '#A66E46'].map((tone) => <Pressable key={tone} onPress={() => setMannequinSkinTone(tone)} style={[styles.skinSwatch, { backgroundColor: tone }, mannequinSkinTone === tone && styles.skinSelected]} />)}</View>
-          </View>
         </View>
 
         <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -231,8 +227,8 @@ export default function SettingsScreen() {
               <Switch
                 value={!!notifications[item.key]}
                 onValueChange={() => handleToggle(item.key)}
-                trackColor={{ false: theme.border, true: theme.mode === 'dark' ? '#FDD78B' : '#4B1D6F' }}
-                thumbColor={theme.mode === 'dark' ? '#24152C' : '#FBF5A7'}
+                trackColor={{ false: theme.border, true: theme.secondaryAccent }}
+                thumbColor="#FFFFFF"
               />
             </View>
           ))}

@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MelMascot, MelSpeechBubble } from './MelMascot';
-import Mannequin2D, { MannequinSlot, resolveGarmentHex } from './Mannequin2D';
+import AltaOutfitCollage from './AltaOutfitCollage';
+import { MannequinSlot, resolveGarmentHex } from './Mannequin2D';
 import { GeneratedOutfit, OutfitClothingItem, UserProfile, WeatherData } from '../types';
 import { MiniGarmentSvg, resolveGarmentImageUrl } from '../utils/garmentImageHelper';
 import { computeAccurateOutfitScore } from '../services/hybridScoreService';
@@ -29,11 +30,11 @@ const ACCESSORY_ZONES: { id: 'ALL' | AccessoryZone; label: string }[] = [
 ];
 
 const SLOT_LABELS: Record<MannequinSlot, string> = {
-  TOP: 'Inner Top',
-  OUTERWEAR: 'Outerwear',
-  BOTTOM: 'Bottom',
-  SHOES: 'Shoes',
-  ACCESSORIES: 'Accessory',
+  TOP: '1. TOP',
+  OUTERWEAR: '2. OUTERWEAR',
+  BOTTOM: '3. BOTTOM',
+  SHOES: '4. SHOES',
+  ACCESSORIES: '5. ACCESSORIES',
 };
 
 const toSlot = (item: OutfitClothingItem): MannequinSlot => {
@@ -305,16 +306,13 @@ export default function OutfitCustomizeModal({
           </View>
         </View>
 
-        {/* Split Stage: 2D Human Mannequin on Left + Decomposed 5 Slots on Right */}
+        {/* Split Stage: ALTA Studio Collage on Left + Decomposed 5 Slots on Right */}
         <View style={styles.split}>
           <Animated.View style={[styles.mannequinPane, { transform: [{ scale: zoomAnim }] }]}>
-            <Mannequin2D
-              profile={profile}
+            <AltaOutfitCollage
               items={equipped}
-              activeSlot={activeSlot}
-              onSelectSlot={setActiveSlot}
-              occasionScene={outfit.occasionLabel}
-              xrayOuterwear={isXrayOuterwear}
+              compact
+              interactive
             />
           </Animated.View>
 

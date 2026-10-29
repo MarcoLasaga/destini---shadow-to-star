@@ -32,7 +32,7 @@ export const DATASET_GARMENT_CATALOG: DatasetGarmentItem[] = [
     style: 'Smart Casual',
     occasions: ['Office', 'Academic', 'Casual'],
     genderFit: 'mens',
-    imageUri: 'https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?auto=format&fit=crop&w=800&q=80',
+    imageUri: 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&w=800&q=80',
   },
   {
     id: 'dataset-top-white-oxford',
@@ -235,7 +235,7 @@ export const DATASET_GARMENT_CATALOG: DatasetGarmentItem[] = [
     style: 'Formal',
     occasions: ['Office', 'Formal', 'Casual'],
     genderFit: 'unisex',
-    imageUri: 'https://images.unsplash.com/photo-1524805444758-089113d48a6d?auto=format&fit=crop&w=800&q=80',
+    imageUri: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=800&q=80',
   },
   {
     id: 'dataset-acc-black-smartwatch',
@@ -261,7 +261,7 @@ export const DATASET_GARMENT_CATALOG: DatasetGarmentItem[] = [
     style: 'Rockstar',
     occasions: ['Casual', 'Party', 'Concert'],
     genderFit: 'unisex',
-    imageUri: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80',
+    imageUri: 'https://images.unsplash.com/photo-1599643477877-530eb83abc8e?auto=format&fit=crop&w=800&q=80',
   },
   {
     id: 'dataset-acc-cuban-chain',
@@ -287,7 +287,7 @@ export const DATASET_GARMENT_CATALOG: DatasetGarmentItem[] = [
     style: 'Rockstar',
     occasions: ['Casual', 'Party', 'Concert'],
     genderFit: 'unisex',
-    imageUri: 'https://images.unsplash.com/photo-1630019852942-f89202989a59?auto=format&fit=crop&w=800&q=80',
+    imageUri: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=800&q=80',
   },
   {
     id: 'dataset-acc-pearl-studs',

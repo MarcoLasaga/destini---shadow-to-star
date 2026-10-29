@@ -302,6 +302,7 @@ export async function publishOutfit(outfit: GeneratedOutfit, caption: string): P
     throw new Error(serverCheck.reason || 'Post blocked by moderation.');
   }
 
+  // Strictly never publish user full-body photos in Community — only flat-lay garment cutouts
   const { data, error } = await supabase
     .from('shared_outfits')
     .insert({
@@ -310,7 +311,7 @@ export async function publishOutfit(outfit: GeneratedOutfit, caption: string): P
       occasion: outfit.occasionLabel,
       style: outfit.occasionLabel,
       caption: caption.trim() || null,
-      cover_image: outfit.image || null,
+      cover_image: null,
       items: snapshot(outfit) as unknown as Json,
     })
     .select()
@@ -333,7 +334,17 @@ export async function publishOutfit(outfit: GeneratedOutfit, caption: string): P
   return data;
 }
 
-export async function setLike(outfitId: string, active: boolean, metadata?: { authorGender: CommunityGender; actorGender: CommunityGender }) {
+export async function setLike(
+  outfitId: string,
+  active: boolean,
+  metadata?: {
+    authorGender: CommunityGender;
+    actorGender: CommunityGender;
+    style?: string;
+    colors?: string[];
+    subtypes?: string[];
+  }
+) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -348,7 +359,17 @@ export async function setLike(outfitId: string, active: boolean, metadata?: { au
   if (metadata) await recordCommunityInteraction({ postId: outfitId, action: active ? 'like' : 'dislike', ...metadata });
 }
 
-export async function setSave(outfitId: string, active: boolean, metadata?: { authorGender: CommunityGender; actorGender: CommunityGender }) {
+export async function setSave(
+  outfitId: string,
+  active: boolean,
+  metadata?: {
+    authorGender: CommunityGender;
+    actorGender: CommunityGender;
+    style?: string;
+    colors?: string[];
+    subtypes?: string[];
+  }
+) {
   const {
     data: { user },
   } = await supabase.auth.getUser();

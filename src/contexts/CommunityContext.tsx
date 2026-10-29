@@ -33,7 +33,7 @@ type ContextValue = {
 const CommunityContext = createContext<ContextValue | undefined>(undefined);
 
 export function CommunityProvider({ children }: { children: React.ReactNode }) {
-  const { profile } = useProfile();
+  const { profile, updateProfile } = useProfile();
   const [feed, setFeed] = useState<CommunityOutfit[]>([]);
   const [mode, setMode] = useState<CommunityFeedMode>('recent');
   const [occasion, setOccasion] = useState('All');
@@ -151,14 +151,56 @@ export function CommunityProvider({ children }: { children: React.ReactNode }) {
     setOccasion,
     refresh,
     loadMore,
-    toggleLike: (o: CommunityOutfit) =>
-      update(o, 'liked', (id, active) =>
-        setLike(id, active, { authorGender: o.authorGender, actorGender })
-      ),
-    toggleSave: (o: CommunityOutfit) =>
-      update(o, 'saved', (id, active) =>
-        setSave(id, active, { authorGender: o.authorGender, actorGender })
-      ),
+    toggleLike: (o: CommunityOutfit) => {
+      const postStyle = o.style || o.occasion || 'Casual';
+      const postColors = (o.items || []).map((i) => i.color).filter(Boolean) as string[];
+      const isCrossGender =
+        (o.authorGender === 'male' && actorGender === 'female') ||
+        (o.authorGender === 'female' && actorGender === 'male');
+      if (!o.liked && isCrossGender) {
+        const nextLikedStyles = Array.from(new Set([...(profile.likedStyles || []), postStyle]));
+        const nextLikedColors = Array.from(new Set([...(profile.likedColors || []), ...postColors]));
+        updateProfile({
+          likedStyles: nextLikedStyles,
+          likedColors: nextLikedColors,
+          crossGenderAffinity: true,
+        }).catch(() => {});
+      }
+      return update(o, 'liked', (id, active) =>
+        setLike(id, active, {
+          authorGender: o.authorGender,
+          actorGender,
+          style: postStyle,
+          colors: postColors,
+          subtypes: (o.items || []).map((i) => i.category),
+        })
+      );
+    },
+    toggleSave: (o: CommunityOutfit) => {
+      const postStyle = o.style || o.occasion || 'Casual';
+      const postColors = (o.items || []).map((i) => i.color).filter(Boolean) as string[];
+      const isCrossGender =
+        (o.authorGender === 'male' && actorGender === 'female') ||
+        (o.authorGender === 'female' && actorGender === 'male');
+      if (!o.saved && isCrossGender) {
+        const nextLikedStyles = Array.from(new Set([...(profile.likedStyles || []), postStyle]));
+        const nextLikedColors = Array.from(new Set([...(profile.likedColors || []), ...postColors]));
+        updateProfile({
+          likedStyles: nextLikedStyles,
+          likedColors: nextLikedColors,
+          crossGenderAffinity: true,
+        }).catch(() => {});
+      }
+      return update(o, 'saved', (id, active) =>
+        setSave(id, active, {
+          authorGender: o.authorGender,
+          actorGender,
+          style: postStyle,
+          colors: postColors,
+          subtypes: (o.items || []).map((i) => i.category),
+        })
+      );
+    },
     rate: async (o: CommunityOutfit, rating: number) => {
       await rateOutfit(o.id, rating);
       setFeed((items) => items.map((item) => (item.id === o.id ? { ...item, myRating: rating } : item)));
