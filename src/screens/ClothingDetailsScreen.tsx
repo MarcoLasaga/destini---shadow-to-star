@@ -10,15 +10,14 @@ import { useToast } from '../contexts/ToastContext';
 import { RootStackParamList } from '../types';
 import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
 import { resolveDatasetGarmentPhoto } from '../data/datasetGarmentCatalog';
-import CielabPaletteCard from '../components/CielabPaletteCard';
-import { CanonicalStudioGarmentSvg, inferVectorSubtype, formatSubtypeLabel } from '../utils/garmentImageHelper';
+import { inferVectorSubtype, formatSubtypeLabel } from '../utils/garmentImageHelper';
 import { colorNameToHex } from '../services/outfitRecommendationService';
 
 export default function ClothingDetailsScreen() {
   const theme = useAppTheme();
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RootStackParamList, 'ClothingDetails'>>();
-  const { getItem, toggleFavorite, deleteItem, updateItem } = useWardrobe();
+  const { getItem, toggleFavorite, deleteItem } = useWardrobe();
   const { showToast } = useToast();
 
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
@@ -50,6 +49,8 @@ export default function ClothingDetailsScreen() {
     }
   };
 
+  const resolvedColorHex = item.colorHex || colorNameToHex(item.color || 'Black');
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* Header */}
@@ -60,13 +61,13 @@ export default function ClothingDetailsScreen() {
         <Text style={[styles.headerTitle, { color: theme.text }]}>Clothing Details</Text>
         <View style={styles.headerRight}>
           <Pressable onPress={() => setDeleteModalVisible(true)} style={styles.iconButton}>
-            <Ionicons name="trash-outline" size={20} color="#E5484D" />
+            <Ionicons name="trash-outline" size={20} color="#E83E35" />
           </Pressable>
           <Pressable onPress={() => toggleFavorite(item.id)} style={styles.iconButton}>
             <Ionicons
               name={item.favorite ? 'heart' : 'heart-outline'}
               size={20}
-              color={item.favorite ? '#E5484D' : theme.text}
+              color={item.favorite ? '#E83E35' : theme.text}
             />
           </Pressable>
         </View>
@@ -88,26 +89,13 @@ export default function ClothingDetailsScreen() {
             transition={200}
           />
 
-          {/* Subtype + Primary Color Pill */}
+          {/* Clean Subtype + Color Pill without technical confidence % (PDF Page 10) */}
           <View style={styles.subtypeFloatingPill}>
-            <View style={[styles.subtypeColorDot, { backgroundColor: colorNameToHex(item.color || 'Black') }]} />
+            <View style={[styles.subtypeColorDot, { backgroundColor: resolvedColorHex }]} />
             <Text style={styles.subtypePillText}>
               {item.color} · {item.subCategory || formatSubtypeLabel(item.vector_subtype || inferVectorSubtype(item.name, item.category))}
-              {item.confidence ? ` (${Math.round(item.confidence * 100)}%)` : ''}
             </Text>
           </View>
-        </View>
-
-        {/* 🎨 Extracted CIELAB Palette (K = 2) Card */}
-        <View style={{ marginHorizontal: 20 }}>
-          <CielabPaletteCard
-            palette={item.palette}
-            primaryColor={item.color}
-            primaryHex={item.colorHex || colorNameToHex(item.color || 'Black')}
-            secondaryColor={item.secondary_color}
-            secondaryHex={item.secondary_color_hex}
-            harmonyNote={item.color_harmony_note}
-          />
         </View>
 
         {item.moderation_reason ? (
@@ -118,20 +106,29 @@ export default function ClothingDetailsScreen() {
           </View>
         ) : null}
 
-        {/* Info Card styled with theme.surface & theme.border */}
+        {/* Info Card styled with theme.surface & theme.border (Removed Extracted CIELAB Palette card per PDF Page 10) */}
         <View style={[styles.infoCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.titleRow}>
             <View style={{ flex: 1, paddingRight: 12 }}>
               <Text style={[styles.name, { color: theme.text }]}>{item.name}</Text>
-              <Text style={[styles.meta, { color: theme.textMuted }]}>
-                {item.category} · {item.color}
-              </Text>
+              <View style={styles.metaRow}>
+                <Text style={[styles.meta, { color: theme.textMuted }]}>
+                  {item.category} ·
+                </Text>
+                <View style={[styles.inlineColorDot, { backgroundColor: resolvedColorHex }]} />
+                <Text style={[styles.meta, { color: theme.textMuted }]}>
+                  {item.color}
+                  {item.secondary_color && item.secondary_color !== item.color
+                    ? ` / ${item.secondary_color}`
+                    : ''}
+                </Text>
+              </View>
             </View>
             <Pressable
               onPress={() => navigation.navigate('EditClothing', { id: item.id })}
-              style={[styles.editButton, { backgroundColor: theme.secondaryAccent }]}
+              style={[styles.editButton, { backgroundColor: '#364536' }]}
             >
-              <Ionicons name="create-outline" size={17} color={theme.onAccent} />
+              <Ionicons name="create-outline" size={17} color="#F3F1EF" />
             </Pressable>
           </View>
 
@@ -217,26 +214,6 @@ const styles = StyleSheet.create({
     height: 320,
   },
   image: { width: '100%', height: 320, backgroundColor: '#D9D9D9' },
-  canonicalStudioBox: {
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  studioPillBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: '#EAF3D9',
-  },
-  studioPillText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#264C3B',
-  },
   subtypeFloatingPill: {
     position: 'absolute',
     left: 16,
@@ -294,7 +271,20 @@ const styles = StyleSheet.create({
   },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   name: { fontSize: 22, fontWeight: '800', letterSpacing: -0.3 },
-  meta: { fontSize: 13.5, marginTop: 4, fontWeight: '500' },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 4,
+  },
+  inlineColorDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.15)',
+  },
+  meta: { fontSize: 13.5, fontWeight: '500' },
   editButton: {
     width: 42,
     height: 42,

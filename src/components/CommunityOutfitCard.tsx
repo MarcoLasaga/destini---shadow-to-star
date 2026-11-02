@@ -42,13 +42,21 @@ interface CommunityOutfitCardProps {
   onViewLikes?: () => void;
 }
 
-function getOccasionEmojiLabel(occasion?: string): string {
+function getOccasionMeta(occasion?: string): { icon: keyof typeof Ionicons.glyphMap; label: string } {
   const occ = (occasion || 'Casual').toLowerCase();
-  if (occ.includes('school') || occ.includes('campus') || occ.includes('college') || occ.includes('academic')) return '🎓 School';
-  if (occ.includes('office') || occ.includes('work') || occ.includes('formal') || occ.includes('business')) return '💼 Office';
-  if (occ.includes('party') || occ.includes('night') || occ.includes('date')) return '✨ Party';
-  if (occ.includes('workout') || occ.includes('sport') || occ.includes('gym') || occ.includes('active')) return '🏃 Workout';
-  return `☕ ${occasion || 'Casual'}`;
+  if (occ.includes('school') || occ.includes('campus') || occ.includes('college') || occ.includes('academic')) {
+    return { icon: 'school-outline', label: 'School' };
+  }
+  if (occ.includes('office') || occ.includes('work') || occ.includes('formal') || occ.includes('business')) {
+    return { icon: 'briefcase-outline', label: 'Office' };
+  }
+  if (occ.includes('party') || occ.includes('night') || occ.includes('date')) {
+    return { icon: 'sparkles-outline', label: 'Party' };
+  }
+  if (occ.includes('workout') || occ.includes('sport') || occ.includes('gym') || occ.includes('active')) {
+    return { icon: 'barbell-outline', label: 'Workout' };
+  }
+  return { icon: 'cafe-outline', label: occasion || 'Casual' };
 }
 
 export default function CommunityOutfitCard({
@@ -104,7 +112,7 @@ export default function CommunityOutfitCard({
     };
   });
 
-  // Extract unique hex colors for CIELAB K=2 Color Harmony Swatch Bar
+  // Extract unique hex colors for Color Palette Swatch Bar
   const harmonyHexSwatches = Array.from(
     new Set(
       outfitPieces.map((it) => (it.hexColor || colorNameToHex(it.color || 'Black')).toUpperCase())
@@ -150,6 +158,7 @@ export default function CommunityOutfitCard({
   };
 
   const formattedTime = formatRelativeTime(outfit.created_at);
+  const occasionMeta = getOccasionMeta(outfit.occasion);
 
   return (
     <View style={styles.wrapper}>
@@ -166,13 +175,13 @@ export default function CommunityOutfitCard({
             <View
               style={[
                 styles.avatar,
-                { backgroundColor: theme.badgeBg, borderColor: theme.border },
+                { backgroundColor: '#364536', borderColor: theme.border },
               ]}
             >
               {outfit.creatorAvatar ? (
                 <Image source={{ uri: outfit.creatorAvatar }} style={styles.avatarImage} />
               ) : (
-                <Text style={[styles.avatarText, { color: theme.text }]}>
+                <Text style={[styles.avatarText, { color: '#F3F1EF' }]}>
                   {outfit.creatorName.charAt(0).toUpperCase()}
                 </Text>
               )}
@@ -198,13 +207,13 @@ export default function CommunityOutfitCard({
                 onPress={onFollow}
                 style={[
                   styles.followButton,
-                  { backgroundColor: following ? theme.badgeBg : theme.secondaryAccent },
+                  { backgroundColor: following ? theme.badgeBg : '#364536' },
                 ]}
               >
                 <Text
                   style={[
                     styles.followText,
-                    { color: following ? theme.text : theme.onAccent },
+                    { color: following ? theme.text : '#F3F1EF' },
                   ]}
                 >
                   {following ? 'Following' : 'Follow'}
@@ -217,7 +226,7 @@ export default function CommunityOutfitCard({
           </View>
         </View>
 
-        {/* ALTA-Style Compact Editorial Outfit Collage Canvas */}
+        {/* ALTA-Style Compact Editorial Outfit Collage Canvas (PDF Page 24 reference) */}
         <View style={styles.collageStageWrap}>
           <AltaOutfitCollage items={outfit.items} interactive={false} />
 
@@ -236,7 +245,7 @@ export default function CommunityOutfitCard({
           {/* Floating Heart Animation */}
           {heartVisible && (
             <Animated.View style={[styles.heartOverlay, heartAnimatedStyle]}>
-              <Ionicons name="heart" size={88} color="#DC2626" />
+              <Ionicons name="heart" size={88} color="#E83E35" />
             </Animated.View>
           )}
 
@@ -249,12 +258,12 @@ export default function CommunityOutfitCard({
           >
             <Ionicons name="layers-outline" size={12} color={theme.textMuted} />
             <Text style={[styles.tapHintText, { color: theme.textMuted }]}>
-              Tap breakdown · 2x Like
+              Tap pieces · 2x Like
             </Text>
           </View>
         </View>
 
-        {/* CIELAB K=2 Color Harmony Swatch Bar + Occasion Badge */}
+        {/* Color Palette Swatch Bar + Occasion Badge */}
         <View style={[styles.harmonyMetadataBar, { borderTopColor: theme.border }]}>
           <View style={styles.swatchRow}>
             {harmonyHexSwatches.map((hex) => (
@@ -280,8 +289,9 @@ export default function CommunityOutfitCard({
                 { backgroundColor: theme.badgeBg, borderColor: theme.border },
               ]}
             >
+              <Ionicons name={occasionMeta.icon} size={11} color={theme.text} />
               <Text style={[styles.occasionBadgeText, { color: theme.text }]}>
-                {getOccasionEmojiLabel(outfit.occasion)}
+                {occasionMeta.label}
               </Text>
             </View>
           </View>
@@ -305,7 +315,7 @@ export default function CommunityOutfitCard({
             <Ionicons
               name={outfit.liked ? 'heart' : 'heart-outline'}
               size={20}
-              color={outfit.liked ? '#DC2626' : theme.text}
+              color={outfit.liked ? '#E83E35' : theme.text}
             />
           </Pressable>
           <Pressable onPress={onViewLikes} style={styles.countBtn}>
@@ -327,12 +337,12 @@ export default function CommunityOutfitCard({
           <Ionicons
             name={outfit.saved ? 'bookmark' : 'bookmark-outline'}
             size={20}
-            color={outfit.saved ? theme.secondaryAccent : theme.text}
+            color={outfit.saved ? '#364536' : theme.text}
           />
         </Pressable>
       </View>
 
-      {/* ================= 1. GARMENT BREAKDOWN + K=2 CIELAB COLOR HARMONY STRIP MODAL ================= */}
+      {/* ================= 1. GARMENT BREAKDOWN + COLOR PALETTE STRIP MODAL ================= */}
       <Modal
         visible={detailModalVisible}
         transparent
@@ -369,7 +379,7 @@ export default function CommunityOutfitCard({
               </Pressable>
             </View>
 
-            {/* Extracted K = 2 CIELAB Color Harmony Strip */}
+            {/* Clean Outfit Color Palette Strip (without technical CIELAB K=2 jargon) */}
             <View
               style={[
                 styles.harmonyStripCard,
@@ -377,7 +387,7 @@ export default function CommunityOutfitCard({
               ]}
             >
               <Text style={[styles.harmonyStripLabel, { color: theme.textMuted }]}>
-                EXTRACTED K = 2 CIELAB COLOR HARMONY
+                OUTFIT COLOR PALETTE
               </Text>
               <View style={styles.swatchRow}>
                 {harmonyHexSwatches.map((hex) => (
@@ -547,8 +557,8 @@ export default function CommunityOutfitCard({
                   onPress={() => setReportConfirm(true)}
                   style={styles.menuRow}
                 >
-                  <Ionicons name="flag-outline" size={20} color="#DC2626" />
-                  <Text style={[styles.menuText, { color: '#DC2626' }]}>
+                  <Ionicons name="flag-outline" size={20} color="#E83E35" />
+                  <Text style={[styles.menuText, { color: '#E83E35' }]}>
                     Report Post
                   </Text>
                 </Pressable>
@@ -591,7 +601,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   card: {
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     overflow: 'hidden',
   },
@@ -649,7 +659,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   followButton: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 13,
     paddingVertical: 6,
     borderRadius: 999,
   },
@@ -742,6 +752,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   occasionBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -838,7 +851,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   harmonyStripLabel: {
-    fontSize: 9,
+    fontSize: 9.5,
     fontWeight: '700',
     letterSpacing: 0.7,
   },
@@ -957,13 +970,13 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 42,
     borderRadius: 10,
-    backgroundColor: '#DC2626',
+    backgroundColor: '#E83E35',
     alignItems: 'center',
     justifyContent: 'center',
   },
   confirmDangerText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#F3F1EF',
   },
 });

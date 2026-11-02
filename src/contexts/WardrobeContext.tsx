@@ -355,7 +355,7 @@ export function WardrobeProvider({ children }: { children: React.ReactNode }) {
     newlyNeedingWash.forEach((garment) => {
       triggerSmartAlert({
         type: 'Laundry',
-        title: `🧺 Laundry Alert: ${garment.name} needs washing`,
+        title: `Laundry Alert: ${garment.name} needs washing`,
         body: 'Logged wear! Marked as Needs Washing to keep your rotation fresh.',
         targetRoute: 'Wardrobe',
       });

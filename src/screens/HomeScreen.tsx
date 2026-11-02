@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useWeather } from '../hooks/useWeather';
 import GreetingHeader from '../components/GreetingHeader';
 import WeatherCard from '../components/WeatherCard';
 import WardrobeSummary from '../components/WardrobeSummary';
 import NotificationsModal from '../components/NotificationsModal';
-import { MelMascot, MelSpeechBubble, MelOutfit } from '../components/MelMascot';
+import { MelMascot, MelOutfit } from '../components/MelMascot';
 import { useWardrobe } from '../contexts/WardrobeContext';
 import { useProfile } from '../contexts/ProfileContext';
 import { getUnreadNotificationCount } from '../services/socialNotificationService';
@@ -78,23 +79,39 @@ export default function HomeScreen() {
         />
         <WeatherCard weather={weather} />
         <WardrobeSummary stats={stats} />
-
-        {/* Dedicated Mel Stylist Card Row */}
-        <View style={[styles.melCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <MelSpeechBubble
-            variant={melOutfit}
-            message={message}
-            position="inline"
-            onTapNextTip={() => setTipIndex((current) => current + 1)}
-          />
-          <MelMascot
-            outfit={melOutfit}
-            size={110}
-            waving={melOutfit === 'rain_active'}
-            onPress={() => setTipIndex((current) => current + 1)}
-          />
-        </View>
       </ScrollView>
+
+      {/* Compact Mel Stylist Dock at Bottom Above Nav Bar (PDF Page 9) */}
+      <View style={styles.melBottomDockOuter} pointerEvents="box-none">
+        <Pressable
+          onPress={() => setTipIndex((current) => current + 1)}
+          style={styles.melBottomDock}
+        >
+          <View style={styles.melMiniAvatarWrap}>
+            <MelMascot
+              outfit={melOutfit}
+              size={44}
+              waving={melOutfit === 'rain_active'}
+            />
+          </View>
+
+          <View style={styles.melDockTextWrap}>
+            <View style={styles.melDockHeaderRow}>
+              <View style={styles.melDockBadge}>
+                <View style={styles.melDockDot} />
+                <Text style={styles.melDockLabel}>MEL · DAILY STYLE TIP</Text>
+              </View>
+              <View style={styles.nextTipBadge}>
+                <Text style={styles.nextTipText}>Tap for next</Text>
+                <Ionicons name="refresh" size={10} color="#F3F1EF" />
+              </View>
+            </View>
+            <Text style={styles.melDockMessage} numberOfLines={2}>
+              {message}
+            </Text>
+          </View>
+        </Pressable>
+      </View>
 
       {/* Activity Notifications Modal */}
       <NotificationsModal
@@ -111,22 +128,86 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingBottom: 28,
+    paddingBottom: 108,
   },
-  melCard: {
+  melBottomDockOuter: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 10,
+    zIndex: 10,
+  },
+  melBottomDock: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 16,
-    padding: 16,
-    borderRadius: 20,
+    backgroundColor: '#364536',
+    borderRadius: 18,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderWidth: 1,
+    borderColor: 'rgba(243, 241, 239, 0.16)',
     gap: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  melMiniAvatarWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(243, 241, 239, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(243, 241, 239, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  melDockTextWrap: {
+    flex: 1,
+    gap: 3,
+  },
+  melDockHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  melDockBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  melDockDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#E83E35',
+  },
+  melDockLabel: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    color: 'rgba(243, 241, 239, 0.78)',
+  },
+  nextTipBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(243, 241, 239, 0.14)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  nextTipText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#F3F1EF',
+  },
+  melDockMessage: {
+    fontSize: 12.5,
+    lineHeight: 16.5,
+    fontWeight: '600',
+    color: '#F3F1EF',
   },
 });

@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -21,13 +19,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useSettings } from '../contexts/SettingsContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../integrations/supabase/client';
 import AltaOutfitCollage from '../components/AltaOutfitCollage';
 import SocialListModal from '../components/SocialListModal';
 import {
   CommunityOutfit,
   isCurrentUserPost,
-  syncCreatorNickname,
 } from '../services/communityService';
 import { OutfitClothingItem } from '../types';
 import {
@@ -43,6 +39,7 @@ import {
 
 export default function ProfileScreen() {
   const theme = useAppTheme();
+  const isDark = theme.mode === 'dark';
   const navigation = useNavigation<any>();
   const { profile, updateProfile } = useProfile();
   const community = useCommunity();
@@ -158,140 +155,6 @@ export default function ProfileScreen() {
     setManageModalVisible(true);
   };
 
-  const [deleteAllPostsModalVisible, setDeleteAllPostsModalVisible] = useState(false);
-  const [terminateAccountModalVisible, setTerminateAccountModalVisible] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  const handleDeleteAllMyPosts = () => {
-    setDeleteAllPostsModalVisible(true);
-  };
-
-  const handleTerminateAccount = () => {
-    setTerminateAccountModalVisible(true);
-  };
-
-  const executeDeleteAllMyPosts = async () => {
-    setIsDeleting(true);
-    try {
-      const currentUserId = session?.user?.id;
-      const currentEmail = session?.user?.email || profile.email;
-      const currentName = profile.displayName;
-
-      const anyClient = supabase as any;
-      if (currentUserId) {
-        try { await anyClient.from('shared_outfits').delete().eq('user_id', currentUserId); } catch {}
-        try { await anyClient.from('community_posts').delete().eq('user_id', currentUserId); } catch {}
-      }
-      const orConditions: string[] = ['author_name.eq.Jdyy', 'author_name.eq.Jdyyy1'];
-      if (currentName) orConditions.push(`author_name.eq.${currentName}`);
-      if (currentEmail) orConditions.push(`author_email.eq.${currentEmail}`);
-
-      try { await anyClient.from('shared_outfits').delete().or(orConditions.join(',')); } catch {}
-      try { await anyClient.from('community_posts').delete().or(orConditions.join(',')); } catch {}
-
-      await AsyncStorage.removeItem('@stylesense_my_post_ids');
-      await AsyncStorage.removeItem('@stylesense_published_posts');
-      setMyPostIds([]);
-      await community.refresh();
-      showToast('🗑️ All your published & legacy posts have been purged.');
-      setDeleteAllPostsModalVisible(false);
-      setSettingsVisible(false);
-    } catch (err) {
-      console.error('Failed to purge user posts:', err);
-      await AsyncStorage.removeItem('@stylesense_my_post_ids');
-      await AsyncStorage.removeItem('@stylesense_published_posts');
-      setMyPostIds([]);
-      await community.refresh();
-      showToast('Purged local published posts.');
-      setDeleteAllPostsModalVisible(false);
-      setSettingsVisible(false);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const executeTerminateAccount = async () => {
-    setIsDeleting(true);
-    try {
-      const currentUserId = session?.user?.id;
-      const currentEmail = session?.user?.email || profile.email;
-      const currentName = profile.displayName;
-
-      const anyClient = supabase as any;
-      // 1. Delete all Supabase cloud database records
-      if (currentUserId) {
-        try { await anyClient.from('wardrobe_items').delete().eq('user_id', currentUserId); } catch {}
-        try { await anyClient.from('garments').delete().eq('user_id', currentUserId); } catch {}
-        try { await anyClient.from('clothing_items').delete().eq('user_id', currentUserId); } catch {}
-        try { await anyClient.from('saved_outfits').delete().eq('user_id', currentUserId); } catch {}
-        try { await anyClient.from('outfits').delete().eq('user_id', currentUserId); } catch {}
-        try { await anyClient.from('profiles').delete().eq('id', currentUserId); } catch {}
-      }
-
-      const orConditions: string[] = ['author_name.eq.Jdyy', 'author_name.eq.Jdyyy1'];
-      if (currentUserId) orConditions.push(`user_id.eq.${currentUserId}`);
-      if (currentEmail) orConditions.push(`author_email.eq.${currentEmail}`);
-      if (currentName) orConditions.push(`author_name.eq.${currentName}`);
-
-      try { await anyClient.from('shared_outfits').delete().or(orConditions.join(',')); } catch {}
-      try { await anyClient.from('community_posts').delete().or(orConditions.join(',')); } catch {}
-
-      // Call RPC delete_user_account if available
-      try {
-        await anyClient.rpc('delete_user_account');
-      } catch {}
-
-      // Call backend API if available
-      try {
-        const token = session?.access_token;
-        if (token) {
-          const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
-          await fetch(`${apiUrl}/api/users/me`, {
-            method: 'DELETE',
-            headers: { Authorization: `Bearer ${token}` },
-          }).catch(() => {});
-        }
-      } catch {}
-
-      // 2. Wipe Local Device State Completely
-      await AsyncStorage.clear();
-
-      // 3. Sign Out Globally
-      try {
-        await supabase.auth.signOut({ scope: 'global' });
-      } catch {}
-      try {
-        await logout();
-      } catch {}
-
-      setTerminateAccountModalVisible(false);
-      setSettingsVisible(false);
-      showToast('Account successfully terminated.');
-
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Onboarding' }],
-      });
-    } catch (err) {
-      console.error('Termination error:', err);
-      await AsyncStorage.clear();
-      try {
-        await supabase.auth.signOut({ scope: 'global' });
-      } catch {}
-      try {
-        await logout();
-      } catch {}
-      setTerminateAccountModalVisible(false);
-      setSettingsVisible(false);
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Onboarding' }],
-      });
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   const handleHideArchive = async () => {
     if (!selectedPost) return;
     try {
@@ -351,10 +214,22 @@ export default function ProfileScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {/* Top Bar */}
         <View style={styles.topBar}>
-          <Text style={[styles.kicker, { color: theme.primary }]}>YOUR STYLE SPACE</Text>
+          <View style={styles.kickerRow}>
+            <View style={styles.kickerDot} />
+            <Text style={[styles.kicker, { color: isDark ? '#F3F1EF' : '#364536' }]}>
+              YOUR STYLE SPACE
+            </Text>
+          </View>
           <Pressable
             onPress={() => setSettingsVisible(true)}
-            style={[styles.gear, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, borderWidth: 1 }]}
+            style={[
+              styles.gear,
+              {
+                backgroundColor: theme.surfaceSecondary,
+                borderColor: theme.border,
+                borderWidth: 1,
+              },
+            ]}
           >
             <Ionicons name="settings-outline" size={20} color={theme.text} />
           </Pressable>
@@ -362,14 +237,16 @@ export default function ProfileScreen() {
 
         {/* Profile Card */}
         <View style={[styles.profileCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={[styles.avatar, { backgroundColor: theme.accentSoft }]}>
+          <View style={[styles.avatar, { backgroundColor: '#364536' }]}>
             {profile.avatarUri ? (
               <Image source={{ uri: profile.avatarUri }} style={styles.avatarImage} />
             ) : (
-              <Text style={[styles.initial, { color: theme.primary }]}>{initial}</Text>
+              <Text style={styles.initial}>{initial}</Text>
             )}
           </View>
-          <Text style={[styles.name, { color: theme.text }]}>{profile.displayName || 'Style Member'}</Text>
+          <Text style={[styles.name, { color: theme.text }]}>
+            {profile.displayName || 'Style Member'}
+          </Text>
           <Text style={[styles.handle, { color: theme.textMuted }]}>
             {profile.email || '@stylesense_member'}
           </Text>
@@ -433,7 +310,7 @@ export default function ProfileScreen() {
                   {value}
                 </Text>
                 {isActive && (
-                  <View style={[styles.activeTabIndicator, { backgroundColor: theme.primary }]} />
+                  <View style={[styles.activeTabIndicator, { backgroundColor: '#E83E35' }]} />
                 )}
               </Pressable>
             );
@@ -458,7 +335,9 @@ export default function ProfileScreen() {
                     interactive={false}
                   />
                 </View>
-                <Text style={[styles.gridKicker, { color: theme.primary }]}>SAVED LOOK</Text>
+                <Text style={[styles.gridKicker, { color: isDark ? '#F3F1EF' : '#364536' }]}>
+                  SAVED LOOK
+                </Text>
                 <Text style={[styles.gridTitle, { color: theme.text }]} numberOfLines={2}>
                   {outfit.name}
                 </Text>
@@ -507,7 +386,14 @@ export default function ProfileScreen() {
                   {tab === 'Published' && (
                     <Pressable
                       onPress={() => openManagePost(post)}
-                      style={[styles.gridMenu, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}
+                      style={[
+                        styles.gridMenu,
+                        {
+                          backgroundColor: theme.surface,
+                          borderColor: theme.border,
+                          borderWidth: 1,
+                        },
+                      ]}
                       hitSlop={8}
                     >
                       <Ionicons
@@ -532,7 +418,7 @@ export default function ProfileScreen() {
         )}
       </ScrollView>
 
-      {/* ================= 1. ACCOUNT SETTINGS BOTTOM SHEET ================= */}
+      {/* ================= 1. ACCOUNT SETTINGS BOTTOM SHEET (Destructive Actions moved to EditProfile & Help per PDF Page 15) ================= */}
       <Modal
         visible={settingsVisible}
         transparent
@@ -550,30 +436,30 @@ export default function ProfileScreen() {
             ]}
             onPress={(e) => e.stopPropagation()}
           >
-            <View style={styles.dragHandle} />
+            <View style={[styles.dragHandle, { backgroundColor: theme.border }]} />
 
             <View style={styles.sheetHeader}>
               <Text style={[styles.sheetTitle, { color: theme.text }]}>
                 Account Settings
               </Text>
-              <Pressable onPress={() => setSettingsVisible(false)}>
+              <Pressable onPress={() => setSettingsVisible(false)} hitSlop={8}>
                 <Ionicons name="close" size={22} color={theme.textMuted} />
               </Pressable>
             </View>
 
-            {/* Row 1: Appearance (Light / Dark Mode Toggle Only) */}
+            {/* Row 1: Appearance (Light / Dark Mode Toggle) */}
             <View style={[styles.settingRow, { borderBottomColor: theme.border }]}>
               <Ionicons
                 name={themePreference === 'dark' ? 'moon-outline' : 'sunny-outline'}
                 size={20}
-                color={theme.primary}
+                color={isDark ? '#F3F1EF' : '#364536'}
               />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.settingLabel, { color: theme.text }]}>
                   Appearance
                 </Text>
                 <Text style={[styles.settingSub, { color: theme.textMuted }]}>
-                  Matte editorial Light & Dark mode
+                  Switch between Light & Dark mode
                 </Text>
               </View>
               <View
@@ -593,17 +479,17 @@ export default function ProfileScreen() {
                       key={mode}
                       onPress={() => setThemePreference(mode)}
                       style={{
-                        paddingHorizontal: 11,
+                        paddingHorizontal: 12,
                         paddingVertical: 5,
                         borderRadius: 999,
-                        backgroundColor: active ? theme.primary : 'transparent',
+                        backgroundColor: active ? '#364536' : 'transparent',
                       }}
                     >
                       <Text
                         style={{
                           fontSize: 11,
                           fontWeight: '700',
-                          color: active ? theme.primaryText : theme.textMuted,
+                          color: active ? '#F3F1EF' : theme.textMuted,
                         }}
                       >
                         {mode === 'light' ? 'Light' : 'Dark'}
@@ -616,7 +502,7 @@ export default function ProfileScreen() {
 
             {/* Standard Nav Rows */}
             {[
-              ['Edit Profile', 'person-outline', 'EditProfile'],
+              ['Edit Profile & Data', 'person-outline', 'EditProfile'],
               ['Notification Preferences', 'notifications-outline', 'Settings'],
               ['Help & Support', 'help-circle-outline', 'Help'],
             ].map(([label, icon, route]) => (
@@ -628,8 +514,12 @@ export default function ProfileScreen() {
                 }}
                 style={[styles.settingRow, { borderBottomColor: theme.border }]}
               >
-                <Ionicons name={icon as any} size={20} color={theme.primary} />
-                <Text style={[styles.settingLabel, { color: theme.text }]}>
+                <Ionicons
+                  name={icon as any}
+                  size={20}
+                  color={isDark ? '#F3F1EF' : '#364536'}
+                />
+                <Text style={[styles.settingLabel, { color: theme.text, flex: 1 }]}>
                   {label}
                 </Text>
                 <Ionicons name="chevron-forward" size={17} color={theme.textMuted} />
@@ -637,8 +527,15 @@ export default function ProfileScreen() {
             ))}
 
             {/* ACTION 1: SWITCH ACCOUNT (Fast Account Manager) */}
-            <Pressable onPress={openSwitchAccountsModal} style={styles.settingRow}>
-              <Ionicons name="swap-horizontal-outline" size={20} color="#2563EB" />
+            <Pressable
+              onPress={openSwitchAccountsModal}
+              style={[styles.settingRow, { borderBottomColor: theme.border }]}
+            >
+              <Ionicons
+                name="swap-horizontal-outline"
+                size={20}
+                color={isDark ? '#F3F1EF' : '#364536'}
+              />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.settingLabel, { color: theme.text }]}>
                   Switch Account
@@ -650,61 +547,24 @@ export default function ProfileScreen() {
               <Ionicons name="chevron-forward" size={17} color={theme.textMuted} />
             </Pressable>
 
-            {/* ACTION 2: LOG OUT (Distinct Red Action) */}
+            {/* ACTION 2: LOG OUT */}
             <Pressable
               onPress={() => {
                 setSettingsVisible(false);
                 logout();
               }}
-              style={styles.settingRow}
+              style={[styles.settingRow, { borderBottomWidth: 0 }]}
             >
-              <Ionicons name="log-out-outline" size={20} color="#DC2626" />
-              <Text style={[styles.settingLabel, { color: '#DC2626' }]}>
+              <Ionicons name="log-out-outline" size={20} color="#E83E35" />
+              <Text style={[styles.settingLabel, { color: '#E83E35' }]}>
                 Log Out
               </Text>
             </Pressable>
-
-            {/* DESTRUCTIVE ACTIONS SECTION */}
-            <View style={styles.destructiveSection}>
-              <Text style={styles.destructiveHeader}>DESTRUCTIVE ACTIONS</Text>
-
-              {/* Action 1: Delete All My Published & Legacy Posts */}
-              <Pressable
-                onPress={handleDeleteAllMyPosts}
-                style={[styles.settingRow, styles.destructiveRow]}
-              >
-                <Ionicons name="trash-outline" size={20} color="#DC2626" />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.settingLabel, { color: '#DC2626' }]}>
-                    Delete All My Published & Legacy Posts
-                  </Text>
-                  <Text style={[styles.settingSub, { color: theme.textMuted }]}>
-                    Permanently delete all your shared and legacy community looks
-                  </Text>
-                </View>
-              </Pressable>
-
-              {/* Action 2: Terminate Account */}
-              <Pressable
-                onPress={handleTerminateAccount}
-                style={[styles.settingRow, styles.destructiveRow, { borderBottomWidth: 0 }]}
-              >
-                <Ionicons name="alert-circle-outline" size={20} color="#B91C1C" />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.settingLabel, { color: '#B91C1C', fontWeight: '900' }]}>
-                    Terminate Account
-                  </Text>
-                  <Text style={[styles.settingSub, { color: theme.textMuted }]}>
-                    Wipe all account data, reset app preferences & return to onboarding
-                  </Text>
-                </View>
-              </Pressable>
-            </View>
           </Pressable>
         </Pressable>
       </Modal>
 
-      {/* ================= 2. SWITCH ACCOUNT MODAL ================= */}
+      {/* ================= 2. SWITCH ACCOUNT MODAL (Fixed Dark Mode Visibility per PDF Page 16) ================= */}
       <Modal
         visible={switchModalVisible}
         transparent
@@ -722,7 +582,7 @@ export default function ProfileScreen() {
             ]}
             onPress={(e) => e.stopPropagation()}
           >
-            <View style={styles.dragHandle} />
+            <View style={[styles.dragHandle, { backgroundColor: theme.border }]} />
 
             <View style={styles.sheetHeader}>
               <View>
@@ -733,7 +593,7 @@ export default function ProfileScreen() {
                   Switch between accounts saved on this device
                 </Text>
               </View>
-              <Pressable onPress={() => setSwitchModalVisible(false)}>
+              <Pressable onPress={() => setSwitchModalVisible(false)} hitSlop={8}>
                 <Ionicons name="close" size={22} color={theme.textMuted} />
               </Pressable>
             </View>
@@ -746,18 +606,23 @@ export default function ProfileScreen() {
                     acc.email.toLowerCase() === (profile.email || '').toLowerCase() ||
                     acc.displayName.toLowerCase() === (profile.displayName || '').toLowerCase();
 
+                  const activeRowBg = isDark
+                    ? 'rgba(54, 69, 54, 0.45)'
+                    : '#EBF0EB';
+                  const activeRowBorder = isDark ? '#E83E35' : '#364536';
+
                   return (
                     <View
                       key={acc.id}
                       style={[
                         styles.accountRow,
                         {
-                          borderColor: isActive ? '#4D9A65' : theme.border,
-                          backgroundColor: isActive ? '#F0F9F1' : theme.surface,
+                          borderColor: isActive ? activeRowBorder : theme.border,
+                          backgroundColor: isActive ? activeRowBg : theme.surfaceSecondary,
                         },
                       ]}
                     >
-                      <View style={styles.accountAvatar}>
+                      <View style={[styles.accountAvatar, { backgroundColor: '#364536' }]}>
                         {acc.avatarUri ? (
                           <Image
                             source={{ uri: acc.avatarUri }}
@@ -771,10 +636,20 @@ export default function ProfileScreen() {
                       </View>
 
                       <View style={{ flex: 1 }}>
-                        <Text style={[styles.accountName, { color: theme.text }]}>
+                        <Text
+                          style={[
+                            styles.accountName,
+                            { color: isDark ? '#F3F1EF' : '#18181B' },
+                          ]}
+                        >
                           {acc.displayName}
                         </Text>
-                        <Text style={[styles.accountEmail, { color: theme.textMuted }]}>
+                        <Text
+                          style={[
+                            styles.accountEmail,
+                            { color: isDark ? 'rgba(243, 241, 239, 0.75)' : '#52525B' },
+                          ]}
+                        >
                           {acc.email || 'No email attached'}
                         </Text>
                       </View>
@@ -783,8 +658,8 @@ export default function ProfileScreen() {
                         <View style={styles.activeAccountBadge}>
                           <Ionicons
                             name="checkmark-circle"
-                            size={16}
-                            color="#2E7D32"
+                            size={15}
+                            color="#F3F1EF"
                           />
                           <Text style={styles.activeAccountText}>Active</Text>
                         </View>
@@ -806,10 +681,31 @@ export default function ProfileScreen() {
             {!addAccountConfirm ? (
               <Pressable
                 onPress={() => setAddAccountConfirm(true)}
-                style={styles.addAccountBtn}
+                style={[
+                  styles.addAccountBtn,
+                  {
+                    backgroundColor: isDark
+                      ? 'rgba(54, 69, 54, 0.38)'
+                      : '#EBF0EB',
+                    borderColor: isDark
+                      ? 'rgba(243, 241, 239, 0.22)'
+                      : 'rgba(54, 69, 54, 0.25)',
+                  },
+                ]}
               >
-                <Ionicons name="add-circle-outline" size={20} color="#2563EB" />
-                <Text style={styles.addAccountBtnText}>+ Add Another Account</Text>
+                <Ionicons
+                  name="add-circle-outline"
+                  size={20}
+                  color={isDark ? '#F3F1EF' : '#364536'}
+                />
+                <Text
+                  style={[
+                    styles.addAccountBtnText,
+                    { color: isDark ? '#F3F1EF' : '#364536' },
+                  ]}
+                >
+                  + Add Another Account
+                </Text>
               </Pressable>
             ) : (
               <View style={styles.confirmBox}>
@@ -828,7 +724,7 @@ export default function ProfileScreen() {
 
                   <Pressable
                     onPress={handleAddAnotherAccount}
-                    style={[styles.confirmDestructiveBtn, { backgroundColor: '#2563EB' }]}
+                    style={[styles.confirmDestructiveBtn, { backgroundColor: '#364536' }]}
                   >
                     <Text style={styles.confirmDestructiveText}>Continue to Login</Text>
                   </Pressable>
@@ -838,7 +734,14 @@ export default function ProfileScreen() {
 
             <Pressable
               onPress={() => setSwitchModalVisible(false)}
-              style={[styles.cancelBtn, { borderColor: theme.border, marginTop: 12 }]}
+              style={[
+                styles.cancelBtn,
+                {
+                  borderColor: theme.border,
+                  backgroundColor: theme.surfaceSecondary,
+                  marginTop: 12,
+                },
+              ]}
             >
               <Text style={[styles.cancelBtnText, { color: theme.text }]}>
                 Close
@@ -848,7 +751,7 @@ export default function ProfileScreen() {
         </Pressable>
       </Modal>
 
-      {/* ================= 3. MANAGE PUBLISHED POST BOTTOM SHEET (REPLACES ALERT.ALERT) ================= */}
+      {/* ================= 3. MANAGE PUBLISHED POST BOTTOM SHEET ================= */}
       <Modal
         visible={manageModalVisible}
         transparent
@@ -872,7 +775,7 @@ export default function ProfileScreen() {
             ]}
             onPress={(e) => e.stopPropagation()}
           >
-            <View style={styles.dragHandle} />
+            <View style={[styles.dragHandle, { backgroundColor: theme.border }]} />
 
             <View style={styles.sheetHeader}>
               <View style={{ flex: 1 }}>
@@ -898,10 +801,10 @@ export default function ProfileScreen() {
                 {/* ACTION ROW 1: HIDE / ARCHIVE */}
                 <Pressable
                   onPress={handleHideArchive}
-                  style={styles.sheetActionRow}
+                  style={[styles.sheetActionRow, { borderBottomColor: theme.border }]}
                 >
-                  <View style={[styles.actionIconWrap, { backgroundColor: '#EAF3D9' }]}>
-                    <Ionicons name="eye-off-outline" size={20} color="#264C3B" />
+                  <View style={[styles.actionIconWrap, { backgroundColor: '#364536' }]}>
+                    <Ionicons name="eye-off-outline" size={20} color="#F3F1EF" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.sheetActionText, { color: theme.text }]}>
@@ -913,16 +816,21 @@ export default function ProfileScreen() {
                   </View>
                 </Pressable>
 
-                {/* ACTION ROW 2: DELETE POST (Destructive Red) */}
+                {/* ACTION ROW 2: DELETE POST */}
                 <Pressable
                   onPress={() => setDeleteConfirmStep(true)}
-                  style={styles.sheetActionRow}
+                  style={[styles.sheetActionRow, { borderBottomColor: theme.border }]}
                 >
-                  <View style={[styles.actionIconWrap, { backgroundColor: '#FEE2E2' }]}>
-                    <Ionicons name="trash-outline" size={20} color="#DC2626" />
+                  <View
+                    style={[
+                      styles.actionIconWrap,
+                      { backgroundColor: 'rgba(232, 62, 53, 0.14)' },
+                    ]}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#E83E35" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.sheetActionText, { color: '#DC2626' }]}>
+                    <Text style={[styles.sheetActionText, { color: '#E83E35' }]}>
                       Delete Post
                     </Text>
                     <Text style={[styles.sheetActionSub, { color: theme.textMuted }]}>
@@ -971,7 +879,7 @@ export default function ProfileScreen() {
         </Pressable>
       </Modal>
 
-      {/* ================= 5. SOCIAL FOLLOWERS / FOLLOWING / LIKES MODAL ================= */}
+      {/* ================= 4. SOCIAL FOLLOWERS / FOLLOWING / LIKES MODAL ================= */}
       <SocialListModal
         visible={socialModalVisible}
         initialTab={socialModalTab}
@@ -981,128 +889,6 @@ export default function ProfileScreen() {
           setFollowersCount(flwCount);
         }}
       />
-
-      {/* ================= 6. CUSTOM MODAL: DELETE ALL POSTS ================= */}
-      <Modal
-        visible={deleteAllPostsModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => !isDeleting && setDeleteAllPostsModalVisible(false)}
-      >
-        <View style={styles.confirmBackdrop}>
-          <View style={styles.confirmDialogCard}>
-            <View style={styles.confirmIconCircle}>
-              <Ionicons name="trash-outline" size={26} color="#C93B2B" />
-            </View>
-
-            <Text style={styles.confirmDialogTitle}>Delete All Published & Legacy Posts?</Text>
-
-            <Text style={styles.confirmDialogSubtitle}>
-              This will permanently purge your shared community looks from the server and live feed.
-            </Text>
-
-            <View style={styles.bulletList}>
-              <View style={styles.bulletItem}>
-                <Ionicons name="close-circle-outline" size={16} color="#C93B2B" />
-                <Text style={styles.bulletText}>All public looks in the Community feed will be removed</Text>
-              </View>
-              <View style={styles.bulletItem}>
-                <Ionicons name="close-circle-outline" size={16} color="#C93B2B" />
-                <Text style={styles.bulletText}>Removes posts under current account and aliases (Jdyy, Jdyyy1)</Text>
-              </View>
-              <View style={styles.bulletItem}>
-                <Ionicons name="close-circle-outline" size={16} color="#C93B2B" />
-                <Text style={styles.bulletText}>This action is permanent and cannot be undone</Text>
-              </View>
-            </View>
-
-            <View style={styles.dialogBtnRow}>
-              <Pressable
-                disabled={isDeleting}
-                onPress={() => setDeleteAllPostsModalVisible(false)}
-                style={styles.dialogCancelBtn}
-              >
-                <Text style={styles.dialogCancelText}>Cancel</Text>
-              </Pressable>
-
-              <Pressable
-                disabled={isDeleting}
-                onPress={executeDeleteAllMyPosts}
-                style={[styles.dialogCrimsonBtn, isDeleting && { opacity: 0.7 }]}
-              >
-                {isDeleting ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.dialogCrimsonText}>Delete All Posts</Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ================= 7. CUSTOM MODAL: TERMINATE ACCOUNT ================= */}
-      <Modal
-        visible={terminateAccountModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => !isDeleting && setTerminateAccountModalVisible(false)}
-      >
-        <View style={styles.confirmBackdrop}>
-          <View style={styles.confirmDialogCard}>
-            <View style={styles.confirmIconCircle}>
-              <Ionicons name="warning-outline" size={28} color="#C93B2B" />
-            </View>
-
-            <Text style={[styles.confirmDialogTitle, { color: '#991B1B' }]}>Terminate Account?</Text>
-
-            <Text style={styles.confirmDialogSubtitle}>
-              This permanently deletes all of your wardrobe items, saved outfits, published community posts, and profile data from the cloud. (If you sign in again later with Google or Facebook, it will start as a brand-new blank account).
-            </Text>
-
-            <View style={styles.bulletList}>
-              <View style={styles.bulletItem}>
-                <Ionicons name="trash-bin-outline" size={16} color="#C93B2B" />
-                <Text style={styles.bulletText}>All uploaded clothes & cutout data permanently deleted</Text>
-              </View>
-              <View style={styles.bulletItem}>
-                <Ionicons name="sparkles-outline" size={16} color="#C93B2B" />
-                <Text style={styles.bulletText}>All saved outfits & recommendation history cleared</Text>
-              </View>
-              <View style={styles.bulletItem}>
-                <Ionicons name="people-outline" size={16} color="#C93B2B" />
-                <Text style={styles.bulletText}>Community posts & creator profile purged from cloud</Text>
-              </View>
-              <View style={styles.bulletItem}>
-                <Ionicons name="log-out-outline" size={16} color="#C93B2B" />
-                <Text style={styles.bulletText}>All local data on this device wiped; global sign out</Text>
-              </View>
-            </View>
-
-            <View style={styles.dialogBtnRow}>
-              <Pressable
-                disabled={isDeleting}
-                onPress={() => setTerminateAccountModalVisible(false)}
-                style={styles.dialogCancelBtn}
-              >
-                <Text style={styles.dialogCancelText}>Cancel</Text>
-              </Pressable>
-
-              <Pressable
-                disabled={isDeleting}
-                onPress={executeTerminateAccount}
-                style={[styles.dialogCrimsonBtn, isDeleting && { opacity: 0.7 }]}
-              >
-                {isDeleting ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.dialogCrimsonText}>Terminate Account</Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -1121,6 +907,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 14,
   },
+  kickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  kickerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#E83E35',
+  },
   kicker: {
     fontSize: 10,
     fontWeight: '900',
@@ -1130,7 +927,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#EAF3D9',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1144,7 +940,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 26,
-    backgroundColor: '#DCEFCF',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -1154,7 +949,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   initial: {
-    color: '#264C3B',
+    color: '#F3F1EF',
     fontSize: 32,
     fontWeight: '900',
   },
@@ -1175,7 +970,6 @@ const styles = StyleSheet.create({
   },
   stat: {
     flex: 1,
-    backgroundColor: '#F2F6EA',
     borderRadius: 14,
     paddingVertical: 12,
     alignItems: 'center',
@@ -1185,7 +979,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   statLabel: {
-    color: '#718078',
     fontSize: 11,
     marginTop: 2,
     fontWeight: '700',
@@ -1258,7 +1051,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 8,
     top: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 10,
     padding: 4,
   },
@@ -1270,7 +1062,7 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
     justifyContent: 'flex-end',
   },
   settingsSheet: {
@@ -1285,7 +1077,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#D1D5DB',
     alignSelf: 'center',
     marginBottom: 14,
   },
@@ -1309,7 +1100,6 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5EAE1',
   },
   settingLabel: {
     fontSize: 14,
@@ -1319,29 +1109,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 2,
   },
-  destructiveSection: {
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: 1.5,
-    borderTopColor: '#FEE2E2',
-  },
-  destructiveHeader: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#DC2626',
-    letterSpacing: 1.1,
-    marginBottom: 4,
-  },
-  destructiveRow: {
-    borderBottomColor: '#FEE2E2',
-  },
   sheetActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
   },
   actionIconWrap: {
     width: 40,
@@ -1361,7 +1134,7 @@ const styles = StyleSheet.create({
   cancelBtn: {
     height: 48,
     borderRadius: 999,
-    borderWidth: 1.5,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1378,49 +1151,49 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   accountAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#DCEFCF',
+    width: 42,
+    height: 42,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   accountInitial: {
-    color: '#264C3B',
+    color: '#F3F1EF',
     fontWeight: '900',
     fontSize: 16,
   },
   accountName: {
-    fontSize: 14,
+    fontSize: 14.5,
     fontWeight: '800',
   },
   accountEmail: {
-    fontSize: 11,
+    fontSize: 11.5,
     marginTop: 2,
+    fontWeight: '500',
   },
   activeAccountBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    backgroundColor: '#364536',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 999,
   },
   activeAccountText: {
-    color: '#2E7D32',
+    color: '#F3F1EF',
     fontSize: 11,
     fontWeight: '800',
   },
   switchBtn: {
-    backgroundColor: '#264C3B',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    backgroundColor: '#364536',
+    paddingHorizontal: 13,
+    paddingVertical: 6.5,
+    borderRadius: 999,
   },
   switchBtnText: {
-    color: '#FFFFFF',
+    color: '#F3F1EF',
     fontSize: 12,
     fontWeight: '800',
   },
@@ -1430,12 +1203,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: '#EFF6FF',
+    borderRadius: 14,
+    borderWidth: 1,
     marginVertical: 8,
   },
   addAccountBtnText: {
-    color: '#2563EB',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -1468,110 +1240,13 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#DC2626',
+    backgroundColor: '#E83E35',
     alignItems: 'center',
     justifyContent: 'center',
   },
   confirmDestructiveText: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  confirmBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.58)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  confirmDialogCard: {
-    width: '100%',
-    maxWidth: 360,
-    backgroundColor: '#FAF8F3',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#E6E1D6',
-    padding: 22,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    elevation: 8,
-  },
-  confirmIconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#FDECEC',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  confirmDialogTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#1C1917',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  confirmDialogSubtitle: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: '#57534E',
-    textAlign: 'center',
-    marginBottom: 14,
-  },
-  bulletList: {
-    width: '100%',
-    gap: 8,
-    marginBottom: 20,
-    backgroundColor: '#F5F2EA',
-    borderRadius: 14,
-    padding: 12,
-  },
-  bulletItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  bulletText: {
-    flex: 1,
-    fontSize: 12,
-    lineHeight: 16,
-    color: '#44403C',
-    fontWeight: '500',
-  },
-  dialogBtnRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    width: '100%',
-  },
-  dialogCancelBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 999,
-    backgroundColor: '#EAE6DF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dialogCancelText: {
-    color: '#44403C',
-    fontSize: 13.5,
-    fontWeight: '700',
-  },
-  dialogCrimsonBtn: {
-    flex: 1.2,
-    paddingVertical: 12,
-    borderRadius: 999,
-    backgroundColor: '#C93B2B',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dialogCrimsonText: {
-    color: '#FFFFFF',
-    fontSize: 13.5,
-    fontWeight: '800',
+    color: '#F3F1EF',
   },
 });

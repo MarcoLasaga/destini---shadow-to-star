@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, TextInput, ScrollView, StyleSheet, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { faqData } from '../constants/profileMockData';
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from '../constants/legalContent';
@@ -10,6 +11,7 @@ import LegalModal from '../components/LegalModal';
 
 export default function HelpScreen() {
   const theme = useAppTheme();
+  const navigation = useNavigation<any>();
   const [feedback, setFeedback] = useState('');
   const [privacyVisible, setPrivacyVisible] = useState(false);
   const [termsVisible, setTermsVisible] = useState(false);
@@ -22,7 +24,7 @@ export default function HelpScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <ScreenHeader title="Help" />
+      <ScreenHeader title="Help & Support" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Frequently Asked Questions</Text>
@@ -50,11 +52,35 @@ export default function HelpScreen() {
             placeholder="Tell us what you think..."
             placeholderTextColor={theme.textMuted}
             multiline
-            style={[styles.feedbackInput, { borderColor: theme.border, backgroundColor: theme.background, color: theme.text }]}
+            style={[
+              styles.feedbackInput,
+              { borderColor: theme.border, backgroundColor: theme.background, color: theme.text },
+            ]}
           />
-          <Pressable onPress={handleSubmitFeedback} style={[styles.submitButton, { backgroundColor: theme.secondaryAccent }]}>
-            <Ionicons name="chatbubble-outline" size={15} color={theme.onAccent} />
-            <Text style={[styles.submitLabel, { color: theme.onAccent }]}>Submit Feedback</Text>
+          <Pressable
+            onPress={handleSubmitFeedback}
+            style={[styles.submitButton, { backgroundColor: '#364536' }]}
+          >
+            <Ionicons name="chatbubble-outline" size={15} color="#F3F1EF" />
+            <Text style={[styles.submitLabel, { color: '#F3F1EF' }]}>Submit Feedback</Text>
+          </Pressable>
+        </View>
+
+        {/* Account & Data Management Shortcut (PDF Page 15) */}
+        <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Account & Data Controls</Text>
+          <Text style={[styles.helperSub, { color: theme.textMuted }]}>
+            Need to delete your published community posts or permanently terminate your account?
+          </Text>
+          <Pressable
+            onPress={() => navigation.navigate('EditProfile')}
+            style={[styles.manageDataBtn, { borderColor: theme.border, backgroundColor: theme.background }]}
+          >
+            <Ionicons name="shield-outline" size={16} color="#E83E35" />
+            <Text style={[styles.manageDataLabel, { color: theme.text }]}>
+              Manage Account Data in Edit Profile
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
           </Pressable>
         </View>
 
@@ -81,12 +107,50 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 32, gap: 16 },
   section: { borderRadius: 18, borderWidth: 1, padding: 16, gap: 6 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', marginBottom: 6 },
-  emailButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderRadius: 12, paddingVertical: 13 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', marginBottom: 4 },
+  helperSub: { fontSize: 12.5, lineHeight: 18, marginBottom: 6 },
+  emailButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 13,
+  },
   emailLabel: { fontSize: 14, fontWeight: '600' },
-  feedbackInput: { borderWidth: 1, borderRadius: 12, padding: 14, fontSize: 13.5, minHeight: 90, textAlignVertical: 'top' },
-  submitButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, paddingVertical: 14, marginTop: 4 },
-  submitLabel: { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
+  feedbackInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 13.5,
+    minHeight: 90,
+    textAlignVertical: 'top',
+  },
+  submitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginTop: 4,
+  },
+  submitLabel: { color: '#F3F1EF', fontWeight: '700', fontSize: 14 },
+  manageDataBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  manageDataLabel: {
+    flex: 1,
+    fontSize: 13.5,
+    fontWeight: '600',
+  },
   legalRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13 },
   legalLabel: { fontSize: 14, fontWeight: '600' },
   divider: { height: 1 },

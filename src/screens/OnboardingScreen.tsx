@@ -4,6 +4,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,7 +14,7 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../contexts/AuthContext';
 import { useProfile } from '../contexts/ProfileContext';
 import { syncCreatorNickname } from '../services/communityService';
-import { MelMascot, MelSpeechBubble } from '../components/MelMascot';
+import { MelMascot } from '../components/MelMascot';
 
 type SkinUndertone = 'Warm' | 'Cool' | 'Neutral';
 
@@ -25,37 +26,42 @@ interface OnboardingScreenProps {
 interface PaletteOption {
   id: string;
   name: string;
+  displayName: string;
   description: string;
   colors: string[];
   matchedUndertones: SkinUndertone[];
 }
 
-const CIELAB_PALETTES: PaletteOption[] = [
+const COLOR_PALETTES: PaletteOption[] = [
   {
     id: 'monochrome',
     name: 'Monochrome & Achromatic',
-    description: 'Low-chroma ΔE neutral anchor',
+    displayName: 'Monochrome & Minimal',
+    description: 'Timeless blacks, grays & crisp whites',
     colors: ['#18181B', '#52525B', '#D4D4D8', '#FAFAFA'],
     matchedUndertones: ['Neutral'],
   },
   {
     id: 'warm_earth',
     name: 'Warm Earth & Neutrals',
-    description: 'Positive +b* warm harmony',
+    displayName: 'Warm Earth & Neutrals',
+    description: 'Rich browns, olive & warm sand tones',
     colors: ['#C8AD8D', '#5C4033', '#556B2F', '#F5F0E6'],
     matchedUndertones: ['Warm'],
   },
   {
     id: 'cool_deep',
     name: 'Cool Deep & Classic',
-    description: 'Negative -b* cool contrast',
+    displayName: 'Cool Deep & Classic',
+    description: 'Classic navy, charcoal & cool slate',
     colors: ['#1B2A4A', '#36454F', '#6B7C93', '#F8FAFC'],
     matchedUndertones: ['Cool'],
   },
   {
     id: 'soft_pastel',
     name: 'Soft Pastel & High-Key',
-    description: 'High-lightness L* > 75 tint harmony',
+    displayName: 'Soft Pastels & Light',
+    description: 'Airy pastels & soft everyday tints',
     colors: ['#D8C8E8', '#F4C2C2', '#B8D8BA', '#FDFBF7'],
     matchedUndertones: [],
   },
@@ -143,10 +149,33 @@ const FIT_OPTIONS = [
   },
 ];
 
-const UNDERTONE_OPTIONS: Array<{ id: SkinUndertone; label: string; desc: string }> = [
-  { id: 'Warm', label: 'Warm (+b*)', desc: 'Earth & golden tones' },
-  { id: 'Neutral', label: 'Neutral', desc: 'Balanced monochrome' },
-  { id: 'Cool', label: 'Cool (-b*)', desc: 'Navy & slate tones' },
+const UNDERTONE_OPTIONS: Array<{
+  id: SkinUndertone;
+  label: string;
+  desc: string;
+  swatch: string;
+}> = [
+  { id: 'Warm', label: 'Warm', desc: 'Golden & earthy', swatch: '#D9A773' },
+  { id: 'Neutral', label: 'Neutral', desc: 'Balanced tones', swatch: '#C9B199' },
+  { id: 'Cool', label: 'Cool', desc: 'Rosy & cool', swatch: '#C4A4B5' },
+];
+
+const STEP1_FEATURES = [
+  {
+    icon: 'camera-outline' as const,
+    title: 'Smart Closet',
+    subtitle: 'Digitize & organize pieces in seconds',
+  },
+  {
+    icon: 'sparkles-outline' as const,
+    title: 'See It On Me',
+    subtitle: 'Preview curated outfits before you dress',
+  },
+  {
+    icon: 'partly-sunny-outline' as const,
+    title: 'Live Weather',
+    subtitle: 'Daily looks matched to your local forecast',
+  },
 ];
 
 export default function OnboardingScreen({
@@ -154,14 +183,22 @@ export default function OnboardingScreen({
   onNavigateToLogin,
 }: OnboardingScreenProps) {
   const theme = useAppTheme();
+  const isDark = theme.mode === 'dark';
   const { isLoggedIn } = useAuth();
   const { profile, updateProfile } = useProfile();
+
+  // Editorial Palette Tokens (#364536, #F3F1EF, #E83E35)
+  const primaryForest = '#364536';
+  const lightIvory = '#F3F1EF';
+  const accentRed = '#E83E35';
+  const activeBorder = isDark ? '#E83E35' : '#364536';
+  const activeBgTint = isDark ? 'rgba(54, 69, 54, 0.45)' : '#EBF0EB';
 
   // 6 Zero-Scroll Steps (0 to 5)
   const [page, setPage] = useState<number>(0);
   const totalPages = 6;
 
-  // Form State (55% Content-Based + 45% Collaborative Hybrid Engine inputs)
+  // Form State (Preserves exact keys/values for ProfileContext & hybridScoreService)
   const [ageGroup, setAgeGroup] = useState<'18-20' | '21-24' | '25+'>('18-20');
   const [gender, setGender] = useState<'male' | 'female'>('female');
   const [heightCm, setHeightCm] = useState<string>('168');
@@ -212,12 +249,49 @@ export default function OnboardingScreen({
     setter(String(next));
   };
 
+  const handleDirectNumericChange = (
+    raw: string,
+    setter: (val: string) => void
+  ) => {
+    const digitsOnly = raw.replace(/[^0-9]/g, '');
+    setter(digitsOnly);
+  };
+
+  const normalizeNumericField = (
+    current: string,
+    min: number,
+    max: number,
+    fallback: number,
+    setter: (val: string) => void
+  ) => {
+    const parsed = parseInt(current, 10);
+    if (isNaN(parsed)) {
+      setter(String(fallback));
+      return String(fallback);
+    }
+    const clamped = Math.max(min, Math.min(max, parsed));
+    setter(String(clamped));
+    return String(clamped);
+  };
+
+  const safeHeightCm = useMemo(() => {
+    const parsed = parseInt(heightCm, 10);
+    if (isNaN(parsed)) return '168';
+    return String(Math.max(120, Math.min(230, parsed)));
+  }, [heightCm]);
+
+  const safeWeightKg = useMemo(() => {
+    const parsed = parseInt(weightKg, 10);
+    if (isNaN(parsed)) return '58';
+    return String(Math.max(30, Math.min(180, parsed)));
+  }, [weightKg]);
+
   const payload = useMemo(
     () => ({
       ageGroup,
       gender,
-      heightCm,
-      weightKg,
+      heightCm: safeHeightCm,
+      weightKg: safeWeightKg,
       preferredColors: selectedPalettes,
       texturePreferences,
       preferredStyles,
@@ -228,8 +302,8 @@ export default function OnboardingScreen({
     [
       ageGroup,
       gender,
-      heightCm,
-      weightKg,
+      safeHeightCm,
+      safeWeightKg,
       selectedPalettes,
       texturePreferences,
       preferredStyles,
@@ -251,17 +325,17 @@ export default function OnboardingScreen({
   const melMessage = useMemo(() => {
     switch (page) {
       case 1:
-        return 'Select your adult life stage (18+ RA 10173 compliant).';
+        return 'Which stage best matches your daily schedule and wardrobe needs?';
       case 2:
-        return 'Tell me a bit about your fit profile so I can tailor your outfit recommendations!';
+        return 'Share your fit details so I can tailor proportions and tones to you.';
       case 3:
-        return 'Pick CIELAB palettes harmonized with your undertone!';
+        return 'Pick the color palettes you love wearing most—I highlighted your best match!';
       case 4:
-        return 'Choose the fabrics and style vibes you love!';
+        return 'Choose the fabrics and fashion aesthetics you gravitate toward.';
       case 5:
-        return 'Final step! Pick your occasions and preferred fit.';
+        return 'Last step! Tell me where you spend your week and how you like clothes to fit.';
       default:
-        return "Hi! I'm Mel, your AI chameleon stylist—let's set up your look in 60 seconds!";
+        return '';
     }
   }, [page]);
 
@@ -301,6 +375,10 @@ export default function OnboardingScreen({
   };
 
   const handleNext = () => {
+    if (page === 2) {
+      normalizeNumericField(heightCm, 120, 230, 168, setHeightCm);
+      normalizeNumericField(weightKg, 30, 180, 58, setWeightKg);
+    }
     if (page < totalPages - 1) {
       setPage(page + 1);
     } else {
@@ -331,56 +409,64 @@ export default function OnboardingScreen({
                   styles.segmentBar,
                   {
                     backgroundColor:
-                      idx <= page
-                        ? theme.secondaryAccent
+                      idx < page
+                        ? primaryForest
+                        : idx === page
+                        ? accentRed
                         : theme.border,
                   },
                 ]}
               />
             ))}
           </View>
-          <View style={styles.stepIndicatorRow}>
-            <Text style={[styles.stepBadgeText, { color: theme.accent }]}>
-              STEP {page + 1} OF {totalPages}
-            </Text>
-            {page > 0 && (
-              <Text style={[styles.zeroScrollTag, { color: theme.textMuted }]}>
-                Cold-Start Style Profile
-              </Text>
-            )}
-          </View>
 
-          {/* Compact Mel Header Banner for Steps 2–6 */}
+          {/* Only show step badge on Steps 2–6 (removed from Step 1 per PDF Page 1) */}
+          {page > 0 && (
+            <View style={styles.stepIndicatorRow}>
+              <Text style={[styles.stepBadgeText, { color: isDark ? lightIvory : primaryForest }]}>
+                STEP {page + 1} OF {totalPages}
+              </Text>
+            </View>
+          )}
+
+          {/* Redesigned Mel Companion Banner for Steps 2–6 (PDF Pages 3–7) */}
           {page > 0 && (
             <View
               style={[
-                styles.melCompactHeader,
-                { backgroundColor: theme.surface, borderColor: theme.border },
+                styles.melCompanionBanner,
+                {
+                  backgroundColor: primaryForest,
+                  borderColor: 'rgba(243, 241, 239, 0.16)',
+                },
               ]}
             >
-              <MelMascot outfit={melOutfit} size={46} waving={page === 5} />
-              <View style={styles.melBubbleWrap}>
-                <MelSpeechBubble
-                  message={melMessage}
-                  variant={melOutfit}
-                  position="inline"
-                />
+              <View style={styles.melAvatarCircle}>
+                <MelMascot outfit={melOutfit} size={38} waving={page === 5} />
+              </View>
+              <View style={styles.melCompanionTextCol}>
+                <View style={styles.melCompanionHeaderRow}>
+                  <View style={styles.melDot} />
+                  <Text style={styles.melCompanionLabel}>MEL&apos;S STYLING TIP</Text>
+                </View>
+                <Text style={styles.melCompanionMessage} numberOfLines={2}>
+                  {melMessage}
+                </Text>
               </View>
             </View>
           )}
         </View>
 
-        {/* ================= STEP 1 (page === 0): MEL WELCOME ONLY + SIGN-IN ENTRY ================= */}
+        {/* ================= STEP 1 (page === 0): WELCOME & REDESIGNED FEATURE CARDS ================= */}
         {page === 0 && (
           <View style={styles.step1CenterStage}>
+            {/* Hero Stage without the speech bubble box (removed per PDF Page 1) */}
             <View style={styles.melHeroStage}>
-              <MelMascot outfit="casual_sunny" size={142} waving />
-              <View style={styles.step1SpeechWrap}>
-                <MelSpeechBubble
-                  message="Hi! I'm Mel, your AI chameleon stylist—let's set up your look in 60 seconds!"
-                  variant="casual_sunny"
-                  position="inline"
-                />
+              <View style={styles.heroBackdropRing}>
+                <MelMascot outfit="casual_sunny" size={136} waving />
+              </View>
+              <View style={styles.brandBadgePill}>
+                <View style={styles.brandBadgeDot} />
+                <Text style={styles.brandBadgeText}>STYLESENSE AI STUDIO</Text>
               </View>
             </View>
 
@@ -393,61 +479,76 @@ export default function OnboardingScreen({
               </Text>
             </View>
 
-            {/* 3 Compact Visual Feature Pills */}
-            <View style={styles.visualPillsRow}>
-              <View
-                style={[
-                  styles.visualFeaturePill,
-                  { backgroundColor: theme.surface, borderColor: theme.border },
-                ]}
-              >
-                <Text style={styles.visualPillEmoji}>📸</Text>
-                <Text style={[styles.visualPillLabel, { color: theme.text }]}>Smart Closet</Text>
-              </View>
-
-              <View
-                style={[
-                  styles.visualFeaturePill,
-                  { backgroundColor: theme.surface, borderColor: theme.border },
-                ]}
-              >
-                <Text style={styles.visualPillEmoji}>🧍</Text>
-                <Text style={[styles.visualPillLabel, { color: theme.text }]}>See It On Me</Text>
-              </View>
-
-              <View
-                style={[
-                  styles.visualFeaturePill,
-                  { backgroundColor: theme.surface, borderColor: theme.border },
-                ]}
-              >
-                <Text style={styles.visualPillEmoji}>🌦️</Text>
-                <Text style={[styles.visualPillLabel, { color: theme.text }]}>Live Weather</Text>
-              </View>
+            {/* Redesigned Editorial Feature Cards (PDF Page 2 blue circle) */}
+            <View style={styles.editorialFeaturesStack}>
+              {STEP1_FEATURES.map((feat, idx) => (
+                <View
+                  key={feat.title}
+                  style={[
+                    styles.editorialFeatureCard,
+                    {
+                      backgroundColor: theme.surface,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.editorialFeatureIconBox,
+                      {
+                        backgroundColor: idx === 1 ? accentRed : primaryForest,
+                      },
+                    ]}
+                  >
+                    <Ionicons name={feat.icon} size={20} color={lightIvory} />
+                  </View>
+                  <View style={styles.editorialFeatureTextWrap}>
+                    <Text style={[styles.editorialFeatureTitle, { color: theme.text }]}>
+                      {feat.title}
+                    </Text>
+                    <Text
+                      style={[styles.editorialFeatureSub, { color: theme.textMuted }]}
+                      numberOfLines={1}
+                    >
+                      {feat.subtitle}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={18}
+                    color={idx === 1 ? accentRed : primaryForest}
+                  />
+                </View>
+              ))}
             </View>
 
             {/* Step 1 Bottom Actions */}
             <View style={styles.step1ActionsWrap}>
               <Pressable
                 onPress={() => setPage(1)}
-                style={[styles.startProfileBtn, { backgroundColor: theme.secondaryAccent }]}
+                style={[styles.startProfileBtn, { backgroundColor: primaryForest }]}
               >
-                <Text style={[styles.startProfileBtnText, { color: theme.onAccent }]}>
-                  Start My Style Profile →
+                <Text style={[styles.startProfileBtnText, { color: lightIvory }]}>
+                  Start My Style Profile
                 </Text>
+                <View style={styles.startBtnArrowBadge}>
+                  <Ionicons name="arrow-forward" size={15} color={lightIvory} />
+                </View>
               </Pressable>
 
               <Pressable onPress={handleGoToSignIn} style={styles.signInLinkBtn}>
                 <Text style={[styles.signInLinkText, { color: theme.textMuted }]}>
                   Already have an account?{' '}
-                  <Text style={{ color: theme.text, fontWeight: '700' }}>Sign In</Text>
+                  <Text style={{ color: isDark ? lightIvory : primaryForest, fontWeight: '800' }}>
+                    Sign In
+                  </Text>
                 </Text>
               </Pressable>
             </View>
           </View>
         )}
 
-        {/* ================= STEP 2 (page === 1): 18+ ADULT AGE BRACKETS ================= */}
+        {/* ================= STEP 2 (page === 1): AGE BRACKETS (PDF Page 3) ================= */}
         {page === 1 && (
           <View style={styles.stepBody}>
             <View>
@@ -455,7 +556,7 @@ export default function OnboardingScreen({
                 Select Your Age Bracket
               </Text>
               <Text style={[styles.heroSubheading, { color: theme.textMuted }]}>
-                Tailored for 18+ college & young adult wardrobes (RA 10173 compliant).
+                Helps us curate outfits that fit your daily routine and lifestyle.
               </Text>
             </View>
 
@@ -469,18 +570,25 @@ export default function OnboardingScreen({
                     style={[
                       styles.ageBracketCard,
                       {
-                        backgroundColor: theme.surface,
-                        borderColor: isSelected ? theme.secondaryAccent : theme.border,
+                        backgroundColor: isSelected ? activeBgTint : theme.surface,
+                        borderColor: isSelected ? activeBorder : theme.border,
+                        borderWidth: isSelected ? 1.5 : 1,
                       },
                     ]}
                   >
                     <View
                       style={[
                         styles.ageIconCircle,
-                        { backgroundColor: theme.badgeBg },
+                        {
+                          backgroundColor: isSelected ? primaryForest : theme.badgeBg,
+                        },
                       ]}
                     >
-                      <Ionicons name={br.icon as any} size={22} color={theme.text} />
+                      <Ionicons
+                        name={br.icon as any}
+                        size={22}
+                        color={isSelected ? lightIvory : theme.text}
+                      />
                     </View>
 
                     <View style={{ flex: 1 }}>
@@ -501,7 +609,16 @@ export default function OnboardingScreen({
                             key={t}
                             style={[
                               styles.tagPill,
-                              { backgroundColor: theme.badgeBg, color: theme.textMuted },
+                              {
+                                backgroundColor: isSelected
+                                  ? 'rgba(54, 69, 54, 0.14)'
+                                  : theme.badgeBg,
+                                color: isSelected
+                                  ? isDark
+                                    ? lightIvory
+                                    : primaryForest
+                                  : theme.textMuted,
+                              },
                             ]}
                           >
                             {t}
@@ -513,7 +630,7 @@ export default function OnboardingScreen({
                     <Ionicons
                       name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
                       size={24}
-                      color={isSelected ? theme.secondaryAccent : theme.border}
+                      color={isSelected ? accentRed : theme.border}
                     />
                   </Pressable>
                 );
@@ -522,7 +639,7 @@ export default function OnboardingScreen({
           </View>
         )}
 
-        {/* ================= STEP 3 (page === 2): GENDER & BODY PROFILE (NO 2D MANNEQUIN) ================= */}
+        {/* ================= STEP 3 (page === 2): FIT PROFILE & DIRECT TYPING INPUTS (PDF Page 4) ================= */}
         {page === 2 && (
           <View style={styles.stepBody}>
             <View>
@@ -530,7 +647,7 @@ export default function OnboardingScreen({
                 Your Fit Profile
               </Text>
               <Text style={[styles.heroSubheading, { color: theme.textMuted }]}>
-                Used by our 55% Content-Based + 45% Collaborative Hybrid Engine.
+                Personalize your proportions and skin tone for flattering outfit pairings.
               </Text>
             </View>
 
@@ -551,21 +668,21 @@ export default function OnboardingScreen({
                       styles.genderButton,
                       {
                         backgroundColor:
-                          gender === 'male' ? theme.secondaryAccent : theme.background,
+                          gender === 'male' ? primaryForest : theme.background,
                         borderColor:
-                          gender === 'male' ? theme.secondaryAccent : theme.border,
+                          gender === 'male' ? primaryForest : theme.border,
                       },
                     ]}
                   >
                     <Ionicons
                       name="man"
                       size={16}
-                      color={gender === 'male' ? theme.onAccent : theme.text}
+                      color={gender === 'male' ? lightIvory : theme.text}
                     />
                     <Text
                       style={[
                         styles.genderButtonText,
-                        { color: gender === 'male' ? theme.onAccent : theme.text },
+                        { color: gender === 'male' ? lightIvory : theme.text },
                       ]}
                     >
                       Male
@@ -578,21 +695,21 @@ export default function OnboardingScreen({
                       styles.genderButton,
                       {
                         backgroundColor:
-                          gender === 'female' ? theme.secondaryAccent : theme.background,
+                          gender === 'female' ? primaryForest : theme.background,
                         borderColor:
-                          gender === 'female' ? theme.secondaryAccent : theme.border,
+                          gender === 'female' ? primaryForest : theme.border,
                       },
                     ]}
                   >
                     <Ionicons
                       name="woman"
                       size={16}
-                      color={gender === 'female' ? theme.onAccent : theme.text}
+                      color={gender === 'female' ? lightIvory : theme.text}
                     />
                     <Text
                       style={[
                         styles.genderButtonText,
-                        { color: gender === 'female' ? theme.onAccent : theme.text },
+                        { color: gender === 'female' ? lightIvory : theme.text },
                       ]}
                     >
                       Female
@@ -600,10 +717,11 @@ export default function OnboardingScreen({
                   </Pressable>
                 </View>
 
-                <Text style={[styles.miniSectionLabel, { color: theme.textMuted, marginTop: 6 }]}>
-                  PROPORTIONS
+                <Text style={[styles.miniSectionLabel, { color: theme.textMuted, marginTop: 4 }]}>
+                  PROPORTIONS (TAP TO TYPE)
                 </Text>
                 <View style={styles.measurementsRow}>
+                  {/* Direct Numeric Input Card for Height */}
                   <View
                     style={[
                       styles.measurementCard,
@@ -615,23 +733,41 @@ export default function OnboardingScreen({
                     </Text>
                     <View style={styles.stepperControlRow}>
                       <Pressable
-                        onPress={() => stepValue(heightCm, -1, 140, 210, setHeightCm)}
+                        onPress={() => stepValue(heightCm, -1, 120, 230, setHeightCm)}
                         style={[styles.stepperCircleBtn, { backgroundColor: theme.badgeBg }]}
                       >
-                        <Ionicons name="remove" size={16} color={theme.text} />
+                        <Ionicons name="remove" size={15} color={theme.text} />
                       </Pressable>
-                      <Text style={[styles.measurementValueText, { color: theme.text }]}>
-                        {heightCm} cm
-                      </Text>
+
+                      <View style={[styles.numericInputBox, { borderColor: theme.border }]}>
+                        <TextInput
+                          value={heightCm}
+                          onChangeText={(txt) => handleDirectNumericChange(txt, setHeightCm)}
+                          onBlur={() =>
+                            normalizeNumericField(heightCm, 120, 230, 168, setHeightCm)
+                          }
+                          keyboardType="numeric"
+                          maxLength={3}
+                          selectTextOnFocus
+                          style={[styles.numericInputText, { color: theme.text }]}
+                          placeholder="168"
+                          placeholderTextColor={theme.textMuted}
+                        />
+                        <Text style={[styles.numericUnitLabel, { color: theme.textMuted }]}>
+                          cm
+                        </Text>
+                      </View>
+
                       <Pressable
-                        onPress={() => stepValue(heightCm, 1, 140, 210, setHeightCm)}
+                        onPress={() => stepValue(heightCm, 1, 120, 230, setHeightCm)}
                         style={[styles.stepperCircleBtn, { backgroundColor: theme.badgeBg }]}
                       >
-                        <Ionicons name="add" size={16} color={theme.text} />
+                        <Ionicons name="add" size={15} color={theme.text} />
                       </Pressable>
                     </View>
                   </View>
 
+                  {/* Direct Numeric Input Card for Weight */}
                   <View
                     style={[
                       styles.measurementCard,
@@ -643,28 +779,45 @@ export default function OnboardingScreen({
                     </Text>
                     <View style={styles.stepperControlRow}>
                       <Pressable
-                        onPress={() => stepValue(weightKg, -1, 38, 140, setWeightKg)}
+                        onPress={() => stepValue(weightKg, -1, 30, 180, setWeightKg)}
                         style={[styles.stepperCircleBtn, { backgroundColor: theme.badgeBg }]}
                       >
-                        <Ionicons name="remove" size={16} color={theme.text} />
+                        <Ionicons name="remove" size={15} color={theme.text} />
                       </Pressable>
-                      <Text style={[styles.measurementValueText, { color: theme.text }]}>
-                        {weightKg} kg
-                      </Text>
+
+                      <View style={[styles.numericInputBox, { borderColor: theme.border }]}>
+                        <TextInput
+                          value={weightKg}
+                          onChangeText={(txt) => handleDirectNumericChange(txt, setWeightKg)}
+                          onBlur={() =>
+                            normalizeNumericField(weightKg, 30, 180, 58, setWeightKg)
+                          }
+                          keyboardType="numeric"
+                          maxLength={3}
+                          selectTextOnFocus
+                          style={[styles.numericInputText, { color: theme.text }]}
+                          placeholder="58"
+                          placeholderTextColor={theme.textMuted}
+                        />
+                        <Text style={[styles.numericUnitLabel, { color: theme.textMuted }]}>
+                          kg
+                        </Text>
+                      </View>
+
                       <Pressable
-                        onPress={() => stepValue(weightKg, 1, 38, 140, setWeightKg)}
+                        onPress={() => stepValue(weightKg, 1, 30, 180, setWeightKg)}
                         style={[styles.stepperCircleBtn, { backgroundColor: theme.badgeBg }]}
                       >
-                        <Ionicons name="add" size={16} color={theme.text} />
+                        <Ionicons name="add" size={15} color={theme.text} />
                       </Pressable>
                     </View>
                   </View>
                 </View>
 
-                <Text style={[styles.miniSectionLabel, { color: theme.textMuted, marginTop: 6 }]}>
-                  SKIN UNDERTONE (CIELAB COLOR HARMONY)
+                <Text style={[styles.miniSectionLabel, { color: theme.textMuted, marginTop: 4 }]}>
+                  SKIN UNDERTONE
                 </Text>
-                <View style={styles.oneRowPills}>
+                <View style={styles.undertoneCardsRow}>
                   {UNDERTONE_OPTIONS.map((ut) => {
                     const isActive = undertone === ut.id;
                     return (
@@ -672,21 +825,42 @@ export default function OnboardingScreen({
                         key={ut.id}
                         onPress={() => setUndertone(ut.id)}
                         style={[
-                          styles.compactPill,
+                          styles.undertoneCard,
                           {
-                            borderColor: isActive ? theme.secondaryAccent : theme.border,
-                            backgroundColor: isActive ? theme.secondaryAccent : theme.background,
+                            borderColor: isActive ? primaryForest : theme.border,
+                            backgroundColor: isActive ? primaryForest : theme.background,
                           },
                         ]}
                       >
+                        <View style={styles.undertoneTopRow}>
+                          <View
+                            style={[
+                              styles.undertoneSwatchDot,
+                              { backgroundColor: ut.swatch },
+                            ]}
+                          />
+                          <Text
+                            style={[
+                              styles.undertoneTitleText,
+                              { color: isActive ? lightIvory : theme.text },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {ut.label}
+                          </Text>
+                        </View>
                         <Text
                           style={[
-                            styles.compactPillText,
-                            { color: isActive ? theme.onAccent : theme.text },
+                            styles.undertoneDescText,
+                            {
+                              color: isActive
+                                ? 'rgba(243, 241, 239, 0.8)'
+                                : theme.textMuted,
+                            },
                           ]}
                           numberOfLines={1}
                         >
-                          {ut.label}
+                          {ut.desc}
                         </Text>
                       </Pressable>
                     );
@@ -697,20 +871,20 @@ export default function OnboardingScreen({
           </View>
         )}
 
-        {/* ================= STEP 4 (page === 3): CIELAB COLOR-THEORY PALETTES (2x2 GRID) ================= */}
+        {/* ================= STEP 4 (page === 3): COLOR PALETTES (PDF Page 5) ================= */}
         {page === 3 && (
           <View style={styles.stepBody}>
             <View>
               <Text style={[styles.heroHeading, { color: theme.text }]}>
-                CIELAB Color-Harmony Palettes
+                Your Color Palettes
               </Text>
               <Text style={[styles.heroSubheading, { color: theme.textMuted }]}>
-                Select palettes that anchor your wardrobe and skin undertone ({undertone}).
+                Select the color families that best match your personal style ({undertone} undertone).
               </Text>
             </View>
 
             <View style={styles.palettes2x2Grid}>
-              {CIELAB_PALETTES.map((pal) => {
+              {COLOR_PALETTES.map((pal) => {
                 const isSelected = selectedPalettes.includes(pal.name);
                 const isSkinMatch = isPaletteMatchedToUndertone(pal);
 
@@ -723,20 +897,32 @@ export default function OnboardingScreen({
                     style={[
                       styles.palette2x2Card,
                       {
-                        backgroundColor: theme.surface,
-                        borderColor: isSelected ? theme.secondaryAccent : theme.border,
+                        backgroundColor: isSelected ? activeBgTint : theme.surface,
+                        borderColor: isSelected ? activeBorder : theme.border,
+                        borderWidth: isSelected ? 1.5 : 1,
                       },
                     ]}
                   >
+                    {/* Connected Editorial Color Strip at Top of Card */}
+                    <View style={styles.paletteStripBar}>
+                      {pal.colors.map((c, i) => (
+                        <View
+                          key={i}
+                          style={[styles.paletteStripSegment, { backgroundColor: c }]}
+                        />
+                      ))}
+                    </View>
+
                     {isSkinMatch && (
                       <View
                         style={[
                           styles.skinMatchBadge,
-                          { backgroundColor: theme.badgeBg },
+                          { backgroundColor: primaryForest },
                         ]}
                       >
-                        <Text style={[styles.skinMatchBadgeText, { color: theme.text }]}>
-                          ✨ Matched to Your Undertone
+                        <Ionicons name="sparkles" size={10} color={lightIvory} />
+                        <Text style={[styles.skinMatchBadgeText, { color: lightIvory }]}>
+                          Best for {undertone}
                         </Text>
                       </View>
                     )}
@@ -746,18 +932,18 @@ export default function OnboardingScreen({
                         style={[styles.palette2x2Name, { color: theme.text }]}
                         numberOfLines={2}
                       >
-                        {pal.name}
+                        {pal.displayName}
                       </Text>
                       <Ionicons
                         name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
                         size={20}
-                        color={isSelected ? theme.secondaryAccent : theme.border}
+                        color={isSelected ? accentRed : theme.border}
                       />
                     </View>
 
                     <Text
                       style={[styles.palette2x2Sub, { color: theme.textMuted }]}
-                      numberOfLines={1}
+                      numberOfLines={2}
                     >
                       {pal.description}
                     </Text>
@@ -776,7 +962,7 @@ export default function OnboardingScreen({
                                 c.toUpperCase() === '#FDFBF7' ||
                                 c.toUpperCase() === '#F5F0E6'
                                   ? '#CBD5E1'
-                                  : 'transparent',
+                                  : 'rgba(0,0,0,0.08)',
                             },
                           ]}
                         />
@@ -789,7 +975,7 @@ export default function OnboardingScreen({
           </View>
         )}
 
-        {/* ================= STEP 5 (page === 4): COMPACT 2-COLUMN TEXTURES & STYLES ================= */}
+        {/* ================= STEP 5 (page === 4): TEXTURES & STYLES (PDF Page 6) ================= */}
         {page === 4 && (
           <View style={styles.stepBody}>
             <View>
@@ -803,7 +989,7 @@ export default function OnboardingScreen({
 
             <View style={{ gap: 10 }}>
               <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>
-                TEXTURE PREFERENCE (2-COL)
+                TEXTURE PREFERENCE
               </Text>
               <View style={styles.twoColGrid}>
                 {TEXTURE_OPTIONS.map((item) => {
@@ -817,15 +1003,15 @@ export default function OnboardingScreen({
                       style={[
                         styles.twoColChip,
                         {
-                          backgroundColor: theme.surface,
-                          borderColor: isSelected ? theme.secondaryAccent : theme.border,
+                          backgroundColor: isSelected ? activeBgTint : theme.surface,
+                          borderColor: isSelected ? activeBorder : theme.border,
                         },
                       ]}
                     >
                       <Ionicons
                         name={item.icon as any}
                         size={16}
-                        color={isSelected ? theme.text : theme.textMuted}
+                        color={isSelected ? (isDark ? lightIvory : primaryForest) : theme.textMuted}
                       />
                       <Text
                         style={[
@@ -837,7 +1023,7 @@ export default function OnboardingScreen({
                         {item.label}
                       </Text>
                       {isSelected && (
-                        <Ionicons name="checkmark-circle" size={15} color={theme.secondaryAccent} />
+                        <Ionicons name="checkmark-circle" size={15} color={accentRed} />
                       )}
                     </Pressable>
                   );
@@ -845,7 +1031,7 @@ export default function OnboardingScreen({
               </View>
 
               <Text style={[styles.sectionTitle, { color: theme.textMuted, marginTop: 4 }]}>
-                PREFERRED STYLES (2-COL)
+                PREFERRED STYLES
               </Text>
               <View style={styles.twoColGrid}>
                 {STYLE_OPTIONS.map((item) => {
@@ -859,15 +1045,15 @@ export default function OnboardingScreen({
                       style={[
                         styles.twoColChip,
                         {
-                          backgroundColor: theme.surface,
-                          borderColor: isSelected ? theme.secondaryAccent : theme.border,
+                          backgroundColor: isSelected ? activeBgTint : theme.surface,
+                          borderColor: isSelected ? activeBorder : theme.border,
                         },
                       ]}
                     >
                       <Ionicons
                         name={item.icon as any}
                         size={16}
-                        color={isSelected ? theme.text : theme.textMuted}
+                        color={isSelected ? (isDark ? lightIvory : primaryForest) : theme.textMuted}
                       />
                       <Text
                         style={[
@@ -879,7 +1065,7 @@ export default function OnboardingScreen({
                         {item.label}
                       </Text>
                       {isSelected && (
-                        <Ionicons name="checkmark-circle" size={15} color={theme.secondaryAccent} />
+                        <Ionicons name="checkmark-circle" size={15} color={accentRed} />
                       )}
                     </Pressable>
                   );
@@ -889,7 +1075,7 @@ export default function OnboardingScreen({
           </View>
         )}
 
-        {/* ================= STEP 6 (page === 5): COMPACT 2-COLUMN OCCASIONS & FIT ================= */}
+        {/* ================= STEP 6 (page === 5): OCCASIONS & FIT (PDF Page 7) ================= */}
         {page === 5 && (
           <View style={styles.stepBody}>
             <View>
@@ -903,7 +1089,7 @@ export default function OnboardingScreen({
 
             <View style={{ gap: 10 }}>
               <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>
-                COMMON OCCASIONS (2-COL)
+                COMMON OCCASIONS
               </Text>
               <View style={styles.twoColGrid}>
                 {OCCASION_OPTIONS.map((item) => {
@@ -917,8 +1103,8 @@ export default function OnboardingScreen({
                       style={[
                         styles.twoColChip,
                         {
-                          backgroundColor: theme.surface,
-                          borderColor: isSelected ? theme.secondaryAccent : theme.border,
+                          backgroundColor: isSelected ? activeBgTint : theme.surface,
+                          borderColor: isSelected ? activeBorder : theme.border,
                         },
                       ]}
                     >
@@ -933,7 +1119,7 @@ export default function OnboardingScreen({
                         {item.label}
                       </Text>
                       {isSelected && (
-                        <Ionicons name="checkmark-circle" size={15} color={theme.secondaryAccent} />
+                        <Ionicons name="checkmark-circle" size={15} color={accentRed} />
                       )}
                     </Pressable>
                   );
@@ -953,21 +1139,33 @@ export default function OnboardingScreen({
                       style={[
                         styles.fitCompactCard,
                         {
-                          backgroundColor: theme.surface,
-                          borderColor: isSelected ? theme.secondaryAccent : theme.border,
+                          backgroundColor: isSelected ? primaryForest : theme.surface,
+                          borderColor: isSelected ? primaryForest : theme.border,
                         },
                       ]}
                     >
                       <Ionicons
                         name={fit.icon as any}
                         size={18}
-                        color={isSelected ? theme.text : theme.textMuted}
+                        color={isSelected ? lightIvory : theme.textMuted}
                       />
-                      <Text style={[styles.fitTitleText, { color: theme.text }]}>
+                      <Text
+                        style={[
+                          styles.fitTitleText,
+                          { color: isSelected ? lightIvory : theme.text },
+                        ]}
+                      >
                         {fit.title}
                       </Text>
                       <Text
-                        style={[styles.fitSubText, { color: theme.textMuted }]}
+                        style={[
+                          styles.fitSubText,
+                          {
+                            color: isSelected
+                              ? 'rgba(243, 241, 239, 0.78)'
+                              : theme.textMuted,
+                          },
+                        ]}
                         numberOfLines={1}
                       >
                         {fit.description}
@@ -997,13 +1195,16 @@ export default function OnboardingScreen({
             <Pressable
               disabled={busy}
               onPress={handleNext}
-              style={[styles.nextBtn, { backgroundColor: theme.secondaryAccent }]}
+              style={[
+                styles.nextBtn,
+                { backgroundColor: page === totalPages - 1 ? accentRed : primaryForest },
+              ]}
             >
               {busy ? (
-                <ActivityIndicator color={theme.onAccent} />
+                <ActivityIndicator color={lightIvory} />
               ) : (
-                <Text style={[styles.nextBtnText, { color: theme.onAccent }]}>
-                  {page === totalPages - 1 ? 'Complete Setup →' : 'Next →'}
+                <Text style={[styles.nextBtnText, { color: lightIvory }]}>
+                  {page === totalPages - 1 ? 'Complete Setup →' : 'Continue →'}
                 </Text>
               )}
             </Pressable>
@@ -1025,7 +1226,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   topHeader: {
-    gap: 6,
+    gap: 8,
   },
   progressSegments: {
     flexDirection: 'row',
@@ -1043,24 +1244,53 @@ const styles = StyleSheet.create({
   },
   stepBadgeText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: 1,
   },
-  zeroScrollTag: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  melCompactHeader: {
+  melCompanionBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 16,
     borderWidth: 1,
-    gap: 8,
+    gap: 10,
   },
-  melBubbleWrap: {
+  melAvatarCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(243, 241, 239, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  melCompanionTextCol: {
     flex: 1,
+    gap: 2,
+  },
+  melCompanionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  melDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#E83E35',
+  },
+  melCompanionLabel: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 1,
+    color: 'rgba(243, 241, 239, 0.75)',
+  },
+  melCompanionMessage: {
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '600',
+    color: '#F3F1EF',
   },
   step1CenterStage: {
     flex: 1,
@@ -1071,10 +1301,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    marginTop: 6,
+    marginTop: 4,
   },
-  step1SpeechWrap: {
-    width: '100%',
+  heroBackdropRing: {
+    width: 158,
+    height: 158,
+    borderRadius: 79,
+    backgroundColor: 'rgba(54, 69, 54, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(54, 69, 54, 0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#364536',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  brandBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#E83E35',
+  },
+  brandBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    color: '#F3F1EF',
   },
   step1TitleWrap: {
     alignItems: 'center',
@@ -1082,7 +1340,7 @@ const styles = StyleSheet.create({
   },
   step1Title: {
     fontSize: 23,
-    fontWeight: '700',
+    fontWeight: '800',
     textAlign: 'center',
     letterSpacing: -0.4,
   },
@@ -1090,43 +1348,62 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     textAlign: 'center',
-    marginTop: 6,
+    marginTop: 5,
   },
-  visualPillsRow: {
-    flexDirection: 'row',
+  editorialFeaturesStack: {
     gap: 8,
-    justifyContent: 'space-between',
   },
-  visualFeaturePill: {
-    flex: 1,
+  editorialFeatureCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 11,
+    paddingHorizontal: 13,
+    borderRadius: 15,
+    borderWidth: 1,
+    gap: 12,
+  },
+  editorialFeatureIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 6,
-    borderRadius: 14,
-    borderWidth: 1,
-    gap: 4,
   },
-  visualPillEmoji: {
-    fontSize: 20,
+  editorialFeatureTextWrap: {
+    flex: 1,
+    gap: 2,
   },
-  visualPillLabel: {
-    fontSize: 11,
+  editorialFeatureTitle: {
+    fontSize: 13.5,
     fontWeight: '700',
-    textAlign: 'center',
+    letterSpacing: -0.1,
+  },
+  editorialFeatureSub: {
+    fontSize: 11.5,
+    fontWeight: '500',
   },
   step1ActionsWrap: {
     gap: 10,
   },
   startProfileBtn: {
-    height: 48,
-    borderRadius: 14,
+    height: 50,
+    borderRadius: 15,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 10,
   },
   startProfileBtnText: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  startBtnArrowBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#E83E35',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   signInLinkBtn: {
     paddingVertical: 6,
@@ -1143,12 +1420,12 @@ const styles = StyleSheet.create({
   },
   heroHeading: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: -0.3,
   },
   heroSubheading: {
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 12.5,
+    lineHeight: 17,
     marginTop: 2,
   },
   ageBracketsStack: {
@@ -1159,7 +1436,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderRadius: 14,
-    borderWidth: 1,
     gap: 12,
   },
   ageIconCircle: {
@@ -1176,7 +1452,7 @@ const styles = StyleSheet.create({
   },
   ageRangeText: {
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   ageTitleText: {
     fontSize: 12,
@@ -1193,7 +1469,7 @@ const styles = StyleSheet.create({
   },
   tagPill: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '700',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -1247,41 +1523,72 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
+    gap: 4,
   },
   stepperCircleBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  measurementValueText: {
-    fontSize: 14,
-    fontWeight: '700',
+  numericInputBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomWidth: 1.5,
+    paddingBottom: 2,
+    gap: 2,
+  },
+  numericInputText: {
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+    minWidth: 34,
+    paddingVertical: 0,
+  },
+  numericUnitLabel: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   miniSectionLabel: {
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.8,
   },
-  oneRowPills: {
+  undertoneCardsRow: {
     flexDirection: 'row',
     gap: 8,
   },
-  compactPill: {
+  undertoneCard: {
     flex: 1,
-    height: 36,
-    borderRadius: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    borderRadius: 12,
     borderWidth: 1,
+    alignItems: 'center',
+    gap: 3,
+  },
+  undertoneTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingHorizontal: 6,
+    gap: 6,
   },
-  compactPillText: {
-    fontSize: 11,
-    fontWeight: '600',
+  undertoneSwatchDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.45)',
+  },
+  undertoneTitleText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  undertoneDescText: {
+    fontSize: 9.5,
+    fontWeight: '500',
   },
   palettes2x2Grid: {
     flexDirection: 'row',
@@ -1291,16 +1598,29 @@ const styles = StyleSheet.create({
   },
   palette2x2Card: {
     width: '48.2%',
-    padding: 12,
+    padding: 11,
     borderRadius: 14,
-    borderWidth: 1,
     gap: 6,
+    overflow: 'hidden',
+  },
+  paletteStripBar: {
+    flexDirection: 'row',
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 2,
+  },
+  paletteStripSegment: {
+    flex: 1,
   },
   skinMatchBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     alignSelf: 'flex-start',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 999,
+    gap: 4,
   },
   skinMatchBadgeText: {
     fontSize: 9,
@@ -1314,21 +1634,22 @@ const styles = StyleSheet.create({
   },
   palette2x2Name: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
   },
   palette2x2Sub: {
-    fontSize: 10,
+    fontSize: 10.5,
+    lineHeight: 14,
   },
   swatchCirclesRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 4,
+    gap: 7,
+    marginTop: 2,
   },
   swatchCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     borderWidth: 1,
   },
   sectionTitle: {
@@ -1375,7 +1696,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   fitSubText: {
-    fontSize: 9,
+    fontSize: 9.5,
     textAlign: 'center',
   },
   bottomBar: {

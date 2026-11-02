@@ -44,9 +44,9 @@ export default function BottomTabNavigator() {
   const isDark = theme.mode === 'dark';
 
   const navSurface = isDark ? theme.surface : '#FFFFFF';
-  const activeColor = isDark ? '#FBF5A7' : '#24152C';
-  const inactiveColor = isDark ? '#DECFE8' : '#4B1D6F';
-  const activePillBg = isDark ? '#4B1D6F' : '#DECFE8';
+  const activeColor = isDark ? '#F3F1EF' : '#364536';
+  const inactiveColor = isDark ? '#9CA3AF' : '#6E766E';
+  const activePillBg = isDark ? 'rgba(54, 69, 54, 0.55)' : '#E8ECE8';
 
   return (
     <Tab.Navigator
@@ -149,23 +149,23 @@ export default function BottomTabNavigator() {
                   style={[
                     styles.centerBadge,
                     {
-                      backgroundColor: '#FBF5A7',
-                      borderColor: isDark ? '#FDD78B' : '#DECFE8',
-                      shadowColor: '#24152C',
+                      backgroundColor: isFocused ? '#E83E35' : '#364536',
+                      borderColor: isDark ? '#2E2E33' : '#F3F1EF',
+                      shadowColor: '#364536',
                     },
                   ]}
                 >
                   <Ionicons
                     name={isFocused ? 'sparkles' : 'sparkles-outline'}
-                    size={22}
-                    color="#24152C"
+                    size={21}
+                    color="#F3F1EF"
                   />
                 </View>
                 <Text
                   style={[
                     styles.centerLabel,
                     {
-                      color: isFocused ? activeColor : inactiveColor,
+                      color: isFocused ? (isDark ? '#E83E35' : '#364536') : inactiveColor,
                     },
                   ]}
                 >

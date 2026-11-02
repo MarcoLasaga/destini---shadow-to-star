@@ -36,6 +36,7 @@ export default function ConfirmDialogModal({
   onCancel,
 }: ConfirmDialogModalProps) {
   const theme = useAppTheme();
+  const isDark = theme.mode === 'dark';
 
   if (!visible) return null;
 
@@ -53,39 +54,27 @@ export default function ConfirmDialogModal({
   const isDanger = variant === 'danger';
   const isModeration = variant === 'moderation';
 
-  // Official StyleSense palette matching:
-  // Dark: Surface #2E1B38, Border #4B1D6F, Title #FDF3D2, Message #DECFE8, CTA #FBF5A7 w/ #24152C text
-  // Light: Surface #FFFFFF, Border #DECFE8, Title #24152C, Message #4B1D6F, CTA #24152C w/ #FBF5A7 text
   const surfaceBg = theme.surface;
   const borderColor = theme.border;
   const titleColor = theme.text;
-  const messageColor = theme.mode === 'dark' ? '#DECFE8' : '#4B1D6F';
+  const messageColor = theme.textMuted;
 
   const iconBg = isDanger
-    ? '#E5484D1A'
+    ? 'rgba(232, 62, 53, 0.14)'
     : isModeration
-    ? (theme.mode === 'dark' ? '#FDD78B22' : '#DECFE855')
-    : theme.mode === 'dark'
-    ? '#4B1D6F44'
-    : '#DECFE844';
+    ? 'rgba(54, 69, 54, 0.16)'
+    : isDark
+    ? 'rgba(54, 69, 54, 0.35)'
+    : '#EBF0EB';
 
   const iconColor = isDanger
-    ? '#E5484D'
+    ? '#E83E35'
     : isModeration
-    ? (theme.mode === 'dark' ? '#FDD78B' : '#4B1D6F')
-    : theme.secondaryAccent;
+    ? (isDark ? '#F3F1EF' : '#364536')
+    : (isDark ? '#F3F1EF' : '#364536');
 
-  const confirmBg = isDanger
-    ? '#E5484D'
-    : theme.mode === 'dark'
-    ? '#FBF5A7'
-    : '#24152C';
-
-  const confirmTextColor = isDanger
-    ? '#FFFFFF'
-    : theme.mode === 'dark'
-    ? '#24152C'
-    : '#FBF5A7';
+  const confirmBg = isDanger ? '#E83E35' : '#364536';
+  const confirmTextColor = '#F3F1EF';
 
   return (
     <Modal
@@ -107,7 +96,7 @@ export default function ConfirmDialogModal({
         >
           {/* Icon Bubble */}
           <View style={[styles.iconWrap, { backgroundColor: iconBg }]}>
-            <Ionicons name={resolvedIcon} size={28} color={iconColor} />
+            <Ionicons name={resolvedIcon} size={26} color={iconColor} />
           </View>
 
           {/* Title & Message */}
@@ -116,7 +105,7 @@ export default function ConfirmDialogModal({
             <Text style={[styles.message, { color: messageColor }]}>{message}</Text>
           </View>
 
-          {/* Action Buttons */}
+          {/* Redesigned Balanced Action Buttons (PDF Page 11) */}
           <View style={[styles.buttonRow, !showCancel && styles.singleButtonRow]}>
             {showCancel && (
               <Pressable
@@ -126,13 +115,18 @@ export default function ConfirmDialogModal({
                   styles.button,
                   styles.cancelButton,
                   {
-                    borderColor,
-                    backgroundColor: theme.mode === 'dark' ? '#24152C55' : '#FDF3D244',
+                    borderColor: isDark ? '#3F3F46' : '#D4D4D8',
+                    backgroundColor: isDark ? '#27272A' : '#F3F1EF',
                     opacity: pressed ? 0.75 : 1,
                   },
                 ]}
               >
-                <Text style={[styles.cancelText, { color: theme.text }]}>{cancelText}</Text>
+                <Text
+                  style={[styles.cancelText, { color: isDark ? '#F3F1EF' : '#18181B' }]}
+                  numberOfLines={1}
+                >
+                  {cancelText}
+                </Text>
               </Pressable>
             )}
 
@@ -144,7 +138,7 @@ export default function ConfirmDialogModal({
                 styles.confirmButton,
                 {
                   backgroundColor: confirmBg,
-                  flex: showCancel ? 1 : undefined,
+                  flex: showCancel ? 1.25 : undefined,
                   width: showCancel ? undefined : '100%',
                   opacity: loading ? 0.7 : pressed ? 0.85 : 1,
                 },
@@ -153,7 +147,11 @@ export default function ConfirmDialogModal({
               {loading ? (
                 <ActivityIndicator size="small" color={confirmTextColor} />
               ) : (
-                <Text style={[styles.confirmText, { color: confirmTextColor }]}>
+                <Text
+                  style={[styles.confirmText, { color: confirmTextColor }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
                   {confirmText}
                 </Text>
               )}
@@ -168,32 +166,32 @@ export default function ConfirmDialogModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(15, 10, 20, 0.72)',
+    backgroundColor: 'rgba(18, 18, 20, 0.72)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
   },
   card: {
-    width: Math.min(340, width - 40),
+    width: Math.min(348, width - 36),
     borderRadius: 24,
-    borderWidth: 1.5,
-    paddingHorizontal: 22,
+    borderWidth: 1,
+    paddingHorizontal: 20,
     paddingTop: 24,
     paddingBottom: 20,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.22,
     shadowRadius: 18,
     elevation: 8,
   },
   iconWrap: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   textWrap: {
     alignItems: 'center',
@@ -222,11 +220,11 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   button: {
-    height: 44,
-    borderRadius: 14,
+    height: 48,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
   },
   cancelButton: {
     flex: 1,
@@ -234,19 +232,18 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   confirmButton: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.14,
+    shadowRadius: 6,
+    elevation: 3,
   },
   confirmText: {
     fontSize: 14,
     fontWeight: '700',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
   },
 });
-

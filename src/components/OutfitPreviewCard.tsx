@@ -44,12 +44,12 @@ export default function OutfitPreviewCard({
     const wasSaved = !!outfit.saved;
     toggleSave(outfit.id);
     submitPreferenceEvent(outfit.id, 'LIKE');
-    showToast(wasSaved ? 'Removed from saved outfits.' : '♡ Liked & saved to your outfits!');
+    showToast(wasSaved ? 'Removed from saved outfits.' : 'Liked & saved to your outfits!');
   };
 
   return (
     <Animated.View entering={FadeInDown.duration(350)} style={styles.cardWrapper}>
-      {/* 2-COLUMN TOP-TO-BOTTOM SPATIAL OUTFIT BOARD CARD */}
+      {/* 2-COLUMN TOP-TO-BOTTOM SPATITIAL OUTFIT BOARD CARD */}
       <OutfitCollageBoard
         outfit={outfit}
         index={index}
@@ -65,7 +65,7 @@ export default function OutfitPreviewCard({
         ]}
       >
         <View style={styles.leftIconRow}>
-          {/* ♡ Like / Save */}
+          {/* Like / Save */}
           <Pressable
             onPress={handleLikeOrSave}
             style={({ pressed }) => [
@@ -85,7 +85,7 @@ export default function OutfitPreviewCard({
             />
           </Pressable>
 
-          {/* ✏️ Edit / Swap pieces */}
+          {/* Edit / Swap pieces */}
           <Pressable
             onPress={() => setEditTrigger((prev) => prev + 1)}
             style={({ pressed }) => [
@@ -101,11 +101,11 @@ export default function OutfitPreviewCard({
             <Ionicons name="pencil-outline" size={18} color={theme.text} />
           </Pressable>
 
-          {/* 👎 Dislike */}
+          {/* Dislike */}
           <Pressable
             onPress={() => {
               submitPreferenceEvent(outfit.id, 'DISLIKE');
-              showToast('👎 Preference saved!');
+              showToast('Preference saved!');
             }}
             style={({ pressed }) => [
               styles.iconButton,
@@ -124,7 +124,7 @@ export default function OutfitPreviewCard({
             />
           </Pressable>
 
-          {/* ✈️ Share to Community */}
+          {/* Share to Community */}
           <Pressable
             onPress={() => setShareVisible(true)}
             style={({ pressed }) => [

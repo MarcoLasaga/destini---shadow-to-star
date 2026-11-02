@@ -109,7 +109,6 @@ function extractZoneRgbFromBase64(
   const n3 = (sumC / count) % 1;
 
   if (zone === 'skin') {
-    // Map to realistic human skin tone CIE gamut
     const r = Math.round(175 + ((sumA % 75) + n1 * 10));
     const g = Math.round(125 + ((sumB % 85) + n2 * 8));
     const b = Math.round(90 + ((sumC % 95) + n3 * 8));
@@ -119,7 +118,6 @@ function extractZoneRgbFromBase64(
       Math.max(70, Math.min(210, b)),
     ];
   } else {
-    // Map to realistic hair color gamut
     const r = Math.round(24 + (sumA % 145));
     const g = Math.round(18 + (sumB % 105));
     const b = Math.round(15 + (sumC % 75));
@@ -319,7 +317,10 @@ export default function CameraSkinScanModal({
           {/* Header */}
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.title}>📸 AI Face & Skin-Tone Scan</Text>
+              <View style={styles.titleRow}>
+                <Ionicons name="camera-outline" size={18} color="#1C1917" />
+                <Text style={styles.title}>AI Face & Skin-Tone Scan</Text>
+              </View>
               <Text style={styles.subtitle}>
                 Align your face & hair inside the oval guide for CIELAB matching
               </Text>
@@ -414,9 +415,9 @@ export default function CameraSkinScanModal({
             <View style={styles.lightingRow}>
               {(
                 [
-                  { id: 'daylight', label: '☀️ Natural Light' },
-                  { id: 'indoor', label: '💡 Warm Indoor' },
-                  { id: 'cool', label: '❄️ Cool Studio' },
+                  { id: 'daylight', label: 'Natural Light', icon: 'sunny-outline' },
+                  { id: 'indoor', label: 'Warm Indoor', icon: 'bulb-outline' },
+                  { id: 'cool', label: 'Cool Studio', icon: 'snow-outline' },
                 ] as const
               ).map((lt) => {
                 const active = lightingPreset === lt.id;
@@ -426,6 +427,11 @@ export default function CameraSkinScanModal({
                     onPress={() => setLightingPreset(lt.id)}
                     style={[styles.lightChip, active && styles.lightChipActive]}
                   >
+                    <Ionicons
+                      name={lt.icon}
+                      size={11}
+                      color={active ? '#FFFFFF' : '#D1FAE5'}
+                    />
                     <Text style={[styles.lightChipText, active && styles.lightChipTextActive]}>
                       {lt.label}
                     </Text>
@@ -439,7 +445,7 @@ export default function CameraSkinScanModal({
           <View style={styles.privacyBanner}>
             <Ionicons name="lock-closed" size={13} color="#264C3B" />
             <Text style={styles.privacyText}>
-              🔒 Processed in memory only — photo is never saved
+              Processed in memory only — photo is never saved
             </Text>
           </View>
 
@@ -464,7 +470,10 @@ export default function CameraSkinScanModal({
                 </View>
 
                 <View style={styles.undertonePill}>
-                  <Text style={styles.undertoneText}>✨ {scanResult.undertone} Undertone</Text>
+                  <View style={styles.undertoneTitleRow}>
+                    <Ionicons name="sparkles" size={10} color="#166534" />
+                    <Text style={styles.undertoneText}>{scanResult.undertone} Undertone</Text>
+                  </View>
                   <Text style={styles.labSubtext}>
                     L*{scanResult.lab[0]} a*{scanResult.lab[1]} b*{scanResult.lab[2]}
                   </Text>
@@ -526,6 +535,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 10,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   title: {
     fontSize: 17,
     fontWeight: '900',
@@ -559,6 +573,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   lightChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 999,
@@ -637,6 +654,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#BBF7D0',
   },
+  undertoneTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   undertoneText: {
     fontSize: 10.5,
     fontWeight: '800',
@@ -682,4 +704,3 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
-

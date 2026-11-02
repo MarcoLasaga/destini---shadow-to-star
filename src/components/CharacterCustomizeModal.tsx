@@ -220,7 +220,7 @@ export default function CharacterCustomizeModal({
                 color="#264C3B"
               />
               <Text style={styles.zoomToggleText}>
-                {zoomMode === 'head' ? '🧍 Full Body' : '🔍 Zoom Face'}
+                {zoomMode === 'head' ? 'Full Body' : 'Zoom Face'}
               </Text>
             </Pressable>
 
@@ -244,16 +244,26 @@ export default function CharacterCustomizeModal({
               onPress={() => setActiveTab('hair')}
               style={[styles.tabBtn, activeTab === 'hair' && styles.tabBtnActive]}
             >
+              <Ionicons
+                name="cut-outline"
+                size={14}
+                color={activeTab === 'hair' ? '#FFFFFF' : '#657468'}
+              />
               <Text style={[styles.tabBtnText, activeTab === 'hair' && styles.tabBtnTextActive]}>
-                💇 Gender & Hair
+                Gender & Hair
               </Text>
             </Pressable>
             <Pressable
               onPress={() => setActiveTab('skin')}
               style={[styles.tabBtn, activeTab === 'skin' && styles.tabBtnActive]}
             >
+              <Ionicons
+                name="color-palette-outline"
+                size={14}
+                color={activeTab === 'skin' ? '#FFFFFF' : '#657468'}
+              />
               <Text style={[styles.tabBtnText, activeTab === 'skin' && styles.tabBtnTextActive]}>
-                🎨 Skin & Face
+                Skin & Face
               </Text>
             </Pressable>
           </View>
@@ -433,7 +443,7 @@ export default function CharacterCustomizeModal({
                 >
                   <Ionicons name="camera" size={17} color="#FFFFFF" />
                   <Text style={styles.cameraScanBtnText}>
-                    📸 Scan Skin Tone with Camera
+                    Scan Skin Tone with Camera
                   </Text>
                 </Pressable>
 
@@ -591,6 +601,8 @@ const styles = StyleSheet.create({
   },
   tabBtn: {
     flex: 1,
+    flexDirection: 'row',
+    gap: 5,
     paddingVertical: 8,
     borderRadius: 9,
     alignItems: 'center',

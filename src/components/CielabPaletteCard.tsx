@@ -28,34 +28,6 @@ export interface CielabPaletteCardProps {
   compact?: boolean;
 }
 
-/**
- * Derives an approximate CIELAB L* (perceptual lightness: 0 = black, 100 = diffuse white)
- * from an sRGB hex code using standard D65 standard illuminant formulas.
- */
-function deriveLstarFromHex(hex?: string): number {
-  if (!hex) return 50;
-  const clean = hex.replace('#', '').trim();
-  if (clean.length < 6) return 50;
-  const r = parseInt(clean.substring(0, 2), 16) / 255;
-  const g = parseInt(clean.substring(2, 4), 16) / 255;
-  const b = parseInt(clean.substring(4, 6), 16) / 255;
-
-  // Linearize sRGB
-  const toLinear = (c: number) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
-  const lr = toLinear(r);
-  const lg = toLinear(g);
-  const lb = toLinear(b);
-
-  // Standard D65 Luminance Y (scaled 0..100)
-  const y = (0.2126729 * lr + 0.7151522 * lg + 0.072175 * lb) * 100;
-  const yn = 100.0;
-  const yRatio = y / yn;
-
-  const fy = yRatio > 0.008856 ? Math.cbrt(yRatio) : 7.787 * yRatio + 16 / 116;
-  const lStar = 116 * fy - 16;
-  return Math.max(0, Math.min(100, Math.round(lStar)));
-}
-
 export default function CielabPaletteCard({
   palette,
   primaryColor,
@@ -81,13 +53,9 @@ export default function CielabPaletteCard({
 
   // Primary cluster (Cluster 0)
   const c0 = clusters[0];
-  const c0Hex = c0?.hex_code || primaryHex || '#264C3B';
+  const c0Hex = c0?.hex_code || primaryHex || '#364536';
   const c0Name = c0?.color_name || primaryColor || 'Primary';
   const c0Prop = typeof c0?.proportion === 'number' ? Math.round(c0.proportion * 100) : 82;
-  const c0Lstar =
-    Array.isArray(c0?.lab) && typeof c0.lab[0] === 'number'
-      ? Math.round(c0.lab[0])
-      : deriveLstarFromHex(c0Hex);
 
   // Secondary cluster (Cluster 1, shown if proportion >= 8% or explicitly provided)
   const c1 = clusters[1];
@@ -99,11 +67,15 @@ export default function CielabPaletteCard({
   const c1Name = c1?.color_name || secondaryColor || 'Secondary';
   const finalC1Prop = c1Prop ?? Math.max(12, 100 - c0Prop);
 
+  const cleanedHarmonyNote = harmonyNote
+    ? harmonyNote.replace(/CIELAB\s*K\s*=\s*2\s*:?\s*/gi, '').replace(/L\*=\d+/gi, '').trim()
+    : '';
+
   const resolvedHarmonyNote =
-    harmonyNote ||
+    cleanedHarmonyNote ||
     (showSecondary
-      ? `CIELAB K=2 Dual-Tone (${c0Name} Base + ${c1Name} Accent)`
-      : `CIELAB K=2 Calibrated Dominant L*=${c0Lstar}`);
+      ? `Dual-tone palette (${c0Name} base with ${c1Name} accent)`
+      : `Dominant ${c0Name.toLowerCase()} tone`);
 
   return (
     <View
@@ -119,14 +91,14 @@ export default function CielabPaletteCard({
       {/* Header */}
       <View style={styles.headerRow}>
         <Text style={[styles.headerTitle, { color: theme.text }]}>
-          🎨 Extracted CIELAB Palette (K = 2)
+          Detected Color Palette
         </Text>
       </View>
 
       {/* Cluster Pills Row */}
       <View style={styles.pillsRow}>
         {/* Primary Cluster Pill */}
-        <View style={[styles.pill, { borderColor: theme.border }]}>
+        <View style={[styles.pill, { borderColor: theme.border, backgroundColor: theme.background }]}>
           <View
             style={[
               styles.colorSwatch,
@@ -137,13 +109,13 @@ export default function CielabPaletteCard({
             ]}
           />
           <Text style={[styles.pillText, { color: theme.text }]}>
-            {c0Name} · {c0Prop}% · L*={c0Lstar}
+            {c0Name} · {c0Prop}%
           </Text>
         </View>
 
         {/* Secondary Cluster Pill */}
         {showSecondary && (
-          <View style={[styles.pill, { borderColor: theme.border }]}>
+          <View style={[styles.pill, { borderColor: theme.border, backgroundColor: theme.background }]}>
             <View
               style={[
                 styles.colorSwatch,
@@ -207,7 +179,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 20,
     borderWidth: 1,
-    backgroundColor: '#F8F9FA',
     gap: 6,
   },
   colorSwatch: {
@@ -222,7 +193,6 @@ const styles = StyleSheet.create({
   },
   harmonyNoteText: {
     fontSize: 10.5,
-    fontStyle: 'italic',
     lineHeight: 14,
     marginTop: 2,
   },

@@ -34,7 +34,7 @@ export default function GreetingHeader({
         <Text style={[styles.greeting, { color: theme.textMuted }]}>{getGreeting()}</Text>
         <View style={styles.nameRow}>
           <Text style={[styles.name, { color: theme.text }]}>{name}</Text>
-          <Text style={styles.sparkle}> ✨</Text>
+          <Ionicons name="sparkles" size={18} color={theme.accent} style={styles.sparkleIcon} />
         </View>
       </View>
 
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
   greeting: { fontSize: 15, marginBottom: 2 },
   nameRow: { flexDirection: 'row', alignItems: 'center' },
   name: { fontSize: 24, fontWeight: '700' },
-  sparkle: { fontSize: 18 },
+  sparkleIcon: { marginLeft: 6 },
   bellButton: {
     width: 44,
     height: 44,

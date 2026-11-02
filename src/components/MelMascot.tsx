@@ -120,8 +120,8 @@ export function MelMascot({
   useEffect(() => {
     bob.value = withRepeat(
       withSequence(
-        withTiming(-4, { duration: 1200, easing: Easing.inOut(Easing.quad) }),
-        withTiming(0, { duration: 1200, easing: Easing.inOut(Easing.quad) })
+        withTiming(-3, { duration: 1300, easing: Easing.inOut(Easing.quad) }),
+        withTiming(0, { duration: 1300, easing: Easing.inOut(Easing.quad) })
       ),
       -1,
       false
@@ -133,9 +133,9 @@ export function MelMascot({
     if (waving) {
       tilt.value = withRepeat(
         withSequence(
-          withTiming(-2.5, { duration: 320, easing: Easing.inOut(Easing.ease) }),
-          withTiming(2.5, { duration: 320, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0, { duration: 200, easing: Easing.inOut(Easing.ease) })
+          withTiming(-2, { duration: 340, easing: Easing.inOut(Easing.ease) }),
+          withTiming(2, { duration: 340, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0, { duration: 220, easing: Easing.inOut(Easing.ease) })
         ),
         -1,
         false
@@ -199,36 +199,14 @@ export function MelSpeechBubble({
   message,
   onTapNextTip,
   position = 'top-left',
+  hideHeader = false,
 }: {
   variant?: MelOutfit;
   message: string;
   onTapNextTip?: () => void;
   position?: MelBubblePosition;
+  hideHeader?: boolean;
 }) {
-  const scale = useSharedValue(0.99);
-
-  useEffect(() => {
-    scale.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.99, { duration: 600, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
-  }, [scale]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const label = useMemo(() => {
-    if (variant === 'rain_active') return 'Mel · Weather Alert';
-    if (variant === 'formal_suit' || variant === 'formal_bowtie') return 'Mel · Formal Style Note';
-    if (variant === 'cool_hoodie' || variant === 'cool_street') return 'Mel · Streetwear Note';
-    return 'Mel · Stylist Note';
-  }, [variant]);
-
   return (
     <Pressable
       onPress={onTapNextTip}
@@ -242,24 +220,30 @@ export function MelSpeechBubble({
           : styles.topLeft,
       ]}
     >
-      <Animated.View
+      <View
         style={[
           styles.bubble,
           position === 'inline' && styles.inlineBubble,
-          animatedStyle,
         ]}
       >
-        <View style={styles.bubbleHeaderRow}>
-          <Text style={styles.bubbleLabel}>{label}</Text>
-          {!!onTapNextTip && (
-            <Text style={styles.tapPill}>Tap for tip ↻</Text>
-          )}
-        </View>
+        {!hideHeader && (
+          <View style={styles.bubbleHeaderRow}>
+            <View style={styles.melBadgeRow}>
+              <View style={styles.melAccentDot} />
+              <Text style={styles.bubbleLabel}>Mel · Style Guide</Text>
+            </View>
+            {!!onTapNextTip && (
+              <Text style={styles.tapPill}>Next tip ↻</Text>
+            )}
+          </View>
+        )}
         <Text style={styles.bubbleText}>{message}</Text>
-      </Animated.View>
+      </View>
     </Pressable>
   );
 }
+
+export default MelMascot;
 
 const styles = StyleSheet.create({
   container: {
@@ -285,17 +269,12 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
   },
   bubble: {
-    backgroundColor: '#FFFDF7',
-    borderColor: '#24513B',
-    borderWidth: 1.5,
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    shadowColor: '#24513B',
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 3,
+    backgroundColor: '#F3F1EF',
+    borderColor: 'rgba(54, 69, 54, 0.18)',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
   },
   inlineBubble: {
     width: '100%',
@@ -304,28 +283,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 3,
+  },
+  melBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  melAccentDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#E83E35',
   },
   bubbleLabel: {
-    color: '#4D9A65',
+    color: '#364536',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
   tapPill: {
-    color: '#2E7D32',
-    fontSize: 10,
+    color: '#F3F1EF',
+    fontSize: 9.5,
     fontWeight: '700',
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 6,
+    backgroundColor: '#364536',
+    paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: 8,
+    borderRadius: 999,
   },
   bubbleText: {
-    color: '#21352B',
-    fontSize: 13,
-    lineHeight: 18,
+    color: '#18181B',
+    fontSize: 12.5,
+    lineHeight: 17,
     fontWeight: '600',
   },
 });

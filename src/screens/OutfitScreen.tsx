@@ -68,10 +68,29 @@ const toAnatomical = (slot: OutfitSlotKey) =>
 const PERMANENT_RANKS = ['TOP 1', 'TOP 2', 'TOP 3'] as const;
 
 const ROLE_BADGES = [
-  '🌦️ Rank #1 Weather-Smart',
-  '👕 Rank #2 Your Signature Comfort',
-  '✨ Rank #3 Fresh Mix',
+  'Weather-Smart',
+  'Signature Comfort',
+  'Fresh Mix',
 ] as const;
+
+const STYLING_NOTES_BY_RANK = [
+  'Balanced proportions and breathable layers tailored for today’s forecast.',
+  'Effortless everyday comfort with cohesive tones from your wardrobe.',
+  'A fresh editorial combination that elevates your signature style.',
+] as const;
+
+function formatCleanOutfitTitle(rawName?: string, occasionLabel?: string, idx = 0): string {
+  const fallbackTitles = ['Everyday Essential', 'Relaxed Editorial', 'Modern Classic'];
+  if (!rawName) return fallbackTitles[idx % fallbackTitles.length];
+  // Strip robotic "· Item1 + Item2" concatenations if present
+  const beforeBullet = rawName.split('·')[0].trim();
+  if (beforeBullet && beforeBullet.length >= 3 && !/\bIm\b/i.test(beforeBullet)) {
+    return beforeBullet;
+  }
+  const occ =
+    occasionLabel && occasionLabel !== 'Any occasion' ? occasionLabel : 'Everyday';
+  return `${occ} ${fallbackTitles[idx % fallbackTitles.length]}`;
+}
 
 const getSlotRank = (item?: { category?: string; slotType?: string; name?: string } | null): number => {
   if (!item) return 99;
@@ -106,6 +125,7 @@ const buildOutfitSignature = (photoSource: string, outfit?: GeneratedOutfit | nu
 
 export default function OutfitScreen() {
   const theme = useAppTheme();
+  const isDark = theme.mode === 'dark';
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { items } = useWardrobe();
@@ -151,7 +171,7 @@ export default function OutfitScreen() {
   const [wardrobeOutfits, setWardrobeOutfits] = useState<GeneratedOutfit[]>([]);
   const [mixOutfits, setMixOutfits] = useState<GeneratedOutfit[]>([]);
   const [reaction, setReaction] = useState(
-    'Mel is balancing your colors, proportions, and today’s weather.'
+    'Thoughtfully paired colors and comfortable layers tailored for today’s weather.'
   );
 
   // Load persisted full-body photo, verification status, and VTON signature cache on mount
@@ -349,7 +369,6 @@ export default function OutfitScreen() {
             if (sig) {
               setVtonSignatureCache((prev) => {
                 const updated = { ...prev, [sig]: res.compositeDataUri! };
-                // Keep signature cache bounded to last 12 composites
                 const keys = Object.keys(updated);
                 if (keys.length > 12) {
                   delete updated[keys[0]];
@@ -513,25 +532,26 @@ export default function OutfitScreen() {
 
     if (item) {
       setReaction(
-        `Swapped in ${item.name.toLowerCase()} for your ${
+        `Updated your ${
           occasion === 'Any occasion' ? 'everyday' : occasion.toLowerCase()
-        } look. Match score is now ${nextScore}%!`
+        } look with a fresh piece—now a ${nextScore}% style match!`
       );
     } else {
-      setReaction(`Updated pieces. Live outfit match score is now ${nextScore}%.`);
+      setReaction(`Refined your outfit combination—now a ${nextScore}% style match.`);
     }
   };
 
+  // Natural, fashion-forward Mel stylist description without CIELAB or raw item concatenation (PDF Page 12)
   useEffect(() => {
     if (activeOutfit) {
       const s = activeOutfit.hybridScore ?? activeOutfit.matchPercent ?? 88;
-      setReaction(
-        `${activeOutfit.name || 'Curated Look'} (${s}% match) — styled for ${
-          occasion === 'Any occasion' ? 'everyday wear' : occasion
-        } with balanced CIELAB harmony.`
-      );
+      const occasionText =
+        occasion === 'Any occasion' ? 'everyday wear' : occasion.toLowerCase();
+      const baseNote =
+        STYLING_NOTES_BY_RANK[activeIndex] || STYLING_NOTES_BY_RANK[0];
+      setReaction(`Styled for ${occasionText} (${s}% match) — ${baseNote.charAt(0).toLowerCase()}${baseNote.slice(1)}`);
     }
-  }, [activeOutfit?.id, occasion]);
+  }, [activeOutfit?.id, activeIndex, occasion]);
 
   // ALTA Left Action Bar Handlers
   const handleToggleLikeSave = () => {
@@ -561,7 +581,8 @@ export default function OutfitScreen() {
     if (!activeOutfit || isPublishing) return;
     setIsPublishing(true);
     try {
-      const caption = `${activeOutfit.name || 'Curated Look'} · Styled for ${
+      const cleanTitle = formatCleanOutfitTitle(activeOutfit.name, occasion, activeIndex);
+      const caption = `${cleanTitle} · Styled for ${
         occasion === 'Any occasion' ? 'Everyday' : occasion
       }`;
       await publishOutfit(activeOutfit, caption);
@@ -582,17 +603,18 @@ export default function OutfitScreen() {
 
   const seeItOnMeButtonLabel = useMemo(() => {
     if (!isFullBodyPhotoVerified || !photoSourceForVton) {
-      return '🔒 See It On Me';
+      return 'See It On Me';
     }
     if (isPreloadingVton && preloadedCount < top3.length) {
-      return `🧍 See It On Me · ${Math.max(1, preloadedCount)}/${top3.length}`;
+      return `See It On Me · ${Math.max(1, preloadedCount)}/${top3.length}`;
     }
-    return '✨ See It On Me';
+    return 'See It On Me';
   }, [isFullBodyPhotoVerified, photoSourceForVton, isPreloadingVton, preloadedCount, top3.length]);
 
   const activeCompositeUri = vtonCacheByOutfitIndex[activeIndex] || null;
   const activeScore = activeOutfit?.hybridScore ?? activeOutfit?.matchPercent ?? 90;
   const activeRoleBadge = ROLE_BADGES[activeIndex] || ROLE_BADGES[0];
+  const cleanActiveTitle = formatCleanOutfitTitle(activeOutfit?.name, occasion, activeIndex);
 
   return (
     <SafeAreaView
@@ -606,7 +628,12 @@ export default function OutfitScreen() {
         {/* Screen Header */}
         <View style={styles.header}>
           <View>
-            <Text style={[styles.kicker, { color: theme.primary }]}>AI OUTFIT STUDIO</Text>
+            <View style={styles.kickerRow}>
+              <View style={styles.kickerDot} />
+              <Text style={[styles.kicker, { color: isDark ? '#F3F1EF' : '#364536' }]}>
+                AI OUTFIT STUDIO
+              </Text>
+            </View>
             <Text style={[styles.title, { color: theme.text }]}>Recommendations</Text>
           </View>
           <View style={styles.headerActions}>
@@ -623,14 +650,14 @@ export default function OutfitScreen() {
           </View>
         </View>
 
-        {/* Controls: Target Occasion & Wardrobe Source Toggle (Zero Subcategory Bar) */}
+        {/* Controls: Target Occasion & Wardrobe Source Toggle */}
         <View
           style={[
             styles.controls,
             { backgroundColor: theme.surface, borderColor: theme.border },
           ]}
         >
-          <Text style={[styles.controlLabel, { color: theme.text }]}>Target Occasion</Text>
+          <Text style={[styles.controlLabel, { color: theme.textMuted }]}>TARGET OCCASION</Text>
           <OccasionDropdown value={occasion} onChange={setOccasion} />
 
           <View
@@ -643,7 +670,7 @@ export default function OutfitScreen() {
               onPress={() => setOutfitSourceMode('closet')}
               style={[
                 styles.sourceOption,
-                outfitSourceMode === 'closet' && { backgroundColor: theme.primary },
+                outfitSourceMode === 'closet' && { backgroundColor: '#364536' },
               ]}
             >
               <Text
@@ -651,7 +678,7 @@ export default function OutfitScreen() {
                   styles.sourceText,
                   {
                     color:
-                      outfitSourceMode === 'closet' ? theme.primaryText : theme.textMuted,
+                      outfitSourceMode === 'closet' ? '#F3F1EF' : theme.textMuted,
                   },
                 ]}
               >
@@ -662,7 +689,7 @@ export default function OutfitScreen() {
               onPress={() => setOutfitSourceMode('bestForOccasion')}
               style={[
                 styles.sourceOption,
-                outfitSourceMode === 'bestForOccasion' && { backgroundColor: theme.primary },
+                outfitSourceMode === 'bestForOccasion' && { backgroundColor: '#364536' },
               ]}
             >
               <Text
@@ -671,7 +698,7 @@ export default function OutfitScreen() {
                   {
                     color:
                       outfitSourceMode === 'bestForOccasion'
-                        ? theme.primaryText
+                        ? '#F3F1EF'
                         : theme.textMuted,
                   },
                 ]}
@@ -689,30 +716,31 @@ export default function OutfitScreen() {
               { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <Ionicons name="sparkles-outline" size={17} color={theme.primary} />
+            <Ionicons name="sparkles-outline" size={17} color="#E83E35" />
             <Text style={[styles.emptyBannerText, { color: theme.textSecondary }]}>
               Showing curated outfits tailored to your fit profile. Tap Wardrobe anytime to add your own clothes.
             </Text>
           </View>
         )}
 
-        {/* Compact Mel Stylist Note on Main Studio Screen */}
+        {/* Redesigned Clean Mel Stylist Note Banner (PDF Page 12) */}
         {!showEmptyWardrobePrompt && (
-          <View
-            style={[
-              styles.melRow,
-              { backgroundColor: theme.surface, borderColor: theme.border },
-            ]}
-          >
-            <MelMascot
-              size={50}
-              outfit={melOutfitForOccasion(activeOutfit?.occasionLabel || occasion)}
-            />
-            <MelSpeechBubble
-              variant={melOutfitForOccasion(activeOutfit?.occasionLabel || occasion)}
-              message={reaction}
-              position="inline"
-            />
+          <View style={styles.melEditorialBanner}>
+            <View style={styles.melBannerAvatarCircle}>
+              <MelMascot
+                size={38}
+                outfit={melOutfitForOccasion(activeOutfit?.occasionLabel || occasion)}
+              />
+            </View>
+            <View style={styles.melBannerTextCol}>
+              <View style={styles.melBannerLabelRow}>
+                <View style={styles.melBannerDot} />
+                <Text style={styles.melBannerLabel}>MEL · STYLIST NOTE</Text>
+              </View>
+              <Text style={styles.melBannerMessage} numberOfLines={2}>
+                {reaction}
+              </Text>
+            </View>
           </View>
         )}
 
@@ -738,10 +766,10 @@ export default function OutfitScreen() {
             <View style={styles.emptyPromptActions}>
               <Pressable
                 onPress={() => navigation.navigate('Wardrobe')}
-                style={[styles.emptyPromptBtnPrimary, { backgroundColor: theme.primary }]}
+                style={[styles.emptyPromptBtnPrimary, { backgroundColor: '#364536' }]}
               >
-                <Ionicons name="camera-outline" size={17} color={theme.primaryText} />
-                <Text style={[styles.emptyPromptBtnTextPrimary, { color: theme.primaryText }]}>
+                <Ionicons name="camera-outline" size={17} color="#F3F1EF" />
+                <Text style={[styles.emptyPromptBtnTextPrimary, { color: '#F3F1EF' }]}>
                   Add to My Wardrobe
                 </Text>
               </Pressable>
@@ -767,20 +795,20 @@ export default function OutfitScreen() {
               { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <ActivityIndicator size="small" color={theme.primary} />
+            <ActivityIndicator size="small" color="#E83E35" />
             <Text style={[styles.loadingText, { color: theme.textMuted }]}>
               Curating your Top-3 editorial looks...
             </Text>
           </View>
         ) : activeOutfit ? (
-          /* ================= ALTA-STYLE EDITORIAL OUTFIT STUDIO CARD ================= */
+          /* ================= REDESIGNED ALTA-STYLE EDITORIAL OUTFIT STUDIO CARD (PDF Page 13) ================= */
           <View
             style={[
               styles.altaOuterCard,
               { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            {/* Top Rank Switcher Row: TOP 1 | TOP 2 | TOP 3 + Match Score */}
+            {/* Top Rank Switcher Row: TOP 1 | TOP 2 | TOP 3 */}
             <View style={styles.altaTopHeader}>
               <View style={styles.rankPillsRow}>
                 {top3.map((o, idx) => {
@@ -794,17 +822,18 @@ export default function OutfitScreen() {
                         styles.rankPill,
                         {
                           backgroundColor: isCurrent
-                            ? theme.primary
+                            ? '#364536'
                             : theme.surfaceSecondary,
-                          borderColor: isCurrent ? theme.primary : theme.border,
+                          borderColor: isCurrent ? '#364536' : theme.border,
                         },
                       ]}
                     >
+                      {isCurrent && <View style={styles.rankActiveDot} />}
                       <Text
                         style={[
                           styles.rankPillText,
                           {
-                            color: isCurrent ? theme.primaryText : theme.textSecondary,
+                            color: isCurrent ? '#F3F1EF' : theme.textSecondary,
                           },
                         ]}
                       >
@@ -816,14 +845,28 @@ export default function OutfitScreen() {
               </View>
             </View>
 
-            {/* Outfit Title + Role Subtitle */}
+            {/* Clean Editorial Title + Role Pill Row */}
             <View style={styles.altaTitleRow}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.altaOutfitTitle, { color: theme.text }]} numberOfLines={1}>
-                  {activeOutfit.name || `${occasion} Look #${activeIndex + 1}`}
+                  {cleanActiveTitle}
                 </Text>
-                <Text style={[styles.altaRoleSubtitle, { color: theme.textMuted }]}>
-                  {activeRoleBadge} · Swipe left/right to flip looks
+              </View>
+              <View
+                style={[
+                  styles.roleBadgePill,
+                  {
+                    backgroundColor: isDark ? 'rgba(54, 69, 54, 0.45)' : '#EBF0EB',
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.roleBadgePillText,
+                    { color: isDark ? '#F3F1EF' : '#364536' },
+                  ]}
+                >
+                  {activeRoleBadge}
                 </Text>
               </View>
             </View>
@@ -848,16 +891,18 @@ export default function OutfitScreen() {
                   style={[
                     styles.altaIconBtn,
                     {
-                      backgroundColor: theme.surfaceSecondary,
-                      borderColor: theme.border,
+                      backgroundColor: activeOutfit.favorited
+                        ? 'rgba(232, 62, 53, 0.12)'
+                        : theme.surfaceSecondary,
+                      borderColor: activeOutfit.favorited ? '#E83E35' : theme.border,
                     },
                   ]}
                   accessibilityLabel="Like and save outfit"
                 >
                   <Ionicons
                     name={activeOutfit.favorited ? 'heart' : 'heart-outline'}
-                    size={20}
-                    color={activeOutfit.favorited ? '#DC2626' : theme.text}
+                    size={19}
+                    color={activeOutfit.favorited ? '#E83E35' : theme.text}
                   />
                 </Pressable>
 
@@ -872,7 +917,7 @@ export default function OutfitScreen() {
                   ]}
                   accessibilityLabel="Customize outfit pieces"
                 >
-                  <Ionicons name="create-outline" size={20} color={theme.text} />
+                  <Ionicons name="options-outline" size={19} color={theme.text} />
                 </Pressable>
 
                 <Pressable
@@ -886,7 +931,7 @@ export default function OutfitScreen() {
                   ]}
                   accessibilityLabel="Dislike or skip outfit"
                 >
-                  <Ionicons name="thumbs-down-outline" size={19} color={theme.text} />
+                  <Ionicons name="thumbs-down-outline" size={18} color={theme.text} />
                 </Pressable>
 
                 <Pressable
@@ -905,7 +950,7 @@ export default function OutfitScreen() {
                   {isPublishing ? (
                     <ActivityIndicator size="small" color={theme.text} />
                   ) : (
-                    <Ionicons name="paper-plane-outline" size={19} color={theme.text} />
+                    <Ionicons name="paper-plane-outline" size={18} color={theme.text} />
                   )}
                 </Pressable>
               </View>
@@ -916,18 +961,20 @@ export default function OutfitScreen() {
                 style={[
                   styles.seeItOnMePill,
                   {
-                    backgroundColor: theme.mode === 'dark' ? '#F4F4F5' : '#18181B',
+                    backgroundColor: '#364536',
                   },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.seeItOnMePillText,
-                    {
-                      color: theme.mode === 'dark' ? '#18181B' : '#FFFFFF',
-                    },
-                  ]}
-                >
+                <Ionicons
+                  name={
+                    !isFullBodyPhotoVerified || !photoSourceForVton
+                      ? 'lock-closed-outline'
+                      : 'sparkles'
+                  }
+                  size={14}
+                  color="#E83E35"
+                />
+                <Text style={styles.seeItOnMePillText}>
                   {seeItOnMeButtonLabel}
                 </Text>
               </Pressable>
@@ -936,7 +983,7 @@ export default function OutfitScreen() {
         ) : null}
       </ScrollView>
 
-      {/* ================= EXPANSIVE FULL-HEIGHT "SEE IT ON ME" VISUALIZER MODAL (NO MEL SPEECH BUBBLE) ================= */}
+      {/* ================= EXPANSIVE FULL-HEIGHT "SEE IT ON ME" VISUALIZER MODAL ================= */}
       <Modal
         visible={seeItOnMeVisible}
         animationType="slide"
@@ -947,7 +994,7 @@ export default function OutfitScreen() {
           style={[styles.vtonModalContainer, { backgroundColor: theme.background }]}
           edges={['top', 'bottom']}
         >
-          {/* 1. Compact Top Bar (height: 52): Left <- Back | Center TOP 1/2/3 Pills | Right 📷 Retake */}
+          {/* 1. Compact Top Bar (height: 52): Left <- Back | Center TOP 1/2/3 Pills | Right Retake */}
           <View
             style={[
               styles.vtonTopBar,
@@ -975,15 +1022,15 @@ export default function OutfitScreen() {
                     style={[
                       styles.vtonRankChip,
                       {
-                        backgroundColor: isCurrent ? theme.primary : theme.surfaceSecondary,
-                        borderColor: isCurrent ? theme.primary : theme.border,
+                        backgroundColor: isCurrent ? '#364536' : theme.surfaceSecondary,
+                        borderColor: isCurrent ? '#364536' : theme.border,
                       },
                     ]}
                   >
                     <Text
                       style={[
                         styles.vtonRankChipText,
-                        { color: isCurrent ? theme.primaryText : theme.textSecondary },
+                        { color: isCurrent ? '#F3F1EF' : theme.textSecondary },
                       ]}
                     >
                       {PERMANENT_RANKS[idx]} ({s}%){isReady ? ' ✓' : ''}
@@ -1008,7 +1055,7 @@ export default function OutfitScreen() {
             </Pressable>
           </View>
 
-          {/* 2. Main Full-Body VTON Stage (74% of screen height, full width, zero Mel speech bubble) */}
+          {/* 2. Main Full-Body VTON Stage */}
           <View
             style={[
               styles.vtonMainStage,
@@ -1026,12 +1073,11 @@ export default function OutfitScreen() {
               />
             ) : null}
 
-            {/* Shimmer Overlay while 2-Pass Full-Body VTON finishes in background queue */}
             {!activeCompositeUri && (
               <View style={styles.vtonLoadingOverlay}>
-                <ActivityIndicator size="large" color="#FFFFFF" />
+                <ActivityIndicator size="large" color="#E83E35" />
                 <Text style={styles.vtonLoadingTitle}>
-                  ✨ Rendering 2-Pass Full-Body Virtual Try-On (Upper Body + Lower Body & Shoes)...
+                  ✨ Rendering Full-Body Virtual Try-On...
                 </Text>
                 <Text style={styles.vtonLoadingSub}>
                   Pre-loading {PERMANENT_RANKS[activeIndex]} ({activeScore}% match) on your standing photo
@@ -1039,7 +1085,6 @@ export default function OutfitScreen() {
               </View>
             )}
 
-            {/* Subtle Bottom-Left Privacy Badge */}
             <View
               style={[
                 styles.vtonPrivateBadge,
@@ -1058,7 +1103,7 @@ export default function OutfitScreen() {
             </View>
           </View>
 
-          {/* 3. Compact Bottom Strip (height: 84): Equipped Pieces (1. TOP -> 5. ACCESSORY) + Customize Button */}
+          {/* 3. Compact Bottom Strip */}
           <View
             style={[
               styles.vtonBottomStrip,
@@ -1115,7 +1160,10 @@ export default function OutfitScreen() {
                     </View>
                     <View style={{ maxWidth: 88 }}>
                       <Text
-                        style={[styles.vtonPieceSlotLabel, { color: theme.primary }]}
+                        style={[
+                          styles.vtonPieceSlotLabel,
+                          { color: isDark ? '#F3F1EF' : '#364536' },
+                        ]}
                         numberOfLines={1}
                       >
                         {orderedSlotLabel}
@@ -1137,10 +1185,10 @@ export default function OutfitScreen() {
                 setSeeItOnMeVisible(false);
                 setTimeout(() => setCustomizing(true), 220);
               }}
-              style={[styles.vtonCustomizeBtn, { backgroundColor: theme.primary }]}
+              style={[styles.vtonCustomizeBtn, { backgroundColor: '#364536' }]}
             >
-              <Ionicons name="create-outline" size={15} color={theme.primaryText} />
-              <Text style={[styles.vtonCustomizeText, { color: theme.primaryText }]}>
+              <Ionicons name="options-outline" size={15} color="#F3F1EF" />
+              <Text style={[styles.vtonCustomizeText, { color: '#F3F1EF' }]}>
                 Customize
               </Text>
             </Pressable>
@@ -1155,7 +1203,7 @@ export default function OutfitScreen() {
         onPhotoSaved={handleFullBodyPhotoSaved}
       />
 
-      {/* Piece Swap Drawer (1. TOP -> 2. OUTERWEAR -> 3. BOTTOM -> 4. SHOES -> 5. ACCESSORIES) */}
+      {/* Piece Swap Drawer */}
       {activeOutfit && (
         <OutfitCustomizeModal
           visible={customizing}
@@ -1182,10 +1230,21 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: 6,
-    marginBottom: 8,
+    marginBottom: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  kickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  kickerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#E83E35',
   },
   kicker: {
     fontSize: 10.5,
@@ -1197,6 +1256,7 @@ const styles = StyleSheet.create({
     lineHeight: 27,
     fontWeight: '800',
     marginTop: 2,
+    letterSpacing: -0.3,
   },
   headerActions: {
     flexDirection: 'row',
@@ -1213,14 +1273,15 @@ const styles = StyleSheet.create({
   },
   controls: {
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 12,
     gap: 8,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   controlLabel: {
-    fontSize: 12.5,
+    fontSize: 10.5,
     fontWeight: '800',
+    letterSpacing: 0.8,
   },
   sourceToggle: {
     flexDirection: 'row',
@@ -1236,11 +1297,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sourceText: {
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: '700',
   },
   emptyBanner: {
-    marginBottom: 8,
+    marginBottom: 10,
     borderRadius: 14,
     borderWidth: 1,
     padding: 10,
@@ -1254,14 +1315,53 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     fontWeight: '600',
   },
-  melRow: {
+  melEditorialBanner: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#364536',
+    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     gap: 10,
     marginBottom: 10,
-    borderRadius: 16,
-    padding: 8,
     borderWidth: 1,
+    borderColor: 'rgba(243, 241, 239, 0.14)',
+  },
+  melBannerAvatarCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(243, 241, 239, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  melBannerTextCol: {
+    flex: 1,
+    gap: 2,
+  },
+  melBannerLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  melBannerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#E83E35',
+  },
+  melBannerLabel: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 0.9,
+    color: 'rgba(243, 241, 239, 0.76)',
+  },
+  melBannerMessage: {
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '600',
+    color: '#F3F1EF',
   },
   emptyPromptCard: {
     marginVertical: 12,
@@ -1317,7 +1417,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   altaOuterCard: {
-    borderRadius: 20,
+    borderRadius: 22,
     borderWidth: 1,
     padding: 14,
     gap: 12,
@@ -1334,10 +1434,19 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   rankPill: {
-    paddingHorizontal: 11,
-    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6.5,
     borderRadius: 999,
     borderWidth: 1,
+  },
+  rankActiveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#E83E35',
   },
   rankPillText: {
     fontSize: 11,
@@ -1348,15 +1457,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
   },
   altaOutfitTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
+    letterSpacing: -0.2,
   },
-  altaRoleSubtitle: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    marginTop: 2,
+  roleBadgePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  roleBadgePillText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   altaActionBar: {
     flexDirection: 'row',
@@ -1379,13 +1494,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   seeItOnMePill: {
-    borderRadius: 999,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
   },
   seeItOnMePillText: {
+    color: '#F3F1EF',
     fontSize: 12.5,
     fontWeight: '800',
     letterSpacing: 0.2,
@@ -1460,7 +1578,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   vtonLoadingTitle: {
-    color: '#F4F4F5',
+    color: '#F3F1EF',
     fontSize: 13.5,
     fontWeight: '800',
     textAlign: 'center',

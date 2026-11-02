@@ -67,7 +67,7 @@ export default function OutfitCollageBoard({
   const [selectedSlot, setSelectedSlot] = useState<AnatomicalSlotType | null>(null);
   const [drawerSourceTab, setDrawerSourceTab] = useState<'closet' | 'suggestions'>('closet');
 
-  // Open drawer when parent triggers edit button (✏️)
+  // Open drawer when parent triggers edit button
   useEffect(() => {
     if (editTrigger > 0 && !readOnly) {
       openSlotDrawer('innerTop');
@@ -420,7 +420,7 @@ export default function OutfitCollageBoard({
       (selectedSlot && slotItemsMap[selectedSlot]?.name) ||
       slotItemsMap.innerTop?.name ||
       'your piece';
-    showToast(`✨ Auto-matched outfit around ${anchorName}!`);
+    showToast(`Auto-matched outfit around ${anchorName}!`);
     setSelectedSlot(null);
   };
 
@@ -505,7 +505,8 @@ export default function OutfitCollageBoard({
                 style={styles.quickAddSwapButton}
                 hitSlop={6}
               >
-                <Text style={styles.quickAddSwapText}>🧥+</Text>
+                <Ionicons name="shirt-outline" size={13} color="#24152C" />
+                <Text style={styles.quickAddSwapText}>+</Text>
               </Pressable>
             )}
             <View style={styles.countBadgePill}>
@@ -578,8 +579,9 @@ export default function OutfitCollageBoard({
                 onPress={handleAutoMatchRest}
                 style={[styles.autoMatchButton, { backgroundColor: theme.secondaryAccent }]}
               >
+                <Ionicons name="sparkles" size={12} color={theme.onAccent} />
                 <Text style={[styles.autoMatchButtonText, { color: theme.onAccent }]}>
-                  ✨ Auto-Match
+                  Auto-Match
                 </Text>
               </Pressable>
 
@@ -639,13 +641,18 @@ export default function OutfitCollageBoard({
                   },
                 ]}
               >
+                <Ionicons
+                  name="shirt-outline"
+                  size={13}
+                  color={drawerSourceTab === 'closet' ? theme.aiPillText : theme.textMuted}
+                />
                 <Text
                   style={[
                     styles.sourceSwitchText,
                     { color: drawerSourceTab === 'closet' ? theme.aiPillText : theme.textMuted },
                   ]}
                 >
-                  👕 My Closet ({closetCandidates.length})
+                  My Closet ({closetCandidates.length})
                 </Text>
               </Pressable>
 
@@ -661,6 +668,11 @@ export default function OutfitCollageBoard({
                   },
                 ]}
               >
+                <Ionicons
+                  name="sparkles-outline"
+                  size={13}
+                  color={drawerSourceTab === 'suggestions' ? theme.aiPillText : theme.textMuted}
+                />
                 <Text
                   style={[
                     styles.sourceSwitchText,
@@ -670,7 +682,7 @@ export default function OutfitCollageBoard({
                     },
                   ]}
                 >
-                  ✨ Style Suggestions ({suggestionCandidates.length})
+                  Style Suggestions ({suggestionCandidates.length})
                 </Text>
               </Pressable>
 
@@ -814,6 +826,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   quickAddSwapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
     backgroundColor: '#F4F1EA',
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -954,6 +969,9 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   autoMatchButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 11,
     paddingVertical: 7,
     borderRadius: 999,
@@ -991,6 +1009,9 @@ const styles = StyleSheet.create({
   },
   sourceSwitchPill: {
     flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 5,
     paddingVertical: 7,
     paddingHorizontal: 10,
     borderRadius: 10,

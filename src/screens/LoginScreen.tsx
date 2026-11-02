@@ -19,6 +19,7 @@ import TextField from '../components/TextField';
 
 export default function LoginScreen() {
   const theme = useAppTheme();
+  const isDark = theme.mode === 'dark';
   const navigation = useNavigation<any>();
   const { loginWithEmail, loginWithOAuth } = useAuth();
 
@@ -64,13 +65,28 @@ export default function LoginScreen() {
       style={[styles.container, { backgroundColor: theme.background }]}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* App Logo / Greeting */}
+        {/* Redesigned Brand Emblem & Greeting (PDF Page 8) */}
         <Animated.View entering={FadeInUp.duration(600).delay(100)} style={styles.header}>
-          <View style={[styles.logoContainer, { backgroundColor: theme.primaryAccent }]}>
-            <Ionicons name="shirt" size={32} color={theme.mode === 'dark' ? theme.accent : '#24152C'} />
+          <View style={styles.emblemWrapper}>
+            <View style={styles.logoOuterRing}>
+              <View style={styles.logoContainer}>
+                <Ionicons name="shirt-outline" size={30} color="#F3F1EF" />
+              </View>
+            </View>
+            <View style={styles.logoAccentBadge}>
+              <Ionicons name="sparkles" size={12} color="#F3F1EF" />
+            </View>
           </View>
+
+          <View style={styles.brandWordmarkPill}>
+            <View style={styles.brandDot} />
+            <Text style={styles.brandWordmarkText}>STYLESENSE</Text>
+          </View>
+
           <Text style={[styles.title, { color: theme.text }]}>Welcome Back</Text>
-          <Text style={[styles.subtitle, { color: theme.textMuted }]}>Sign in to your digital closet</Text>
+          <Text style={[styles.subtitle, { color: theme.textMuted }]}>
+            Sign in to your personal wardrobe studio
+          </Text>
         </Animated.View>
 
         {/* Input Card */}
@@ -79,8 +95,8 @@ export default function LoginScreen() {
           style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}
         >
           {errorMsg && (
-            <View style={[styles.errorContainer, { backgroundColor: 'rgba(229, 72, 77, 0.1)' }]}>
-              <Ionicons name="alert-circle" size={18} color="#E5484D" />
+            <View style={[styles.errorContainer, { backgroundColor: 'rgba(232, 62, 53, 0.12)' }]}>
+              <Ionicons name="alert-circle" size={18} color="#E83E35" />
               <Text style={styles.errorText}>{errorMsg}</Text>
             </View>
           )}
@@ -148,12 +164,12 @@ export default function LoginScreen() {
             <Pressable
               onPress={handleLogin}
               disabled={loading}
-              style={[styles.submitButton, { backgroundColor: theme.secondaryAccent }]}
+              style={[styles.submitButton, { backgroundColor: '#364536' }]}
             >
               {loading ? (
-                <ActivityIndicator size="small" color="#24152C" />
+                <ActivityIndicator size="small" color="#F3F1EF" />
               ) : (
-                <Text style={[styles.submitButtonText, { color: theme.onAccent }]}>Sign In</Text>
+                <Text style={styles.submitButtonText}>Sign In</Text>
               )}
             </Pressable>
           </View>
@@ -162,10 +178,13 @@ export default function LoginScreen() {
         {/* Footer */}
         <Animated.View entering={FadeInDown.duration(600).delay(300)} style={styles.footer}>
           <Text style={[styles.footerText, { color: theme.textMuted }]}>
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <Text
               onPress={() => navigation.navigate('Signup')}
-              style={[styles.linkText, { color: theme.accent, fontWeight: '700' }]}
+              style={[
+                styles.linkText,
+                { color: isDark ? '#F3F1EF' : '#364536', fontWeight: '800' },
+              ]}
             >
               Sign Up
             </Text>
@@ -188,24 +207,74 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 28,
   },
-  logoContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
+  emblemWrapper: {
+    position: 'relative',
+    marginBottom: 14,
+  },
+  logoOuterRing: {
+    width: 82,
+    height: 82,
+    borderRadius: 26,
+    backgroundColor: 'rgba(54, 69, 54, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(54, 69, 54, 0.18)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
+  },
+  logoContainer: {
+    width: 68,
+    height: 68,
+    borderRadius: 21,
+    backgroundColor: '#364536',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#364536',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  logoAccentBadge: {
+    position: 'absolute',
+    bottom: -3,
+    right: -3,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#E83E35',
+    borderWidth: 2.5,
+    borderColor: '#F3F1EF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandWordmarkPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(54, 69, 54, 0.08)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    marginBottom: 10,
+  },
+  brandDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#E83E35',
+  },
+  brandWordmarkText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    color: '#364536',
   },
   title: {
     fontSize: 26,
     fontWeight: '800',
+    letterSpacing: -0.4,
     marginBottom: 6,
   },
   subtitle: {
@@ -232,7 +301,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   errorText: {
-    color: '#E5484D',
+    color: '#E83E35',
     fontSize: 13,
     fontWeight: '600',
     flex: 1,
@@ -281,7 +350,7 @@ const styles = StyleSheet.create({
   eyeIcon: {
     position: 'absolute',
     right: 14,
-    top: 38, // aligns with text input fields vertically
+    top: 38,
     padding: 4,
   },
   submitButton: {
@@ -292,9 +361,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   submitButtonText: {
-    color: '#FFFFFF',
+    color: '#F3F1EF',
     fontSize: 15,
     fontWeight: '700',
+    letterSpacing: 0.2,
   },
   footer: {
     alignItems: 'center',

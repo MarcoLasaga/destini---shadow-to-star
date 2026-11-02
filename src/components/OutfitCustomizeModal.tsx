@@ -20,13 +20,17 @@ import { computeAccurateOutfitScore } from '../services/hybridScoreService';
 import { useToast } from '../contexts/ToastContext';
 import { inferAccessoryZone, AccessoryZone } from '../services/outfitRecommendationService';
 
-const ACCESSORY_ZONES: { id: 'ALL' | AccessoryZone; label: string }[] = [
-  { id: 'ALL', label: 'All Zones' },
-  { id: 'ears', label: '💎 Ears' },
-  { id: 'neck', label: '📿 Neck' },
-  { id: 'wrist', label: '⌚ Wrist' },
-  { id: 'waist_bag', label: '👜 Waist/Bag' },
-  { id: 'head', label: '🕶️ Head/Eyes' },
+const ACCESSORY_ZONES: {
+  id: 'ALL' | AccessoryZone;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}[] = [
+  { id: 'ALL', label: 'All Zones', icon: 'apps-outline' },
+  { id: 'ears', label: 'Ears', icon: 'sparkles-outline' },
+  { id: 'neck', label: 'Neck', icon: 'ribbon-outline' },
+  { id: 'wrist', label: 'Wrist', icon: 'watch-outline' },
+  { id: 'waist_bag', label: 'Waist/Bag', icon: 'bag-handle-outline' },
+  { id: 'head', label: 'Head/Eyes', icon: 'glasses-outline' },
 ];
 
 const SLOT_LABELS: Record<MannequinSlot, string> = {
@@ -89,9 +93,6 @@ export default function OutfitCustomizeModal({
   const isWardrobeOnly = sourceMode === 'wardrobe' || sourceMode === 'closet';
   const equipped = outfit.clothingItems || [];
   const activeItem = equipped.find((item) => toSlot(item) === activeSlot) ?? null;
-
-  const hasOuter = equipped.some((item) => toSlot(item) === 'OUTERWEAR');
-  const isXrayOuterwear = hasOuter && activeSlot === 'TOP';
 
   // Choreographed In-Place Transition Animations
   const zoomAnim = useRef(new Animated.Value(0.94)).current;
@@ -212,7 +213,7 @@ export default function OutfitCustomizeModal({
   };
 
   const handleWearToday = () => {
-    showToast('✨ Outfit confirmed for today! Looking sharp.');
+    showToast('Outfit confirmed for today! Looking sharp.');
     handleClose();
   };
 
@@ -393,7 +394,7 @@ export default function OutfitCustomizeModal({
           </Animated.View>
         </View>
 
-        {/* Bottom Drawer: Style Suggestions with Option 0 as "🚫 None (Unequip)" */}
+        {/* Bottom Drawer: Style Suggestions with Option 0 as None (Unequip) */}
         <Animated.View style={[styles.drawer, { transform: [{ translateY: slideUpAnim }] }]}>
           <View style={styles.drawerHeader}>
             <View>
@@ -429,6 +430,11 @@ export default function OutfitCustomizeModal({
                       isActive && styles.zoneFilterPillActive,
                     ]}
                   >
+                    <Ionicons
+                      name={zone.icon}
+                      size={12}
+                      color={isActive ? '#FFFFFF' : '#657468'}
+                    />
                     <Text
                       style={[
                         styles.zoneFilterText,
@@ -917,6 +923,9 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   zoneFilterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 11,
     paddingVertical: 5,
     borderRadius: 14,

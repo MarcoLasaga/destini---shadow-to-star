@@ -42,7 +42,9 @@ export default function WeatherCard({ weather }: { weather: WeatherData }) {
             <Text style={styles.detailText}>Feels {weather.feelsLikeC ?? Math.round((weather.feelsLikeF - 32) * (5 / 9))}°C</Text>
             <View style={styles.detailRow}>
               <Ionicons name="water" size={12} color="#5A7FC1" />
-              <Text style={styles.detailText}> {weather.humidity}% · 💨 {weather.windKmh ?? Math.round(weather.windMph * 1.60934)} km/h</Text>
+              <Text style={styles.detailText}> {weather.humidity}% · </Text>
+              <Ionicons name="speedometer-outline" size={12} color="#5A5A5A" />
+              <Text style={styles.detailText}> {weather.windKmh ?? Math.round(weather.windMph * 1.60934)} km/h</Text>
             </View>
           </View>
         </View>

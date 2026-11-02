@@ -19,6 +19,20 @@ export const brand = {
   alabaster: '#F7F6F2',
 };
 
+// Redesigned Editorial Palette (PDF Page 17 Reference: #F3F1EF, #364536, #E83E35)
+export const editorialColors = {
+  lightText: '#F3F1EF', // Warm Ivory / Alabaster Text & Light Surface
+  forestPrimary: '#364536', // Deep Editorial Forest Green (9.04 contrast with #F3F1EF)
+  forestDark: '#242F24', // Deeper Forest Shade for Dark Surfaces
+  forestSoft: '#4A5D4A', // Muted Forest Shade for Secondary Accents
+  forestTintLight: '#E8ECE8', // Soft Sage Tint for Light Mode Pills/Badges
+  forestTintDark: 'rgba(54, 69, 54, 0.45)', // Dark Mode Active Surface Tint
+  terracottaAccent: '#E83E35', // Vibrant Editorial Red-Orange Accent
+  terracottaSoft: 'rgba(232, 62, 53, 0.12)', // Soft Terracotta Tint
+  warmSurfaceLight: '#FAF9F7', // Warm Light Card Surface
+  warmBorderLight: '#E2DFDA', // Warm Subtle Border
+};
+
 export const lightTheme = {
   mode: 'light' as const,
   background: '#F7F6F2', // Warm Matte Alabaster

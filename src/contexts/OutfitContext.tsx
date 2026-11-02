@@ -328,7 +328,7 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
       if (next) {
         triggerSmartAlert({
           type: 'Sustainability',
-          title: '♻ No New Clothes Mode Active',
+          title: 'No New Clothes Mode Active',
           body: 'Prioritizing unworn clothes in your closet.',
           targetRoute: 'Wardrobe',
         }).catch(() => {});

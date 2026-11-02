@@ -114,9 +114,12 @@ export default function FullBodyTryOnModal({
               <Text style={[styles.kicker, { color: theme.accent }]}>
                 HEAD-TO-TOE VERIFICATION GATE
               </Text>
-              <Text style={[styles.title, { color: theme.text }]}>
-                🔒 Unlock “See It On Me”
-              </Text>
+              <View style={styles.titleRow}>
+                <Ionicons name="lock-closed" size={18} color={theme.text} />
+                <Text style={[styles.title, { color: theme.text }]}>
+                  Unlock “See It On Me”
+                </Text>
+              </View>
             </View>
             <Pressable
               onPress={onClose}
@@ -133,8 +136,9 @@ export default function FullBodyTryOnModal({
               { backgroundColor: theme.badgeBg, borderColor: theme.border },
             ]}
           >
-            <Text style={[styles.privacyBannerText, { color: theme.text }]}>
-              Step back so your Head, Torso, Legs, and Shoes/Feet are all inside the frame. 🔒 Kept 100% private on your device—never shared in Community.
+            <Ionicons name="lock-closed-outline" size={15} color={theme.text} style={{ marginTop: 1 }} />
+            <Text style={[styles.privacyBannerText, { color: theme.text, flex: 1 }]}>
+              Step back so your Head, Torso, Legs, and Shoes/Feet are all inside the frame. Kept 100% private on your device—never shared in Community.
             </Text>
           </View>
 
@@ -230,7 +234,8 @@ export default function FullBodyTryOnModal({
 
           {errorMessage && (
             <View style={styles.errorBanner}>
-              <Text style={styles.errorBannerText}>⚠️ {errorMessage}</Text>
+              <Ionicons name="warning-outline" size={16} color="#991B1B" />
+              <Text style={[styles.errorBannerText, { flex: 1 }]}>{errorMessage}</Text>
             </View>
           )}
 
@@ -246,7 +251,7 @@ export default function FullBodyTryOnModal({
             >
               <Ionicons name="camera-outline" size={18} color={theme.onAccent} />
               <Text style={[styles.primaryCameraBtnText, { color: theme.onAccent }]}>
-                📷 Scan Full Body via Camera
+                Scan Full Body via Camera
               </Text>
             </Pressable>
 
@@ -260,7 +265,7 @@ export default function FullBodyTryOnModal({
             >
               <Ionicons name="images-outline" size={17} color={theme.text} />
               <Text style={[styles.secondaryGalleryBtnText, { color: theme.text }]}>
-                🖼️ Upload Full-Body Photo
+                Upload Full-Body Photo
               </Text>
             </Pressable>
 
@@ -307,10 +312,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 1,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
   title: {
     fontSize: 19,
     fontWeight: '700',
-    marginTop: 2,
   },
   closeBtn: {
     width: 32,
@@ -320,6 +330,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   privacyBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 12,
@@ -373,6 +386,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
     backgroundColor: '#FEF2F2',
     borderWidth: 1,
     borderColor: '#FECACA',

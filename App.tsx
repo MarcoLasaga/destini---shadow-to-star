@@ -1,5 +1,5 @@
 import 'react-native-gesture-handler';
-import { LogBox } from 'react-native';
+import { LogBox, StatusBar as RNStatusBar, Platform } from 'react-native';
 
 LogBox.ignoreLogs([
   "The action 'RESET' with payload",
@@ -60,11 +60,17 @@ function AppContent() {
 
   useEffect(() => {
     initNotifications();
+    // Enable fullscreen immersive experience by hiding system status bar where supported
+    RNStatusBar.setHidden(true, 'fade');
+    if (Platform.OS === 'android') {
+      RNStatusBar.setTranslucent(true);
+      RNStatusBar.setBackgroundColor('transparent');
+    }
   }, []);
 
   return (
     <>
-      <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
+      <StatusBar hidden={true} translucent style={theme.mode === 'dark' ? 'light' : 'dark'} />
       <RootNavigator />
     </>
   );

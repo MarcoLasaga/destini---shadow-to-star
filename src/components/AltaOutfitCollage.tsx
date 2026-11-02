@@ -215,11 +215,11 @@ export default function AltaOutfitCollage({
           { width: boxWidth as any, height: boxHeight },
           extraStyle,
           isSelected && {
-            borderColor: theme.secondaryAccent,
+            borderColor: '#364536',
             borderWidth: 1.5,
             borderRadius: 12,
             backgroundColor:
-              theme.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+              theme.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(54, 69, 54, 0.05)',
           },
         ]}
       >
@@ -260,18 +260,7 @@ export default function AltaOutfitCollage({
   const hasOuterwear = Boolean(grouped.outerwear);
   const hasAccessories = grouped.accessories.length > 0;
 
-  // Editorial 2-Column Balance (ALTA layout):
-  // - Standard with Outerwear:
-  //   Left Column (52%): TOP -> BOTTOM (marginTop: -6) -> SHOES (marginTop: -4)
-  //   Right Column (48%): OUTERWEAR -> ACCESSORIES
-  // - When no Outerwear is present:
-  //   If Accessories exist:
-  //     Left Column (52%): TOP -> BOTTOM (marginTop: -6)
-  //     Right Column (48%): ACCESSORIES -> SHOES
-  //   If neither Outerwear nor Accessories exist:
-  //     Left Column (52%): TOP -> SHOES
-  //     Right Column (48%): BOTTOM
-  const canvasBg = theme.mode === 'dark' ? '#1E1E22' : '#F5F5F3';
+  const canvasBg = theme.mode === 'dark' ? '#1E1E22' : '#F3F1EF';
 
   const renderPopover = () => {
     if (!interactive || !selectedItem) return null;
@@ -315,11 +304,18 @@ export default function AltaOutfitCollage({
         ? `${Math.round(cluster1.proportion * 100)}%`
         : null;
 
+    const cleanedRawNote = selectedItem.color_harmony_note
+      ? selectedItem.color_harmony_note
+          .replace(/CIELAB\s*K\s*=\s*2\s*:?\s*/gi, '')
+          .replace(/L\*=\d+/gi, '')
+          .trim()
+      : '';
+
     const harmonyNote =
-      selectedItem.color_harmony_note ||
+      cleanedRawNote ||
       (secondaryName
-        ? `CIELAB K=2: ${primaryName} dominant paired with ${secondaryName} accent.`
-        : `CIELAB K=2: Solid ${primaryName} tonal profile.`);
+        ? `${primaryName} base paired with ${secondaryName} accent.`
+        : `Solid ${primaryName.toLowerCase()} tone.`);
 
     return (
       <Pressable
@@ -387,7 +383,7 @@ export default function AltaOutfitCollage({
         styles.canvasContainer,
         {
           backgroundColor: canvasBg,
-          borderRadius: compact ? 12 : 16,
+          borderRadius: compact ? 12 : 18,
           padding: compact ? 8 : 16,
           aspectRatio: compact ? 0.9 : 0.92,
         },
@@ -482,7 +478,7 @@ export default function AltaOutfitCollage({
         </View>
       </View>
 
-      {/* Interactive Garment CIELAB K=2 Popover */}
+      {/* Interactive Garment Popover */}
       {renderPopover()}
 
       {/* ALTA-Style Pagination Indicator Centered at the Bottom of the Canvas (| · ·) */}
@@ -502,10 +498,10 @@ export default function AltaOutfitCollage({
                     isActive ? styles.paginationActiveBar : styles.paginationDot,
                     {
                       backgroundColor: isActive
-                        ? theme.text
+                        ? '#364536'
                         : theme.mode === 'dark'
                         ? '#52525B'
-                        : '#A1A1AA',
+                        : '#B8B5B0',
                     },
                   ]}
                 />
@@ -566,8 +562,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   paginationActiveBar: {
-    width: 3,
-    height: 12,
+    width: 14,
+    height: 4,
     borderRadius: 2,
   },
   paginationDot: {
@@ -580,9 +576,9 @@ const styles = StyleSheet.create({
     left: 12,
     right: 12,
     bottom: 26,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    padding: 10,
+    padding: 11,
     gap: 6,
   },
   popoverHeader: {
@@ -627,8 +623,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   harmonyText: {
-    fontSize: 10,
+    fontSize: 10.5,
     lineHeight: 14,
   },
 });
-

@@ -12,14 +12,14 @@ export const mockAnalytics: AnalyticsPreview = {
 };
 
 export const sustainabilityTips: string[] = [
-  'Wearing an item 30 times reduces its carbon footprint by 50%. 🌱',
-  'Wash clothes only when necessary to save water and energy. 💧',
-  'Air dry garments instead of using a dryer to cut energy use. ☀️',
-  'Donate clothes you no longer wear instead of throwing them away. 👕',
-  'Repair small tears before replacing the whole item. 🧵',
-  'Choose versatile pieces that mix and match with your wardrobe. ♻️',
-  'Buying secondhand reduces textile waste in landfills. 🛍️',
-  'Cold water washes use up to 90% less energy than hot washes. 🧺',
+  'Wearing an item 30 times reduces its carbon footprint by 50%.',
+  'Wash clothes only when necessary to save water and energy.',
+  'Air dry garments instead of using a dryer to cut energy use.',
+  'Donate clothes you no longer wear instead of throwing them away.',
+  'Repair small tears before replacing the whole item.',
+  'Choose versatile pieces that mix and match with your wardrobe.',
+  'Buying secondhand reduces textile waste in landfills.',
+  'Cold water washes use up to 90% less energy than hot washes.',
 ];
 
 export function getRandomTip(): string {
