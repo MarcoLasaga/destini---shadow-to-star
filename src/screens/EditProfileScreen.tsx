@@ -243,7 +243,7 @@ export default function EditProfileScreen() {
       </ScrollView>
 
       {/* Confirmation Modal: Delete All Posts */}
-      <Modal
+      <Modal statusBarTranslucent={true}
         visible={deleteAllPostsModalVisible}
         transparent
         animationType="fade"
@@ -295,7 +295,7 @@ export default function EditProfileScreen() {
       </Modal>
 
       {/* Confirmation Modal: Terminate Account */}
-      <Modal
+      <Modal statusBarTranslucent={true}
         visible={terminateAccountModalVisible}
         transparent
         animationType="fade"

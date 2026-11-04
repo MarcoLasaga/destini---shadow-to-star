@@ -98,7 +98,7 @@ export default function FullBodyTryOnModal({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal statusBarTranslucent={true} visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View
           style={[

@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { normalizeHexCode } from '../services/outfitRecommendationService';
 
 export interface CielabCluster {
   color_name: string;
@@ -26,6 +27,7 @@ export interface CielabPaletteCardProps {
   secondaryHex?: string | null;
   harmonyNote?: string | null;
   compact?: boolean;
+  title?: string;
 }
 
 export default function CielabPaletteCard({
@@ -36,8 +38,10 @@ export default function CielabPaletteCard({
   secondaryHex,
   harmonyNote,
   compact = false,
+  title = 'Outfit Color Palette',
 }: CielabPaletteCardProps) {
   const theme = useAppTheme();
+  const isDark = theme.mode === 'dark';
 
   // Normalize clusters array
   let clusters: CielabCluster[] = [];
@@ -53,8 +57,8 @@ export default function CielabPaletteCard({
 
   // Primary cluster (Cluster 0)
   const c0 = clusters[0];
-  const c0Hex = c0?.hex_code || primaryHex || '#364536';
   const c0Name = c0?.color_name || primaryColor || 'Primary';
+  const c0Hex = normalizeHexCode(c0?.hex_code || primaryHex, c0Name);
   const c0Prop = typeof c0?.proportion === 'number' ? Math.round(c0.proportion * 100) : 82;
 
   // Secondary cluster (Cluster 1, shown if proportion >= 8% or explicitly provided)
@@ -63,8 +67,8 @@ export default function CielabPaletteCard({
   const showSecondary =
     (c1 && typeof c1Prop === 'number' && c1Prop >= 8) ||
     Boolean(secondaryColor && secondaryColor !== primaryColor);
-  const c1Hex = c1?.hex_code || secondaryHex || '#E5E7EB';
   const c1Name = c1?.color_name || secondaryColor || 'Secondary';
+  const c1Hex = normalizeHexCode(c1?.hex_code || secondaryHex, c1Name);
   const finalC1Prop = c1Prop ?? Math.max(12, 100 - c0Prop);
 
   const cleanedHarmonyNote = harmonyNote
@@ -74,8 +78,8 @@ export default function CielabPaletteCard({
   const resolvedHarmonyNote =
     cleanedHarmonyNote ||
     (showSecondary
-      ? `Dual-tone palette (${c0Name} base with ${c1Name} accent)`
-      : `Dominant ${c0Name.toLowerCase()} tone`);
+      ? `Dual-tone palette (${c0Name} ${c0Hex} base with ${c1Name} ${c1Hex} accent)`
+      : `Dominant ${c0Name.toLowerCase()} tone (${c0Hex})`);
 
   return (
     <View
@@ -91,43 +95,71 @@ export default function CielabPaletteCard({
       {/* Header */}
       <View style={styles.headerRow}>
         <Text style={[styles.headerTitle, { color: theme.text }]}>
-          Detected Color Palette
+          {title}
         </Text>
       </View>
 
-      {/* Cluster Pills Row */}
+      {/* Cluster Pills Row with #RRGGBB HEX codes */}
       <View style={styles.pillsRow}>
         {/* Primary Cluster Pill */}
-        <View style={[styles.pill, { borderColor: theme.border, backgroundColor: theme.background }]}>
+        <View
+          style={[
+            styles.pill,
+            { borderColor: theme.border, backgroundColor: theme.surfaceSecondary },
+          ]}
+        >
           <View
             style={[
               styles.colorSwatch,
               {
                 backgroundColor: c0Hex,
-                borderColor: c0Hex.toUpperCase() === '#FFFFFF' ? '#CBD5E1' : 'transparent',
+                borderColor: isDark ? 'rgba(255,255,255,0.32)' : 'rgba(0,0,0,0.18)',
               },
             ]}
           />
           <Text style={[styles.pillText, { color: theme.text }]}>
-            {c0Name} · {c0Prop}%
+            {c0Name}
           </Text>
+          <View
+            style={[
+              styles.hexCodeBadge,
+              { backgroundColor: theme.background, borderColor: theme.border },
+            ]}
+          >
+            <Text style={[styles.hexCodeText, { color: theme.text }]}>{c0Hex}</Text>
+          </View>
+          <Text style={[styles.propText, { color: theme.textMuted }]}>{c0Prop}%</Text>
         </View>
 
         {/* Secondary Cluster Pill */}
         {showSecondary && (
-          <View style={[styles.pill, { borderColor: theme.border, backgroundColor: theme.background }]}>
+          <View
+            style={[
+              styles.pill,
+              { borderColor: theme.border, backgroundColor: theme.surfaceSecondary },
+            ]}
+          >
             <View
               style={[
                 styles.colorSwatch,
                 {
                   backgroundColor: c1Hex,
-                  borderColor: c1Hex.toUpperCase() === '#FFFFFF' ? '#CBD5E1' : 'transparent',
+                  borderColor: isDark ? 'rgba(255,255,255,0.32)' : 'rgba(0,0,0,0.18)',
                 },
               ]}
             />
             <Text style={[styles.pillText, { color: theme.text }]}>
-              {c1Name} · {finalC1Prop}%
+              {c1Name}
             </Text>
+            <View
+              style={[
+                styles.hexCodeBadge,
+                { backgroundColor: theme.background, borderColor: theme.border },
+              ]}
+            >
+              <Text style={[styles.hexCodeText, { color: theme.text }]}>{c1Hex}</Text>
+            </View>
+            <Text style={[styles.propText, { color: theme.textMuted }]}>{finalC1Prop}%</Text>
           </View>
         )}
       </View>
@@ -169,31 +201,46 @@ const styles = StyleSheet.create({
   pillsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 8,
     marginBottom: 4,
   },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 20,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 12,
     borderWidth: 1,
     gap: 6,
   },
   colorSwatch: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 13,
+    height: 13,
+    borderRadius: 6.5,
     borderWidth: 1,
   },
   pillText: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '700',
   },
-  harmonyNoteText: {
+  hexCodeBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  hexCodeText: {
     fontSize: 10.5,
-    lineHeight: 14,
-    marginTop: 2,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  propText: {
+    fontSize: 10.5,
+    fontWeight: '600',
+  },
+  harmonyNoteText: {
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 3,
   },
 });

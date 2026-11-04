@@ -63,27 +63,46 @@ export function inferAccessoryZone(item?: { name?: string; category?: string } |
 }
 
 export function colorNameToHex(colorName?: string): string {
-  const c = (colorName || '').toLowerCase().trim();
-  if (c.includes('black')) return '#1E1E24';
-  if (c.includes('cream') || c.includes('ivory') || c.includes('off-white')) return '#F5F0E1';
-  if (c.includes('white')) return '#F8F9FA';
-  if (c.includes('navy')) return '#1D2D50';
-  if (c.includes('light blue') || c.includes('sky') || c.includes('baby blue')) return '#7FA8D4';
-  if (c.includes('teal') || c.includes('cyan') || c.includes('turquoise')) return '#2A7B7B';
-  if (c.includes('blue') || c.includes('denim')) return '#3B6EA5';
-  if (c.includes('gray') || c.includes('grey') || c.includes('silver') || c.includes('slate') || c.includes('charcoal')) return '#7D8597';
-  if (c.includes('khaki') || c.includes('tan') || c.includes('camel')) return '#C3B091';
-  if (c.includes('beige') || c.includes('sand') || c.includes('oat')) return '#DFC9A8';
-  if (c.includes('brown') || c.includes('leather') || c.includes('espresso') || c.includes('chocolate')) return '#6F4E37';
-  if (c.includes('burgundy') || c.includes('maroon') || c.includes('wine')) return '#722F37';
-  if (c.includes('red') || c.includes('crimson')) return '#B91C1C';
-  if (c.includes('orange') || c.includes('rust') || c.includes('terracotta') || c.includes('coral')) return '#E07A5F';
-  if (c.includes('pink') || c.includes('rose') || c.includes('blush')) return '#E5989B';
-  if (c.includes('olive') || c.includes('army') || c.includes('moss')) return '#556B2F';
-  if (c.includes('green') || c.includes('sage') || c.includes('emerald') || c.includes('forest')) return '#4F772D';
-  if (c.includes('purple') || c.includes('plum') || c.includes('lilac') || c.includes('lavender')) return '#6B4C82';
-  if (c.includes('yellow') || c.includes('gold') || c.includes('mustard')) return '#E9C46A';
+  const raw = (colorName || '').trim();
+  if (/^#([0-9A-F]{6}|[0-9A-F]{3})$/i.test(raw)) {
+    return raw.toUpperCase();
+  }
+  const c = raw.toLowerCase();
+  if (c.includes('black') || c.includes('onyx') || c.includes('jet') || c.includes('ebony')) return '#1E1E24';
+  if (c.includes('cream') || c.includes('ivory') || c.includes('off-white') || c.includes('ecru') || c.includes('vanilla')) return '#F5F0E1';
+  if (c.includes('white') || c.includes('snow') || c.includes('pearl') || c.includes('alabaster')) return '#F8F9FA';
+  if (c.includes('navy') || c.includes('midnight') || c.includes('indigo')) return '#1D2D50';
+  if (c.includes('light blue') || c.includes('sky') || c.includes('baby blue') || c.includes('powder blue')) return '#7FA8D4';
+  if (c.includes('teal') || c.includes('cyan') || c.includes('turquoise') || c.includes('aqua')) return '#2A7B7B';
+  if (c.includes('blue') || c.includes('denim') || c.includes('cobalt') || c.includes('azure')) return '#3B6EA5';
+  if (c.includes('charcoal') || c.includes('graphite') || c.includes('anthracite')) return '#36393F';
+  if (c.includes('gray') || c.includes('grey') || c.includes('silver') || c.includes('slate') || c.includes('ash') || c.includes('heather')) return '#7D8597';
+  if (c.includes('khaki') || c.includes('tan') || c.includes('camel') || c.includes('fawn')) return '#C3B091';
+  if (c.includes('beige') || c.includes('sand') || c.includes('oat') || c.includes('taupe') || c.includes('stone') || c.includes('linen')) return '#DFC9A8';
+  if (c.includes('brown') || c.includes('leather') || c.includes('espresso') || c.includes('chocolate') || c.includes('mocha') || c.includes('cognac') || c.includes('walnut')) return '#6F4E37';
+  if (c.includes('burgundy') || c.includes('maroon') || c.includes('wine') || c.includes('oxblood') || c.includes('merlot')) return '#722F37';
+  if (c.includes('red') || c.includes('crimson') || c.includes('scarlet') || c.includes('cherry') || c.includes('ruby')) return '#B91C1C';
+  if (c.includes('orange') || c.includes('rust') || c.includes('terracotta') || c.includes('coral') || c.includes('peach') || c.includes('amber')) return '#E07A5F';
+  if (c.includes('pink') || c.includes('rose') || c.includes('blush') || c.includes('magenta') || c.includes('salmon')) return '#E5989B';
+  if (c.includes('olive') || c.includes('army') || c.includes('moss') || c.includes('khaki green')) return '#556B2F';
+  if (c.includes('green') || c.includes('sage') || c.includes('emerald') || c.includes('forest') || c.includes('mint') || c.includes('pine')) return '#4F772D';
+  if (c.includes('purple') || c.includes('plum') || c.includes('lilac') || c.includes('lavender') || c.includes('violet') || c.includes('mauve')) return '#6B4C82';
+  if (c.includes('yellow') || c.includes('gold') || c.includes('mustard') || c.includes('lemon')) return '#E9C46A';
   return '#3A404A';
+}
+
+export function normalizeHexCode(hex?: string | null, fallbackColorName?: string): string {
+  const cleaned = (hex || '').trim().toUpperCase();
+  if (/^#[0-9A-F]{6}$/.test(cleaned)) {
+    return cleaned;
+  }
+  if (/^#[0-9A-F]{3}$/.test(cleaned)) {
+    const r = cleaned[1];
+    const g = cleaned[2];
+    const b = cleaned[3];
+    return `#${r}${r}${g}${g}${b}${b}`;
+  }
+  return colorNameToHex(fallbackColorName || cleaned || 'Neutral').toUpperCase();
 }
 
 export function getBodyPlacementBadge(

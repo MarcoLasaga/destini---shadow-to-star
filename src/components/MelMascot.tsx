@@ -9,6 +9,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -18,6 +19,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { useAppTheme } from '../hooks/useAppTheme';
 
 export type MelOutfit =
   | 'casual_sunny'
@@ -105,9 +107,13 @@ interface MelMascotProps {
   style?: StyleProp<ViewStyle>;
 }
 
+/**
+ * Standalone Free-Standing Mel Character Illustration.
+ * Never enclosed inside a circular badge or cropped container.
+ */
 export function MelMascot({
   outfit = 'casual_sunny',
-  size = 140,
+  size = 56,
   waving = false,
   onPress,
   style,
@@ -116,26 +122,24 @@ export function MelMascot({
   const tilt = useSharedValue(0);
   const scale = useSharedValue(1);
 
-  // Subtle floating idle motion
   useEffect(() => {
     bob.value = withRepeat(
       withSequence(
-        withTiming(-3, { duration: 1300, easing: Easing.inOut(Easing.quad) }),
-        withTiming(0, { duration: 1300, easing: Easing.inOut(Easing.quad) })
+        withTiming(-3, { duration: 1500, easing: Easing.inOut(Easing.quad) }),
+        withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.quad) })
       ),
       -1,
       false
     );
   }, [bob]);
 
-  // Gentle playful tilt when waving
   useEffect(() => {
     if (waving) {
       tilt.value = withRepeat(
         withSequence(
-          withTiming(-2, { duration: 340, easing: Easing.inOut(Easing.ease) }),
-          withTiming(2, { duration: 340, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0, { duration: 220, easing: Easing.inOut(Easing.ease) })
+          withTiming(-2, { duration: 360, easing: Easing.inOut(Easing.ease) }),
+          withTiming(2, { duration: 360, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0, { duration: 240, easing: Easing.inOut(Easing.ease) })
         ),
         -1,
         false
@@ -155,7 +159,7 @@ export function MelMascot({
 
   const handlePressIn = () => {
     if (onPress) {
-      scale.value = withSpring(0.94, { damping: 14, stiffness: 220 });
+      scale.value = withSpring(0.95, { damping: 14, stiffness: 220 });
     }
   };
 
@@ -170,6 +174,7 @@ export function MelMascot({
     [outfit, waving]
   );
 
+  // Full-body chameleon aspect ratio (~297 x 450 = 1 : 1.52)
   const width = size;
   const height = Math.round(size * 1.52);
 
@@ -181,9 +186,9 @@ export function MelMascot({
       disabled={!onPress}
       accessibilityRole="button"
       accessibilityLabel={`Mel the Chameleon Stylist in ${outfit.replace('_', ' ')} outfit`}
-      style={[styles.container, { width, height }, style]}
+      style={[styles.freeStandingContainer, { width, height }, style]}
     >
-      <Animated.View style={[{ width, height }, animatedStyle]}>
+      <Animated.View style={[{ width, height, overflow: 'visible' }, animatedStyle]}>
         <Image
           source={imageSource}
           style={{ width, height }}
@@ -194,19 +199,38 @@ export function MelMascot({
   );
 }
 
+/**
+ * Natural Dialogue Speech Bubble with Directional Tail Pointing to Mel.
+ * Automatically adapts to Light Mode and Dark Mode.
+ */
 export function MelSpeechBubble({
   variant = 'casual_sunny',
+  title = 'MEL · STYLE TIP',
   message,
   onTapNextTip,
-  position = 'top-left',
+  position = 'inline',
+  tailDirection = 'left',
   hideHeader = false,
+  compact = false,
 }: {
   variant?: MelOutfit;
+  title?: string;
   message: string;
   onTapNextTip?: () => void;
   position?: MelBubblePosition;
+  tailDirection?: 'left' | 'right' | 'top' | 'none';
   hideHeader?: boolean;
+  compact?: boolean;
 }) {
+  const theme = useAppTheme();
+  const isDark = theme.mode === 'dark';
+
+  const bubbleBg = isDark ? '#19211D' : '#FFFFFF';
+  const bubbleBorder = isDark ? '#2B3830' : '#D8E2DA';
+  const badgeColor = isDark ? '#98C4A4' : '#364536';
+  const textColor = isDark ? '#F3F1EF' : '#18181B';
+  const actionBg = isDark ? 'rgba(152, 196, 164, 0.14)' : '#ECF1ED';
+
   return (
     <Pressable
       onPress={onTapNextTip}
@@ -220,24 +244,87 @@ export function MelSpeechBubble({
           : styles.topLeft,
       ]}
     >
-      <View
-        style={[
-          styles.bubble,
-          position === 'inline' && styles.inlineBubble,
-        ]}
-      >
-        {!hideHeader && (
-          <View style={styles.bubbleHeaderRow}>
-            <View style={styles.melBadgeRow}>
-              <View style={styles.melAccentDot} />
-              <Text style={styles.bubbleLabel}>Mel · Style Guide</Text>
-            </View>
-            {!!onTapNextTip && (
-              <Text style={styles.tapPill}>Next tip ↻</Text>
-            )}
+      <View style={styles.speechRowWithTail}>
+        {tailDirection === 'left' && (
+          <View style={styles.leftTailWrap} pointerEvents="none">
+            <View
+              style={[
+                styles.leftTailDiamond,
+                {
+                  backgroundColor: bubbleBg,
+                  borderColor: bubbleBorder,
+                },
+              ]}
+            />
           </View>
         )}
-        <Text style={styles.bubbleText}>{message}</Text>
+
+        <View
+          style={[
+            styles.bubble,
+            compact && styles.bubbleCompact,
+            position === 'inline' && !compact && styles.inlineBubble,
+            position === 'inline' && compact && styles.inlineBubbleCompact,
+            {
+              backgroundColor: bubbleBg,
+              borderColor: bubbleBorder,
+            },
+          ]}
+        >
+          {tailDirection === 'top' && (
+            <View
+              style={[
+                styles.topTailDiamond,
+                {
+                  backgroundColor: bubbleBg,
+                  borderColor: bubbleBorder,
+                },
+              ]}
+              pointerEvents="none"
+            />
+          )}
+
+          {!hideHeader && (
+            <View style={[styles.bubbleHeaderRow, compact && { marginBottom: 3 }]}>
+              <View style={styles.melBadgeRow}>
+                <View style={styles.melAccentDot} />
+                <Text style={[styles.bubbleLabel, { color: badgeColor }]} numberOfLines={1}>
+                  {title}
+                </Text>
+              </View>
+              {!!onTapNextTip && (
+                <View style={[styles.tapPill, { backgroundColor: actionBg }]}>
+                  <Text style={[styles.tapPillText, { color: badgeColor }]}>Next tip</Text>
+                  <Ionicons name="refresh" size={10} color={badgeColor} />
+                </View>
+              )}
+            </View>
+          )}
+          <Text
+            style={[
+              styles.bubbleText,
+              compact && styles.bubbleTextCompact,
+              { color: textColor },
+            ]}
+            numberOfLines={compact ? 2 : 3}
+          >
+            {message}
+          </Text>
+        </View>
+
+        {tailDirection === 'right' && (
+          <View style={styles.rightTailWrap} pointerEvents="none">
+            <View
+              style={[
+                styles.rightTailDiamond,
+                {
+                  backgroundColor: bubbleBg,
+                  borderColor: bubbleBorder,
+                },
+              ]}
+            />
+          </View>
+        )}
       </View>
     </Pressable>
   );
@@ -246,14 +333,16 @@ export function MelSpeechBubble({
 export default MelMascot;
 
 const styles = StyleSheet.create({
-  container: {
+  freeStandingContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'transparent',
+    overflow: 'visible',
   },
   bubbleWrap: {
     position: 'absolute',
     zIndex: 2,
-    maxWidth: 245,
+    maxWidth: 260,
   },
   topLeft: {
     top: 8,
@@ -264,58 +353,128 @@ const styles = StyleSheet.create({
     bottom: 10,
   },
   inlineWrap: {
-    flex: 1,
+    flexShrink: 1,
     position: 'relative',
     maxWidth: '100%',
   },
+  speechRowWithTail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+  },
+  leftTailWrap: {
+    width: 10,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: -5,
+    zIndex: 3,
+  },
+  leftTailDiamond: {
+    width: 10,
+    height: 10,
+    borderLeftWidth: 1.2,
+    borderBottomWidth: 1.2,
+    transform: [{ rotate: '45deg' }],
+    borderRadius: 2,
+  },
+  rightTailWrap: {
+    width: 10,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: -5,
+    zIndex: 3,
+  },
+  rightTailDiamond: {
+    width: 10,
+    height: 10,
+    borderRightWidth: 1.2,
+    borderTopWidth: 1.2,
+    transform: [{ rotate: '45deg' }],
+    borderRadius: 2,
+  },
+  topTailDiamond: {
+    position: 'absolute',
+    top: -5,
+    left: 24,
+    width: 10,
+    height: 10,
+    borderTopWidth: 1.2,
+    borderLeftWidth: 1.2,
+    transform: [{ rotate: '45deg' }],
+    borderRadius: 2,
+  },
   bubble: {
-    backgroundColor: '#F3F1EF',
-    borderColor: 'rgba(54, 69, 54, 0.18)',
-    borderWidth: 1,
-    borderRadius: 14,
+    borderWidth: 1.2,
+    borderRadius: 15,
     paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingVertical: 10,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 5,
+    elevation: 2,
+    flexShrink: 1,
+  },
+  bubbleCompact: {
+    borderRadius: 14,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    maxWidth: 220,
   },
   inlineBubble: {
+    flex: 1,
     width: '100%',
+  },
+  inlineBubbleCompact: {
+    flexShrink: 1,
+    maxWidth: 220,
   },
   bubbleHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 3,
+    marginBottom: 4,
+    gap: 8,
   },
   melBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
+    flex: 1,
   },
   melAccentDot: {
-    width: 6,
-    height: 6,
+    width: 5.5,
+    height: 5.5,
     borderRadius: 3,
     backgroundColor: '#E83E35',
   },
   bubbleLabel: {
-    color: '#364536',
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '800',
-    letterSpacing: 0.6,
+    letterSpacing: 0.7,
     textTransform: 'uppercase',
   },
   tapPill: {
-    color: '#F3F1EF',
-    fontSize: 9.5,
-    fontWeight: '700',
-    backgroundColor: '#364536',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 999,
   },
+  tapPillText: {
+    fontSize: 9,
+    fontWeight: '700',
+  },
   bubbleText: {
-    color: '#18181B',
-    fontSize: 12.5,
-    lineHeight: 17,
+    fontSize: 12,
+    lineHeight: 16.5,
     fontWeight: '600',
+  },
+  bubbleTextCompact: {
+    fontSize: 11.5,
+    lineHeight: 15.5,
   },
 });

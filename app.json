@@ -2,6 +2,7 @@
   "expo": {
     "name": "StyleSense",
     "slug": "StyleSense",
+    "description": "Personalized Wardrobe and Outfit Recommendation Mobile Application. Developed by Shiloh Dynasty.",
     "scheme": "stylesense",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -14,6 +15,7 @@
       "backgroundColor": "#364536"
     },
     "notification": {
+      "icon": "./assets/notification-icon.png",
       "color": "#364536",
       "iosDisplayInForeground": true
     },
@@ -36,7 +38,7 @@
       "package": "com.stylesense.app",
       "userInterfaceStyle": "light",
       "adaptiveIcon": {
-        "backgroundColor": "#364536",
+        "backgroundColor": "#F8F9F3",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -53,7 +55,13 @@
     },
     "plugins": [
       "expo-font",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#364536"
+        }
+      ],
       [
         "expo-image-picker",
         {
@@ -72,6 +80,9 @@
       "expo-web-browser"
     ],
     "extra": {
+      "appName": "StyleSense",
+      "author": "Shiloh Dynasty",
+      "applicationType": "Personalized Wardrobe and Outfit Recommendation Mobile Application",
       "eas": {
         "projectId": "93e16514-ca88-4c7e-aca1-7f0df3f231eb"
       }

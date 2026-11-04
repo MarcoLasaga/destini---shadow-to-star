@@ -183,7 +183,7 @@ export default function CharacterCustomizeModal({
   const availableHairstyles = gender === 'female' ? FEMALE_HAIRSTYLES : MALE_HAIRSTYLES;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal statusBarTranslucent={true} visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalBackdrop}>
         <View style={[styles.sheet, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.dragHandle} />

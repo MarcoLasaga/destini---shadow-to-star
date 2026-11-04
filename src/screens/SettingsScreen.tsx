@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Switch } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Switch, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useSettings } from '../contexts/SettingsContext';
 import { useAuth } from '../contexts/AuthContext';
 import ScreenHeader from '../components/ScreenHeader';
-import ToggleRow from '../components/ToggleRow';
 import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
 import { NotificationPrefs } from '../types';
+
+const OFFICIAL_APP_ICON = require('../../assets/icon.png');
 
 const NOTIFICATION_BANNER_INFO: Record<keyof NotificationPrefs, { icon: keyof typeof Ionicons.glyphMap; title: string; message: string; color: string }> = {
   weatherAlerts: {
@@ -43,13 +44,6 @@ const NOTIFICATION_BANNER_INFO: Record<keyof NotificationPrefs, { icon: keyof ty
   },
 };
 
-const ALERT_ITEMS: { key: keyof NotificationPrefs; label: string; note: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { key: 'weatherAlerts', label: 'Weather Alerts', note: 'Live conditions for your outfit', icon: 'partly-sunny-outline' },
-  { key: 'sustainabilityTips', label: 'Sustainability Tips', note: 'Re-wear and care nudges', icon: 'leaf-outline' },
-  { key: 'outfitReminders', label: 'Outfit Reminders', note: 'Planned looks for tomorrow', icon: 'shirt-outline' },
-  { key: 'laundryReminders', label: 'Laundry Reminders', note: 'When pieces need washing', icon: 'water-outline' },
-];
-
 export default function SettingsScreen() {
   const theme = useAppTheme();
   const {
@@ -59,8 +53,6 @@ export default function SettingsScreen() {
     toggleNotification,
     language,
     setLanguage,
-    mannequinSkinTone,
-    setMannequinSkinTone,
     lastActivatedNotification,
     clearNotificationBanner,
   } = useSettings();
@@ -68,6 +60,7 @@ export default function SettingsScreen() {
 
   const [activeBanner, setActiveBanner] = useState<keyof NotificationPrefs | null>(null);
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
 
   const isTagalog = language === 'Filipino (Tagalog)';
@@ -86,11 +79,12 @@ export default function SettingsScreen() {
     privacyNote: isTagalog
       ? 'Ligtas na nakaimbak ang iyong data at hindi kailanman ibinabahagi sa iba.'
       : 'Your data is stored securely and never shared with third parties.',
-    signOut: isTagalog ? 'Mag-sign Out' : 'Sign Out',
-    signOutTitle: isTagalog ? 'Mag-sign Out' : 'Sign Out',
+    about: isTagalog ? 'Tungkol sa App' : 'About Application',
+    signOut: isTagalog ? 'Mag-log Out' : 'Log Out',
+    signOutTitle: isTagalog ? 'Mag-log out?' : 'Log out?',
     signOutMessage: isTagalog
-      ? 'Sigurado ka bang nais mong mag-sign out sa iyong StyleSense account?'
-      : 'Are you sure you want to sign out of your StyleSense account?',
+      ? 'Sigurado ka bang nais mong mag-log out sa iyong account?'
+      : 'Are you sure you want to log out of your account?',
     cancel: isTagalog ? 'Kanselahin' : 'Cancel',
   };
 
@@ -263,6 +257,29 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Official StyleSense About & Developer Information Section */}
+        <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="information-circle-outline" size={17} color={theme.accent} />
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.about}</Text>
+          </View>
+          <View style={styles.aboutBrandRow}>
+            <Image source={OFFICIAL_APP_ICON} style={styles.aboutBrandIcon} resizeMode="contain" />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[styles.aboutAppName, { color: theme.text }]}>StyleSense</Text>
+              <Text style={[styles.aboutDeveloper, { color: theme.text }]}>
+                Developed by Shiloh Dynasty
+              </Text>
+              <Text style={[styles.aboutAppDesc, { color: theme.textMuted }]}>
+                Personalized Wardrobe and Outfit Recommendation Mobile Application
+              </Text>
+              <Text style={[styles.aboutVersion, { color: theme.textMuted }]}>
+                Version 1.0.0 · Android
+              </Text>
+            </View>
+          </View>
+        </View>
+
         <Pressable
           onPress={() => setLogoutModalVisible(true)}
           style={[styles.logoutButton, { borderColor: '#E5484D33', backgroundColor: theme.surface }]}
@@ -296,8 +313,8 @@ export default function SettingsScreen() {
                       style={[
                         styles.languageOptionRow,
                         {
-                          backgroundColor: isSelected ? (theme.mode === 'dark' ? '#4B1D6F' : '#DECFE8') : theme.surface,
-                          borderColor: isSelected ? theme.activeCardBorder : theme.border,
+                          backgroundColor: isSelected ? '#364536' : theme.surface,
+                          borderColor: isSelected ? '#364536' : theme.border,
                         },
                       ]}
                     >
@@ -305,7 +322,7 @@ export default function SettingsScreen() {
                         style={[
                           styles.languageOptionLabel,
                           {
-                            color: isSelected ? (theme.mode === 'dark' ? '#FDF3D2' : '#24152C') : theme.text,
+                            color: isSelected ? '#F3F1EF' : theme.text,
                             fontWeight: isSelected ? '700' : '500',
                           },
                         ]}
@@ -313,7 +330,7 @@ export default function SettingsScreen() {
                         {opt}
                       </Text>
                       {isSelected && (
-                        <Ionicons name="checkmark-circle" size={19} color={theme.mode === 'dark' ? '#FDF3D2' : '#24152C'} />
+                        <Ionicons name="checkmark-circle" size={19} color="#F3F1EF" />
                       )}
                     </Pressable>
                   );
@@ -327,13 +344,21 @@ export default function SettingsScreen() {
       <ConfirmDialogModal
         visible={logoutModalVisible}
         variant="danger"
+        icon="log-out-outline"
         title={t.signOutTitle}
         message={t.signOutMessage}
         confirmText={t.signOut}
         cancelText={t.cancel}
-        onConfirm={() => {
-          setLogoutModalVisible(false);
-          logout();
+        loading={loggingOut}
+        onConfirm={async () => {
+          if (loggingOut) return;
+          setLoggingOut(true);
+          try {
+            setLogoutModalVisible(false);
+            await logout();
+          } finally {
+            setLoggingOut(false);
+          }
         }}
         onCancel={() => setLogoutModalVisible(false)}
       />
@@ -419,9 +444,6 @@ const styles = StyleSheet.create({
   alertPrefLabel: { fontSize: 14, fontWeight: '700' },
   alertPrefNote: { fontSize: 12, lineHeight: 16 },
   themeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
-  skinRow: { flexDirection: 'row', gap: 8 },
-  skinSwatch: { width: 25, height: 25, borderRadius: 13, borderWidth: 2, borderColor: '#FFFFFF' },
-  skinSelected: { borderColor: '#264C3B', transform: [{ scale: 1.18 }] },
   label: { fontSize: 14 },
   themeToggle: { flexDirection: 'row', borderRadius: 999, padding: 3, gap: 2 },
   themeOption: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999 },
@@ -430,6 +452,34 @@ const styles = StyleSheet.create({
   languageText: { fontSize: 13, fontWeight: '600' },
   privacyNote: { borderRadius: 12, padding: 12 },
   privacyText: { fontSize: 12.5, lineHeight: 18 },
+  aboutBrandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingTop: 4,
+  },
+  aboutBrandIcon: {
+    width: 56,
+    height: 56,
+  },
+  aboutAppName: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  aboutDeveloper: {
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  aboutAppDesc: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 1,
+  },
+  aboutVersion: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',

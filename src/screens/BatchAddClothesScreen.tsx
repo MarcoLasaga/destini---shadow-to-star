@@ -20,7 +20,7 @@ import { useWardrobe } from '../contexts/WardrobeContext';
 import { useToast } from '../contexts/ToastContext';
 import { supabase } from '../integrations/supabase/client';
 import { analyzeClothingImage, ClothingPrediction, Nsfw5ClassScores } from '../services/imageAnalysisService';
-import { colorNameToHex } from '../services/outfitRecommendationService';
+import { colorNameToHex, normalizeHexCode } from '../services/outfitRecommendationService';
 import { containsProfanityOrSlurs } from '../services/communityService';
 import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
 import TextField from '../components/TextField';
@@ -286,6 +286,7 @@ export default function BatchAddClothesScreen() {
   const [totalToAnalyze, setTotalToAnalyze] = useState(0);
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [savingBatch, setSavingBatch] = useState(false);
+  const [removeDraftTarget, setRemoveDraftTarget] = useState<BatchDraftWardrobeItem | null>(null);
 
   const [moderationModal, setModerationModal] = useState<{
     visible: boolean;
@@ -411,12 +412,29 @@ export default function BatchAddClothesScreen() {
   };
 
   const removeDraftItem = (id: string) => {
+    const target = draftItems.find((item) => item.id === id);
+    if (!target) return;
+    setRemoveDraftTarget(target);
+  };
+
+  const confirmRemoveDraftItem = () => {
+    if (!removeDraftTarget) return;
+    const target = removeDraftTarget;
+    setRemoveDraftTarget(null);
     setDraftItems((prev) => {
-      const next = prev.filter((item) => item.id !== id);
+      const next = prev.filter((item) => item.id !== target.id);
       if (selectedIndex >= next.length) {
         setSelectedIndex(Math.max(0, next.length - 1));
       }
       return next;
+    });
+    showToast(`Removed "${target.name}" from batch.`, {
+      variant: 'warning',
+      undoLabel: 'Undo',
+      onUndo: () => {
+        setDraftItems((prev) => [...prev, target]);
+        showToast(`Restored "${target.name}" to batch.`);
+      },
     });
   };
 
@@ -565,7 +583,7 @@ export default function BatchAddClothesScreen() {
   const isAnalyzingAny = analyzingIndex !== null || draftItems.some((d) => d.analyzing);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['left', 'right']}>
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.iconBtn}>
@@ -637,14 +655,14 @@ export default function BatchAddClothesScreen() {
                   <Ionicons name="close" size={12} color="#FFFFFF" />
                 </Pressable>
 
-                {/* Status Badge: 🚫 Blocked vs ✓ Pre-filled vs ! Needs Review */}
+                {/* Status Badge: Blocked vs Pre-filled vs Needs Review */}
                 {item.analyzing ? (
                   <View style={[styles.thumbStatusPill, { backgroundColor: '#4B1D6F' }]}>
                     <Text style={styles.thumbStatusText}>•••</Text>
                   </View>
                 ) : !item.isSafeGarment ? (
                   <View style={[styles.thumbStatusPill, { backgroundColor: '#DC2626' }]}>
-                    <Text style={styles.thumbStatusText}>🚫 Blocked</Text>
+                    <Text style={styles.thumbStatusText}>Blocked</Text>
                   </View>
                 ) : !item.category || needsReview ? (
                   <View style={[styles.thumbStatusPill, { backgroundColor: '#D97706' }]}>
@@ -652,7 +670,7 @@ export default function BatchAddClothesScreen() {
                   </View>
                 ) : (
                   <View style={[styles.thumbStatusPill, { backgroundColor: '#2F8F5B' }]}>
-                    <Text style={styles.thumbStatusText}>✓ Pre-filled</Text>
+                    <Text style={styles.thumbStatusText}>Pre-filled</Text>
                   </View>
                 )}
               </Pressable>
@@ -683,7 +701,7 @@ export default function BatchAddClothesScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Large Cutout Preview Card */}
-          <View style={[styles.previewBox, { backgroundColor: '#F8F8FA', borderColor: theme.border }]}>
+          <View style={[styles.previewBox, { backgroundColor: theme.collageCanvas, borderColor: theme.border }]}>
             <Image
               source={{
                 uri:
@@ -704,23 +722,26 @@ export default function BatchAddClothesScreen() {
                 ]}
               >
                 <View
-                  style={[styles.colorPreviewDot, { backgroundColor: activeDraft.colorHex }]}
+                  style={[
+                    styles.colorPreviewDot,
+                    { backgroundColor: normalizeHexCode(activeDraft.colorHex, activeDraft.color) },
+                  ]}
                 />
                 <Text style={[styles.colorPreviewText, { color: theme.text }]}>
-                  ● {activeDraft.color} · {activeDraft.subCategory || activeDraft.category} ({Math.round((activeDraft.confidence || 0) * 100)}%)
+                  ● {activeDraft.color} ({normalizeHexCode(activeDraft.colorHex, activeDraft.color)}) · {activeDraft.subCategory || activeDraft.category} ({Math.round((activeDraft.confidence || 0) * 100)}%)
                 </Text>
               </View>
 
               {!activeDraft.isSafeGarment ? (
                 <View style={[styles.amberWarningPill, { backgroundColor: '#FEE2E2', borderColor: '#DC2626', borderWidth: 1 }]}>
                   <Text style={[styles.amberWarningText, { color: '#B91C1C', fontWeight: '800' }]}>
-                    🚫 Moderation Flag: {activeDraft.moderation_reason || 'Image rejected by safety check.'}
+                    Moderation Flag: {activeDraft.moderation_reason || 'Image rejected by safety check.'}
                   </Text>
                 </View>
               ) : (!activeDraft.category || activeDraft.confidence < 0.55 || !!activeDraft.moderation_reason) ? (
                 <View style={styles.amberWarningPill}>
                   <Text style={styles.amberWarningText}>
-                    ⚠️ Needs Review: {activeDraft.moderation_reason || 'Low classification confidence; please confirm category manually.'}
+                    Needs Review: {activeDraft.moderation_reason || 'Low classification confidence; please confirm category manually.'}
                   </Text>
                 </View>
               ) : null}
@@ -730,13 +751,13 @@ export default function BatchAddClothesScreen() {
                   onPress={() => updateCurrentDraft({ isVerified: true, confidence: activeDraft.confidence > 0 ? activeDraft.confidence : 1.0, moderation_reason: null })}
                   style={[styles.markVerifiedBtn, { backgroundColor: '#2F8F5B' }]}
                 >
-                  <Text style={styles.markVerifiedBtnText}>✓ Mark Reviewed</Text>
+                  <Text style={styles.markVerifiedBtnText}>Mark Reviewed</Text>
                 </Pressable>
               )}
             </View>
           </View>
 
-          {/* 🎨 Extracted CIELAB Palette (K = 2) Card */}
+          {/* Extracted CIELAB Palette (K = 2) Card */}
           <CielabPaletteCard
             palette={activeDraft.palette}
             primaryColor={activeDraft.color}
@@ -869,7 +890,7 @@ export default function BatchAddClothesScreen() {
         </View>
       )}
 
-      {/* 3. Bottom Primary Button: "✨ Confirm & Add All (N) to Wardrobe" */}
+      {/* 3. Bottom Primary Button: "Confirm & Add All (N) to Wardrobe" */}
       {draftItems.length > 0 && (
         <View
           style={[
@@ -891,14 +912,14 @@ export default function BatchAddClothesScreen() {
             <Text style={[styles.confirmBatchButtonText, { color: theme.onAccent }]}>
               {isAnalyzingAny
                 ? 'Analyzing Batch...'
-                : `✨ Confirm & Add All (${draftItems.length}) to Wardrobe`}
+                : `Confirm & Add All (${draftItems.length}) to Wardrobe`}
             </Text>
           </Pressable>
         </View>
       )}
 
       {/* Batch Confirmation Prompt Modal */}
-      <Modal
+      <Modal statusBarTranslucent={true}
         visible={confirmModalVisible}
         transparent
         animationType="fade"
@@ -1005,6 +1026,21 @@ export default function BatchAddClothesScreen() {
         showCancel={false}
         onConfirm={() => setModerationModal({ visible: false, title: '', message: '' })}
       />
+
+      <ConfirmDialogModal
+        visible={!!removeDraftTarget}
+        variant="danger"
+        title="Remove this item?"
+        message={
+          removeDraftTarget
+            ? `Are you sure you want to remove "${removeDraftTarget.name}" from this batch?`
+            : 'Are you sure you want to remove this clothing item from the batch?'
+        }
+        confirmText="Remove"
+        cancelText="Cancel"
+        onConfirm={confirmRemoveDraftItem}
+        onCancel={() => setRemoveDraftTarget(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -1016,7 +1052,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingTop: 24,
+    paddingBottom: 10,
   },
   iconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 17, fontWeight: '800' },

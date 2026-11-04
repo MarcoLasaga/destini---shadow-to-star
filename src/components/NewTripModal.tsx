@@ -137,7 +137,7 @@ export default function NewTripModal({ visible, onClose }: { visible: boolean; o
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal statusBarTranslucent={true} visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <SafeAreaView style={[styles.sheet, { backgroundColor: theme.background }]} edges={['bottom']}>
           <View style={styles.header}>

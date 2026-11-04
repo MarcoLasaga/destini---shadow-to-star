@@ -311,7 +311,7 @@ export default function CameraSkinScanModal({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal statusBarTranslucent={true} visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
           {/* Header */}

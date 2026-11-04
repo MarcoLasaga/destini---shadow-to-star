@@ -18,7 +18,12 @@ import { GeneratedOutfit, OutfitClothingItem, UserProfile, WeatherData } from '.
 import { MiniGarmentSvg, resolveGarmentImageUrl } from '../utils/garmentImageHelper';
 import { computeAccurateOutfitScore } from '../services/hybridScoreService';
 import { useToast } from '../contexts/ToastContext';
-import { inferAccessoryZone, AccessoryZone } from '../services/outfitRecommendationService';
+import { useAppTheme } from '../hooks/useAppTheme';
+import {
+  inferAccessoryZone,
+  AccessoryZone,
+  normalizeHexCode,
+} from '../services/outfitRecommendationService';
 
 const ACCESSORY_ZONES: {
   id: 'ALL' | AccessoryZone;
@@ -87,6 +92,8 @@ export default function OutfitCustomizeModal({
   onClose,
   onEquip,
 }: Props) {
+  const theme = useAppTheme();
+  const isDark = theme.mode === 'dark';
   const { showToast } = useToast();
   const [activeSlot, setActiveSlot] = useState<MannequinSlot>('TOP');
   const [accessoryZoneFilter, setAccessoryZoneFilter] = useState<'ALL' | AccessoryZone>('ALL');
@@ -121,7 +128,7 @@ export default function OutfitCustomizeModal({
   const colorHarmony = useMemo(() => {
     const dots = equipped.map((item) => ({
       name: item.name,
-      hex: resolveGarmentHex(item),
+      hex: normalizeHexCode(resolveGarmentHex(item), item.color || 'Neutral'),
     }));
 
     const hexes = dots.map((d) => d.hex.toLowerCase());
@@ -248,17 +255,17 @@ export default function OutfitCustomizeModal({
   }
 
   return (
-    <Modal visible={visible} animationType="none" transparent onRequestClose={handleClose}>
-      <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+    <Modal statusBarTranslucent={true} visible={visible} animationType="none" transparent onRequestClose={handleClose}>
+      <Animated.View style={[styles.container, { backgroundColor: theme.background, opacity: fadeAnim }]}>
         {/* Top Header */}
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.kicker}>AI OUTFIT STUDIO</Text>
+            <Text style={[styles.kicker, { color: isDark ? '#7DD39A' : '#4D9A65' }]}>AI OUTFIT STUDIO</Text>
             <View style={styles.titleRow}>
-              <Text style={styles.title}>Customize Outfit</Text>
-              <View style={styles.scorePill}>
-                <Ionicons name="sparkles" size={12} color="#264C3B" />
-                <Text style={styles.scorePillText}>{currentScore}%</Text>
+              <Text style={[styles.title, { color: theme.text }]}>Customize Outfit</Text>
+              <View style={[styles.scorePill, { backgroundColor: isDark ? 'rgba(54, 69, 54, 0.55)' : '#EAF3D9' }]}>
+                <Ionicons name="sparkles" size={12} color={isDark ? '#A7F3D0' : '#264C3B'} />
+                <Text style={[styles.scorePillText, { color: isDark ? '#F3F1EF' : '#264C3B' }]}>{currentScore}%</Text>
               </View>
             </View>
           </View>
@@ -267,49 +274,64 @@ export default function OutfitCustomizeModal({
           <View style={styles.headerRightActions}>
             <Pressable
               onPress={handleWearToday}
-              style={styles.wearTodayBtn}
+              style={[styles.wearTodayBtn, { backgroundColor: '#364536' }]}
               accessibilityLabel="Wear this outfit today"
             >
               <Ionicons name="checkmark-circle" size={14} color="#FFFFFF" />
               <Text style={styles.wearTodayText}>Wear Today</Text>
             </Pressable>
-            <Pressable onPress={handleClose} style={styles.close} accessibilityLabel="Close customizer">
-              <Ionicons name="close" size={20} color="#264C3B" />
+            <Pressable
+              onPress={handleClose}
+              style={[styles.close, { backgroundColor: theme.surfaceSecondary }]}
+              accessibilityLabel="Close customizer"
+            >
+              <Ionicons name="close" size={20} color={theme.text} />
             </Pressable>
           </View>
         </View>
 
-        {/* Dedicated Mel Mascot & Speech Bubble Row */}
-        <View style={styles.melRow}>
-          <MelMascot size={56} outfit="cool_hoodie" />
-          <MelSpeechBubble variant="cool_hoodie" message={reaction} position="inline" />
-        </View>
-
-        {/* CIELAB Color Harmony Bar & "How to Wear" Styling Guidance */}
-        <View style={styles.harmonyBar}>
+        {/* CIELAB Color Harmony Bar & Outfit Color Palette HEX Swatches */}
+        <View
+          style={[
+            styles.harmonyBar,
+            {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+            },
+          ]}
+        >
           <View style={styles.harmonyLeft}>
             <View style={styles.colorDotsRow}>
               {colorHarmony.dots.map((d, i) => (
                 <View
                   key={`${d.hex}-${i}`}
-                  style={[styles.harmonyDot, { backgroundColor: d.hex }]}
-                />
+                  style={[
+                    styles.harmonySwatchChip,
+                    {
+                      backgroundColor: theme.surfaceSecondary,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <View style={[styles.harmonyDot, { backgroundColor: d.hex }]} />
+                  <Text style={[styles.harmonyHexText, { color: theme.text }]}>{d.hex}</Text>
+                </View>
               ))}
             </View>
-            <Text style={styles.harmonyTag}>{colorHarmony.tag}</Text>
           </View>
-          <View style={styles.stylingPillsRow}>
-            {colorHarmony.pills.map((pill, i) => (
-              <View key={i} style={styles.stylingPill}>
-                <Text style={styles.stylingPillText}>{pill}</Text>
-              </View>
-            ))}
-          </View>
+          <Text style={[styles.harmonyTag, { color: theme.textSecondary }]} numberOfLines={1}>
+            {colorHarmony.tag}
+          </Text>
         </View>
 
         {/* Split Stage: ALTA Studio Collage on Left + Decomposed 5 Slots on Right */}
         <View style={styles.split}>
-          <Animated.View style={[styles.mannequinPane, { transform: [{ scale: zoomAnim }] }]}>
+          <Animated.View
+            style={[
+              styles.mannequinPane,
+              { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1, transform: [{ scale: zoomAnim }] },
+            ]}
+          >
             <AltaOutfitCollage
               items={equipped}
               compact
@@ -324,15 +346,31 @@ export default function OutfitCustomizeModal({
                 const isSelected = activeSlot === slot;
                 const imgUrl = resolveGarmentImageUrl(item);
                 const isDataset = item?.isSuggested || (item?.id && item.id.startsWith('dataset-'));
+                const itemHex = item ? normalizeHexCode(resolveGarmentHex(item, '#F5F5F0'), item.color || 'Neutral') : null;
 
                 return (
                   <Pressable
                     key={slot}
                     onPress={() => setActiveSlot(slot)}
-                    style={[styles.slotCard, isSelected && styles.slotCardActive]}
+                    style={[
+                      styles.slotCard,
+                      {
+                        backgroundColor: isSelected
+                          ? isDark
+                            ? 'rgba(232, 62, 53, 0.14)'
+                            : '#FFF4EE'
+                          : theme.surface,
+                        borderColor: isSelected ? '#E83E35' : theme.border,
+                      },
+                    ]}
                   >
                     <View style={styles.slotCardHeader}>
-                      <Text style={[styles.slotLabel, isSelected && styles.slotLabelActive]}>
+                      <Text
+                        style={[
+                          styles.slotLabel,
+                          { color: isSelected ? '#E83E35' : isDark ? '#7DD39A' : '#4D9A65' },
+                        ]}
+                      >
                         {SLOT_LABELS[slot]}
                       </Text>
                       <View style={styles.slotHeaderRight}>
@@ -349,11 +387,11 @@ export default function OutfitCustomizeModal({
                             <Ionicons name="close-circle" size={17} color="#DC2626" />
                           </Pressable>
                         )}
-                        {item && (
+                        {item && itemHex && (
                           <View
                             style={[
                               styles.slotColorDot,
-                              { backgroundColor: resolveGarmentHex(item, '#F5F5F0') },
+                              { backgroundColor: itemHex },
                             ]}
                           />
                         )}
@@ -361,7 +399,7 @@ export default function OutfitCustomizeModal({
                     </View>
 
                     <View style={styles.slotBodyRow}>
-                      <View style={styles.slotThumbnail}>
+                      <View style={[styles.slotThumbnail, { backgroundColor: theme.collageCanvas }]}>
                         {item ? (
                           imgUrl ? (
                             <Image source={{ uri: imgUrl }} style={styles.thumbImage} resizeMode="contain" />
@@ -369,21 +407,29 @@ export default function OutfitCustomizeModal({
                             <MiniGarmentSvg
                               slot={slot}
                               name={item.name}
-                              color={resolveGarmentHex(item, '#8BAA82')}
+                              color={itemHex || '#8BAA82'}
                               size={38}
                             />
                           )
                         ) : (
-                          <Ionicons name="shirt-outline" size={20} color="#B5BFB7" />
+                          <Ionicons name="shirt-outline" size={20} color={theme.textMuted} />
                         )}
                       </View>
 
                       <View style={styles.slotDetails}>
-                        <Text style={styles.slotName} numberOfLines={2}>
+                        <Text style={[styles.slotName, { color: theme.text }]} numberOfLines={2}>
                           {item?.name || 'Inner base layer (None)'}
                         </Text>
-                        <Text style={[styles.slotSource, isDataset && styles.datasetSourceText]}>
-                          {item ? (isDataset ? 'Style Suggestion' : 'My Wardrobe') : 'Tap piece below to add'}
+                        <Text
+                          style={[
+                            styles.slotSource,
+                            { color: isDataset ? (isDark ? '#A5B4FC' : '#5554B8') : theme.textMuted },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {item
+                            ? `${isDataset ? 'Suggestion' : 'Closet'} · ${itemHex}`
+                            : 'Tap piece below'}
                         </Text>
                       </View>
                     </View>
@@ -394,19 +440,46 @@ export default function OutfitCustomizeModal({
           </Animated.View>
         </View>
 
+        {/* Standalone Mel Mascot & Cute Speech Bubble Toward Bottom Above Drawer */}
+        <View style={styles.melRow}>
+          <MelMascot size={46} outfit="cool_hoodie" />
+          <MelSpeechBubble
+            title="MEL · CUSTOMIZER TIP"
+            variant="cool_hoodie"
+            message={reaction}
+            position="inline"
+            tailDirection="left"
+            compact
+          />
+        </View>
+
         {/* Bottom Drawer: Style Suggestions with Option 0 as None (Unequip) */}
-        <Animated.View style={[styles.drawer, { transform: [{ translateY: slideUpAnim }] }]}>
+        <Animated.View
+          style={[
+            styles.drawer,
+            {
+              backgroundColor: theme.surface,
+              borderTopColor: theme.border,
+              transform: [{ translateY: slideUpAnim }],
+            },
+          ]}
+        >
           <View style={styles.drawerHeader}>
             <View>
-              <Text style={styles.drawerTitle}>
+              <Text style={[styles.drawerTitle, { color: theme.text }]}>
                 {isWardrobeOnly ? 'My Wardrobe' : 'Mix & Match'} · {SLOT_LABELS[activeSlot]}
               </Text>
-              <Text style={styles.drawerHint}>
+              <Text style={[styles.drawerHint, { color: theme.textMuted }]}>
                 Swipe cards · Tap to equip or deselect any piece
               </Text>
             </View>
-            <View style={styles.countBadge}>
-              <Text style={styles.countText}>
+            <View
+              style={[
+                styles.countBadge,
+                { backgroundColor: isDark ? 'rgba(54, 69, 54, 0.55)' : '#EAF3D9' },
+              ]}
+            >
+              <Text style={[styles.countText, { color: isDark ? '#F3F1EF' : '#264C3B' }]}>
                 {slotSuggestions.length} {slotSuggestions.length === 1 ? 'option' : 'options'}
               </Text>
             </View>
@@ -427,18 +500,21 @@ export default function OutfitCustomizeModal({
                     onPress={() => setAccessoryZoneFilter(zone.id)}
                     style={[
                       styles.zoneFilterPill,
-                      isActive && styles.zoneFilterPillActive,
+                      {
+                        backgroundColor: isActive ? '#364536' : theme.surfaceSecondary,
+                        borderColor: isActive ? '#364536' : theme.border,
+                      },
                     ]}
                   >
                     <Ionicons
                       name={zone.icon}
                       size={12}
-                      color={isActive ? '#FFFFFF' : '#657468'}
+                      color={isActive ? '#FFFFFF' : theme.textSecondary}
                     />
                     <Text
                       style={[
                         styles.zoneFilterText,
-                        isActive && styles.zoneFilterTextActive,
+                        { color: isActive ? '#FFFFFF' : theme.textSecondary },
                       ]}
                     >
                       {zone.label}
@@ -460,11 +536,19 @@ export default function OutfitCustomizeModal({
                 onPress={() => handleItemEquip(null, activeSlot)}
                 style={[
                   styles.suggestionCard,
-                  !activeItem && styles.suggestionCardEquipped,
+                  {
+                    backgroundColor: theme.surfaceSecondary,
+                    borderColor: !activeItem ? '#4D9A65' : theme.border,
+                  },
                   styles.noneCard,
                 ]}
               >
-                <View style={[styles.previewBox, { backgroundColor: '#F8F7F4' }]}>
+                <View
+                  style={[
+                    styles.previewBox,
+                    { backgroundColor: theme.collageCanvas, borderColor: theme.border },
+                  ]}
+                >
                   <Ionicons name="ban-outline" size={28} color="#DC2626" />
                   {!activeItem && (
                     <View style={[styles.equippedBadge, { backgroundColor: '#475569' }]}>
@@ -472,11 +556,11 @@ export default function OutfitCustomizeModal({
                     </View>
                   )}
                 </View>
-                <Text style={styles.suggestionName} numberOfLines={1}>
+                <Text style={[styles.suggestionName, { color: theme.text }]} numberOfLines={1}>
                   None (Unequip)
                 </Text>
-                <View style={[styles.sourcePill, { backgroundColor: '#FEE2E2' }]}>
-                  <Text style={[styles.sourcePillText, { color: '#DC2626' }]}>Deselect</Text>
+                <View style={[styles.sourcePill, { backgroundColor: 'rgba(220, 38, 38, 0.14)' }]}>
+                  <Text style={[styles.sourcePillText, { color: '#EF4444' }]}>Deselect</Text>
                 </View>
               </Pressable>
             }
@@ -484,14 +568,29 @@ export default function OutfitCustomizeModal({
               const imageUrl = resolveGarmentImageUrl(item);
               const isDataset = item.isSuggested || (item.id && item.id.startsWith('dataset-'));
               const isEquipped = equipped.some((eq) => eq.id === item.id);
-              const hexColor = resolveGarmentHex(item, '#3B414B');
+              const hexColor = normalizeHexCode(resolveGarmentHex(item, '#3B414B'), item.color || 'Neutral');
 
               return (
                 <Pressable
                   onPress={() => handleItemEquip(item, activeSlot)}
-                  style={[styles.suggestionCard, isEquipped && styles.suggestionCardEquipped]}
+                  style={[
+                    styles.suggestionCard,
+                    {
+                      backgroundColor: isEquipped
+                        ? isDark
+                          ? 'rgba(77, 154, 101, 0.16)'
+                          : '#F0F7EB'
+                        : theme.surfaceSecondary,
+                      borderColor: isEquipped ? '#4D9A65' : theme.border,
+                    },
+                  ]}
                 >
-                  <View style={styles.previewBox}>
+                  <View
+                    style={[
+                      styles.previewBox,
+                      { backgroundColor: theme.collageCanvas, borderColor: theme.border },
+                    ]}
+                  >
                     {imageUrl ? (
                       <Image source={{ uri: imageUrl }} style={styles.garmentPhoto} resizeMode="contain" />
                     ) : (
@@ -519,7 +618,7 @@ export default function OutfitCustomizeModal({
                     )}
                   </View>
 
-                  <Text style={styles.suggestionName} numberOfLines={2}>
+                  <Text style={[styles.suggestionName, { color: theme.text }]} numberOfLines={2}>
                     {item.name}
                   </Text>
 
@@ -535,7 +634,7 @@ export default function OutfitCustomizeModal({
                         isDataset ? styles.sourcePillTextDataset : styles.sourcePillTextWardrobe,
                       ]}
                     >
-                      {isDataset ? 'Mix & Match' : 'My Wardrobe'}
+                      {hexColor} · {isDataset ? 'Mix' : 'Closet'}
                     </Text>
                   </View>
                 </Pressable>
@@ -551,8 +650,7 @@ export default function OutfitCustomizeModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F2',
-    paddingTop: 50,
+    paddingTop: 24,
   },
   header: {
     paddingHorizontal: 16,
@@ -628,19 +726,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginTop: 6,
+    marginTop: 4,
     marginBottom: 6,
     marginHorizontal: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 9,
-    borderWidth: 1,
-    borderColor: '#E1E6DB',
-    shadowColor: '#264C3B',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    overflow: 'visible',
   },
   harmonyBar: {
     flexDirection: 'row',
@@ -663,14 +752,29 @@ const styles = StyleSheet.create({
   colorDotsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    flexWrap: 'wrap',
+    gap: 5,
+  },
+  harmonySwatchChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2.5,
+    borderRadius: 999,
+    borderWidth: 1,
   },
   harmonyDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: '#FFFFFF',
+    borderColor: 'rgba(128,128,128,0.35)',
+  },
+  harmonyHexText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
   harmonyTag: {
     fontSize: 10,

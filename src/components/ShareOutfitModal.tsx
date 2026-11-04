@@ -113,7 +113,7 @@ export default function ShareOutfitModal({
 
   return (
     <>
-      <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Modal statusBarTranslucent={true} visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.overlay}

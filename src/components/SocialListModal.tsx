@@ -10,6 +10,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { useToast } from '../contexts/ToastContext';
+import ConfirmDialogModal from './common/ConfirmDialogModal';
 
 interface UserEntry {
   id: string;
@@ -47,10 +49,13 @@ export default function SocialListModal({
   onFollowCountChange,
 }: SocialListModalProps) {
   const theme = useAppTheme();
+  const isDark = theme.mode === 'dark';
+  const { showToast } = useToast();
   const [tab, setTab] = useState<'followers' | 'following' | 'likes'>(initialTab);
   const [followers, setFollowers] = useState<UserEntry[]>([]);
   const [likes, setLikes] = useState<LikeEntry[]>([]);
   const [followingNames, setFollowingNames] = useState<string[]>([]);
+  const [unfollowTarget, setUnfollowTarget] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible) {
@@ -97,29 +102,64 @@ export default function SocialListModal({
   }, [visible, initialTab]);
 
   const toggleFollow = async (name: string) => {
-    let next: string[];
-    if (followingNames.includes(name)) {
-      next = followingNames.filter((n) => n !== name);
-    } else {
-      next = [...followingNames, name];
+    const wasFollowing = followingNames.includes(name);
+    if (wasFollowing) {
+      setUnfollowTarget(name);
+      return;
     }
+
+    const next = [...followingNames, name];
     setFollowingNames(next);
     await AsyncStorage.setItem(FOLLOWING_STORAGE_KEY, JSON.stringify(next));
 
     setFollowers((prev) =>
-      prev.map((u) => (u.name === name ? { ...u, isFollowing: next.includes(name) } : u))
+      prev.map((u) => (u.name === name ? { ...u, isFollowing: true } : u))
     );
 
+    showToast(`Following ${name}`);
     onFollowCountChange?.(next.length, followers.length);
+  };
+
+  const confirmUnfollow = async () => {
+    if (!unfollowTarget) return;
+    const name = unfollowTarget;
+    setUnfollowTarget(null);
+
+    const next = followingNames.filter((n) => n !== name);
+    setFollowingNames(next);
+    await AsyncStorage.setItem(FOLLOWING_STORAGE_KEY, JSON.stringify(next));
+
+    setFollowers((prev) =>
+      prev.map((u) => (u.name === name ? { ...u, isFollowing: false } : u))
+    );
+    onFollowCountChange?.(next.length, followers.length);
+
+    showToast(`Unfollowed ${name}`, {
+      variant: 'warning',
+      undoLabel: 'Undo',
+      onUndo: () => {
+        setFollowingNames((curr) => {
+          if (curr.includes(name)) return curr;
+          const restored = [...curr, name];
+          AsyncStorage.setItem(FOLLOWING_STORAGE_KEY, JSON.stringify(restored)).catch(() => {});
+          onFollowCountChange?.(restored.length, followers.length);
+          return restored;
+        });
+        setFollowers((prev) =>
+          prev.map((u) => (u.name === name ? { ...u, isFollowing: true } : u))
+        );
+        showToast(`Following ${name}`);
+      },
+    });
   };
 
   const followingList = followers.filter((u) => followingNames.includes(u.name));
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal statusBarTranslucent={true} visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={[styles.sheet, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.dragHandle} />
+          <View style={[styles.dragHandle, { backgroundColor: theme.border }]} />
 
           {/* Header */}
           <View style={styles.header}>
@@ -147,12 +187,17 @@ export default function SocialListModal({
           <View style={[styles.tabRow, { borderBottomColor: theme.border }]}>
             <Pressable
               onPress={() => setTab('followers')}
-              style={[styles.tabBtn, tab === 'followers' && styles.tabBtnActive]}
+              style={[
+                styles.tabBtn,
+                tab === 'followers' && {
+                  borderBottomColor: isDark ? '#7DD39A' : '#264C3B',
+                },
+              ]}
             >
               <Text
                 style={[
                   styles.tabBtnText,
-                  { color: tab === 'followers' ? '#264C3B' : theme.textMuted },
+                  { color: tab === 'followers' ? theme.text : theme.textMuted },
                 ]}
               >
                 Followers ({followers.length})
@@ -161,12 +206,17 @@ export default function SocialListModal({
 
             <Pressable
               onPress={() => setTab('following')}
-              style={[styles.tabBtn, tab === 'following' && styles.tabBtnActive]}
+              style={[
+                styles.tabBtn,
+                tab === 'following' && {
+                  borderBottomColor: isDark ? '#7DD39A' : '#264C3B',
+                },
+              ]}
             >
               <Text
                 style={[
                   styles.tabBtnText,
-                  { color: tab === 'following' ? '#264C3B' : theme.textMuted },
+                  { color: tab === 'following' ? theme.text : theme.textMuted },
                 ]}
               >
                 Following ({followingList.length})
@@ -175,12 +225,17 @@ export default function SocialListModal({
 
             <Pressable
               onPress={() => setTab('likes')}
-              style={[styles.tabBtn, tab === 'likes' && styles.tabBtnActive]}
+              style={[
+                styles.tabBtn,
+                tab === 'likes' && {
+                  borderBottomColor: isDark ? '#7DD39A' : '#264C3B',
+                },
+              ]}
             >
               <Text
                 style={[
                   styles.tabBtnText,
-                  { color: tab === 'likes' ? '#264C3B' : theme.textMuted },
+                  { color: tab === 'likes' ? theme.text : theme.textMuted },
                 ]}
               >
                 Likes ({likes.length})
@@ -201,7 +256,13 @@ export default function SocialListModal({
                 followers.map((user) => {
                   const isFollowing = followingNames.includes(user.name);
                   return (
-                    <View key={user.id} style={[styles.userRow, { borderColor: theme.border }]}>
+                    <View
+                      key={user.id}
+                      style={[
+                        styles.userRow,
+                        { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                      ]}
+                    >
                       <View style={styles.avatar}>
                         <Text style={styles.avatarText}>{user.name.charAt(0)}</Text>
                       </View>
@@ -241,7 +302,13 @@ export default function SocialListModal({
                 </View>
               ) : (
                 followingList.map((user) => (
-                  <View key={user.id} style={[styles.userRow, { borderColor: theme.border }]}>
+                  <View
+                    key={user.id}
+                    style={[
+                      styles.userRow,
+                      { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                    ]}
+                  >
                     <View style={styles.avatar}>
                       <Text style={styles.avatarText}>{user.name.charAt(0)}</Text>
                     </View>
@@ -277,7 +344,13 @@ export default function SocialListModal({
                 likes.map((item) => {
                   const isFollowing = followingNames.includes(item.name);
                   return (
-                    <View key={item.id} style={[styles.userRow, { borderColor: theme.border }]}>
+                    <View
+                      key={item.id}
+                      style={[
+                        styles.userRow,
+                        { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                      ]}
+                    >
                       <View style={styles.avatar}>
                         <Text style={styles.avatarText}>{item.name.charAt(0)}</Text>
                       </View>
@@ -310,6 +383,22 @@ export default function SocialListModal({
           </ScrollView>
         </View>
       </View>
+
+      <ConfirmDialogModal
+        visible={!!unfollowTarget}
+        variant="danger"
+        icon="person-remove-outline"
+        title="Unfollow creator?"
+        message={
+          unfollowTarget
+            ? `Are you sure you want to unfollow ${unfollowTarget}?`
+            : 'Are you sure you want to unfollow this creator?'
+        }
+        confirmText="Unfollow"
+        cancelText="Cancel"
+        onConfirm={confirmUnfollow}
+        onCancel={() => setUnfollowTarget(null)}
+      />
     </Modal>
   );
 }
@@ -366,9 +455,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
-  tabBtnActive: {
-    borderBottomColor: '#264C3B',
-  },
   tabBtnText: {
     fontSize: 12.5,
     fontWeight: '800',
@@ -383,7 +469,6 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 14,
     borderWidth: 1,
-    backgroundColor: '#FFFFFF',
     gap: 10,
   },
   avatar: {
@@ -438,4 +523,3 @@ const styles = StyleSheet.create({
     maxWidth: 240,
   },
 });
-

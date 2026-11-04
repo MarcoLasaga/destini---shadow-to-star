@@ -37,7 +37,7 @@ import {
   formatSubtypeLabel,
   inferVectorSubtype,
 } from '../utils/garmentImageHelper';
-import { colorNameToHex } from '../services/outfitRecommendationService';
+import { colorNameToHex, normalizeHexCode } from '../services/outfitRecommendationService';
 
 const MAX_IMAGE_EDGE = 1600;
 const CATEGORY_FROM_API: Record<string, string> = {
@@ -572,7 +572,7 @@ export default function AddClothesScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['left', 'right']}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.icon}>
           <Ionicons name="arrow-back" size={20} color={theme.text} />
@@ -582,8 +582,8 @@ export default function AddClothesScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Cutout Preview Canvas: Centered on subtle #F8F8FA rounded canvas with resizeMode="contain" */}
-        <View style={[styles.photo, { backgroundColor: '#F8F8FA', borderColor: theme.border }]}>
+        {/* Cutout Preview Canvas: Centered on theme-aware canvas with resizeMode="contain" */}
+        <View style={[styles.photo, { backgroundColor: theme.collageCanvas, borderColor: theme.border }]}>
           {imageUri ? (
             <Image
               source={{
@@ -607,24 +607,24 @@ export default function AddClothesScreen() {
                 <View
                   style={[
                     styles.previewColorDot,
-                    { backgroundColor: colorNameToHex(color) },
+                    { backgroundColor: normalizeHexCode(colorHex, color || 'White') },
                   ]}
                 />
                 <Text style={[styles.previewInfoPillText, { color: theme.text }]}>
-                  ● {color} · {subCategory || category} ({Math.round((confidence || 0) * 100)}%)
+                  ● {color} ({normalizeHexCode(colorHex, color || 'White')}) · {subCategory || category} ({Math.round((confidence || 0) * 100)}%)
                 </Text>
               </View>
 
               {!isSafeGarment ? (
                 <View style={[styles.amberWarningPill, { backgroundColor: '#FEE2E2', borderColor: '#DC2626', borderWidth: 1 }]}>
                   <Text style={[styles.amberWarningText, { color: '#B91C1C', fontWeight: '800' }]}>
-                    🚫 Moderation Flag: {moderationReason || 'Image rejected by safety check.'}
+                    Moderation Flag: {moderationReason || 'Image rejected by safety check.'}
                   </Text>
                 </View>
               ) : (!category || confidence < 0.55 || !!moderationReason) && isImageVerified ? (
                 <View style={styles.amberWarningPill}>
                   <Text style={styles.amberWarningText}>
-                    ⚠️ Needs Review: {moderationReason || 'Low confidence; please confirm category manually.'}
+                    Needs Review: {moderationReason || 'Low confidence; please confirm category manually.'}
                   </Text>
                 </View>
               ) : null}
@@ -632,7 +632,7 @@ export default function AddClothesScreen() {
           )}
         </View>
 
-        {/* 🎨 Extracted CIELAB Palette (K = 2) Card */}
+        {/* Extracted CIELAB Palette (K = 2) Card */}
         {imageUri && (
           <CielabPaletteCard
             palette={palette}
@@ -679,7 +679,7 @@ export default function AddClothesScreen() {
           >
             <ActivityIndicator size="small" color={theme.accentText} />
             <Text style={[styles.statusPillText, { color: theme.aiBannerText }]}>
-              ✨ Removing background & detecting garment details...
+              Removing background & detecting garment details...
             </Text>
           </View>
         )}
@@ -709,7 +709,7 @@ export default function AddClothesScreen() {
             ]}
           >
             <Text style={[styles.statusPillText, { color: theme.aiPillText }]}>
-              ✨ Clean cutout & garment details auto-filled · Ready to add!
+              Clean cutout & garment details auto-filled · Ready to add!
             </Text>
           </View>
         )}
@@ -844,7 +844,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingTop: 24,
+    paddingBottom: 10,
   },
   icon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 17, fontWeight: '700' },

@@ -10,6 +10,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { useToast } from '../contexts/ToastContext';
+import ConfirmDialogModal from './common/ConfirmDialogModal';
 import { formatRelativeTime } from '../utils/timeFormat';
 import {
   getSocialNotifications,
@@ -29,8 +31,11 @@ export default function NotificationsModal({
   onNotificationCountChange,
 }: NotificationsModalProps) {
   const theme = useAppTheme();
+  const isDark = theme.mode === 'dark';
+  const { showToast } = useToast();
   const [notifications, setNotifications] = useState<SocialNotification[]>([]);
   const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({});
+  const [unfollowTarget, setUnfollowTarget] = useState<string | null>(null);
 
   const loadNotifications = async () => {
     const list = await getSocialNotifications();
@@ -63,13 +68,38 @@ export default function NotificationsModal({
     await markAllNotificationsRead();
     await loadNotifications();
     onNotificationCountChange?.(0);
+    showToast('All notifications marked as read');
   };
 
   const toggleFollowBack = (name: string) => {
+    const wasFollowing = !!followingMap[name];
+    if (wasFollowing) {
+      setUnfollowTarget(name);
+      return;
+    }
     setFollowingMap((prev) => ({
       ...prev,
-      [name]: !prev[name],
+      [name]: true,
     }));
+    showToast(`Following ${name}`);
+  };
+
+  const confirmUnfollow = () => {
+    if (!unfollowTarget) return;
+    const name = unfollowTarget;
+    setUnfollowTarget(null);
+    setFollowingMap((prev) => ({
+      ...prev,
+      [name]: false,
+    }));
+    showToast(`Unfollowed ${name}`, {
+      variant: 'warning',
+      undoLabel: 'Undo',
+      onUndo: () => {
+        setFollowingMap((prev) => ({ ...prev, [name]: true }));
+        showToast(`Following ${name}`);
+      },
+    });
   };
 
   const getActionIcon = (type: SocialNotification['type']) => {
@@ -77,7 +107,7 @@ export default function NotificationsModal({
       case 'like':
         return <Ionicons name="heart" size={12} color="#EF4444" />;
       case 'repost':
-        return <Ionicons name="repeat" size={12} color="#10B981" />;
+        return <Ionicons name="paper-plane" size={12} color="#10B981" />;
       case 'follow':
       default:
         return <Ionicons name="person-add" size={12} color="#3B82F6" />;
@@ -85,10 +115,10 @@ export default function NotificationsModal({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal statusBarTranslucent={true} visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={[styles.sheet, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.dragHandle} />
+          <View style={[styles.dragHandle, { backgroundColor: theme.border }]} />
 
           {/* Header */}
           <View style={styles.header}>
@@ -127,8 +157,14 @@ export default function NotificationsModal({
                     key={item.id}
                     style={[
                       styles.itemRow,
-                      { borderColor: theme.border },
-                      !item.read && styles.unreadItem,
+                      {
+                        backgroundColor: !item.read
+                          ? isDark
+                            ? 'rgba(77, 154, 101, 0.14)'
+                            : '#F8FAF5'
+                          : theme.surfaceSecondary,
+                        borderColor: !item.read ? '#4D9A65' : theme.border,
+                      },
                     ]}
                   >
                     {/* Avatar with Action Icon Badge */}
@@ -138,7 +174,9 @@ export default function NotificationsModal({
                           {item.actorName.charAt(0).toUpperCase()}
                         </Text>
                       </View>
-                      <View style={styles.actionIconBadge}>{getActionIcon(item.type)}</View>
+                      <View style={[styles.actionIconBadge, { backgroundColor: theme.surface }]}>
+                        {getActionIcon(item.type)}
+                      </View>
                     </View>
 
                     {/* Content */}
@@ -185,6 +223,22 @@ export default function NotificationsModal({
           </ScrollView>
         </View>
       </View>
+
+      <ConfirmDialogModal
+        visible={!!unfollowTarget}
+        variant="danger"
+        icon="person-remove-outline"
+        title="Unfollow creator?"
+        message={
+          unfollowTarget
+            ? `Are you sure you want to unfollow ${unfollowTarget}?`
+            : 'Are you sure you want to unfollow this creator?'
+        }
+        confirmText="Unfollow"
+        cancelText="Cancel"
+        onConfirm={confirmUnfollow}
+        onCancel={() => setUnfollowTarget(null)}
+      />
     </Modal>
   );
 }
@@ -258,12 +312,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 14,
     borderWidth: 1,
-    backgroundColor: '#FFFFFF',
     gap: 12,
-  },
-  unreadItem: {
-    backgroundColor: '#F8FAF5',
-    borderColor: '#C6D9BC',
   },
   avatarWrap: {
     position: 'relative',
@@ -285,7 +334,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -2,
     right: -2,
-    backgroundColor: '#FFFFFF',
     borderRadius: 8,
     padding: 2,
     shadowColor: '#000',
@@ -353,4 +401,3 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 });
-

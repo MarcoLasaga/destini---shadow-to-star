@@ -18,7 +18,7 @@ export default function LegalModal({
   const theme = useAppTheme();
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal statusBarTranslucent={true} visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.text }]}>{title}</Text>

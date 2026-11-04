@@ -25,6 +25,7 @@ import {
   buildColorHarmonyExplanation,
   classifyAnatomicalSlot,
   colorNameToHex,
+  normalizeHexCode,
 } from '../services/outfitRecommendationService';
 import { useCommunity } from '../contexts/CommunityContext';
 import { useToast } from '../contexts/ToastContext';
@@ -94,11 +95,14 @@ export default function OutfitDetailsScreen() {
   const dynamicPalette = useMemo(
     () =>
       outfit.clothingItems.length > 0
-        ? outfit.clothingItems.slice(0, 4).map((it) => ({
+        ? outfit.clothingItems.slice(0, 5).map((it) => ({
             name: `${it.color || 'Neutral'} (${it.category})`,
-            hex: it.hexColor || colorNameToHex(it.color),
+            hex: normalizeHexCode(it.hexColor, it.color || 'Neutral'),
           }))
-        : outfit.colorPalette || [],
+        : (outfit.colorPalette || []).map((sw) => ({
+            name: sw.name,
+            hex: normalizeHexCode(sw.hex, sw.name),
+          })),
     [outfit.clothingItems, outfit.colorPalette]
   );
 
@@ -110,29 +114,40 @@ export default function OutfitDetailsScreen() {
   const handleSaveFeedback = () => {
     submitWearFeedback(outfit.id, wearRating, wearNotes);
     Keyboard.dismiss();
-    showToast('👍 Saved to your style preferences!');
+    showToast('Saved to your style preferences!');
   };
 
   const handleLike = () => {
     submitPreferenceEvent(outfit.id, 'LIKE');
-    showToast('👍 Saved to your style preferences!');
+    showToast('Saved to your style preferences!');
   };
 
   const handleDislike = () => {
     submitPreferenceEvent(outfit.id, 'DISLIKE');
-    showToast('👎 Preference saved! We will adjust future looks.');
+    showToast('Preference saved! We will adjust future looks.');
   };
 
   const handleSave = () => {
     const wasSaved = !!outfit.saved;
     toggleSave(outfit.id);
-    showToast(wasSaved ? 'Removed from saved outfits.' : '🔖 Outfit saved to your collection!');
+    if (wasSaved) {
+      showToast('Removed from saved outfits.', {
+        variant: 'warning',
+        undoLabel: 'Undo',
+        onUndo: () => {
+          toggleSave(outfit.id);
+          showToast('Outfit restored to your collection!');
+        },
+      });
+    } else {
+      showToast('Outfit saved to your collection!');
+    }
   };
 
   const handleWear = async () => {
     const wasWorn = !!outfit.worn;
     await markAsWorn(outfit.id);
-    showToast(wasWorn ? 'Outfit unmarked as worn.' : '👕 Marked as worn! Laundry status updated.');
+    showToast(wasWorn ? 'Outfit unmarked as worn.' : 'Marked as worn! Laundry status updated.');
   };
 
   return (
@@ -141,7 +156,7 @@ export default function OutfitDetailsScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 24}
     >
-      <SafeAreaView edges={['top']} style={[styles.header, { backgroundColor: theme.background }]}>
+      <SafeAreaView edges={['left', 'right']} style={[styles.header, { backgroundColor: theme.background }]}>
         <Pressable
           onPress={() => navigation.goBack()}
           style={[styles.circleButton, { backgroundColor: theme.surface }]}
@@ -206,20 +221,20 @@ export default function OutfitDetailsScreen() {
               style={[
                 styles.mainActionBtn,
                 {
-                  borderColor: outfit.favorited ? '#2F8F5B' : theme.border,
-                  backgroundColor: outfit.favorited ? '#2F8F5B18' : theme.surface,
+                  borderColor: outfit.favorited ? '#E83E35' : theme.border,
+                  backgroundColor: outfit.favorited ? 'rgba(232, 62, 53, 0.14)' : theme.surface,
                 },
               ]}
             >
               <Ionicons
-                name={outfit.favorited ? 'thumbs-up' : 'thumbs-up-outline'}
+                name={outfit.favorited ? 'heart' : 'heart-outline'}
                 size={16}
-                color={outfit.favorited ? '#2F8F5B' : theme.text}
+                color={outfit.favorited ? '#E83E35' : theme.text}
               />
               <Text
                 style={[
                   styles.mainActionBtnText,
-                  { color: outfit.favorited ? '#2F8F5B' : theme.text },
+                  { color: outfit.favorited ? '#E83E35' : theme.text },
                 ]}
               >
                 {outfit.favorited ? 'Liked' : 'Like'}
@@ -231,23 +246,23 @@ export default function OutfitDetailsScreen() {
               style={[
                 styles.mainActionBtn,
                 {
-                  borderColor: outfit.disliked ? '#E5484D' : theme.border,
-                  backgroundColor: outfit.disliked ? '#E5484D18' : theme.surface,
+                  borderColor: outfit.disliked ? '#D97706' : theme.border,
+                  backgroundColor: outfit.disliked ? 'rgba(217, 119, 6, 0.15)' : theme.surface,
                 },
               ]}
             >
               <Ionicons
-                name={outfit.disliked ? 'thumbs-down' : 'thumbs-down-outline'}
+                name={outfit.disliked ? 'heart-dislike' : 'heart-dislike-outline'}
                 size={16}
-                color={outfit.disliked ? '#E5484D' : theme.text}
+                color={outfit.disliked ? '#D97706' : theme.text}
               />
               <Text
                 style={[
                   styles.mainActionBtnText,
-                  { color: outfit.disliked ? '#E5484D' : theme.text },
+                  { color: outfit.disliked ? '#D97706' : theme.text },
                 ]}
               >
-                {outfit.disliked ? 'Disliked' : 'Dislike'}
+                {outfit.disliked ? 'Passed' : 'Pass'}
               </Text>
             </Pressable>
 
@@ -348,7 +363,7 @@ export default function OutfitDetailsScreen() {
             </View>
           </View>
 
-          {/* Compact Visual Color Harmony Swatch Bar */}
+          {/* Compact Visual Outfit Color Palette Swatch Bar */}
           <View
             style={[
               styles.swatchBarCard,
@@ -357,17 +372,30 @@ export default function OutfitDetailsScreen() {
           >
             <View style={styles.swatchBarTopRow}>
               <Text style={[styles.swatchBarTitle, { color: theme.text }]}>
-                Color Harmony Swatch Bar
+                Outfit Color Palette
               </Text>
               <View style={styles.swatchDotsRow}>
-                {dynamicPalette.map((swatch, idx) => (
-                  <View key={`${swatch.name}-${idx}`} style={styles.swatchChipItem}>
-                    <View style={[styles.swatchDot, { backgroundColor: swatch.hex }]} />
-                    <Text style={[styles.swatchDotLabel, { color: theme.textMuted }]}>
-                      {swatch.name.replace(/\s*\([^)]*\)/g, '')}
-                    </Text>
-                  </View>
-                ))}
+                {dynamicPalette.map((swatch, idx) => {
+                  const hexStr = normalizeHexCode(swatch.hex, swatch.name);
+                  const cleanColorName = swatch.name.replace(/\s*\([^)]*\)/g, '');
+                  return (
+                    <View
+                      key={`${swatch.name}-${idx}`}
+                      style={[
+                        styles.swatchChipItem,
+                        {
+                          backgroundColor: theme.surfaceSecondary,
+                          borderColor: theme.border,
+                        },
+                      ]}
+                    >
+                      <View style={[styles.swatchDot, { backgroundColor: hexStr }]} />
+                      <Text style={[styles.swatchDotLabel, { color: theme.text }]}>
+                        {cleanColorName} · {hexStr}
+                      </Text>
+                    </View>
+                  );
+                })}
               </View>
             </View>
             <Text style={[styles.swatchBarDesc, { color: theme.textMuted }]}>
@@ -387,9 +415,18 @@ export default function OutfitDetailsScreen() {
                   item.category,
                   item.image
                 );
+                const itemHex = normalizeHexCode(item.hexColor, item.color || 'Neutral');
                 return (
                   <View key={item.id} style={styles.breakdownTile}>
-                    <View style={styles.breakdownImageWrap}>
+                    <View
+                      style={[
+                        styles.breakdownImageWrap,
+                        {
+                          backgroundColor: theme.collageCanvas,
+                          borderColor: theme.border,
+                        },
+                      ]}
+                    >
                       <Image
                         source={{ uri: realPhotoUri }}
                         style={styles.breakdownImage}
@@ -419,9 +456,15 @@ export default function OutfitDetailsScreen() {
                     >
                       {item.name}
                     </Text>
-                    <Text style={[styles.breakdownCategory, { color: theme.textMuted }]}>
-                      {item.category} · {item.color || 'Neutral'}
-                    </Text>
+                    <View style={styles.breakdownColorRow}>
+                      <View style={[styles.breakdownColorDot, { backgroundColor: itemHex }]} />
+                      <Text
+                        style={[styles.breakdownCategory, { color: theme.textMuted }]}
+                        numberOfLines={1}
+                      >
+                        {item.category} · {item.color || 'Neutral'} ({itemHex})
+                      </Text>
+                    </View>
                   </View>
                 );
               })}
@@ -532,7 +575,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingTop: 24,
+    paddingBottom: 10,
     gap: 12,
   },
   circleButton: {
@@ -600,17 +644,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
   },
   swatchDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.18)',
+    borderColor: 'rgba(128,128,128,0.32)',
   },
   swatchDotLabel: {
-    fontSize: 11.5,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
   },
   swatchBarDesc: {
     fontSize: 12.5,
@@ -627,10 +675,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
     position: 'relative',
-    backgroundColor: '#FFFFFF',
     padding: 8,
     borderWidth: 1,
-    borderColor: '#ECE8DF',
   },
   breakdownImage: { width: '100%', height: '100%' },
   breakdownDatasetBadge: {
@@ -646,7 +692,19 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   breakdownName: { fontSize: 13, fontWeight: '700', marginTop: 4 },
-  breakdownCategory: { fontSize: 11.5 },
+  breakdownColorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  breakdownColorDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    borderWidth: 1,
+    borderColor: 'rgba(128,128,128,0.35)',
+  },
+  breakdownCategory: { fontSize: 11, flex: 1 },
   sparkleIcon: {
     width: 26,
     height: 26,

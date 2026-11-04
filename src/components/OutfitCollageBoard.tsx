@@ -26,6 +26,7 @@ import {
   classifyAnatomicalSlot,
   colorNameToHex,
   getBodyPlacementBadge,
+  normalizeHexCode,
   styleAroundPinnedSlots,
 } from '../services/outfitRecommendationService';
 import {
@@ -492,25 +493,46 @@ export default function OutfitCollageBoard({
 
   return (
     <View style={styles.container}>
-      {/* WHITE SPATIAL OUTFIT BOARD CARD (Advisor Target Output Visualization) */}
-      <View style={styles.whiteBoardCard}>
+      {/* SPATIAL OUTFIT BOARD CARD (Theme-Aware Light/Dark) */}
+      <View
+        style={[
+          styles.whiteBoardCard,
+          {
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+          },
+        ]}
+      >
         {/* a) Card Header Above the Board */}
         <View style={styles.boardHeaderRow}>
-          <Text style={styles.occasionHeaderTitle}>{displayOccasionTitle}</Text>
+          <Text style={[styles.occasionHeaderTitle, { color: theme.text }]}>
+            {displayOccasionTitle}
+          </Text>
 
           <View style={styles.boardHeaderRight}>
             {!readOnly && (
               <Pressable
                 onPress={() => openSlotDrawer(outerLayer ? 'outerLayer' : 'innerTop')}
-                style={styles.quickAddSwapButton}
+                style={[
+                  styles.quickAddSwapButton,
+                  {
+                    backgroundColor: theme.surfaceSecondary,
+                    borderColor: theme.border,
+                  },
+                ]}
                 hitSlop={6}
               >
-                <Ionicons name="shirt-outline" size={13} color="#24152C" />
-                <Text style={styles.quickAddSwapText}>+</Text>
+                <Ionicons name="shirt-outline" size={13} color={theme.text} />
+                <Text style={[styles.quickAddSwapText, { color: theme.text }]}>+</Text>
               </Pressable>
             )}
-            <View style={styles.countBadgePill}>
-              <Text style={styles.countBadgeText}>
+            <View
+              style={[
+                styles.countBadgePill,
+                { backgroundColor: theme.surfaceSecondary },
+              ]}
+            >
+              <Text style={[styles.countBadgeText, { color: theme.text }]}>
                 {index + 1}/{Math.max(1, totalCount)}
               </Text>
             </View>
@@ -548,7 +570,7 @@ export default function OutfitCollageBoard({
       </View>
 
       {/* TAP-TO-SWAP BOTTOM CLOSET DRAWER MODAL */}
-      <Modal
+      <Modal statusBarTranslucent={true}
         visible={!!selectedSlot && !readOnly}
         transparent
         animationType="slide"
@@ -738,7 +760,12 @@ export default function OutfitCollageBoard({
                         },
                       ]}
                     >
-                      <View style={styles.drawerItemImageBox}>
+                      <View
+                        style={[
+                          styles.drawerItemImageBox,
+                          { backgroundColor: theme.collageCanvas },
+                        ]}
+                      >
                         <Image
                           source={{ uri: candidate.image }}
                           style={styles.drawerItemImage}
@@ -766,8 +793,10 @@ export default function OutfitCollageBoard({
                           style={[
                             styles.drawerColorDot,
                             {
-                              backgroundColor:
-                                candidate.hexColor || colorNameToHex(candidate.color),
+                              backgroundColor: normalizeHexCode(
+                                candidate.hexColor,
+                                candidate.color || 'Neutral'
+                              ),
                             },
                           ]}
                         />
@@ -775,7 +804,7 @@ export default function OutfitCollageBoard({
                           style={[styles.drawerItemColor, { color: theme.textMuted }]}
                           numberOfLines={1}
                         >
-                          {candidate.color || 'Neutral'}
+                          {normalizeHexCode(candidate.hexColor, candidate.color || 'Neutral')}
                         </Text>
                       </View>
                     </Pressable>

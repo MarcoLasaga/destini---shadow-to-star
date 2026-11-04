@@ -15,7 +15,7 @@ import {
   resolveGarmentImageUrl,
 } from '../utils/garmentImageHelper';
 import { resolveDatasetGarmentPhoto } from '../data/datasetGarmentCatalog';
-import { colorNameToHex } from '../services/outfitRecommendationService';
+import { colorNameToHex, normalizeHexCode } from '../services/outfitRecommendationService';
 
 export interface AltaCollageItem {
   id?: string;
@@ -57,9 +57,17 @@ interface AltaOutfitCollageProps {
   onSelectItem?: (item: AltaCollageItem) => void;
 }
 
-function classifyCollageSlot(
-  item: AltaCollageItem
-): 'TOP' | 'OUTERWEAR' | 'BOTTOM' | 'SHOES' | 'ACCESSORIES' {
+type CollageSlotKey = 'TOP' | 'OUTERWEAR' | 'BOTTOM' | 'SHOES' | 'ACCESSORIES';
+
+const SLOT_BADGE_LABELS: Record<CollageSlotKey, string> = {
+  TOP: 'TOP',
+  OUTERWEAR: 'LAYER',
+  BOTTOM: 'BOTTOM',
+  SHOES: 'SHOES',
+  ACCESSORIES: 'DETAIL',
+};
+
+function classifyCollageSlot(item: AltaCollageItem): CollageSlotKey {
   const role = (item.layerRole || item.layer_role || '').toUpperCase().trim();
   if (role === 'INNER_BASE') return 'TOP';
   if (role === 'OUTER_LAYER') return 'OUTERWEAR';
@@ -128,6 +136,7 @@ export default function AltaOutfitCollage({
   onSelectItem,
 }: AltaOutfitCollageProps) {
   const theme = useAppTheme();
+  const isDark = theme.mode === 'dark';
   const [selectedItem, setSelectedItem] = useState<AltaCollageItem | null>(null);
   const [failedUris, setFailedUris] = useState<Record<string, boolean>>({});
 
@@ -171,14 +180,20 @@ export default function AltaOutfitCollage({
     );
   };
 
-  const renderGarmentPiece = (
+  // Studio tile styling so dark garments never vanish into dark backgrounds
+  const canvasBg = isDark ? '#141816' : '#EFECE6';
+  const canvasBorder = isDark ? '#252D29' : '#DFDCD5';
+  const tileBg = isDark ? '#1E2521' : '#FFFFFF';
+  const tileBorder = isDark ? '#2D3731' : '#E5E2DB';
+
+  const renderStudioTile = (
     piece: AltaCollageItem | null,
-    boxWidth: string | number,
-    boxHeight: number,
-    extraStyle?: any,
-    keySuffix = 'piece'
+    flexWeight: number,
+    slotOverride?: CollageSlotKey,
+    keySuffix = 'tile'
   ) => {
     if (!piece) return null;
+    const slotKey = slotOverride || classifyCollageSlot(piece);
     const uri = resolveDisplayUri(piece);
     const itemKey = String(piece.id || piece.name || piece.clothing_name || keySuffix);
     const hasValidUri = Boolean(uri && !failedUris[itemKey]);
@@ -211,56 +226,73 @@ export default function AltaOutfitCollage({
         key={itemKey}
         onPress={interactive ? () => handleTapPiece(piece) : undefined}
         style={[
-          styles.garmentBox,
-          { width: boxWidth as any, height: boxHeight },
-          extraStyle,
-          isSelected && {
-            borderColor: '#364536',
-            borderWidth: 1.5,
-            borderRadius: 12,
-            backgroundColor:
-              theme.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(54, 69, 54, 0.05)',
+          styles.studioTile,
+          {
+            flex: flexWeight,
+            backgroundColor: tileBg,
+            borderColor: isSelected ? '#4C6B54' : tileBorder,
+            borderWidth: isSelected ? 1.8 : 1,
+            borderRadius: compact ? 10 : 14,
+            padding: compact ? 5 : 10,
           },
         ]}
       >
-        {hasValidUri && uri ? (
-          <Image
-            source={{ uri }}
-            style={styles.cutoutImage}
-            resizeMode="contain"
-            onError={() =>
-              setFailedUris((prev) => ({
-                ...prev,
-                [itemKey]: true,
-              }))
-            }
-          />
-        ) : (
-          <CanonicalStudioGarmentSvg
-            name={displayName}
-            category={piece.category || classifyCollageSlot(piece)}
-            vectorSubtype={piece.vector_subtype}
-            colorHex={primaryHex}
-            secondaryColor={secondaryHex || undefined}
-            size={Math.min(boxHeight * 0.9, 145)}
-          />
+        <View style={styles.tileImageStage}>
+          {hasValidUri && uri ? (
+            <Image
+              source={{ uri }}
+              style={styles.cutoutImage}
+              resizeMode="contain"
+              onError={() =>
+                setFailedUris((prev) => ({
+                  ...prev,
+                  [itemKey]: true,
+                }))
+              }
+            />
+          ) : (
+            <CanonicalStudioGarmentSvg
+              name={displayName}
+              category={piece.category || slotKey}
+              vectorSubtype={piece.vector_subtype}
+              colorHex={primaryHex}
+              secondaryColor={secondaryHex || undefined}
+              size={compact ? 58 : 108}
+            />
+          )}
+        </View>
+
+        {!compact && (
+          <View style={styles.tileFooterRow}>
+            <View
+              style={[
+                styles.tileColorDot,
+                {
+                  backgroundColor: primaryHex,
+                  borderColor: isDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.16)',
+                },
+              ]}
+            />
+            <Text style={[styles.tilePieceName, { color: theme.text }]} numberOfLines={1}>
+              {displayName}
+            </Text>
+            <Text
+              style={[
+                styles.tileSlotTag,
+                { color: isDark ? '#8AB896' : '#364536' },
+              ]}
+            >
+              {SLOT_BADGE_LABELS[slotKey]}
+            </Text>
+          </View>
         )}
       </Wrapper>
     );
   };
 
-  // Scale heights when rendered in compact mode (e.g., 2-col profile grid)
-  const scale = compact ? 0.52 : 1;
-  const topH = Math.round(142 * scale);
-  const bottomH = Math.round(158 * scale);
-  const shoesH = Math.round(74 * scale);
-  const outerH = Math.round(156 * scale);
-  const accH = Math.round(105 * scale);
-
   const hasOuterwear = Boolean(grouped.outerwear);
   const hasAccessories = grouped.accessories.length > 0;
-
-  const canvasBg = theme.mode === 'dark' ? '#1E1E22' : '#F3F1EF';
+  const rightColumnHasUpper = hasOuterwear || hasAccessories;
 
   const renderPopover = () => {
     if (!interactive || !selectedItem) return null;
@@ -283,11 +315,10 @@ export default function AltaOutfitCollage({
       selectedItem.color ||
       selectedItem.primaryColor ||
       'Charcoal';
-    const primaryHex =
-      cluster0?.hex_code ||
-      selectedItem.colorHex ||
-      selectedItem.hexColor ||
-      colorNameToHex(primaryName);
+    const primaryHex = normalizeHexCode(
+      cluster0?.hex_code || selectedItem.colorHex || selectedItem.hexColor,
+      primaryName
+    );
     const primaryPct =
       typeof cluster0?.proportion === 'number'
         ? `${Math.round(cluster0.proportion * 100)}%`
@@ -295,10 +326,9 @@ export default function AltaOutfitCollage({
 
     const secondaryName =
       cluster1?.color_name || selectedItem.secondary_color || selectedItem.secondaryColor || null;
-    const secondaryHex =
-      cluster1?.hex_code ||
-      selectedItem.secondary_color_hex ||
-      (secondaryName ? colorNameToHex(secondaryName) : null);
+    const secondaryHex = secondaryName
+      ? normalizeHexCode(cluster1?.hex_code || selectedItem.secondary_color_hex, secondaryName)
+      : null;
     const secondaryPct =
       typeof cluster1?.proportion === 'number'
         ? `${Math.round(cluster1.proportion * 100)}%`
@@ -344,13 +374,21 @@ export default function AltaOutfitCollage({
           <View
             style={[
               styles.swatchPill,
-              { backgroundColor: theme.background, borderColor: theme.border },
+              { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
             ]}
           >
-            <View style={[styles.swatchDot, { backgroundColor: primaryHex }]} />
+            <View
+              style={[
+                styles.swatchDot,
+                {
+                  backgroundColor: primaryHex,
+                  borderColor: isDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.15)',
+                },
+              ]}
+            />
             <Text style={[styles.swatchLabel, { color: theme.text }]}>
-              {primaryName}
-              {primaryPct ? ` · ${primaryPct}` : ''}
+              {primaryName} · {primaryHex}
+              {primaryPct ? ` (${primaryPct})` : ''}
             </Text>
           </View>
 
@@ -358,13 +396,21 @@ export default function AltaOutfitCollage({
             <View
               style={[
                 styles.swatchPill,
-                { backgroundColor: theme.background, borderColor: theme.border },
+                { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
               ]}
             >
-              <View style={[styles.swatchDot, { backgroundColor: secondaryHex }]} />
+              <View
+                style={[
+                  styles.swatchDot,
+                  {
+                    backgroundColor: secondaryHex,
+                    borderColor: isDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.15)',
+                  },
+                ]}
+              />
               <Text style={[styles.swatchLabel, { color: theme.text }]}>
-                {secondaryName}
-                {secondaryPct ? ` · ${secondaryPct}` : ''}
+                {secondaryName} · {secondaryHex}
+                {secondaryPct ? ` (${secondaryPct})` : ''}
               </Text>
             </View>
           ) : null}
@@ -383,97 +429,42 @@ export default function AltaOutfitCollage({
         styles.canvasContainer,
         {
           backgroundColor: canvasBg,
+          borderColor: canvasBorder,
+          borderWidth: 1,
           borderRadius: compact ? 12 : 18,
-          padding: compact ? 8 : 16,
-          aspectRatio: compact ? 0.9 : 0.92,
+          padding: compact ? 6 : 12,
+          aspectRatio: compact ? 0.92 : 0.94,
         },
       ]}
     >
-      <View style={styles.twoColumnRow}>
-        {/* Left Column (52% width, vertically stacked with tight overlap/spacing gap: 4) */}
-        <View style={styles.leftColumn}>
-          {renderGarmentPiece(grouped.top, '92%', topH, undefined, 'left-top')}
-
-          {hasOuterwear ? (
-            <>
-              {renderGarmentPiece(
-                grouped.bottom,
-                '88%',
-                bottomH,
-                { marginTop: compact ? -3 : -6 },
-                'left-bottom'
-              )}
-              {renderGarmentPiece(
-                grouped.shoes,
-                '72%',
-                shoesH,
-                { marginTop: compact ? -2 : -4 },
-                'left-shoes'
-              )}
-            </>
-          ) : hasAccessories ? (
-            <>
-              {renderGarmentPiece(
-                grouped.bottom,
-                '88%',
-                bottomH,
-                { marginTop: compact ? -3 : -6 },
-                'left-bottom'
-              )}
-              {renderGarmentPiece(
-                grouped.shoes,
-                '72%',
-                shoesH,
-                { marginTop: compact ? -2 : -4 },
-                'left-shoes'
-              )}
-            </>
-          ) : (
-            renderGarmentPiece(
-              grouped.shoes,
-              '76%',
-              shoesH + Math.round(14 * scale),
-              { marginTop: compact ? 2 : 6 },
-              'left-shoes-only'
-            )
-          )}
+      <View style={[styles.bentoGridRow, { gap: compact ? 6 : 10 }]}>
+        {/* Left Column: Primary Top + Bottom (or Shoes if 2-piece look) */}
+        <View style={[styles.bentoColumn, { gap: compact ? 6 : 10 }]}>
+          {renderStudioTile(grouped.top, 1.15, 'TOP', 'left-top')}
+          {rightColumnHasUpper
+            ? renderStudioTile(grouped.bottom, 1.25, 'BOTTOM', 'left-bottom')
+            : renderStudioTile(grouped.shoes, 0.85, 'SHOES', 'left-shoes')}
         </View>
 
-        {/* Right Column (48% width, vertically stacked beside the Left Column) */}
-        <View style={styles.rightColumn}>
+        {/* Right Column: Outerwear / Accessories + Footwear (or Bottom if 3-piece look) */}
+        <View style={[styles.bentoColumn, { gap: compact ? 6 : 10 }]}>
           {hasOuterwear ? (
             <>
-              {renderGarmentPiece(grouped.outerwear, '94%', outerH, undefined, 'right-outer')}
-              {grouped.accessories.slice(0, 2).map((acc, idx) =>
-                renderGarmentPiece(
-                  acc,
-                  '78%',
-                  accH,
-                  { marginTop: idx === 0 ? 4 : -2 },
-                  `right-acc-${idx}`
-                )
-              )}
+              {renderStudioTile(grouped.outerwear, 1.15, 'OUTERWEAR', 'right-outer')}
+              {hasAccessories
+                ? renderStudioTile(grouped.accessories[0], 0.85, 'ACCESSORIES', 'right-acc-0')
+                : null}
+              {renderStudioTile(grouped.shoes, 0.85, 'SHOES', 'right-shoes')}
             </>
           ) : hasAccessories ? (
             <>
               {grouped.accessories.slice(0, 2).map((acc, idx) =>
-                renderGarmentPiece(
-                  acc,
-                  '82%',
-                  accH + Math.round(20 * scale),
-                  { marginTop: idx === 0 ? 0 : 6 },
-                  `right-acc-no-outer-${idx}`
-                )
+                renderStudioTile(acc, 0.95, 'ACCESSORIES', `right-acc-${idx}`)
               )}
+              {renderStudioTile(grouped.shoes, 0.95, 'SHOES', 'right-shoes-with-acc')}
             </>
           ) : (
-            renderGarmentPiece(
-              grouped.bottom,
-              '92%',
-              bottomH + Math.round(24 * scale),
-              undefined,
-              'right-bottom-balanced'
-            )
+            renderStudioTile(grouped.bottom, 1, 'BOTTOM', 'right-bottom-solo')
           )}
         </View>
       </View>
@@ -481,7 +472,7 @@ export default function AltaOutfitCollage({
       {/* Interactive Garment Popover */}
       {renderPopover()}
 
-      {/* ALTA-Style Pagination Indicator Centered at the Bottom of the Canvas (| · ·) */}
+      {/* Pagination Indicator Centered at Bottom */}
       {!compact && typeof paginationCount === 'number' && paginationCount > 1 && (
         <View style={styles.paginationBar}>
           {Array.from({ length: paginationCount }).map((_, idx) => {
@@ -498,9 +489,11 @@ export default function AltaOutfitCollage({
                     isActive ? styles.paginationActiveBar : styles.paginationDot,
                     {
                       backgroundColor: isActive
-                        ? '#364536'
-                        : theme.mode === 'dark'
-                        ? '#52525B'
+                        ? isDark
+                          ? '#8AB896'
+                          : '#364536'
+                        : isDark
+                        ? '#38443D'
                         : '#B8B5B0',
                     },
                   ]}
@@ -521,40 +514,61 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  twoColumnRow: {
+  bentoGridRow: {
     flex: 1,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
     justifyContent: 'space-between',
   },
-  leftColumn: {
-    width: '52%',
+  bentoColumn: {
+    flex: 1,
     height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
+    justifyContent: 'space-between',
   },
-  rightColumn: {
-    width: '48%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
+  studioTile: {
+    width: '100%',
+    justifyContent: 'space-between',
+    overflow: 'hidden',
   },
-  garmentBox: {
+  tileImageStage: {
+    flex: 1,
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 2,
   },
   cutoutImage: {
-    width: '100%',
-    height: '100%',
+    width: '94%',
+    height: '94%',
+  },
+  tileFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingTop: 4,
+  },
+  tileColorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 0.8,
+  },
+  tilePieceName: {
+    flex: 1,
+    fontSize: 10.5,
+    fontWeight: '700',
+  },
+  tileSlotTag: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   paginationBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingTop: 4,
+    paddingTop: 8,
   },
   paginationHit: {
     padding: 2,
@@ -562,7 +576,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   paginationActiveBar: {
-    width: 14,
+    width: 16,
     height: 4,
     borderRadius: 2,
   },
@@ -575,11 +589,16 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 12,
     right: 12,
-    bottom: 26,
+    bottom: 28,
     borderRadius: 14,
     borderWidth: 1,
-    padding: 11,
+    padding: 12,
     gap: 6,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
   popoverHeader: {
     flexDirection: 'row',
@@ -615,8 +634,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    borderWidth: 0.5,
-    borderColor: 'rgba(0,0,0,0.15)',
+    borderWidth: 0.8,
   },
   swatchLabel: {
     fontSize: 11,

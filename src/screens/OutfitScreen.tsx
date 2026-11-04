@@ -34,6 +34,7 @@ import {
   classifyAnatomicalSlot,
   colorNameToHex,
   inferAccessoryZone,
+  normalizeHexCode,
 } from '../services/outfitRecommendationService';
 import { triggerWeatherAlertOncePerSession } from '../services/notificationService';
 import { DATASET_GARMENT_CATALOG } from '../data/datasetGarmentCatalog';
@@ -74,9 +75,9 @@ const ROLE_BADGES = [
 ] as const;
 
 const STYLING_NOTES_BY_RANK = [
-  'Balanced proportions and breathable layers tailored for today’s forecast.',
-  'Effortless everyday comfort with cohesive tones from your wardrobe.',
-  'A fresh editorial combination that elevates your signature style.',
+  "Cute fit incoming! Let's style this look!",
+  "Looking good today! Your vibe is ready.",
+  "Your next favorite look awaits!",
 ] as const;
 
 function formatCleanOutfitTitle(rawName?: string, occasionLabel?: string, idx = 0): string {
@@ -170,9 +171,7 @@ export default function OutfitScreen() {
 
   const [wardrobeOutfits, setWardrobeOutfits] = useState<GeneratedOutfit[]>([]);
   const [mixOutfits, setMixOutfits] = useState<GeneratedOutfit[]>([]);
-  const [reaction, setReaction] = useState(
-    'Thoughtfully paired colors and comfortable layers tailored for today’s weather.'
-  );
+  const [reaction, setReaction] = useState("Let's find your vibe!");
 
   // Load persisted full-body photo, verification status, and VTON signature cache on mount
   useEffect(() => {
@@ -429,7 +428,7 @@ export default function OutfitScreen() {
       updateProfile({ userFullBodyPhotoUri: uri }).catch(() => {}),
     ]);
 
-    showToast('✨ Full-body standing photo verified! Unlocking See It On Me...');
+    showToast('Full-body standing photo verified! Unlocking See It On Me...');
     setSeeItOnMeVisible(true);
   };
 
@@ -515,7 +514,6 @@ export default function OutfitScreen() {
 
     const nextScore = computeAccurateOutfitScore(nextItems, profile, weather, occasion);
 
-    // Clear VTON cache entry for activeIndex so the updated piece triggers a fresh VTON render
     setVtonCacheByOutfitIndex((prev) => {
       const copy = { ...prev };
       delete copy[activeIndex];
@@ -531,13 +529,9 @@ export default function OutfitScreen() {
     });
 
     if (item) {
-      setReaction(
-        `Updated your ${
-          occasion === 'Any occasion' ? 'everyday' : occasion.toLowerCase()
-        } look with a fresh piece—now a ${nextScore}% style match!`
-      );
+      setReaction(`Cute swap! Now a ${nextScore}% match!`);
     } else {
-      setReaction(`Refined your outfit combination—now a ${nextScore}% style match.`);
+      setReaction(`Fresh update! ${nextScore}% style match!`);
     }
   };
 
@@ -545,32 +539,52 @@ export default function OutfitScreen() {
   useEffect(() => {
     if (activeOutfit) {
       const s = activeOutfit.hybridScore ?? activeOutfit.matchPercent ?? 88;
-      const occasionText =
-        occasion === 'Any occasion' ? 'everyday wear' : occasion.toLowerCase();
-      const baseNote =
-        STYLING_NOTES_BY_RANK[activeIndex] || STYLING_NOTES_BY_RANK[0];
-      setReaction(`Styled for ${occasionText} (${s}% match) — ${baseNote.charAt(0).toLowerCase()}${baseNote.slice(1)}`);
+      const cuteNotes = [
+        `Cute fit incoming! (${s}% match)`,
+        `Looking good today! (${s}% match)`,
+        `Your next look awaits! (${s}% match)`,
+      ];
+      setReaction(cuteNotes[activeIndex % cuteNotes.length]);
     }
   }, [activeOutfit?.id, activeIndex, occasion]);
 
   // ALTA Left Action Bar Handlers
   const handleToggleLikeSave = () => {
     if (!activeOutfit) return;
+    const outfitId = activeOutfit.id;
     const willLike = !activeOutfit.favorited;
-    toggleFavorite(activeOutfit.id);
+    toggleFavorite(outfitId);
     if (!activeOutfit.saved && willLike) {
-      toggleSave(activeOutfit.id);
+      toggleSave(outfitId);
     }
-    showToast(willLike ? 'Saved to your liked looks.' : 'Removed from liked looks.');
+    if (willLike) {
+      showToast('Saved to your liked looks.');
+    } else {
+      showToast('Removed from liked looks.', {
+        variant: 'warning',
+        undoLabel: 'Undo',
+        onUndo: () => {
+          toggleFavorite(outfitId);
+          showToast('Restored to your liked looks.');
+        },
+      });
+    }
   };
 
   const handleDislikeSkip = () => {
     if (!activeOutfit) return;
+    const prevIdx = activeIndex;
     submitPreferenceEvent(activeOutfit.id, 'DISLIKE');
     if (top3.length > 1) {
       const nextIdx = (activeIndex + 1) % top3.length;
       setActiveIndex(nextIdx);
-      showToast(`Skipped to ${PERMANENT_RANKS[nextIdx]}.`);
+      showToast(`Skipped to ${PERMANENT_RANKS[nextIdx]}.`, {
+        variant: 'info',
+        undoLabel: 'Undo',
+        onUndo: () => {
+          setActiveIndex(prevIdx);
+        },
+      });
     } else {
       generateOutfit();
       showToast('Generating a fresh look for you...');
@@ -623,7 +637,7 @@ export default function OutfitScreen() {
     >
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 12) }]}
+        contentContainerStyle={[styles.content, { paddingTop: 22 }]}
       >
         {/* Screen Header */}
         <View style={styles.header}>
@@ -651,12 +665,7 @@ export default function OutfitScreen() {
         </View>
 
         {/* Controls: Target Occasion & Wardrobe Source Toggle */}
-        <View
-          style={[
-            styles.controls,
-            { backgroundColor: theme.surface, borderColor: theme.border },
-          ]}
-        >
+        <View style={styles.controls}>
           <Text style={[styles.controlLabel, { color: theme.textMuted }]}>TARGET OCCASION</Text>
           <OccasionDropdown value={occasion} onChange={setOccasion} />
 
@@ -723,26 +732,8 @@ export default function OutfitScreen() {
           </View>
         )}
 
-        {/* Redesigned Clean Mel Stylist Note Banner (PDF Page 12) */}
-        {!showEmptyWardrobePrompt && (
-          <View style={styles.melEditorialBanner}>
-            <View style={styles.melBannerAvatarCircle}>
-              <MelMascot
-                size={38}
-                outfit={melOutfitForOccasion(activeOutfit?.occasionLabel || occasion)}
-              />
-            </View>
-            <View style={styles.melBannerTextCol}>
-              <View style={styles.melBannerLabelRow}>
-                <View style={styles.melBannerDot} />
-                <Text style={styles.melBannerLabel}>MEL · STYLIST NOTE</Text>
-              </View>
-              <Text style={styles.melBannerMessage} numberOfLines={2}>
-                {reaction}
-              </Text>
-            </View>
-          </View>
-        )}
+        
+
 
         {/* Empty or Incomplete Wardrobe Guard for My Wardrobe mode */}
         {showEmptyWardrobePrompt ? (
@@ -752,15 +743,14 @@ export default function OutfitScreen() {
               { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <View style={styles.emptyPromptMelRow}>
-              <MelMascot outfit="casual_sunny" size={76} waving />
-              <View style={{ flex: 1 }}>
-                <MelSpeechBubble
-                  variant="casual_sunny"
-                  message="Add at least a Top, Bottom, and Shoes to build outfits from your own closet—or switch to Mix & Match to explore curated looks right now!"
-                  position="inline"
-                />
-              </View>
+            <View style={{ alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <Ionicons name="shirt-outline" size={28} color={isDark ? '#98C4A4' : '#364536'} />
+              <Text style={{ fontSize: 16, fontWeight: '800', color: theme.text, textAlign: 'center' }}>
+                Complete Your Wardrobe
+              </Text>
+              <Text style={{ fontSize: 13, color: theme.textMuted, textAlign: 'center', lineHeight: 18 }}>
+                Add at least a Top, Bottom, and Shoes to unlock My Wardrobe outfits, or try Mix & Match right now.
+              </Text>
             </View>
 
             <View style={styles.emptyPromptActions}>
@@ -882,6 +872,65 @@ export default function OutfitScreen() {
               />
             </View>
 
+            {/* Outfit Color Palette Swatches with Explicit #RRGGBB HEX Codes */}
+            {sortedActivePieces.length > 0 && (
+              <View
+                style={[
+                  styles.outfitPaletteBar,
+                  {
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#F5F3EE',
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
+                <View style={styles.outfitPaletteHeader}>
+                  <Ionicons name="color-palette-outline" size={13} color={theme.textSecondary} />
+                  <Text style={[styles.outfitPaletteLabel, { color: theme.textSecondary }]}>
+                    OUTFIT COLOR PALETTE
+                  </Text>
+                </View>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.outfitPaletteSwatchesRow}
+                >
+                  {sortedActivePieces.map((piece, idx) => {
+                    const hexCode = normalizeHexCode(piece.hexColor, piece.color || 'Neutral');
+                    return (
+                      <View
+                        key={`pal-${piece.id || idx}`}
+                        style={[
+                          styles.outfitPaletteChip,
+                          {
+                            backgroundColor: theme.surface,
+                            borderColor: theme.border,
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.outfitPaletteDot,
+                            {
+                              backgroundColor: hexCode,
+                              borderColor: isDark
+                                ? 'rgba(255, 255, 255, 0.25)'
+                                : 'rgba(0, 0, 0, 0.16)',
+                            },
+                          ]}
+                        />
+                        <Text
+                          style={[styles.outfitPaletteHexText, { color: theme.text }]}
+                          numberOfLines={1}
+                        >
+                          {hexCode}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+
             {/* ALTA-Style Action Bar Directly Below Studio Canvas */}
             <View style={styles.altaActionBar}>
               {/* Left Action Icons Row: ♡ Favorite | ✎ Customize | 👎 Dislike | ⌲ Publish */}
@@ -931,7 +980,7 @@ export default function OutfitScreen() {
                   ]}
                   accessibilityLabel="Dislike or skip outfit"
                 >
-                  <Ionicons name="thumbs-down-outline" size={18} color={theme.text} />
+                  <Ionicons name="heart-dislike-outline" size={18} color={theme.text} />
                 </Pressable>
 
                 <Pressable
@@ -981,10 +1030,42 @@ export default function OutfitScreen() {
             </View>
           </View>
         ) : null}
+
+        {/* Standalone Mel Character (Right) & Cute Compact Speech Bubble (Left -> Pointing to Mel) at Bottom */}
+        <View style={styles.melBottomCompanion}>
+          <MelSpeechBubble
+            title={showEmptyWardrobePrompt ? 'MEL · CLOSET TIP' : 'MEL · STYLIST NOTE'}
+            variant={
+              showEmptyWardrobePrompt
+                ? 'casual_sunny'
+                : melOutfitForOccasion(activeOutfit?.occasionLabel || occasion)
+            }
+            message={
+              showEmptyWardrobePrompt
+                ? 'Add a Top, Bottom & Shoes, or try Mix & Match right now!'
+                : reaction
+            }
+            position="inline"
+            tailDirection="right"
+            compact
+          />
+          <View style={styles.melCharacterWrap}>
+            <MelMascot
+              size={54}
+              waving={showEmptyWardrobePrompt}
+              outfit={
+                showEmptyWardrobePrompt
+                  ? 'casual_sunny'
+                  : melOutfitForOccasion(activeOutfit?.occasionLabel || occasion)
+              }
+              onPress={generateOutfit}
+            />
+          </View>
+        </View>
       </ScrollView>
 
       {/* ================= EXPANSIVE FULL-HEIGHT "SEE IT ON ME" VISUALIZER MODAL ================= */}
-      <Modal
+      <Modal statusBarTranslucent={true}
         visible={seeItOnMeVisible}
         animationType="slide"
         transparent={false}
@@ -992,7 +1073,7 @@ export default function OutfitScreen() {
       >
         <SafeAreaView
           style={[styles.vtonModalContainer, { backgroundColor: theme.background }]}
-          edges={['top', 'bottom']}
+          edges={['left', 'right', 'bottom']}
         >
           {/* 1. Compact Top Bar (height: 52): Left <- Back | Center TOP 1/2/3 Pills | Right Retake */}
           <View
@@ -1033,7 +1114,7 @@ export default function OutfitScreen() {
                         { color: isCurrent ? '#F3F1EF' : theme.textSecondary },
                       ]}
                     >
-                      {PERMANENT_RANKS[idx]} ({s}%){isReady ? ' ✓' : ''}
+                      {PERMANENT_RANKS[idx]} ({s}%)
                     </Text>
                   </Pressable>
                 );
@@ -1051,7 +1132,7 @@ export default function OutfitScreen() {
               ]}
               hitSlop={6}
             >
-              <Text style={[styles.vtonRetakeText, { color: theme.text }]}>📷 Retake</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}><Ionicons name="camera-outline" size={13} color={theme.text} /><Text style={[styles.vtonRetakeText, { color: theme.text }]}>Retake</Text></View>
             </Pressable>
           </View>
 
@@ -1077,7 +1158,7 @@ export default function OutfitScreen() {
               <View style={styles.vtonLoadingOverlay}>
                 <ActivityIndicator size="large" color="#E83E35" />
                 <Text style={styles.vtonLoadingTitle}>
-                  ✨ Rendering Full-Body Virtual Try-On...
+                  Rendering Full-Body Virtual Try-On...
                 </Text>
                 <Text style={styles.vtonLoadingSub}>
                   Pre-loading {PERMANENT_RANKS[activeIndex]} ({activeScore}% match) on your standing photo
@@ -1097,9 +1178,12 @@ export default function OutfitScreen() {
                 },
               ]}
             >
-              <Text style={[styles.vtonPrivateBadgeText, { color: theme.text }]}>
-                🔒 100% Private
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Ionicons name="lock-closed-outline" size={12} color={theme.text} />
+                <Text style={[styles.vtonPrivateBadgeText, { color: theme.text }]}>
+                  100% Private
+                </Text>
+              </View>
             </View>
           </View>
 
@@ -1225,11 +1309,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
+    flexGrow: 1,
     paddingHorizontal: 16,
-    paddingBottom: 32,
+    paddingBottom: 24,
   },
   header: {
-    paddingTop: 6,
+    paddingTop: 2,
     marginBottom: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1264,19 +1349,34 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   refresh: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   controls: {
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 12,
     gap: 8,
-    marginBottom: 10,
+    marginBottom: 12,
+  },
+  melBottomCompanion: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    alignSelf: 'flex-end',
+    paddingHorizontal: 4,
+    marginTop: 'auto',
+    paddingTop: 14,
+    marginBottom: 6,
+    gap: 10,
+    maxWidth: '94%',
+    overflow: 'visible',
+  },
+  melCharacterWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'visible',
   },
   controlLabel: {
     fontSize: 10.5,
@@ -1376,33 +1476,39 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   emptyPromptActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
     marginTop: 4,
   },
   emptyPromptBtnPrimary: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     paddingVertical: 13,
+    paddingHorizontal: 10,
     borderRadius: 14,
   },
   emptyPromptBtnTextPrimary: {
     fontWeight: '800',
-    fontSize: 14,
+    fontSize: 12.5,
   },
   emptyPromptBtnSecondary: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     borderWidth: 1,
     paddingVertical: 12,
+    paddingHorizontal: 10,
     borderRadius: 14,
   },
   emptyPromptBtnTextSecondary: {
     fontWeight: '800',
-    fontSize: 14,
+    fontSize: 12.5,
   },
   loadingCard: {
     borderRadius: 18,
@@ -1473,6 +1579,48 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
+  outfitPaletteBar: {
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  outfitPaletteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  outfitPaletteLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.7,
+  },
+  outfitPaletteSwatchesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  outfitPaletteChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4.5,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  outfitPaletteDot: {
+    width: 11,
+    height: 11,
+    borderRadius: 5.5,
+    borderWidth: 1,
+  },
+  outfitPaletteHexText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
   altaActionBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1514,7 +1662,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   vtonTopBar: {
-    height: 52,
+    height: 64,
+    paddingTop: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

@@ -1,4 +1,6 @@
-export const PRIVACY_POLICY = `Last updated: July 2026
+export const PRIVACY_POLICY = `StyleSense — Privacy Policy
+Developed by Shiloh Dynasty
+Last updated: July 2026
 
 1. DATA COLLECTION
 StyleSense collects information you provide directly, including your name, email address, clothing preferences, and wardrobe details you choose to add to the application.
@@ -30,7 +32,9 @@ StyleSense may integrate with third-party services (such as mapping, geocoding, 
 10. CONTACT INFORMATION
 For questions regarding this Privacy Policy, please contact us through the Help & Support section of the app.`;
 
-export const TERMS_OF_SERVICE = `Last updated: July 2026
+export const TERMS_OF_SERVICE = `StyleSense — Terms of Service
+Developed by Shiloh Dynasty
+Last updated: July 2026
 
 1. ACCEPTANCE OF TERMS
 By creating an account or using StyleSense, you agree to be bound by these Terms of Service.
@@ -45,7 +49,7 @@ You must be at least 13 years of age to use StyleSense. You are responsible for 
 You retain ownership of any images and content you upload. By uploading content, you grant StyleSense a limited license to use it solely for the purpose of providing the app's features to you.
 
 5. INTELLECTUAL PROPERTY
-The StyleSense application, including its design, logos, and underlying technology, is the property of StyleSense and its licensors and may not be copied or reproduced without permission.
+The StyleSense application, including its design, logos, and underlying technology, is developed by Shiloh Dynasty and may not be copied or reproduced without permission.
 
 6. SERVICE AVAILABILITY
 We strive to keep StyleSense available at all times but do not guarantee uninterrupted access. Features may be modified, suspended, or discontinued at our discretion.

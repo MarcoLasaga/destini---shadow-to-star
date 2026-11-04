@@ -2,12 +2,18 @@ import React, { useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { ClothingItem } from '../types';
 import { resolveDatasetGarmentPhoto } from '../data/datasetGarmentCatalog';
+import { colorNameToHex } from '../services/outfitRecommendationService';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 20 * 2 - 12) / 2;
@@ -28,12 +34,13 @@ export default function ClothingCard({
   onLongPress?: (id: string) => void;
 }) {
   const theme = useAppTheme();
+  const isDark = theme.mode === 'dark';
   const navigation = useNavigation<any>();
   const scale = useSharedValue(1);
 
   useEffect(() => {
     if (isSelected) {
-      scale.value = withSpring(0.93, { damping: 15, stiffness: 180 });
+      scale.value = withSpring(0.95, { damping: 15, stiffness: 180 });
     } else {
       scale.value = withSpring(1, { damping: 15, stiffness: 180 });
     }
@@ -44,6 +51,8 @@ export default function ClothingCard({
   }));
 
   const activeBorderColor = theme.secondaryAccent;
+  const stageBg = isDark ? '#1E2521' : '#F4F2EE';
+  const colorHex = item.colorHex || colorNameToHex(item.color || 'Black');
 
   const handlePress = () => {
     if (selectionMode) {
@@ -64,7 +73,7 @@ export default function ClothingCard({
   };
 
   return (
-    <Animated.View entering={FadeIn.duration(350)} style={[styles.wrapper, cardAnimatedStyle]}>
+    <Animated.View entering={FadeIn.duration(300)} style={[styles.wrapper, cardAnimatedStyle]}>
       <Pressable
         onPressIn={() => {
           if (!isSelected) {
@@ -88,22 +97,26 @@ export default function ClothingCard({
           },
         ]}
       >
-        <View style={styles.imageWrap}>
+        <View style={[styles.imageStage, { backgroundColor: stageBg }]}>
           <Image
             source={{ uri: resolveDatasetGarmentPhoto(item.name, item.category, item.image) }}
             style={styles.image}
-            contentFit="cover"
+            contentFit="contain"
             transition={200}
           />
 
-          {/* Selection Checkmark / Empty Circle Badge */}
+          {/* Selection Checkmark / Circle Badge */}
           {selectionMode && (
             <View
               style={[
                 styles.selectBadge,
                 isSelected
                   ? { backgroundColor: activeBorderColor }
-                  : { backgroundColor: 'rgba(0,0,0,0.3)', borderWidth: 1.5, borderColor: '#FFFFFF' },
+                  : {
+                      backgroundColor: 'rgba(0,0,0,0.38)',
+                      borderWidth: 1.5,
+                      borderColor: '#FFFFFF',
+                    },
               ]}
             >
               {isSelected && <Ionicons name="checkmark" size={14} color={theme.onAccent} />}
@@ -116,13 +129,21 @@ export default function ClothingCard({
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 onToggleFavorite(item.id);
               }}
-              style={styles.heartButton}
+              style={[
+                styles.heartButton,
+                {
+                  backgroundColor: isDark
+                    ? 'rgba(22, 25, 24, 0.86)'
+                    : 'rgba(255, 255, 255, 0.90)',
+                  borderColor: theme.border,
+                },
+              ]}
               hitSlop={8}
             >
               <Ionicons
                 name={item.favorite ? 'heart' : 'heart-outline'}
-                size={16}
-                color={item.favorite ? '#E5484D' : '#5A5A5A'}
+                size={15}
+                color={item.favorite ? '#E84A42' : theme.textMuted}
               />
             </Pressable>
           )}
@@ -132,9 +153,20 @@ export default function ClothingCard({
           <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
             {item.name}
           </Text>
-          <Text style={[styles.meta, { color: theme.textMuted }]} numberOfLines={1}>
-            {item.category} · {item.color}
-          </Text>
+          <View style={styles.metaRow}>
+            <View
+              style={[
+                styles.colorDot,
+                {
+                  backgroundColor: colorHex,
+                  borderColor: isDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.15)',
+                },
+              ]}
+            />
+            <Text style={[styles.meta, { color: theme.textMuted }]} numberOfLines={1}>
+              {item.category} · {item.color}
+            </Text>
+          </View>
         </View>
       </Pressable>
     </Animated.View>
@@ -142,19 +174,29 @@ export default function ClothingCard({
 }
 
 const styles = StyleSheet.create({
-  wrapper: { width: CARD_WIDTH, marginBottom: 16 },
-  card: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+  wrapper: {
+    width: CARD_WIDTH,
+    marginBottom: 14,
   },
-  imageWrap: { width: '100%', aspectRatio: 1, position: 'relative' },
-  image: { width: '100%', height: '100%' },
-  fallback: { alignItems: 'center', justifyContent: 'center' },
+  card: {
+    borderRadius: 18,
+    padding: 8,
+    overflow: 'hidden',
+  },
+  imageStage: {
+    width: '100%',
+    aspectRatio: 0.96,
+    borderRadius: 13,
+    padding: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
   selectBadge: {
     position: 'absolute',
     top: 8,
@@ -166,28 +208,41 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 10,
   },
-  badge: {
-    position: 'absolute',
-    left: 8,
-    bottom: 8,
-    backgroundColor: '#E8833A',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  badgeText: { color: '#FFFFFF', fontSize: 10.5, fontWeight: '700' },
   heartButton: {
     position: 'absolute',
     top: 8,
     right: 8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.85)',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  info: { padding: 10, gap: 2 },
-  name: { fontSize: 13.5, fontWeight: '700' },
-  meta: { fontSize: 11.5 },
+  info: {
+    paddingHorizontal: 4,
+    paddingTop: 9,
+    paddingBottom: 3,
+    gap: 3,
+  },
+  name: {
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  colorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 0.8,
+  },
+  meta: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    flex: 1,
+  },
 });

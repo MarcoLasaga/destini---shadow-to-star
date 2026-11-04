@@ -8,6 +8,7 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -16,6 +17,8 @@ import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../contexts/AuthContext';
 import TextField from '../components/TextField';
+
+const OFFICIAL_APP_ICON = require('../../assets/icon.png');
 
 export default function LoginScreen() {
   const theme = useAppTheme();
@@ -65,22 +68,21 @@ export default function LoginScreen() {
       style={[styles.container, { backgroundColor: theme.background }]}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Redesigned Brand Emblem & Greeting (PDF Page 8) */}
+        {/* Official StyleSense Brand Emblem & Greeting */}
         <Animated.View entering={FadeInUp.duration(600).delay(100)} style={styles.header}>
           <View style={styles.emblemWrapper}>
-            <View style={styles.logoOuterRing}>
-              <View style={styles.logoContainer}>
-                <Ionicons name="shirt-outline" size={30} color="#F3F1EF" />
-              </View>
-            </View>
-            <View style={styles.logoAccentBadge}>
-              <Ionicons name="sparkles" size={12} color="#F3F1EF" />
-            </View>
+            <Image
+              source={OFFICIAL_APP_ICON}
+              style={styles.brandIconImage}
+              resizeMode="contain"
+            />
           </View>
 
           <View style={styles.brandWordmarkPill}>
             <View style={styles.brandDot} />
-            <Text style={styles.brandWordmarkText}>STYLESENSE</Text>
+            <Text style={[styles.brandWordmarkText, { color: isDark ? '#F3F1EF' : '#364536' }]}>
+              STYLESENSE
+            </Text>
           </View>
 
           <Text style={[styles.title, { color: theme.text }]}>Welcome Back</Text>
@@ -189,6 +191,9 @@ export default function LoginScreen() {
               Sign Up
             </Text>
           </Text>
+          <Text style={[styles.developerCredit, { color: theme.textMuted }]}>
+            StyleSense · Developed by Shiloh Dynasty
+          </Text>
         </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -210,44 +215,13 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   emblemWrapper: {
-    position: 'relative',
-    marginBottom: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
-  logoOuterRing: {
+  brandIconImage: {
     width: 82,
     height: 82,
-    borderRadius: 26,
-    backgroundColor: 'rgba(54, 69, 54, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(54, 69, 54, 0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoContainer: {
-    width: 68,
-    height: 68,
-    borderRadius: 21,
-    backgroundColor: '#364536',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#364536',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  logoAccentBadge: {
-    position: 'absolute',
-    bottom: -3,
-    right: -3,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#E83E35',
-    borderWidth: 2.5,
-    borderColor: '#F3F1EF',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   brandWordmarkPill: {
     flexDirection: 'row',
@@ -368,7 +342,8 @@ const styles = StyleSheet.create({
   },
   footer: {
     alignItems: 'center',
-    marginTop: 28,
+    marginTop: 26,
+    gap: 8,
   },
   footerText: {
     fontSize: 14,
@@ -376,5 +351,10 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontWeight: '700',
+  },
+  developerCredit: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    opacity: 0.72,
   },
 });

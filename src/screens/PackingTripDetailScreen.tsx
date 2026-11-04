@@ -148,8 +148,8 @@ export default function PackingTripDetailScreen() {
                       <Text style={[styles.weatherCondition, { color: theme.textMuted }]}>{weather.condition}</Text>
                     </View>
                     <View style={styles.weatherDetails}>
-                      <Text style={[styles.weatherDetail, { color: theme.textMuted }]}>💧 {weather.humidity}% humidity</Text>
-                      <Text style={[styles.weatherDetail, { color: theme.textMuted }]}>💨 {windKmh} km/h wind</Text>
+                      <Text style={[styles.weatherDetail, { color: theme.textMuted }]}>{weather.humidity}% humidity</Text>
+                      <Text style={[styles.weatherDetail, { color: theme.textMuted }]}>{windKmh} km/h wind</Text>
                     </View>
                   </View>
                   <View style={[styles.weatherTipBanner, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>

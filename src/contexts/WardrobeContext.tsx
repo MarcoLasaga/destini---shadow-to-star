@@ -117,6 +117,7 @@ function mapMobileToSupabase(item: Partial<ClothingItem>): any {
 
 interface WardrobeContextValue {
   items: ClothingItem[];
+  loading: boolean;
   addItem: (item: Omit<ClothingItem, 'id' | 'addedDate'>) => Promise<ClothingItem>;
   toggleFavorite: (id: string) => void;
   deleteItem: (id: string) => void;
@@ -132,14 +133,17 @@ const WardrobeContext = createContext<WardrobeContextValue | undefined>(undefine
 export function WardrobeProvider({ children }: { children: React.ReactNode }) {
   const { session, isLoggedIn } = useAuth();
   const [items, setItems] = useState<ClothingItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
 
   const fetchItems = useCallback(async () => {
     const user = session?.user;
     if (!user) {
       setItems([]);
+      setLoading(false);
       return;
     }
 
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from('wardrobe_items')
@@ -164,6 +168,8 @@ export function WardrobeProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (err) {
       console.error('Unexpected error fetching wardrobe items:', err);
+    } finally {
+      setLoading(false);
     }
   }, [session]);
 
@@ -438,7 +444,7 @@ export function WardrobeProvider({ children }: { children: React.ReactNode }) {
   const getItem = useCallback((id: string) => items.find((item) => item.id === id), [items]);
 
   return (
-    <WardrobeContext.Provider value={{ items, addItem, toggleFavorite, deleteItem, deleteItems, updateItem, recordWear, unrecordWear, getItem }}>
+    <WardrobeContext.Provider value={{ items, loading, addItem, toggleFavorite, deleteItem, deleteItems, updateItem, recordWear, unrecordWear, getItem }}>
       {children}
     </WardrobeContext.Provider>
   );

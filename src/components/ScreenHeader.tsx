@@ -16,7 +16,7 @@ export default function ScreenHeader({
   const navigation = useNavigation<any>();
 
   return (
-    <SafeAreaView edges={['top']} style={{ backgroundColor: theme.background }}>
+    <SafeAreaView edges={['left', 'right']} style={{ backgroundColor: theme.background }}>
       <View style={styles.row}>
         <Pressable
           onPress={() => navigation.goBack()}
@@ -39,14 +39,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 24,
     paddingBottom: 12,
     gap: 12,
   },
   backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,

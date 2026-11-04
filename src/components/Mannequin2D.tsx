@@ -1200,14 +1200,14 @@ function Mannequin2DComponent({
         <View style={styles.sceneBadge}>
           <Text style={styles.sceneBadgeText}>
             {isAcademicScene
-              ? '🎓 Campus Scene'
+              ? 'Campus Scene'
               : isOfficeScene
-              ? '💼 Office Scene'
+              ? 'Office Scene'
               : isPartyScene
-              ? '✨ Evening Scene'
+              ? 'Evening Scene'
               : isWorkoutScene
-              ? '⚡ Athletic Scene'
-              : '🏙️ Casual Scene'}
+              ? 'Athletic Scene'
+              : 'Casual Scene'}
           </Text>
         </View>
       )}
@@ -1215,7 +1215,7 @@ function Mannequin2DComponent({
       {/* X-Ray Jacket View Badge */}
       {xrayOuterwear && hasOuter && (
         <View style={styles.xrayBadge}>
-          <Text style={styles.xrayBadgeText}>👁️ X-Ray Jacket View: Previewing Inner Top</Text>
+          <Text style={styles.xrayBadgeText}>X-Ray Jacket View: Previewing Inner Top</Text>
         </View>
       )}
 

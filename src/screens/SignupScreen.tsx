@@ -8,6 +8,7 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -17,8 +18,11 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../contexts/AuthContext';
 import TextField from '../components/TextField';
 
+const OFFICIAL_APP_ICON = require('../../assets/icon.png');
+
 export default function SignupScreen() {
   const theme = useAppTheme();
+  const isDark = theme.mode === 'dark';
   const navigation = useNavigation<any>();
   const { signUpWithEmail, loginWithOAuth } = useAuth();
 
@@ -40,7 +44,7 @@ export default function SignupScreen() {
       setErrorMsg('Password should be at least 6 characters.');
       return;
     }
-    
+
     setErrorMsg(null);
     setLoading(true);
     try {
@@ -87,8 +91,21 @@ export default function SignupScreen() {
       style={[styles.container, { backgroundColor: theme.background }]}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Title */}
+        {/* Official StyleSense Brand Header */}
         <Animated.View entering={FadeInUp.duration(600).delay(100)} style={styles.header}>
+          <View style={styles.emblemWrapper}>
+            <Image
+              source={OFFICIAL_APP_ICON}
+              style={styles.brandIconImage}
+              resizeMode="contain"
+            />
+          </View>
+          <View style={styles.brandWordmarkPill}>
+            <View style={styles.brandDot} />
+            <Text style={[styles.brandWordmarkText, { color: isDark ? '#F3F1EF' : '#364536' }]}>
+              STYLESENSE
+            </Text>
+          </View>
           <Text style={[styles.title, { color: theme.text }]}>Create Account</Text>
           <Text style={[styles.subtitle, { color: theme.textMuted }]}>Start styling your digital closet</Text>
         </Animated.View>
@@ -217,6 +234,9 @@ export default function SignupScreen() {
               Sign In
             </Text>
           </Text>
+          <Text style={[styles.developerCredit, { color: theme.textMuted }]}>
+            StyleSense · Developed by Shiloh Dynasty
+          </Text>
         </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -235,7 +255,38 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 24,
+  },
+  emblemWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  brandIconImage: {
+    width: 68,
+    height: 68,
+  },
+  brandWordmarkPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(54, 69, 54, 0.08)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    marginBottom: 8,
+  },
+  brandDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#E83E35',
+  },
+  brandWordmarkText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    color: '#364536',
   },
   title: {
     fontSize: 26,
@@ -319,7 +370,7 @@ const styles = StyleSheet.create({
   eyeIcon: {
     position: 'absolute',
     right: 14,
-    top: 38, // aligns with input label offset
+    top: 38,
     padding: 4,
   },
   submitButton: {
@@ -336,7 +387,8 @@ const styles = StyleSheet.create({
   },
   footer: {
     alignItems: 'center',
-    marginTop: 28,
+    marginTop: 26,
+    gap: 8,
   },
   footerText: {
     fontSize: 14,
@@ -344,5 +396,10 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontWeight: '700',
+  },
+  developerCredit: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    opacity: 0.72,
   },
 });

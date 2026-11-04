@@ -32,7 +32,7 @@ export default function SelectField({
         <Ionicons name="chevron-down" size={16} color={theme.textMuted} />
       </Pressable>
 
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+      <Modal statusBarTranslucent={true} visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
           <View style={[styles.sheet, { backgroundColor: theme.surface }]}>
             <Text style={[styles.sheetTitle, { color: theme.text }]}>{label}</Text>

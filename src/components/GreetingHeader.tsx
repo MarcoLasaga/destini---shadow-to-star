@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 22,
   },
   greeting: { fontSize: 15, marginBottom: 2 },
   nameRow: { flexDirection: 'row', alignItems: 'center' },

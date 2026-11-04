@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, Modal, ScrollView, Switch } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, Modal, ScrollView, Switch, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -32,9 +32,28 @@ function normalizeCategory(cat: string): string {
 
 export default function WardrobeScreen() {
   const theme = useAppTheme();
+  const isDark = theme.mode === 'dark';
   const navigation = useNavigation<any>();
-  const { items, toggleFavorite, deleteItems } = useWardrobe();
+  const { items, loading, toggleFavorite, deleteItems } = useWardrobe();
   const { showToast } = useToast();
+
+  const handleToggleFavoriteWithFeedback = async (id: string) => {
+    const target = items.find((i) => i.id === id);
+    const willFavorite = target ? !target.favorite : true;
+    await toggleFavorite(id);
+    if (willFavorite) {
+      showToast('Added to favorites.');
+    } else {
+      showToast('Removed from favorites.', {
+        variant: 'warning',
+        undoLabel: 'Undo',
+        onUndo: () => {
+          toggleFavorite(id);
+          showToast('Restored to favorites.');
+        },
+      });
+    }
+  };
 
   // Multi-select & Batch Delete State
   const [selectionMode, setSelectionMode] = useState(false);
@@ -188,7 +207,7 @@ export default function WardrobeScreen() {
   }, [items, selectedCategory, selectedOccasion, favoritesOnly]);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['left', 'right']}>
       <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
         <View>
           <Text style={[styles.title, { color: theme.text }]}>Wardrobe</Text>
@@ -284,11 +303,16 @@ export default function WardrobeScreen() {
               onPress={() => setSelectedCategory('ALL')}
               style={[
                 styles.activePill,
-                { backgroundColor: theme.mode === 'dark' ? '#4B1D6F' : '#DECFE8', borderColor: theme.mode === 'dark' ? '#FDD78B' : '#4B1D6F' },
+                {
+                  backgroundColor: isDark ? 'rgba(54, 69, 54, 0.45)' : '#EBF2EC',
+                  borderColor: isDark ? '#8AB896' : '#364536',
+                },
               ]}
             >
-              <Text style={[styles.activePillText, { color: theme.mode === 'dark' ? '#FDF3D2' : '#24152C' }]}>Category: {selectedCategory}</Text>
-              <Ionicons name="close-circle" size={14} color={theme.mode === 'dark' ? '#FDF3D2' : '#24152C'} />
+              <Text style={[styles.activePillText, { color: isDark ? '#F3F1EF' : '#364536' }]}>
+                Category: {selectedCategory}
+              </Text>
+              <Ionicons name="close-circle" size={15} color={isDark ? '#F3F1EF' : '#364536'} />
             </Pressable>
           )}
           {selectedOccasion !== 'ALL' && (
@@ -296,11 +320,16 @@ export default function WardrobeScreen() {
               onPress={() => setSelectedOccasion('ALL')}
               style={[
                 styles.activePill,
-                { backgroundColor: theme.mode === 'dark' ? '#4B1D6F' : '#DECFE8', borderColor: theme.mode === 'dark' ? '#FDD78B' : '#4B1D6F' },
+                {
+                  backgroundColor: isDark ? 'rgba(54, 69, 54, 0.45)' : '#EBF2EC',
+                  borderColor: isDark ? '#8AB896' : '#364536',
+                },
               ]}
             >
-              <Text style={[styles.activePillText, { color: theme.mode === 'dark' ? '#FDF3D2' : '#24152C' }]}>Occasion: {selectedOccasion}</Text>
-              <Ionicons name="close-circle" size={14} color={theme.mode === 'dark' ? '#FDF3D2' : '#24152C'} />
+              <Text style={[styles.activePillText, { color: isDark ? '#F3F1EF' : '#364536' }]}>
+                Occasion: {selectedOccasion}
+              </Text>
+              <Ionicons name="close-circle" size={15} color={isDark ? '#F3F1EF' : '#364536'} />
             </Pressable>
           )}
           {favoritesOnly && (
@@ -308,11 +337,16 @@ export default function WardrobeScreen() {
               onPress={() => setFavoritesOnly(false)}
               style={[
                 styles.activePill,
-                { backgroundColor: theme.mode === 'dark' ? '#4B1D6F' : '#DECFE8', borderColor: theme.mode === 'dark' ? '#FDD78B' : '#4B1D6F' },
+                {
+                  backgroundColor: isDark ? 'rgba(54, 69, 54, 0.45)' : '#EBF2EC',
+                  borderColor: isDark ? '#8AB896' : '#364536',
+                },
               ]}
             >
-              <Text style={[styles.activePillText, { color: theme.mode === 'dark' ? '#FDF3D2' : '#24152C' }]}>★ Favorites Only</Text>
-              <Ionicons name="close-circle" size={14} color={theme.mode === 'dark' ? '#FDF3D2' : '#24152C'} />
+              <Text style={[styles.activePillText, { color: isDark ? '#F3F1EF' : '#364536' }]}>
+                Favorites Only
+              </Text>
+              <Ionicons name="close-circle" size={15} color={isDark ? '#F3F1EF' : '#364536'} />
             </Pressable>
           )}
         </ScrollView>
@@ -330,7 +364,7 @@ export default function WardrobeScreen() {
         renderItem={({ item }) => (
           <ClothingCard
             item={item}
-            onToggleFavorite={toggleFavorite}
+            onToggleFavorite={handleToggleFavoriteWithFeedback}
             selectionMode={selectionMode}
             isSelected={selectedIds.has(item.id)}
             onSelect={toggleItemSelection}
@@ -338,21 +372,49 @@ export default function WardrobeScreen() {
           />
         )}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="shirt-outline" size={36} color={theme.textMuted} />
-            <Text style={[styles.emptyTitle, { color: theme.text }]}>No items match these filters</Text>
-            <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-              Try adjusting your category, occasion, or laundry status filters.
-            </Text>
-            {activeFilterCount > 0 && (
+          loading && items.length === 0 ? (
+            <View style={styles.empty}>
+              <ActivityIndicator size="small" color={theme.secondaryAccent} />
+              <Text style={[styles.emptyTitle, { color: theme.text }]}>Loading your wardrobe...</Text>
+              <Text style={[styles.emptyText, { color: theme.textMuted }]}>
+                Syncing your clothing items and favorites.
+              </Text>
+            </View>
+          ) : items.length === 0 ? (
+            <View style={styles.empty}>
+              <View style={[styles.emptyIconCircle, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <Ionicons name="shirt-outline" size={32} color={theme.secondaryAccent} />
+              </View>
+              <Text style={[styles.emptyTitle, { color: theme.text }]}>Your wardrobe is empty</Text>
+              <Text style={[styles.emptyText, { color: theme.textMuted }]}>
+                Snap a photo or upload clothes from your gallery to start building personalized outfits.
+              </Text>
               <Pressable
-                onPress={resetFilters}
+                onPress={() => setAddMenuVisible(true)}
                 style={[styles.resetButton, { backgroundColor: theme.secondaryAccent }]}
               >
-                <Text style={[styles.resetButtonText, { color: theme.onAccent }]}>Reset All Filters</Text>
+                <Text style={[styles.resetButtonText, { color: theme.onAccent }]}>+ Add Your First Item</Text>
               </Pressable>
-            )}
-          </View>
+            </View>
+          ) : (
+            <View style={styles.empty}>
+              <View style={[styles.emptyIconCircle, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <Ionicons name="options-outline" size={30} color={theme.textMuted} />
+              </View>
+              <Text style={[styles.emptyTitle, { color: theme.text }]}>No items match these filters</Text>
+              <Text style={[styles.emptyText, { color: theme.textMuted }]}>
+                Try adjusting your category, occasion, or favorites filter.
+              </Text>
+              {activeFilterCount > 0 && (
+                <Pressable
+                  onPress={resetFilters}
+                  style={[styles.resetButton, { backgroundColor: theme.secondaryAccent }]}
+                >
+                  <Text style={[styles.resetButtonText, { color: theme.onAccent }]}>Reset All Filters</Text>
+                </Pressable>
+              )}
+            </View>
+          )
         }
       />
 
@@ -404,7 +466,7 @@ export default function WardrobeScreen() {
       )}
 
       {/* Unified Filter By Modal */}
-      <Modal visible={filterModalVisible} animationType="slide" transparent onRequestClose={() => setFilterModalVisible(false)}>
+      <Modal statusBarTranslucent={true} visible={filterModalVisible} animationType="slide" transparent onRequestClose={() => setFilterModalVisible(false)}>
         <View style={styles.modalBackdrop}>
           <SafeAreaView style={[styles.modalSheet, { backgroundColor: theme.background }]} edges={['bottom']}>
             <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
@@ -493,8 +555,8 @@ export default function WardrobeScreen() {
                 <Switch
                   value={favoritesOnly}
                   onValueChange={setFavoritesOnly}
-                  trackColor={{ false: theme.border, true: theme.mode === 'dark' ? '#FDD78B' : '#4B1D6F' }}
-                  thumbColor={theme.mode === 'dark' ? '#24152C' : '#FBF5A7'}
+                  trackColor={{ false: theme.border, true: '#364536' }}
+                  thumbColor="#F3F1EF"
                 />
               </View>
             </ScrollView>
@@ -521,7 +583,7 @@ export default function WardrobeScreen() {
       </Modal>
 
       {/* Single Image vs. Multiple Images (Batch Add) Dropdown Modal */}
-      <Modal
+      <Modal statusBarTranslucent={true}
         visible={addMenuVisible}
         transparent
         animationType="fade"
@@ -566,7 +628,7 @@ export default function WardrobeScreen() {
               ]}
             >
               <View style={[styles.addMenuIconWrap, { backgroundColor: theme.aiPillBg }]}>
-                <Text style={{ fontSize: 20 }}>📷</Text>
+                <Ionicons name="camera-outline" size={20} color="#F3F1EF" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.addMenuOptionTitle, { color: theme.text }]}>
@@ -593,7 +655,7 @@ export default function WardrobeScreen() {
               ]}
             >
               <View style={[styles.addMenuIconWrap, { backgroundColor: theme.aiPillBg }]}>
-                <Text style={{ fontSize: 20 }}>🖼️</Text>
+                <Ionicons name="images-outline" size={20} color="#F3F1EF" />
               </View>
               <View style={{ flex: 1 }}>
                 <View style={styles.batchTitleBadgeRow}>
@@ -637,7 +699,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 24,
     paddingBottom: 4,
   },
   title: { fontSize: 26, fontWeight: '800' },
@@ -702,7 +764,16 @@ const styles = StyleSheet.create({
   },
   columnWrap: { paddingHorizontal: 20, gap: 12 },
   gridContent: { paddingTop: 6, paddingBottom: 24 },
-  empty: { alignItems: 'center', justifyContent: 'center', paddingTop: 80, gap: 8, paddingHorizontal: 30 },
+  empty: { alignItems: 'center', justifyContent: 'center', paddingTop: 72, gap: 10, paddingHorizontal: 30 },
+  emptyIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
   emptyTitle: { fontSize: 16, fontWeight: '700' },
   emptyText: { fontSize: 13, textAlign: 'center', lineHeight: 18 },
   resetButton: {

@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import Animated, { FadeInDown, FadeInUp, LinearTransition } from 'react-native-reanimated';
+import Animated, { FadeInUp, LinearTransition } from 'react-native-reanimated';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useToast } from '../contexts/ToastContext';
 import ScreenHeader from '../components/ScreenHeader';
+
+const OFFICIAL_APP_ICON = require('../../assets/icon.png');
 
 type Category = 'weather' | 'outfit' | 'laundry' | 'sustainability';
 type Target = 'Outfit' | 'Wardrobe' | 'Planner';
@@ -66,7 +68,7 @@ const SEED: AppNotification[] = [
   {
     id: 'seed-1',
     category: 'weather',
-    title: 'Manila Weather Alert: 31°C & Humid',
+    title: 'StyleSense Weather Alert: Manila (31°C & Humid)',
     body: 'Breathable cotton tops are prioritized in today’s Hybrid Outfit.',
     createdAt: now - 5 * 60 * 1000, // 5 mins ago
     read: false,
@@ -75,7 +77,7 @@ const SEED: AppNotification[] = [
   {
     id: 'seed-2',
     category: 'outfit',
-    title: 'Tomorrow’s look is waiting',
+    title: 'StyleSense: Tomorrow’s look is waiting',
     body: 'Plan your Academic outfit for Monday so you’re ready before class.',
     createdAt: now - 45 * 60 * 1000, // 45 mins ago
     read: false,
@@ -84,7 +86,7 @@ const SEED: AppNotification[] = [
   {
     id: 'seed-3',
     category: 'laundry',
-    title: '3 items need washing',
+    title: 'StyleSense Laundry Alert: 3 items need washing',
     body: 'Your white hoodie and 2 tees reached their wear limit.',
     createdAt: now - 3 * 3600 * 1000, // 3 hours ago
     read: false,
@@ -93,7 +95,7 @@ const SEED: AppNotification[] = [
   {
     id: 'seed-4',
     category: 'sustainability',
-    title: 'Re-wear tip',
+    title: 'StyleSense Re-wear Tip',
     body: 'Re-styling your denim jacket this week saves about 2.5 kg of CO₂.',
     createdAt: now - 24 * 3600 * 1000, // 1 day ago
     read: true,
@@ -102,7 +104,7 @@ const SEED: AppNotification[] = [
   {
     id: 'seed-5',
     category: 'outfit',
-    title: 'New Top-3 outfits ready',
+    title: 'StyleSense: New Top-3 outfits ready',
     body: 'Your Hybrid recommendations were refreshed with this week’s feedback.',
     createdAt: now - 3 * 24 * 3600 * 1000, // 3 days ago
     read: true,
@@ -170,13 +172,23 @@ export default function NotificationsScreen() {
   };
 
   const cardBg = theme.surface;
-  const unreadBg = theme.mode === 'dark' ? '#3A2447' : '#FFFFFF';
+  const unreadBg = theme.mode === 'dark' ? '#1C221C' : '#F4F7F4';
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScreenHeader title="Notifications" />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Official StyleSense Notification Identity Banner */}
+        <View style={[styles.brandBanner, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Image source={OFFICIAL_APP_ICON} style={styles.brandBannerIcon} resizeMode="contain" />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.brandBannerTitle, { color: theme.text }]}>StyleSense Smart Alerts</Text>
+            <Text style={[styles.brandBannerSub, { color: theme.textMuted }]}>
+              Live weather, outfit reminders & wardrobe care
+            </Text>
+          </View>
+        </View>
 
         {/* Filter pills + Mark all read */}
         <View style={styles.filterHeader}>
@@ -240,8 +252,11 @@ export default function NotificationsScreen() {
                     },
                   ]}
                 >
-                  <View style={[styles.notifIcon, { backgroundColor: '#24152C' }]}>
-                    <Ionicons name={meta.icon} size={18} color="#FBF5A7" />
+                  <View style={styles.notifIconWrap}>
+                    <Image source={OFFICIAL_APP_ICON} style={styles.notifAppIcon} resizeMode="contain" />
+                    <View style={[styles.notifCategoryBadge, { backgroundColor: '#364536', borderColor: theme.surface }]}>
+                      <Ionicons name={meta.icon} size={10} color="#F3F1EF" />
+                    </View>
                   </View>
                   <View style={{ flex: 1, gap: 3 }}>
                     <View style={styles.notifTop}>
@@ -252,9 +267,11 @@ export default function NotificationsScreen() {
                     </View>
                     <Text style={[styles.note, { color: theme.textMuted }]}>{n.body}</Text>
                     <View style={styles.notifBottom}>
-                      <Text style={[styles.time, { color: theme.textMuted }]}>{formatRelativeTime(n.createdAt)}</Text>
-                      <View style={[styles.tag, { backgroundColor: theme.mode === 'dark' ? '#4B1D6F' : '#DECFE8' }]}>
-                        <Text style={[styles.tagText, { color: theme.mode === 'dark' ? '#FDF3D2' : '#24152C' }]}>
+                      <Text style={[styles.time, { color: theme.textMuted }]}>
+                        StyleSense · {formatRelativeTime(n.createdAt)}
+                      </Text>
+                      <View style={[styles.tag, { backgroundColor: theme.mode === 'dark' ? '#2A362A' : '#EBF0EB' }]}>
+                        <Text style={[styles.tagText, { color: theme.mode === 'dark' ? '#B9D4B9' : '#364536' }]}>
                           {n.target === 'Planner' ? 'Open Planner' : `Open ${n.target}`}
                         </Text>
                       </View>
@@ -273,6 +290,27 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 40, gap: 12 },
+  brandBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginTop: 4,
+  },
+  brandBannerIcon: {
+    width: 38,
+    height: 38,
+  },
+  brandBannerTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+  },
+  brandBannerSub: {
+    fontSize: 12,
+    marginTop: 1,
+  },
   sectionTitle: { fontSize: 11, fontWeight: '800', letterSpacing: 1.3 },
   filterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
   markAll: { fontSize: 12.5, fontWeight: '700', textDecorationLine: 'underline' },
@@ -280,7 +318,28 @@ const styles = StyleSheet.create({
   filterRow: { gap: 8, alignItems: 'center', paddingVertical: 4 },
   pill: { height: 34, paddingHorizontal: 14, borderRadius: 17, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   notif: { flexDirection: 'row', gap: 12, padding: 14, borderRadius: 16, borderWidth: 1, marginBottom: 2 },
-  notifIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  notifIconWrap: {
+    width: 42,
+    height: 42,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notifAppIcon: {
+    width: 38,
+    height: 38,
+  },
+  notifCategoryBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   notifTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   notifTitle: { flex: 1, fontSize: 14.5, fontWeight: '800' },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FDD78B', borderWidth: 1, borderColor: '#24152C' },
@@ -292,4 +351,3 @@ const styles = StyleSheet.create({
   note: { fontSize: 13, lineHeight: 18 },
   empty: { alignItems: 'center', gap: 6, paddingTop: 40 },
 });
-

@@ -97,9 +97,20 @@ export default function PlanDayScreen() {
   };
 
   const handleConfirmRemove = async () => {
-    await removePlan(selectedDateKey);
+    const previousOutfit = activePlan?.outfit;
+    const targetDateKey = selectedDateKey;
+    await removePlan(targetDateKey);
     setRemoveConfirmVisible(false);
-    showToast('Outfit removed from calendar.');
+    showToast('Outfit removed from calendar.', {
+      variant: 'warning',
+      undoLabel: 'Undo',
+      onUndo: () => {
+        if (previousOutfit) {
+          scheduleOutfit(targetDateKey, previousOutfit, { force: true }).catch(() => {});
+          showToast('Outfit restored to calendar.');
+        }
+      },
+    });
   };
 
   // Available candidate outfits to schedule
@@ -115,7 +126,7 @@ export default function PlanDayScreen() {
   const selectedDateObj = weekDays.find((d) => d.key === selectedDateKey)?.date ?? new Date();
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['left', 'right']}>
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={[styles.iconButton, { backgroundColor: theme.surface }]}>
@@ -299,7 +310,7 @@ export default function PlanDayScreen() {
       </ScrollView>
 
       {/* Outfit Selection Sheet */}
-      <Modal visible={pickerModalVisible} transparent animationType="slide" onRequestClose={() => setPickerModalVisible(false)}>
+      <Modal statusBarTranslucent={true} visible={pickerModalVisible} transparent animationType="slide" onRequestClose={() => setPickerModalVisible(false)}>
         <View style={styles.modalBackdrop}>
           <SafeAreaView style={[styles.modalSheet, { backgroundColor: theme.background }]} edges={['bottom']}>
             <View style={styles.modalHeader}>
@@ -383,7 +394,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingTop: 24,
+    paddingBottom: 10,
   },
   iconButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 18, fontWeight: '800' },

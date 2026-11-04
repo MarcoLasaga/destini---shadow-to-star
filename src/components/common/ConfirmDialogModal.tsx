@@ -77,7 +77,7 @@ export default function ConfirmDialogModal({
   const confirmTextColor = '#F3F1EF';
 
   return (
-    <Modal
+    <Modal statusBarTranslucent={true}
       transparent
       visible={visible}
       animationType="fade"

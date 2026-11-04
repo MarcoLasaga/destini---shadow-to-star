@@ -34,7 +34,7 @@ export default function OccasionDropdown({
         <Ionicons name="chevron-down" size={17} color={theme.textMuted} />
       </Pressable>
 
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+      <Modal statusBarTranslucent={true} visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
           <Pressable
             onPress={(e) => e.stopPropagation()}

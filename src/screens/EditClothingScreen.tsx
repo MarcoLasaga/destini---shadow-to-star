@@ -109,7 +109,7 @@ export default function EditClothingScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <SafeAreaView edges={['top']} style={[styles.header, { backgroundColor: theme.background }]}>
+      <SafeAreaView edges={['left', 'right']} style={[styles.header, { backgroundColor: theme.background }]}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color={theme.text} />
         </Pressable>
@@ -118,8 +118,8 @@ export default function EditClothingScreen() {
       </SafeAreaView>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.imageWrap}>
-          <Image source={{ uri: original.image }} style={styles.image} contentFit="cover" />
+        <View style={[styles.imageWrap, { backgroundColor: theme.collageCanvas }]}>
+          <Image source={{ uri: original.image }} style={styles.image} contentFit="contain" />
         </View>
 
         <View style={styles.form}>
@@ -196,7 +196,7 @@ export default function EditClothingScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   notFound: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 10 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingTop: 24, paddingBottom: 10 },
   backButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 17, fontWeight: '700' },
   scrollContent: { paddingBottom: 40 },

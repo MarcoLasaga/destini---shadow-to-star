@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -14,7 +15,7 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../contexts/AuthContext';
 import { useProfile } from '../contexts/ProfileContext';
 import { syncCreatorNickname } from '../services/communityService';
-import { MelMascot } from '../components/MelMascot';
+import { MelMascot, MelSpeechBubble } from '../components/MelMascot';
 
 type SkinUndertone = 'Warm' | 'Cool' | 'Neutral';
 
@@ -120,12 +121,12 @@ const STYLE_OPTIONS = [
 ];
 
 const OCCASION_OPTIONS = [
-  { label: 'School / Campus', emoji: '🎓' },
-  { label: 'Work / Office', emoji: '💼' },
-  { label: 'Casual Hangouts', emoji: '☕' },
-  { label: 'Parties & Events', emoji: '✨' },
-  { label: 'Workout & Gym', emoji: '🏃' },
-  { label: 'Formal Dinners', emoji: '🥂' },
+  { label: 'School / Campus', icon: 'school-outline' },
+  { label: 'Work / Office', icon: 'briefcase-outline' },
+  { label: 'Casual Hangouts', icon: 'cafe-outline' },
+  { label: 'Parties & Events', icon: 'sparkles-outline' },
+  { label: 'Workout & Gym', icon: 'barbell-outline' },
+  { label: 'Formal Dinners', icon: 'wine-outline' },
 ];
 
 const FIT_OPTIONS = [
@@ -325,15 +326,15 @@ export default function OnboardingScreen({
   const melMessage = useMemo(() => {
     switch (page) {
       case 1:
-        return 'Which stage best matches your daily schedule and wardrobe needs?';
+        return "What's your daily vibe & schedule?";
       case 2:
-        return 'Share your fit details so I can tailor proportions and tones to you.';
+        return "Let's tailor your fit & skin tone!";
       case 3:
-        return 'Pick the color palettes you love wearing most—I highlighted your best match!';
+        return 'Pick the color palettes you love most!';
       case 4:
-        return 'Choose the fabrics and fashion aesthetics you gravitate toward.';
+        return 'Which fabrics & styles feel like you?';
       case 5:
-        return 'Last step! Tell me where you spend your week and how you like clothes to fit.';
+        return 'Almost done! Pick your occasions & fit!';
       default:
         return '';
     }
@@ -397,7 +398,7 @@ export default function OnboardingScreen({
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['left', 'right']}>
       <View style={styles.screenContainer}>
         {/* Top Progress Header */}
         <View style={styles.topHeader}>
@@ -428,49 +429,23 @@ export default function OnboardingScreen({
               </Text>
             </View>
           )}
-
-          {/* Redesigned Mel Companion Banner for Steps 2–6 (PDF Pages 3–7) */}
-          {page > 0 && (
-            <View
-              style={[
-                styles.melCompanionBanner,
-                {
-                  backgroundColor: primaryForest,
-                  borderColor: 'rgba(243, 241, 239, 0.16)',
-                },
-              ]}
-            >
-              <View style={styles.melAvatarCircle}>
-                <MelMascot outfit={melOutfit} size={38} waving={page === 5} />
-              </View>
-              <View style={styles.melCompanionTextCol}>
-                <View style={styles.melCompanionHeaderRow}>
-                  <View style={styles.melDot} />
-                  <Text style={styles.melCompanionLabel}>MEL&apos;S STYLING TIP</Text>
-                </View>
-                <Text style={styles.melCompanionMessage} numberOfLines={2}>
-                  {melMessage}
-                </Text>
-              </View>
-            </View>
-          )}
         </View>
 
         {/* ================= STEP 1 (page === 0): WELCOME & REDESIGNED FEATURE CARDS ================= */}
         {page === 0 && (
           <View style={styles.step1CenterStage}>
-            {/* Hero Stage without the speech bubble box (removed per PDF Page 1) */}
-            <View style={styles.melHeroStage}>
-              <View style={styles.heroBackdropRing}>
-                <MelMascot outfit="casual_sunny" size={136} waving />
-              </View>
-              <View style={styles.brandBadgePill}>
-                <View style={styles.brandBadgeDot} />
-                <Text style={styles.brandBadgeText}>STYLESENSE AI STUDIO</Text>
-              </View>
-            </View>
-
             <View style={styles.step1TitleWrap}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <Image
+                  source={require('../../assets/icon.png')}
+                  style={{ width: 42, height: 42 }}
+                  resizeMode="contain"
+                />
+                <View style={[styles.brandBadgePill, { marginBottom: 0 }]}>
+                  <View style={styles.brandBadgeDot} />
+                  <Text style={styles.brandBadgeText}>STYLESENSE AI STUDIO</Text>
+                </View>
+              </View>
               <Text style={[styles.step1Title, { color: theme.text }]}>
                 Your Personal AI Wardrobe Studio
               </Text>
@@ -520,6 +495,20 @@ export default function OnboardingScreen({
                   />
                 </View>
               ))}
+            </View>
+
+            {/* Standalone Mel Mascot & Cute Speech Bubble Toward Bottom of Step 1 */}
+            <View style={styles.melCompanionStage}>
+              <View style={styles.melStandaloneWrap}>
+                <MelMascot outfit="casual_sunny" size={56} waving />
+              </View>
+              <MelSpeechBubble
+                title="HI, I'M MEL"
+                message="Hi! Ready to personalize your AI wardrobe studio in a few quick taps?"
+                position="inline"
+                tailDirection="left"
+                compact
+              />
             </View>
 
             {/* Step 1 Bottom Actions */}
@@ -1108,7 +1097,11 @@ export default function OnboardingScreen({
                         },
                       ]}
                     >
-                      <Text style={{ fontSize: 15 }}>{item.emoji}</Text>
+                      <Ionicons
+                        name={item.icon as any}
+                        size={16}
+                        color={isSelected ? (isDark ? lightIvory : primaryForest) : theme.textMuted}
+                      />
                       <Text
                         style={[
                           styles.twoColChipText,
@@ -1178,6 +1171,22 @@ export default function OnboardingScreen({
           </View>
         )}
 
+        {/* Standalone Mel Character & Cute Concise Speech Bubble at Bottom for Steps 2–6 */}
+        {page > 0 && (
+          <View style={styles.melCompanionStage}>
+            <View style={styles.melStandaloneWrap}>
+              <MelMascot outfit={melOutfit} size={48} waving={page === 5} />
+            </View>
+            <MelSpeechBubble
+              title="MEL · STYLING TIP"
+              message={melMessage}
+              position="inline"
+              tailDirection="left"
+              compact
+            />
+          </View>
+        )}
+
         {/* Bottom Navigation Bar for Steps 2–6 */}
         {page > 0 ? (
           <View style={[styles.bottomBar, { borderTopColor: theme.border }]}>
@@ -1203,9 +1212,12 @@ export default function OnboardingScreen({
               {busy ? (
                 <ActivityIndicator color={lightIvory} />
               ) : (
-                <Text style={[styles.nextBtnText, { color: lightIvory }]}>
-                  {page === totalPages - 1 ? 'Complete Setup →' : 'Continue →'}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={[styles.nextBtnText, { color: lightIvory }]}>
+                    {page === totalPages - 1 ? 'Complete Setup' : 'Continue'}
+                  </Text>
+                  <Ionicons name="arrow-forward" size={16} color={lightIvory} />
+                </View>
               )}
             </Pressable>
           </View>
@@ -1223,7 +1235,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingTop: 24,
+    paddingBottom: 12,
   },
   topHeader: {
     gap: 8,
@@ -1247,50 +1260,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1,
   },
-  melCompanionBanner: {
+  melCompanionStage: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 16,
-    borderWidth: 1,
     gap: 10,
+    overflow: 'visible',
   },
-  melAvatarCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(243, 241, 239, 0.12)',
+  melStandaloneWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  melCompanionTextCol: {
-    flex: 1,
-    gap: 2,
-  },
-  melCompanionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  melDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#E83E35',
-  },
-  melCompanionLabel: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    letterSpacing: 1,
-    color: 'rgba(243, 241, 239, 0.75)',
-  },
-  melCompanionMessage: {
-    fontSize: 12.5,
-    lineHeight: 17,
-    fontWeight: '600',
-    color: '#F3F1EF',
+    overflow: 'visible',
   },
   step1CenterStage: {
     flex: 1,
@@ -1303,15 +1282,12 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 4,
   },
-  heroBackdropRing: {
-    width: 158,
-    height: 158,
-    borderRadius: 79,
-    backgroundColor: 'rgba(54, 69, 54, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(54, 69, 54, 0.14)',
+  melHeroRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 12,
+    width: '100%',
+    overflow: 'visible',
   },
   brandBadgePill: {
     flexDirection: 'row',

@@ -1,6 +1,8 @@
 {
   "name": "stylesense",
   "version": "1.0.0",
+  "description": "StyleSense — Personalized Wardrobe and Outfit Recommendation Mobile Application",
+  "author": "Shiloh Dynasty",
   "main": "index.ts",
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",

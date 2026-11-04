@@ -34,7 +34,7 @@ const ICONS_INACTIVE: Record<TabKey, keyof typeof Ionicons.glyphMap> = {
 const LABELS: Record<TabKey, string> = {
   Home: 'Home',
   Wardrobe: 'Wardrobe',
-  Outfit: 'AI Stylist',
+  Outfit: 'Outfit',
   Community: 'Community',
   Profile: 'Account',
 };
@@ -52,7 +52,7 @@ export default function BottomTabNavigator() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarShowLabel: route.name !== 'Outfit', // Center badge has label integrated or elevated
+        tabBarShowLabel: true,
         tabBarActiveTintColor: activeColor,
         tabBarInactiveTintColor: inactiveColor,
         tabBarStyle: {
@@ -61,7 +61,7 @@ export default function BottomTabNavigator() {
           borderTopWidth: 1,
           overflow: 'visible',
           height: Platform.OS === 'ios' ? 88 : 74,
-          paddingTop: 10,
+          paddingTop: 8,
           paddingBottom: Platform.OS === 'ios' ? 24 : 10,
           elevation: 8,
           shadowColor: '#000000',
@@ -71,15 +71,16 @@ export default function BottomTabNavigator() {
         },
         tabBarItemStyle: {
           overflow: 'visible',
-          height: 38,
+          height: 52,
           minWidth: 56,
           alignItems: 'center',
           justifyContent: 'center',
+          paddingVertical: 2,
         },
         tabBarIconStyle: {
           overflow: 'visible',
-          height: 38,
-          minWidth: 56,
+          height: 32,
+          minWidth: 52,
           alignItems: 'center',
           justifyContent: 'center',
         },
@@ -144,6 +145,8 @@ export default function BottomTabNavigator() {
                   props.onPress?.(e);
                 }}
                 style={styles.centerBadgeContainer}
+                accessibilityRole="button"
+                accessibilityLabel="Outfit Recommendations"
               >
                 <View
                   style={[
@@ -224,26 +227,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 48,
-    height: 34,
+    height: 30,
   },
   tabIconWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
     width: 44,
-    height: 30,
-    borderRadius: 15,
+    height: 28,
+    borderRadius: 14,
     position: 'relative',
     overflow: 'visible',
   },
   topIndicator: {
     position: 'absolute',
-    top: -5,
+    top: -4,
     width: 16,
     height: 2.5,
     borderRadius: 2,
   },
   centerBadgeContainer: {
-    top: -14,
+    top: -12,
     justifyContent: 'center',
     alignItems: 'center',
     flex: 1,
@@ -262,7 +265,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   centerLabel: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: '700',
     marginTop: 3,
     letterSpacing: 0.2,

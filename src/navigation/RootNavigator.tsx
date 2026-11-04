@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
 import { navigationRef } from './navigationRef';
 import BottomTabNavigator from './BottomTabNavigator';
 import NotificationsScreen from '../screens/NotificationsScreen';
@@ -22,9 +21,13 @@ import PlanDayScreen from '../screens/PlanDayScreen';
 import LoginScreen from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
-import { MelMascot } from '../components/MelMascot';
+import { setStatusBarHidden, setStatusBarTranslucent, setStatusBarBackgroundColor } from 'expo-status-bar';
+import { Platform, StatusBar as RNStatusBar } from 'react-native';
 import { RootStackParamList } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { useAppTheme } from '../hooks/useAppTheme';
+
+const OFFICIAL_APP_ICON = require('../../assets/icon.png');
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -32,29 +35,57 @@ const screenOptions: NativeStackNavigationOptions = {
   headerShown: false,
   headerBackTitle: 'Back',
   headerShadowVisible: false,
+  statusBarHidden: true,
+  statusBarTranslucent: true,
+  statusBarBackgroundColor: 'transparent',
 };
 
+function enforceNavigationFullscreen() {
+  try {
+    setStatusBarHidden(true, 'none');
+    RNStatusBar.setHidden(true, 'none');
+    if (Platform.OS === 'android') {
+      setStatusBarTranslucent(true);
+      setStatusBarBackgroundColor('transparent', false);
+      RNStatusBar.setTranslucent(true);
+      RNStatusBar.setBackgroundColor('transparent', false);
+    }
+  } catch {
+    // ignore
+  }
+}
+
 function AppOpeningScreen() {
+  const theme = useAppTheme();
+  const isDark = theme.mode === 'dark';
+
   return (
-    <View style={openingStyles.container}>
-      <Animated.View entering={FadeIn.duration(400)} style={openingStyles.centerCard}>
+    <View
+      style={[
+        openingStyles.container,
+        { backgroundColor: isDark ? '#18181B' : '#364536' },
+      ]}
+    >
+      <Animated.View entering={FadeIn.duration(350)} style={openingStyles.centerCard}>
         <View style={openingStyles.emblemOuter}>
-          <View style={openingStyles.emblemInner}>
-            <MelMascot outfit="casual_sunny" waving size={74} />
-          </View>
-          <View style={openingStyles.accentBadge}>
-            <Ionicons name="sparkles" size={13} color="#F3F1EF" />
-          </View>
+          <Image
+            source={OFFICIAL_APP_ICON}
+            style={openingStyles.appIconImage}
+            resizeMode="contain"
+          />
         </View>
 
-        <Animated.View entering={FadeInDown.delay(80).duration(380)} style={openingStyles.brandBlock}>
+        <Animated.View entering={FadeInDown.delay(60).duration(340)} style={openingStyles.brandBlock}>
           <View style={openingStyles.pillTag}>
             <View style={openingStyles.pillDot} />
-            <Text style={openingStyles.pillTagText}>PERSONAL AI STYLIST</Text>
+            <Text style={openingStyles.pillTagText}>PERSONALIZED WARDROBE STUDIO</Text>
           </View>
           <Text style={openingStyles.brandTitle}>StyleSense</Text>
           <Text style={openingStyles.brandSubtitle}>
-            Smart wardrobe curation & daily outfit styling
+            Personalized Wardrobe & Outfit Recommendation
+          </Text>
+          <Text style={openingStyles.developerCredit}>
+            Developed by Shiloh Dynasty
           </Text>
         </Animated.View>
 
@@ -82,7 +113,11 @@ export default function RootNavigator() {
   }
 
   return (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer
+      ref={navigationRef}
+      onReady={enforceNavigationFullscreen}
+      onStateChange={enforceNavigationFullscreen}
+    >
       <Stack.Navigator screenOptions={screenOptions}>
         {isLoggedIn ? (
           <>
@@ -139,32 +174,13 @@ const openingStyles = StyleSheet.create({
     width: '100%',
   },
   emblemOuter: {
-    position: 'relative',
-    marginBottom: 24,
-  },
-  emblemInner: {
-    width: 116,
-    height: 116,
-    borderRadius: 34,
-    backgroundColor: 'rgba(243, 241, 239, 0.1)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(243, 241, 239, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
+    marginBottom: 20,
   },
-  accentBadge: {
-    position: 'absolute',
-    bottom: -4,
-    right: -4,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#E83E35',
-    borderWidth: 2.5,
-    borderColor: '#364536',
-    alignItems: 'center',
-    justifyContent: 'center',
+  appIconImage: {
+    width: 112,
+    height: 112,
   },
   brandBlock: {
     alignItems: 'center',
@@ -200,15 +216,22 @@ const openingStyles = StyleSheet.create({
   },
   brandSubtitle: {
     fontSize: 14,
-    color: 'rgba(243, 241, 239, 0.78)',
+    color: 'rgba(243, 241, 239, 0.82)',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  developerCredit: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(243, 241, 239, 0.62)',
+    marginTop: 6,
+    letterSpacing: 0.3,
   },
   loaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginTop: 36,
+    marginTop: 32,
     paddingHorizontal: 16,
     paddingVertical: 9,
     borderRadius: 999,

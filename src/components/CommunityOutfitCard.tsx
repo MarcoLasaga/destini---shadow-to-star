@@ -22,6 +22,7 @@ import { OutfitClothingItem } from '../types';
 import {
   classifyAnatomicalSlot,
   colorNameToHex,
+  normalizeHexCode,
 } from '../services/outfitRecommendationService';
 import { formatRelativeTime } from '../utils/timeFormat';
 import {
@@ -71,10 +72,13 @@ export default function CommunityOutfitCard({
   onViewLikes,
 }: CommunityOutfitCardProps) {
   const theme = useAppTheme();
+  const isDark = theme.mode === 'dark';
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [reportConfirm, setReportConfirm] = useState(false);
   const [heartVisible, setHeartVisible] = useState(false);
+  const [passedLook, setPassedLook] = useState(false);
+  const [repostedLook, setRepostedLook] = useState(false);
 
   const heartScale = useSharedValue(0);
   const heartOpacity = useSharedValue(0);
@@ -107,7 +111,7 @@ export default function CommunityOutfitCard({
       category: (item.category as any) || 'Top',
       image: item.image,
       color: item.color,
-      hexColor: colorNameToHex(item.color || ''),
+      hexColor: normalizeHexCode((item as any).colorHex || (item as any).hexColor, item.color || 'Neutral'),
       slotType: slot,
     };
   });
@@ -115,7 +119,7 @@ export default function CommunityOutfitCard({
   // Extract unique hex colors for Color Palette Swatch Bar
   const harmonyHexSwatches = Array.from(
     new Set(
-      outfitPieces.map((it) => (it.hexColor || colorNameToHex(it.color || 'Black')).toUpperCase())
+      outfitPieces.map((it) => normalizeHexCode(it.hexColor, it.color || 'Neutral'))
     )
   ).slice(0, 4);
 
@@ -207,9 +211,18 @@ export default function CommunityOutfitCard({
                 onPress={onFollow}
                 style={[
                   styles.followButton,
-                  { backgroundColor: following ? theme.badgeBg : '#364536' },
+                  {
+                    backgroundColor: following ? theme.surfaceSecondary : '#364536',
+                    borderColor: following ? theme.border : '#364536',
+                    borderWidth: 1,
+                  },
                 ]}
               >
+                <Ionicons
+                  name={following ? 'checkmark' : 'person-add-outline'}
+                  size={11}
+                  color={following ? (isDark ? '#98C4A4' : '#364536') : '#F3F1EF'}
+                />
                 <Text
                   style={[
                     styles.followText,
@@ -220,50 +233,32 @@ export default function CommunityOutfitCard({
                 </Text>
               </Pressable>
             )}
-            <Pressable onPress={() => setMenuVisible(true)} style={styles.more}>
-              <Ionicons name="ellipsis-horizontal" size={20} color={theme.textMuted} />
+            <Pressable
+              onPress={() => setMenuVisible(true)}
+              style={[
+                styles.more,
+                { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+              ]}
+              hitSlop={8}
+            >
+              <Ionicons name="ellipsis-horizontal" size={17} color={theme.textMuted} />
             </Pressable>
           </View>
         </View>
 
-        {/* ALTA-Style Compact Editorial Outfit Collage Canvas (PDF Page 24 reference) */}
+        {/* Structured Studio Outfit Collage Canvas */}
         <View style={styles.collageStageWrap}>
           <AltaOutfitCollage items={outfit.items} interactive={false} />
-
-          {/* Top-Left Style Pill */}
-          <View
-            style={[
-              styles.postLabel,
-              { backgroundColor: theme.surface, borderColor: theme.border },
-            ]}
-          >
-            <Text style={[styles.postLabelText, { color: theme.text }]}>
-              {outfit.style || 'Casual'}
-            </Text>
-          </View>
 
           {/* Floating Heart Animation */}
           {heartVisible && (
             <Animated.View style={[styles.heartOverlay, heartAnimatedStyle]}>
-              <Ionicons name="heart" size={88} color="#E83E35" />
+              <Ionicons name="heart" size={88} color="#E84A42" />
             </Animated.View>
           )}
-
-          {/* Tap hint pill */}
-          <View
-            style={[
-              styles.tapHintPill,
-              { backgroundColor: theme.surface, borderColor: theme.border },
-            ]}
-          >
-            <Ionicons name="layers-outline" size={12} color={theme.textMuted} />
-            <Text style={[styles.tapHintText, { color: theme.textMuted }]}>
-              Tap pieces · 2x Like
-            </Text>
-          </View>
         </View>
 
-        {/* Color Palette Swatch Bar + Occasion Badge */}
+        {/* Color Palette Swatch Bar + Style/Occasion Badges */}
         <View style={[styles.harmonyMetadataBar, { borderTopColor: theme.border }]}>
           <View style={styles.swatchRow}>
             {harmonyHexSwatches.map((hex) => (
@@ -271,10 +266,18 @@ export default function CommunityOutfitCard({
                 key={hex}
                 style={[
                   styles.swatchChip,
-                  { backgroundColor: theme.badgeBg, borderColor: theme.border },
+                  { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
                 ]}
               >
-                <View style={[styles.swatchDot, { backgroundColor: hex }]} />
+                <View
+                  style={[
+                    styles.swatchDot,
+                    {
+                      backgroundColor: hex,
+                      borderColor: isDark ? 'rgba(255,255,255,0.32)' : 'rgba(0,0,0,0.18)',
+                    },
+                  ]}
+                />
                 <Text style={[styles.swatchHexText, { color: theme.textMuted }]}>
                   {hex}
                 </Text>
@@ -286,10 +289,14 @@ export default function CommunityOutfitCard({
             <View
               style={[
                 styles.occasionBadgePill,
-                { backgroundColor: theme.badgeBg, borderColor: theme.border },
+                { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
               ]}
             >
-              <Ionicons name={occasionMeta.icon} size={11} color={theme.text} />
+              <Ionicons
+                name={occasionMeta.icon}
+                size={11}
+                color={isDark ? '#8AB896' : '#364536'}
+              />
               <Text style={[styles.occasionBadgeText, { color: theme.text }]}>
                 {occasionMeta.label}
               </Text>
@@ -297,7 +304,7 @@ export default function CommunityOutfitCard({
           </View>
         </View>
 
-        {/* Caption & Title */}
+        {/* Caption & Title + Unified Social Action Footer Inside Card */}
         <View style={styles.caption}>
           <Text style={[styles.title, { color: theme.text }]}>{outfit.name}</Text>
           {outfit.caption ? (
@@ -306,44 +313,146 @@ export default function CommunityOutfitCard({
             </Text>
           ) : null}
         </View>
+
+        <View style={[styles.actions, { borderTopColor: theme.border }]}>
+          <View style={styles.leftActionCluster}>
+            <View
+              style={[
+                styles.actionPill,
+                {
+                  backgroundColor: outfit.liked
+                    ? 'rgba(232, 74, 66, 0.14)'
+                    : theme.surfaceSecondary,
+                  borderColor: outfit.liked ? '#E84A42' : theme.border,
+                },
+              ]}
+            >
+              <Pressable onPress={onLike} style={styles.actionHit} hitSlop={6} accessibilityLabel="Like post">
+                <Ionicons
+                  name={outfit.liked ? 'heart' : 'heart-outline'}
+                  size={17}
+                  color={outfit.liked ? '#E84A42' : theme.text}
+                />
+              </Pressable>
+              <Pressable onPress={onViewLikes} style={styles.countBtn} hitSlop={6} accessibilityLabel="View likes">
+                <Text
+                  style={[
+                    styles.count,
+                    { color: outfit.liked ? '#E84A42' : theme.text },
+                  ]}
+                >
+                  {outfit.like_count}
+                </Text>
+              </Pressable>
+            </View>
+
+            <Pressable
+              onPress={() => {
+                setPassedLook((prev) => !prev);
+                onDislike?.();
+              }}
+              style={[
+                styles.iconActionBtn,
+                {
+                  backgroundColor: passedLook
+                    ? 'rgba(232, 74, 66, 0.14)'
+                    : theme.surfaceSecondary,
+                  borderColor: passedLook ? '#E84A42' : theme.border,
+                },
+              ]}
+              hitSlop={6}
+              accessibilityLabel="Not for me"
+            >
+              <Ionicons
+                name={passedLook ? 'heart-dislike' : 'heart-dislike-outline'}
+                size={17}
+                color={passedLook ? '#E84A42' : theme.textMuted}
+              />
+            </Pressable>
+
+            <Pressable
+              onPress={() => {
+                setRepostedLook((prev) => !prev);
+                onRepost?.();
+              }}
+              style={[
+                styles.iconActionBtn,
+                {
+                  backgroundColor: repostedLook
+                    ? isDark
+                      ? 'rgba(152, 196, 164, 0.18)'
+                      : '#EBF0EB'
+                    : theme.surfaceSecondary,
+                  borderColor: repostedLook
+                    ? isDark
+                      ? '#98C4A4'
+                      : '#364536'
+                    : theme.border,
+                },
+              ]}
+              hitSlop={6}
+              accessibilityLabel="Share or repost look"
+            >
+              <Ionicons
+                name={repostedLook ? 'paper-plane' : 'paper-plane-outline'}
+                size={16.5}
+                color={
+                  repostedLook
+                    ? isDark
+                      ? '#98C4A4'
+                      : '#364536'
+                    : theme.textMuted
+                }
+              />
+            </Pressable>
+          </View>
+
+          <View style={styles.rightActionCluster}>
+            <Pressable
+              onPress={() => setDetailModalVisible(true)}
+              style={[
+                styles.inspectHintBtn,
+                { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+              ]}
+            >
+              <Ionicons name="layers-outline" size={13} color={theme.textMuted} />
+              <Text style={[styles.inspectHintText, { color: theme.textMuted }]}>
+                {canonicalItems.length} pieces
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={onSave}
+              style={[
+                styles.iconActionBtn,
+                {
+                  backgroundColor: outfit.saved
+                    ? isDark
+                      ? 'rgba(152, 196, 164, 0.18)'
+                      : '#EBF0EB'
+                    : theme.surfaceSecondary,
+                  borderColor: outfit.saved
+                    ? isDark
+                      ? '#98C4A4'
+                      : '#364536'
+                    : theme.border,
+                },
+              ]}
+              hitSlop={6}
+              accessibilityLabel="Save look"
+            >
+              <Ionicons
+                name={outfit.saved ? 'bookmark' : 'bookmark-outline'}
+                size={17}
+                color={outfit.saved ? (isDark ? '#98C4A4' : '#364536') : theme.text}
+              />
+            </Pressable>
+          </View>
+        </View>
       </Pressable>
 
-      {/* Social Actions Row */}
-      <View style={[styles.actions, { borderBottomColor: theme.border }]}>
-        <View style={styles.likeActionGroup}>
-          <Pressable onPress={onLike} style={styles.action}>
-            <Ionicons
-              name={outfit.liked ? 'heart' : 'heart-outline'}
-              size={20}
-              color={outfit.liked ? '#E83E35' : theme.text}
-            />
-          </Pressable>
-          <Pressable onPress={onViewLikes} style={styles.countBtn}>
-            <Text style={[styles.count, { color: theme.text }]}>
-              {outfit.like_count}
-            </Text>
-          </Pressable>
-        </View>
-
-        <Pressable onPress={onDislike} style={styles.action}>
-          <Ionicons name="thumbs-down-outline" size={18} color={theme.text} />
-        </Pressable>
-
-        <Pressable onPress={onRepost} style={styles.action}>
-          <Ionicons name="repeat-outline" size={20} color={theme.text} />
-        </Pressable>
-
-        <Pressable onPress={onSave} style={[styles.action, styles.saveAction]}>
-          <Ionicons
-            name={outfit.saved ? 'bookmark' : 'bookmark-outline'}
-            size={20}
-            color={outfit.saved ? '#364536' : theme.text}
-          />
-        </Pressable>
-      </View>
-
       {/* ================= 1. GARMENT BREAKDOWN + COLOR PALETTE STRIP MODAL ================= */}
-      <Modal
+      <Modal statusBarTranslucent={true}
         visible={detailModalVisible}
         transparent
         animationType="slide"
@@ -379,7 +488,7 @@ export default function CommunityOutfitCard({
               </Pressable>
             </View>
 
-            {/* Clean Outfit Color Palette Strip (without technical CIELAB K=2 jargon) */}
+            {/* Clean Outfit Color Palette Strip */}
             <View
               style={[
                 styles.harmonyStripCard,
@@ -398,7 +507,15 @@ export default function CommunityOutfitCard({
                       { backgroundColor: theme.surface, borderColor: theme.border },
                     ]}
                   >
-                    <View style={[styles.swatchDot, { backgroundColor: hex }]} />
+                    <View
+                      style={[
+                        styles.swatchDot,
+                        {
+                          backgroundColor: hex,
+                          borderColor: isDark ? 'rgba(255,255,255,0.32)' : 'rgba(0,0,0,0.18)',
+                        },
+                      ]}
+                    />
                     <Text style={[styles.swatchHexText, { color: theme.text }]}>
                       {hex}
                     </Text>
@@ -420,7 +537,7 @@ export default function CommunityOutfitCard({
                 {canonicalItems.map((item, idx) => {
                   const resolvedImg = resolveGarmentImageUrl(item);
                   const slot = classifyAnatomicalSlot(item.name, item.category);
-                  const hex = colorNameToHex(item.color || '');
+                  const hex = normalizeHexCode((item as any).colorHex || (item as any).hexColor, item.color || 'Neutral');
 
                   return (
                     <View
@@ -474,13 +591,17 @@ export default function CommunityOutfitCard({
                             <View
                               style={[
                                 styles.colorDot,
-                                { backgroundColor: hex || '#52525B' },
+                                {
+                                  backgroundColor: hex || '#52525B',
+                                  borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.15)',
+                                  borderWidth: 0.8,
+                                },
                               ]}
                             />
                             <Text
                               style={[styles.garmentColor, { color: theme.textMuted }]}
                             >
-                              {item.color}
+                              {item.color} · {hex}
                             </Text>
                           </View>
                         ) : null}
@@ -507,7 +628,7 @@ export default function CommunityOutfitCard({
       </Modal>
 
       {/* ================= 2. POST OPTIONS BOTTOM SHEET ================= */}
-      <Modal
+      <Modal statusBarTranslucent={true}
         visible={menuVisible}
         transparent
         animationType="slide"
@@ -557,8 +678,8 @@ export default function CommunityOutfitCard({
                   onPress={() => setReportConfirm(true)}
                   style={styles.menuRow}
                 >
-                  <Ionicons name="flag-outline" size={20} color="#E83E35" />
-                  <Text style={[styles.menuText, { color: '#E83E35' }]}>
+                  <Ionicons name="flag-outline" size={20} color="#E84A42" />
+                  <Text style={[styles.menuText, { color: '#E84A42' }]}>
                     Report Post
                   </Text>
                 </Pressable>
@@ -599,9 +720,10 @@ export default function CommunityOutfitCard({
 const styles = StyleSheet.create({
   wrapper: {
     marginBottom: 16,
+    paddingHorizontal: 18,
   },
   card: {
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
     overflow: 'hidden',
   },
@@ -618,9 +740,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -632,14 +754,15 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   name: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   time: {
     fontSize: 11,
+    marginTop: 1,
   },
   headerActions: {
     flexDirection: 'row',
@@ -659,56 +782,35 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   followButton: {
-    paddingHorizontal: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
   },
   followText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   more: {
-    padding: 4,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   collageStageWrap: {
     paddingHorizontal: 12,
-    paddingBottom: 8,
+    paddingBottom: 10,
     position: 'relative',
-  },
-  postLabel: {
-    position: 'absolute',
-    top: 10,
-    left: 22,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  postLabelText: {
-    fontSize: 10,
-    fontWeight: '700',
   },
   heartOverlay: {
     position: 'absolute',
     top: '38%',
     alignSelf: 'center',
     zIndex: 20,
-  },
-  tapHintPill: {
-    position: 'absolute',
-    bottom: 18,
-    right: 22,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  tapHintText: {
-    fontSize: 10,
-    fontWeight: '600',
   },
   harmonyMetadataBar: {
     flexDirection: 'row',
@@ -729,22 +831,21 @@ const styles = StyleSheet.create({
   swatchChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 6,
+    gap: 5,
+    paddingHorizontal: 7,
+    paddingVertical: 3.5,
+    borderRadius: 7,
     borderWidth: 1,
   },
   swatchDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
-    borderWidth: 0.5,
-    borderColor: 'rgba(0,0,0,0.15)',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1,
   },
   swatchHexText: {
-    fontSize: 9,
-    fontWeight: '600',
+    fontSize: 9.5,
+    fontWeight: '700',
   },
   contextBadgesRow: {
     flexDirection: 'row',
@@ -755,23 +856,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 8,
     borderWidth: 1,
   },
   occasionBadgeText: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: '700',
   },
   caption: {
     paddingHorizontal: 14,
-    paddingBottom: 12,
-    gap: 2,
+    paddingBottom: 10,
+    gap: 3,
   },
   title: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   captionText: {
     fontSize: 13,
@@ -780,32 +881,66 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderBottomWidth: 1,
-    gap: 18,
+    borderTopWidth: 1,
+    gap: 8,
   },
-  likeActionGroup: {
+  leftActionCluster: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+  },
+  rightActionCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 34,
+    paddingHorizontal: 10,
+    borderRadius: 17,
+    borderWidth: 1,
     gap: 5,
   },
-  action: {
-    padding: 2,
+  actionHit: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  saveAction: {
-    marginLeft: 'auto',
+  iconActionBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inspectHintBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 34,
+    paddingHorizontal: 10,
+    borderRadius: 17,
+    borderWidth: 1,
+    gap: 4,
+  },
+  inspectHintText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   countBtn: {
-    paddingHorizontal: 2,
+    paddingHorizontal: 1,
   },
   count: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 12.5,
+    fontWeight: '800',
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(18, 18, 20, 0.65)',
+    backgroundColor: 'rgba(14, 16, 15, 0.68)',
     justifyContent: 'flex-end',
   },
   bottomSheet: {
@@ -831,7 +966,7 @@ const styles = StyleSheet.create({
   },
   sheetTitle: {
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   sheetSubtitle: {
     fontSize: 12,
@@ -970,7 +1105,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 42,
     borderRadius: 10,
-    backgroundColor: '#E83E35',
+    backgroundColor: '#E84A42',
     alignItems: 'center',
     justifyContent: 'center',
   },

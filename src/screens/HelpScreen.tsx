@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, TextInput, ScrollView, StyleSheet, Alert, Linking } from 'react-native';
+import { View, Text, Pressable, TextInput, ScrollView, StyleSheet, Alert, Linking, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -8,6 +8,8 @@ import { PRIVACY_POLICY, TERMS_OF_SERVICE } from '../constants/legalContent';
 import ScreenHeader from '../components/ScreenHeader';
 import AccordionCard from '../components/AccordionCard';
 import LegalModal from '../components/LegalModal';
+
+const OFFICIAL_APP_ICON = require('../../assets/icon.png');
 
 export default function HelpScreen() {
   const theme = useAppTheme();
@@ -26,6 +28,25 @@ export default function HelpScreen() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScreenHeader title="Help & Support" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Official StyleSense About & Developer Card */}
+        <View style={[styles.aboutCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Image source={OFFICIAL_APP_ICON} style={styles.aboutAppIcon} resizeMode="contain" />
+          <View style={styles.aboutInfoWrap}>
+            <Text style={[styles.aboutAppName, { color: theme.text }]}>StyleSense</Text>
+            <Text style={[styles.aboutDeveloper, { color: theme.text }]}>
+              Developed by Shiloh Dynasty
+            </Text>
+            <Text style={[styles.aboutAppType, { color: theme.textMuted }]}>
+              Personalized Wardrobe and Outfit Recommendation Mobile Application
+            </Text>
+            <View style={[styles.versionPill, { backgroundColor: theme.mode === 'dark' ? '#2A362A' : '#EBF0EB' }]}>
+              <Text style={[styles.versionText, { color: theme.mode === 'dark' ? '#B9D4B9' : '#364536' }]}>
+                Version 1.0.0 · Android
+              </Text>
+            </View>
+          </View>
+        </View>
+
         <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Frequently Asked Questions</Text>
           {faqData.map((faq) => (
@@ -66,7 +87,7 @@ export default function HelpScreen() {
           </Pressable>
         </View>
 
-        {/* Account & Data Management Shortcut (PDF Page 15) */}
+        {/* Account & Data Management Shortcut */}
         <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Account & Data Controls</Text>
           <Text style={[styles.helperSub, { color: theme.textMuted }]}>
@@ -106,6 +127,47 @@ export default function HelpScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 32, gap: 16 },
+  aboutCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 16,
+  },
+  aboutAppIcon: {
+    width: 64,
+    height: 64,
+  },
+  aboutInfoWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  aboutAppName: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  aboutDeveloper: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  aboutAppType: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 2,
+  },
+  versionPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 999,
+    marginTop: 6,
+  },
+  versionText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+  },
   section: { borderRadius: 18, borderWidth: 1, padding: 16, gap: 6 },
   sectionTitle: { fontSize: 15, fontWeight: '700', marginBottom: 4 },
   helperSub: { fontSize: 12.5, lineHeight: 18, marginBottom: 6 },

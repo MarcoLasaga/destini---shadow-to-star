@@ -55,9 +55,10 @@ export async function initNotifications(): Promise<void> {
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
         name: 'StyleSense Smart Alerts',
+        description: 'Personalized Wardrobe and Outfit Recommendation alerts from StyleSense',
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#24152C',
+        lightColor: '#364536',
       });
     }
 
@@ -137,7 +138,7 @@ async function isAlertEnabled(type: SmartAlertType): Promise<boolean> {
 /**
  * Trigger an immediate smart alert:
  * 1. Validates user notification preferences
- * 2. Fires native OS notification banner
+ * 2. Fires native OS notification banner branded with StyleSense
  * 3. Persists alert into in-app notifications feed
  */
 export async function triggerSmartAlert(options: SmartAlertOptions): Promise<void> {
@@ -152,13 +153,15 @@ export async function triggerSmartAlert(options: SmartAlertOptions): Promise<voi
     const target = targetRoute || defaultTargetForType(type);
     const category = defaultCategoryForType(type);
 
-    // 1. Fire native OS heads-up banner
+    // 1. Fire native OS heads-up banner with official StyleSense identity
     await Notifications.scheduleNotificationAsync({
       content: {
         title,
+        subtitle: 'StyleSense',
         body,
         sound: 'default',
-        data: { targetRoute: target, type },
+        color: '#364536',
+        data: { targetRoute: target, type, appName: 'StyleSense' },
         ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
       },
       trigger: null,
@@ -204,7 +207,7 @@ export async function triggerWeatherAlertOncePerSession(
 
   await triggerSmartAlert({
     type: 'Weather',
-    title: `☀ ${city} Weather Alert: ${roundedTemp}°C & ${condition}`,
+    title: `StyleSense Weather Alert: ${city} (${roundedTemp}°C & ${condition})`,
     body: "Breathable garments prioritized for today's Hybrid Outfit picks.",
     targetRoute: 'Outfit',
   });
@@ -228,10 +231,12 @@ export async function scheduleDailyOutfitReminder(): Promise<void> {
 
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: "Styling Reminder: Today's Look",
+        title: "StyleSense Styling Reminder: Today's Look",
+        subtitle: 'StyleSense',
         body: 'Check your planned outfit for today!',
         sound: 'default',
-        data: { targetRoute: 'Planner', isDailyOutfitReminder: true },
+        color: '#364536',
+        data: { targetRoute: 'Planner', isDailyOutfitReminder: true, appName: 'StyleSense' },
         ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
       },
       trigger: {

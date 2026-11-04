@@ -11,7 +11,8 @@ import { RootStackParamList } from '../types';
 import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
 import { resolveDatasetGarmentPhoto } from '../data/datasetGarmentCatalog';
 import { inferVectorSubtype, formatSubtypeLabel } from '../utils/garmentImageHelper';
-import { colorNameToHex } from '../services/outfitRecommendationService';
+import { colorNameToHex, normalizeHexCode } from '../services/outfitRecommendationService';
+import CielabPaletteCard from '../components/CielabPaletteCard';
 
 export default function ClothingDetailsScreen() {
   const theme = useAppTheme();
@@ -49,10 +50,10 @@ export default function ClothingDetailsScreen() {
     }
   };
 
-  const resolvedColorHex = item.colorHex || colorNameToHex(item.color || 'Black');
+  const resolvedColorHex = normalizeHexCode(item.colorHex, item.color || 'Black');
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['left', 'right']}>
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.iconButton}>
@@ -63,7 +64,14 @@ export default function ClothingDetailsScreen() {
           <Pressable onPress={() => setDeleteModalVisible(true)} style={styles.iconButton}>
             <Ionicons name="trash-outline" size={20} color="#E83E35" />
           </Pressable>
-          <Pressable onPress={() => toggleFavorite(item.id)} style={styles.iconButton}>
+          <Pressable
+            onPress={async () => {
+              const willFav = !item.favorite;
+              await toggleFavorite(item.id);
+              showToast(willFav ? 'Added to favorites.' : 'Removed from favorites.');
+            }}
+            style={styles.iconButton}
+          >
             <Ionicons
               name={item.favorite ? 'heart' : 'heart-outline'}
               size={20}
@@ -93,7 +101,7 @@ export default function ClothingDetailsScreen() {
           <View style={styles.subtypeFloatingPill}>
             <View style={[styles.subtypeColorDot, { backgroundColor: resolvedColorHex }]} />
             <Text style={styles.subtypePillText}>
-              {item.color} · {item.subCategory || formatSubtypeLabel(item.vector_subtype || inferVectorSubtype(item.name, item.category))}
+              {item.color} ({resolvedColorHex}) · {item.subCategory || formatSubtypeLabel(item.vector_subtype || inferVectorSubtype(item.name, item.category))}
             </Text>
           </View>
         </View>
@@ -101,7 +109,7 @@ export default function ClothingDetailsScreen() {
         {item.moderation_reason ? (
           <View style={styles.moderationWarningBanner}>
             <Text style={styles.moderationWarningText}>
-              ⚠️ Needs Review: {item.moderation_reason}
+              Needs Review: {item.moderation_reason}
             </Text>
           </View>
         ) : null}
@@ -117,9 +125,9 @@ export default function ClothingDetailsScreen() {
                 </Text>
                 <View style={[styles.inlineColorDot, { backgroundColor: resolvedColorHex }]} />
                 <Text style={[styles.meta, { color: theme.textMuted }]}>
-                  {item.color}
+                  {item.color} ({resolvedColorHex})
                   {item.secondary_color && item.secondary_color !== item.color
-                    ? ` / ${item.secondary_color}`
+                    ? ` / ${item.secondary_color} (${normalizeHexCode(item.secondary_color_hex, item.secondary_color)})`
                     : ''}
                 </Text>
               </View>
@@ -131,6 +139,18 @@ export default function ClothingDetailsScreen() {
               <Ionicons name="create-outline" size={17} color="#F3F1EF" />
             </Pressable>
           </View>
+
+          {/* Outfit Color Palette with #RRGGBB HEX Codes */}
+          <CielabPaletteCard
+            title="Outfit Color Palette"
+            palette={item.palette}
+            primaryColor={item.color}
+            primaryHex={resolvedColorHex}
+            secondaryColor={item.secondary_color}
+            secondaryHex={item.secondary_color_hex}
+            harmonyNote={item.color_harmony_note}
+            compact
+          />
 
           {/* Brand & Style Row */}
           <View style={styles.row}>
@@ -172,10 +192,10 @@ export default function ClothingDetailsScreen() {
       <ConfirmDialogModal
         visible={deleteModalVisible}
         variant="danger"
-        title="Delete Garment"
-        message={`Are you sure you want to remove "${item.name}" from your wardrobe? This action cannot be undone.`}
-        confirmText="Delete Garment"
-        cancelText="Keep"
+        title="Delete this item?"
+        message="Are you sure you want to permanently remove this clothing item?"
+        confirmText="Delete"
+        cancelText="Cancel"
         loading={deleting}
         onConfirm={handleDelete}
         onCancel={() => setDeleteModalVisible(false)}
@@ -191,18 +211,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 6,
+    paddingTop: 24,
+    paddingBottom: 8,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   iconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -22,7 +22,7 @@ import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
 export default function SavedOutfitsScreen() {
   const theme = useAppTheme();
   const navigation = useNavigation<any>();
-  const { savedOutfits, renameSavedOutfit, deleteSavedOutfit } = useOutfit();
+  const { savedOutfits, renameSavedOutfit, deleteSavedOutfit, toggleSave } = useOutfit();
   const { showToast } = useToast();
 
   const [renameTarget, setRenameTarget] = useState<GeneratedOutfit | null>(null);
@@ -52,9 +52,17 @@ export default function SavedOutfitsScreen() {
 
   const confirmDelete = () => {
     if (!deleteTarget) return;
-    deleteSavedOutfit(deleteTarget.id);
-    showToast(`"${deleteTarget.name}" removed from saved looks`);
+    const target = deleteTarget;
+    deleteSavedOutfit(target.id);
     setDeleteTarget(null);
+    showToast(`"${target.name}" removed from saved looks.`, {
+      variant: 'warning',
+      undoLabel: 'Undo',
+      onUndo: () => {
+        toggleSave(target.id);
+        showToast(`"${target.name}" restored to saved looks.`);
+      },
+    });
   };
 
   return (
@@ -197,7 +205,7 @@ export default function SavedOutfitsScreen() {
                     hitSlop={6}
                   >
                     <Ionicons name="trash-outline" size={15} color="#E5484D" />
-                    <Text style={[styles.actionBtnText, { color: '#E5484D' }]}>Delete</Text>
+                    <Text style={[styles.actionBtnText, { color: '#E5484D' }]}>Remove</Text>
                   </Pressable>
                 </View>
               </Animated.View>
@@ -207,7 +215,7 @@ export default function SavedOutfitsScreen() {
       )}
 
       {/* Rename Modal */}
-      <Modal
+      <Modal statusBarTranslucent={true}
         visible={renameTarget !== null}
         transparent
         animationType="fade"
@@ -265,9 +273,9 @@ export default function SavedOutfitsScreen() {
       <ConfirmDialogModal
         visible={!!deleteTarget}
         variant="danger"
-        title="Delete Saved Outfit"
+        title="Remove saved outfit?"
         message={deleteTarget ? `Are you sure you want to remove "${deleteTarget.name}" from your saved looks?` : ''}
-        confirmText="Delete"
+        confirmText="Remove"
         cancelText="Cancel"
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}

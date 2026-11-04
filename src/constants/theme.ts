@@ -3,114 +3,114 @@ export const brand = {
   matteForest: '#1F4E3D',
   matteSage: '#2A6F57',
   matteCharcoal: '#18181B',
-  matteObsidian: '#121214',
+  matteObsidian: '#0E100F',
   matteSlate: '#52525B',
-  matteZinc: '#A1A1AA',
-  warmAlabaster: '#F7F6F2',
-  collageLight: '#F3F3F1',
-  collageDark: '#232327',
-  darkCard: '#1C1C1F',
+  matteZinc: '#9EA8A2',
+  warmAlabaster: '#F6F4F0',
+  collageLight: '#EFECE6',
+  collageDark: '#1A1F1C',
+  darkCard: '#161918',
   darkPlum: '#18181B',
   mediumPlum: '#1F4E3D',
   softLilac: '#E4E4E7',
   paleYellow: '#1F4E3D',
   peachGold: '#D4D4D8',
   softCream: '#F4F4F5',
-  alabaster: '#F7F6F2',
+  alabaster: '#F6F4F0',
 };
 
-// Redesigned Editorial Palette (PDF Page 17 Reference: #F3F1EF, #364536, #E83E35)
+// Redesigned Editorial Palette (#F3F1EF, #364536, #E83E35)
 export const editorialColors = {
-  lightText: '#F3F1EF', // Warm Ivory / Alabaster Text & Light Surface
-  forestPrimary: '#364536', // Deep Editorial Forest Green (9.04 contrast with #F3F1EF)
-  forestDark: '#242F24', // Deeper Forest Shade for Dark Surfaces
-  forestSoft: '#4A5D4A', // Muted Forest Shade for Secondary Accents
-  forestTintLight: '#E8ECE8', // Soft Sage Tint for Light Mode Pills/Badges
-  forestTintDark: 'rgba(54, 69, 54, 0.45)', // Dark Mode Active Surface Tint
-  terracottaAccent: '#E83E35', // Vibrant Editorial Red-Orange Accent
-  terracottaSoft: 'rgba(232, 62, 53, 0.12)', // Soft Terracotta Tint
-  warmSurfaceLight: '#FAF9F7', // Warm Light Card Surface
-  warmBorderLight: '#E2DFDA', // Warm Subtle Border
+  lightText: '#F3F1EF',
+  forestPrimary: '#364536',
+  forestDark: '#242F24',
+  forestSoft: '#4A5D4A',
+  forestTintLight: '#E8ECE8',
+  forestTintDark: 'rgba(54, 69, 54, 0.45)',
+  terracottaAccent: '#E83E35',
+  terracottaSoft: 'rgba(232, 62, 53, 0.12)',
+  warmSurfaceLight: '#FAF9F7',
+  warmBorderLight: '#E2DFDA',
 };
 
 export const lightTheme = {
   mode: 'light' as const,
-  background: '#F7F6F2', // Warm Matte Alabaster
-  surface: '#FFFFFF', // Flat White Card Surface
-  surfaceSecondary: '#F3F3F1', // Matte Secondary Surface
-  collageCanvas: '#F3F3F1', // ALTA Collage Canvas (Light)
-  primary: '#1F4E3D', // Matte Forest Green
-  primaryText: '#FFFFFF', // Crisp White text on Matte Forest Green
-  accent: '#1F4E3D', // Matte Forest Green
-  accentSoft: '#E4E4E7', // Matte Soft Zinc
-  primaryAccent: '#1F4E3D',
-  secondaryAccent: '#1F4E3D', // Primary Accent Pill: Matte Forest Green
-  buttonBg: '#1F4E3D',
+  background: '#F6F4F0',
+  surface: '#FFFFFF',
+  surfaceSecondary: '#EFECE6',
+  collageCanvas: '#EFECE6',
+  primary: '#364536',
+  primaryText: '#FFFFFF',
+  accent: '#364536',
+  accentSoft: '#E3E8E3',
+  primaryAccent: '#364536',
+  secondaryAccent: '#364536',
+  buttonBg: '#364536',
   buttonText: '#FFFFFF',
-  buttonBorder: '#E4E4E7',
-  onAccent: '#FFFFFF', // Crisp White text on Matte Forest Green
+  buttonBorder: '#DFDCD5',
+  onAccent: '#FFFFFF',
   highlightText: '#18181B',
-  accentText: '#1F4E3D',
-  aiBannerBg: '#F3F3F1',
-  aiBannerBorder: '#E4E4E7',
-  aiBannerText: '#18181B',
-  aiPillBg: '#E4E4E7',
-  aiPillText: '#18181B',
-  statIconColor: '#1F4E3D',
-  badgeBg: '#F3F3F1',
-  badgeAlt: '#E4E4E7',
-  activeCardBg: '#F3F3F1',
-  activeCardBorder: '#1F4E3D',
-  activePillBg: '#1F4E3D',
+  accentText: '#364536',
+  aiBannerBg: '#EBF0EB',
+  aiBannerBorder: '#D2DDD3',
+  aiBannerText: '#223022',
+  aiPillBg: '#E2EAE2',
+  aiPillText: '#223022',
+  statIconColor: '#364536',
+  badgeBg: '#EFECE6',
+  badgeAlt: '#E3E6E3',
+  activeCardBg: '#EBF0EB',
+  activeCardBorder: '#364536',
+  activePillBg: '#364536',
   activePillText: '#FFFFFF',
   navSurface: '#FFFFFF',
-  navActiveHighlight: '#F3F3F1',
-  navActiveIcon: '#1F4E3D',
-  navInactiveIcon: '#52525B',
-  text: '#18181B', // Deep Matte Charcoal
-  textSecondary: '#52525B', // Matte Slate
-  textMuted: '#52525B', // Matte Slate (WCAG AA >= 4.5:1)
-  border: '#E4E4E7', // Flat 1px border
+  navActiveHighlight: '#EBF0EB',
+  navActiveIcon: '#364536',
+  navInactiveIcon: '#636B66',
+  text: '#161817',
+  textSecondary: '#555E58',
+  textMuted: '#5C655F',
+  border: '#E1DED7',
 };
 
 export const darkTheme = {
   mode: 'dark' as const,
-  background: '#121214', // Matte Obsidian
-  surface: '#1C1C1F', // Matte Dark Card Surface
-  surfaceSecondary: '#232327', // Matte Dark Secondary Surface
-  collageCanvas: '#232327', // ALTA Collage Canvas (Dark)
-  primary: '#2A6F57', // Matte Sage
-  primaryText: '#F4F4F5', // Crisp Off-White text on Matte Sage
-  accent: '#2A6F57', // Matte Sage
-  accentSoft: '#2E2E33', // Matte Dark Border/Soft
-  primaryAccent: '#2A6F57',
-  secondaryAccent: '#2A6F57', // Primary Accent Pill: Matte Sage
-  buttonBg: '#2A6F57',
-  buttonText: '#F4F4F5',
-  buttonBorder: '#2E2E33',
-  onAccent: '#F4F4F5', // Crisp Off-White text on Matte Sage
-  highlightText: '#F4F4F5',
-  accentText: '#F4F4F5',
-  aiBannerBg: '#1C1C1F',
-  aiBannerBorder: '#2E2E33',
-  aiBannerText: '#F4F4F5',
-  aiPillBg: '#232327',
-  aiPillText: '#F4F4F5',
-  statIconColor: '#F4F4F5',
-  badgeBg: '#232327',
-  badgeAlt: '#2E2E33',
-  activeCardBg: '#232327',
-  activeCardBorder: '#2A6F57',
-  activePillBg: '#2A6F57',
-  activePillText: '#F4F4F5',
-  navSurface: '#1C1C1F',
-  navActiveHighlight: '#232327',
-  navActiveIcon: '#F4F4F5',
-  navInactiveIcon: '#A1A1AA',
-  text: '#F4F4F5', // Crisp Off-White
-  textSecondary: '#A1A1AA', // Matte Zinc
-  textMuted: '#A1A1AA', // Matte Zinc
-  border: '#2E2E33', // Flat 1px border
+  background: '#0E100F', // Deep Editorial Obsidian with subtle forest undertone
+  surface: '#161918', // Elevated Dark Studio Card Surface
+  surfaceSecondary: '#1E2421', // Distinct Secondary / Garment Stage Surface
+  collageCanvas: '#181D1A', // Structured Collage Canvas
+  primary: '#364536', // Signature StyleSense Forest
+  primaryText: '#F3F1EF',
+  accent: '#4C6B54', // Luminous Sage Accent for Dark Mode readability
+  accentSoft: '#252E29',
+  primaryAccent: '#4C6B54',
+  secondaryAccent: '#364536',
+  buttonBg: '#364536',
+  buttonText: '#F3F1EF',
+  buttonBorder: '#2A332E',
+  onAccent: '#F3F1EF',
+  highlightText: '#F3F1EF',
+  accentText: '#C5DBC9',
+  aiBannerBg: '#1A231E',
+  aiBannerBorder: '#2D3C32',
+  aiBannerText: '#E5EFE7',
+  aiPillBg: '#233027',
+  aiPillText: '#D9E8DC',
+  statIconColor: '#C5DBC9',
+  badgeBg: '#212724',
+  badgeAlt: '#2A332E',
+  activeCardBg: '#1E2722',
+  activeCardBorder: '#4C6B54',
+  activePillBg: '#364536',
+  activePillText: '#F3F1EF',
+  navSurface: '#141716',
+  navActiveHighlight: '#212A24',
+  navActiveIcon: '#F3F1EF',
+  navInactiveIcon: '#8B968F',
+  text: '#F3F1EF', // Crisp Warm Ivory
+  textSecondary: '#A2ADA6',
+  textMuted: '#9BA69F', // Balanced readable muted text
+  border: '#28302C', // Crisp 1px dark border
 };
 export type Theme = typeof lightTheme | typeof darkTheme;
 

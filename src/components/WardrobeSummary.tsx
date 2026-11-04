@@ -17,7 +17,7 @@ export default function WardrobeSummary({ stats }: { stats: WardrobeStats }) {
   ];
 
   const isDark = theme.mode === 'dark';
-  const accentColor = isDark ? '#FBF5A7' : '#4B1D6F';
+  const accentColor = isDark ? '#97C4A3' : '#364536';
 
   return (
     <Animated.View
@@ -32,7 +32,7 @@ export default function WardrobeSummary({ stats }: { stats: WardrobeStats }) {
         </Pressable>
       </View>
 
-      <View style={[styles.statsRow, { backgroundColor: theme.mode === 'dark' ? '#232329' : '#F4F1EA' }]}>
+      <View style={[styles.statsRow, { backgroundColor: theme.surfaceSecondary }]}>
         {items.map((item) => (
           <View key={item.label} style={styles.statBlock}>
             <Ionicons name={item.icon} size={18} color={accentColor} />
