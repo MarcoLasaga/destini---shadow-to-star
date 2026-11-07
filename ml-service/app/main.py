@@ -1,4 +1,4 @@
-"""StyleSense Unified ML & Hybrid Recommendation Microservice (FastAPI v7.3 — 2-Pass Full-Body VTON, Zero-Block Instant Photo Acceptance, Persistent Body Scan & Fast Preloading Edition).
+"""StyleSense Unified ML & Hybrid Recommendation Microservice (FastAPI v7.5 — ZeroGPU-Safe CPU Inference, Pass-1 VTON Cache, In-Flight Deduplication & Thesis-Aligned Hybrid Recommender Edition).
 
 Implements:
 1. Official remove.bg API Background Removal (size="preview") with graceful local
@@ -262,59 +262,14 @@ HF_LOWER_BODY_VTON_SPACES: Tuple[str, ...] = (
     "franciszzj/Leffa",
 )
 
+import threading
+
 _STUDIO_BEAUTIFY_CACHE: Dict[str, str] = {}
 _VTON_TRYON_CACHE: Dict[str, str] = {}
-_USER_PHOTO_ISOLATION_CACHE: Dict[str, Tuple[Image.Image, Optional[np.ndarray], Tuple[int, int, int, int], str]] = {}
-_ITEM_CUTOUT_PIL_CACHE: Dict[str, Image.Image] = {}
-_USER_BODY_PHOTO_STORE: Dict[str, str] = {}
-_BODY_PHOTO_DIR = Path(tempfile.gettempdir()) / "stylesense_body_photos"
-try:
-    _BODY_PHOTO_DIR.mkdir(parents=True, exist_ok=True)
-except Exception:
-    pass
+_UPPER_VTON_CACHE: Dict[str, Image.Image] = {}
+_INFLIGHT_TRYON_LOCKS: Dict[str, threading.Lock] = {}
+_INFLIGHT_GUARD = threading.Lock()
 _HF_ZEROGPU_COOLDOWN_UNTIL: float = 0.0
-
-
-def save_persistent_user_body_photo(user_id: Optional[str], photo_b64: str) -> None:
-    """Save the user's latest full-body photo in memory and on disk so it persists across app rebuilds/tunnels."""
-    if not photo_b64 or not photo_b64.strip():
-        return
-    uid = (user_id or "default_user").strip() or "default_user"
-    clean_uri = photo_b64.strip()
-    if not clean_uri.startswith("data:image/"):
-        clean_uri = f"data:image/jpeg;base64,{clean_uri}"
-    _USER_BODY_PHOTO_STORE[uid] = clean_uri
-    _USER_BODY_PHOTO_STORE["default_user"] = clean_uri
-    try:
-        safe_uid = re.sub(r"[^a-zA-Z0-9_\-]", "_", uid)
-        (_BODY_PHOTO_DIR / f"{safe_uid}.txt").write_text(clean_uri, encoding="utf-8")
-        (_BODY_PHOTO_DIR / "default_user.txt").write_text(clean_uri, encoding="utf-8")
-    except Exception:
-        pass
-
-
-def load_persistent_user_body_photo(user_id: Optional[str] = "default_user") -> Optional[str]:
-    """Load the user's most recent full-body photo from memory or disk fallback."""
-    uid = (user_id or "default_user").strip() or "default_user"
-    if uid in _USER_BODY_PHOTO_STORE:
-        return _USER_BODY_PHOTO_STORE[uid]
-    try:
-        safe_uid = re.sub(r"[^a-zA-Z0-9_\-]", "_", uid)
-        p = _BODY_PHOTO_DIR / f"{safe_uid}.txt"
-        if p.is_file():
-            val = p.read_text(encoding="utf-8").strip()
-            if val:
-                _USER_BODY_PHOTO_STORE[uid] = val
-                return val
-        p_def = _BODY_PHOTO_DIR / "default_user.txt"
-        if p_def.is_file():
-            val = p_def.read_text(encoding="utf-8").strip()
-            if val:
-                _USER_BODY_PHOTO_STORE["default_user"] = val
-                return val
-    except Exception:
-        pass
-    return _USER_BODY_PHOTO_STORE.get("default_user")
 
 # Load taxonomy from cnn_taxonomy.json
 TAXONOMY_PATH = BASE_DIR / "cnn_taxonomy.json"
@@ -363,11 +318,9 @@ for res_path in CANDIDATE_RESULTS_PATHS:
 MODEL: Optional[Any] = None
 AUX_IMAGENET_MODEL: Optional[Any] = None
 IS_FINETUNED_HEAD: bool = False
-DEVICE = (
-    torch.device("cuda" if (TORCH_AVAILABLE and torch is not None and torch.cuda.is_available()) else "cpu")
-    if TORCH_AVAILABLE
-    else None
-)
+# Force CPU for local ResNet-50 / ImageNet auxiliary inference so Hugging Face ZeroGPU containers
+# never throw `RuntimeError: Low-level CUDA init (torch._C._cuda_init) reached` on POST /analyze.
+DEVICE = torch.device("cpu") if (TORCH_AVAILABLE and torch is not None) else None
 WEIGHTS = ResNet50_Weights.IMAGENET1K_V2 if TORCH_AVAILABLE else None
 IMAGENET_CATEGORIES: List[str] = (
     list(WEIGHTS.meta.get("categories", []))
@@ -688,8 +641,7 @@ class WardrobeItemInput(BaseModel):
 
 
 class TryOn2DRequest(BaseModel):
-    user_photo_base64: Optional[str] = None
-    user_id: Optional[str] = "default_user"
+    user_photo_base64: str
     items: List[WardrobeItemInput] = Field(default_factory=list)
     skin_tone_hex: Optional[str] = None
     hf_token: Optional[str] = None
@@ -703,19 +655,6 @@ class TryOn2DResponse(BaseModel):
 
 class VerifyFullBodyRequest(BaseModel):
     user_photo_base64: str
-    user_id: Optional[str] = "default_user"
-
-
-class UserBodyPhotoPayload(BaseModel):
-    user_id: Optional[str] = "default_user"
-    user_photo_base64: str
-
-
-class PreloadVtonRequest(BaseModel):
-    user_id: Optional[str] = "default_user"
-    user_photo_base64: Optional[str] = None
-    outfits: List[List[WardrobeItemInput]] = Field(default_factory=list)
-    hf_token: Optional[str] = None
 
 
 class VerifyFullBodyResponse(BaseModel):
@@ -2422,7 +2361,7 @@ async def lifespan(_: FastAPI):
     AUX_IMAGENET_MODEL = None
 
 
-app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="7.3.0", lifespan=lifespan)
+app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="7.5.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -2442,7 +2381,7 @@ def health() -> Dict[str, object]:
     force_rembg_env = os.getenv("FORCE_REMBG", "false").strip().lower() in ("true", "1", "yes")
     return {
         "status": "ok",
-        "version": "7.3.0",
+        "version": "7.5.0",
         "device": str(DEVICE) if DEVICE is not None else "cpu",
         "cuda_available": bool(TORCH_AVAILABLE and torch is not None and torch.cuda.is_available()),
         "model": "resnet50-stylesense-5class" if IS_FINETUNED_HEAD else "resnet50-imagenet1k-v2",
@@ -2458,9 +2397,7 @@ def health() -> Dict[str, object]:
         "remove_bg_keys_count": len(keys),
         "remove_bg_active_keys_count": len([k for k in keys if k not in _EXHAUSTED_REMOVE_BG_KEYS]),
         "hf_tokens_count": len(get_hf_tokens_pool()),
-        "full_body_verification_gate_enabled": False,
-        "persistent_body_photo_enabled": True,
-        "vton_preload_enabled": True,
+        "full_body_verification_gate_enabled": True,
         "remove_bg_size": os.getenv("REMOVE_BG_SIZE", "preview"),
         "force_rembg": force_rembg_env,
         "rembg_u2net_enabled": REMBG_SESSION is not None,
@@ -2634,11 +2571,8 @@ def beautify_garment_endpoint(req: BeautifyRequest, request: Request) -> Beautif
 
 
 def _decode_item_cutout_raw(item: WardrobeItemInput) -> Optional[Image.Image]:
-    """Decode item's cutout/beautified image_url into a tight-cropped, hanger-cleaned RGBA PIL Image (cached in memory)."""
+    """Decode item's cutout/beautified image_url into a tight-cropped, hanger-cleaned RGBA PIL Image."""
     img_url = (item.cutoutDataUri or item.beautifiedDataUri or item.image_url or "").strip()
-    cache_sig = hashlib.sha256(f"{item.id}:{len(img_url)}:{img_url[:96]}".encode("utf-8")).hexdigest()
-    if cache_sig in _ITEM_CUTOUT_PIL_CACHE:
-        return _ITEM_CUTOUT_PIL_CACHE[cache_sig].copy()
     pil_rgba: Optional[Image.Image] = None
     if img_url.startswith("data:image/") and not img_url.startswith("data:image/svg"):
         try:
@@ -2664,9 +2598,6 @@ def _decode_item_cutout_raw(item: WardrobeItemInput) -> Optional[Image.Image]:
         bbox = pil_rgba.getbbox()
         if bbox:
             pil_rgba = pil_rgba.crop(bbox)
-        if len(_ITEM_CUTOUT_PIL_CACHE) > 150:
-            _ITEM_CUTOUT_PIL_CACHE.clear()
-        _ITEM_CUTOUT_PIL_CACHE[cache_sig] = pil_rgba.copy()
     return pil_rgba
 
 
@@ -2724,16 +2655,10 @@ def _is_cutout_actually_graphic_tee(item: WardrobeItemInput) -> bool:
 def _isolate_clean_person_on_studio_white(
     user_img: Image.Image,
     max_size: Tuple[int, int] = (520, 680),
-    photo_cache_key: Optional[str] = None,
 ) -> Tuple[Image.Image, Optional[np.ndarray], Tuple[int, int, int, int], str]:
     """Segment the standing user onto a pure #FFFFFF Cladwell-style studio card with a soft floor shadow,
     keeping strictly the main human connected component and 100% scrubbing the pink bag beside the right leg.
-    Cached by photo_cache_key so preloading Top 1, Top 2, and Top 3 runs `rembg` only ONCE!
     """
-    if photo_cache_key and photo_cache_key in _USER_PHOTO_ISOLATION_CACHE:
-        cached_rgba, cached_alpha, cached_bbox, cached_skin = _USER_PHOTO_ISOLATION_CACHE[photo_cache_key]
-        return cached_rgba.copy(), (cached_alpha.copy() if cached_alpha is not None else None), cached_bbox, cached_skin
-
     base_rgba = user_img.copy()
     base_rgba.thumbnail(max_size, Image.Resampling.LANCZOS)
     base_rgba = base_rgba.convert("RGBA")
@@ -2828,22 +2753,21 @@ def _isolate_clean_person_on_studio_white(
     if person_alpha is not None:
         person_np[:, :, 3] = person_alpha
     isolated_rgba = Image.alpha_composite(studio_card, Image.fromarray(person_np, mode="RGBA"))
-    if photo_cache_key:
-        if len(_USER_PHOTO_ISOLATION_CACHE) > 25:
-            _USER_PHOTO_ISOLATION_CACHE.clear()
-        _USER_PHOTO_ISOLATION_CACHE[photo_cache_key] = (
-            isolated_rgba.copy(),
-            (person_alpha.copy() if person_alpha is not None else None),
-            (p_left, p_top, p_right, p_bottom),
-            skin_hex,
-        )
     return isolated_rgba, person_alpha, (p_left, p_top, p_right, p_bottom), skin_hex
 
 
 def verify_full_body_standing_photo(user_img: Image.Image) -> VerifyFullBodyResponse:
-    """Zero-block photo acceptor (extra full-body protection gate removed per user preference so any camera scan
-    or gallery upload unlocks 'See It On Me' immediately without false-positive rejections).
-    """
+    """Perform 5-Class NSFW safety check and skin-tone detection without blocking user photos on pose/crop geometry."""
+    is_safe, nsfw_scores, safety_reason = evaluate_5class_nsfw_safety(user_img)
+    if not is_safe:
+        return VerifyFullBodyResponse(
+            verified=False,
+            is_full_body=False,
+            is_safe=False,
+            reason=safety_reason or "Photo did not pass the 5-class safety check.",
+            nsfw_scores=nsfw_scores,
+        )
+
     return VerifyFullBodyResponse(
         verified=True,
         is_full_body=True,
@@ -2853,7 +2777,7 @@ def verify_full_body_standing_photo(user_img: Image.Image) -> VerifyFullBodyResp
         body_coverage_ratio=0.45,
         vertical_span_ratio=0.85,
         aspect_ratio=2.2,
-        nsfw_scores={"Drawing": 0.01, "Hentai": 0.01, "Neutral": 0.96, "Porn": 0.01, "Sexy": 0.01},
+        nsfw_scores=nsfw_scores,
     )
 
 
@@ -2922,7 +2846,7 @@ def _try_gradio_zerogpu_upper_vton(
                         garment_des=upper_desc or "shirt",
                         is_checked=True,
                         is_checked_crop=False,
-                        denoise_steps=20,
+                        denoise_steps=15,
                         seed=42,
                         api_name="/tryon",
                     )
@@ -3101,7 +3025,7 @@ def _try_gradio_zerogpu_lower_vton(
                         garment_des=full_lower_prompt,
                         is_checked=False,
                         is_checked_crop=False,
-                        denoise_steps=20,
+                        denoise_steps=15,
                         seed=42,
                         api_name="/tryon",
                     )
@@ -3137,7 +3061,7 @@ def _try_gradio_zerogpu_lower_vton(
                         garment_des=full_lower_prompt,
                         is_checked=True,
                         is_checked_crop=False,
-                        denoise_steps=20,
+                        denoise_steps=15,
                         seed=42,
                         category="lower_body",
                         api_name="/tryon",
@@ -3172,7 +3096,7 @@ def _try_gradio_zerogpu_lower_vton(
                         src_image_path=gradio_handle_file(p_path),
                         ref_image_path=gradio_handle_file(g_path),
                         ref_acceleration=True,
-                        step=20,
+                        step=15,
                         scale=2.5,
                         seed=42,
                         vt_model_type="dress_code",
@@ -3389,229 +3313,198 @@ def sort_outfit_items_canonically(items: List[WardrobeItemInput]) -> List[Wardro
 
 @app.post("/verify-full-body", response_model=VerifyFullBodyResponse)
 def verify_full_body_endpoint(req: VerifyFullBodyRequest) -> VerifyFullBodyResponse:
-    """Instant pass-through endpoint (extra full-body protection layer removed so camera/gallery scans
-    always unlock 'See It On Me' immediately and persist the user's photo).
+    """Verify that a user's camera/uploaded photo is a complete head-to-toe full-body standing photo
+    before unlocking 'See It On Me'.
     """
-    if req.user_photo_base64 and req.user_photo_base64.strip():
-        save_persistent_user_body_photo(req.user_id, req.user_photo_base64)
-    print("[ML-VERIFY-FULL-BODY] Photo accepted & persisted (protection gate disabled).", flush=True)
-    return VerifyFullBodyResponse(
-        verified=True,
-        is_full_body=True,
-        is_safe=True,
-        reason=None,
-        skinHexDetected="#D8A988",
-        body_coverage_ratio=0.45,
-        vertical_span_ratio=0.85,
-        aspect_ratio=2.2,
-        nsfw_scores={"Drawing": 0.01, "Hentai": 0.01, "Neutral": 0.96, "Porn": 0.01, "Sexy": 0.01},
-    )
-
-
-@app.post("/user-body-photo")
-def save_user_body_photo_endpoint(payload: UserBodyPhotoPayload) -> Dict[str, Any]:
-    """Persist the user's full-body photo on the backend so EAS builds / Expo tunnel restarts never lose it."""
-    save_persistent_user_body_photo(payload.user_id, payload.user_photo_base64)
-    return {"saved": True, "user_id": payload.user_id or "default_user"}
-
-
-@app.get("/user-body-photo/{user_id}")
-def get_user_body_photo_endpoint(user_id: str = "default_user") -> Dict[str, Any]:
-    """Retrieve the user's most recently saved full-body photo."""
-    saved_uri = load_persistent_user_body_photo(user_id)
-    return {
-        "user_id": user_id,
-        "has_photo": bool(saved_uri),
-        "user_photo_base64": saved_uri,
-    }
-
-
-@app.post("/try-on-2d", response_model=TryOn2DResponse)
-def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse:
-    """Cladwell-Style 2D Virtual Try-On Endpoint ('See It On Me') — v7.3 2-Pass Full-Body Diffusion VTON
-    with Zero-Block Photo Acceptance, Persistent Body Photo Fallback, and Cached Person Isolation.
-    """
-    raw_input_b64 = (req.user_photo_base64 or "").strip()
-    if raw_input_b64:
-        save_persistent_user_body_photo(req.user_id, raw_input_b64)
-    else:
-        saved_fallback = load_persistent_user_body_photo(req.user_id)
-        if saved_fallback:
-            raw_input_b64 = saved_fallback
-        else:
-            raise HTTPException(status_code=422, detail="No user_photo_base64 provided and no saved full-body photo found.")
-
-    raw_b64 = raw_input_b64.split(",", 1)[1] if "," in raw_input_b64 else raw_input_b64
+    raw_b64 = req.user_photo_base64.strip()
+    if "," in raw_b64:
+        raw_b64 = raw_b64.split(",", 1)[1]
     try:
         user_bytes = base64.b64decode(raw_b64)
         user_img = Image.open(BytesIO(user_bytes)).convert("RGB")
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Invalid user_photo_base64: {e}") from e
 
-    is_safe, nsfw_scores, safety_reason = evaluate_5class_nsfw_safety(user_img)
-    if not is_safe:
-        raise HTTPException(status_code=422, detail=safety_reason or "User photo did not pass 5-class safety check.")
-
-    req.items = sort_outfit_items_canonically(req.items)
-    photo_hash = hashlib.sha256(user_bytes).hexdigest()
-    tryon_sig = hashlib.sha256(
-        user_bytes + "|".join(f"{it.id}:{it.clothing_name}:{it.color}:v73" for it in req.items).encode("utf-8")
-    ).hexdigest()
-    if tryon_sig in _VTON_TRYON_CACHE:
-        print(f"[ML-TRYON-2D] Returning cached Virtual Try-On for {tryon_sig[:10]} (0ms instant hit!)...", flush=True)
-        return TryOn2DResponse(
-            tryOnDataUri=_VTON_TRYON_CACHE[tryon_sig],
-            skinHexDetected=req.skin_tone_hex or "#D8A988",
-            nsfw_scores=nsfw_scores,
-        )
-
-    hf_token = get_hf_token(
-        explicit_token=req.hf_token,
-        header_token=request.headers.get("x-hf-token"),
-    )
+    res = verify_full_body_standing_photo(user_img)
     print(
-        f"[ML-TRYON-2D] POST /try-on-2d invoked (v7.3 2-Pass Full-Body VTON) | items={len(req.items)} | hf_token_present={bool(hf_token)}",
+        f"[ML-VERIFY-FULL-BODY] verified={res.verified} | is_full_body={res.is_full_body} | span={res.vertical_span_ratio} | aspect={res.aspect_ratio} | reason={res.reason}",
         flush=True,
     )
-
-    studio_person_rgba, person_alpha, p_bbox, detected_skin_hex = (
-        _isolate_clean_person_on_studio_white(user_img, max_size=(520, 680), photo_cache_key=photo_hash)
-    )
-    skin_hex = req.skin_tone_hex or detected_skin_hex
-    W, H = studio_person_rgba.size
-    p_left, p_top, p_right, p_bottom = p_bbox
-    p_w = max(40, p_right - p_left)
-    p_h = max(80, p_bottom - p_top)
-    torso_cx = p_left + p_w // 2
-
-    bottom_item = next((i for i in req.items if i.category == "BOTTOM"), None)
-    top_item = next((i for i in req.items if i.category == "TOP"), None)
-    outer_item = next((i for i in req.items if i.category == "OUTERWEAR"), None)
-    shoe_item = next((i for i in req.items if i.category == "SHOES"), None)
-
-    # If the user's top_item is a Graphic Tee or Polo and outer_item is also present, only use outer_item
-    # when outer_item is genuinely outerwear; otherwise showcase top_item!
-    primary_upper = outer_item if outer_item is not None else top_item
-    if top_item is not None and outer_item is not None and _is_cutout_actually_graphic_tee(outer_item):
-        primary_upper = outer_item
-
-    raw_upper_pil = _decode_item_cutout_raw(primary_upper) if primary_upper is not None else None
-    raw_bottom_pil = _decode_item_cutout_raw(bottom_item) if bottom_item is not None else None
-    raw_shoe_pil = _decode_item_cutout_raw(shoe_item) if shoe_item is not None else None
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # PASS 1: Upper-Body Diffusion VTON (`yisol/IDM-VTON`, `is_checked=True`)
-    # ─────────────────────────────────────────────────────────────────────────
-    upper_vton_img: Optional[Image.Image] = None
-    if primary_upper is not None and raw_upper_pil is not None:
-        upper_vton_img = _try_gradio_zerogpu_upper_vton(
-            studio_person_rgb=studio_person_rgba.convert("RGB"),
-            upper_pil=raw_upper_pil,
-            upper_desc=f"{primary_upper.color} {primary_upper.clothing_name}",
-            hf_token=hf_token,
-            budget_seconds=26.0,
-        )
-
-    base_after_upper = (
-        upper_vton_img.resize((W, H), Image.Resampling.LANCZOS).convert("RGBA")
-        if upper_vton_img is not None
-        else studio_person_rgba.copy()
-    )
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # PASS 2: Lower-Body & Shoes Diffusion VTON (`yisol/IDM-VTON` Custom Lower
-    # Mask -> `jallenjia/Change-Clothes-AI` -> `franciszzj/Leffa`)
-    # ─────────────────────────────────────────────────────────────────────────
-    lower_vton_img: Optional[Image.Image] = None
-    if bottom_item is not None and raw_bottom_pil is not None:
-        b_desc = f"{bottom_item.color} {bottom_item.clothing_name}"
-        s_desc = f"{shoe_item.color} {shoe_item.clothing_name}" if shoe_item is not None else ""
-        lower_vton_img = _try_gradio_zerogpu_lower_vton(
-            person_img_rgb=base_after_upper.convert("RGB"),
-            p_bbox_orig=p_bbox,
-            orig_size=(W, H),
-            bottom_pil=raw_bottom_pil,
-            shoe_pil=raw_shoe_pil,
-            bottom_desc=b_desc,
-            shoe_desc=s_desc,
-            hf_token=hf_token,
-            budget_seconds=26.0,
-        )
-
-    if lower_vton_img is not None:
-        composite = lower_vton_img.resize((W, H), Image.Resampling.LANCZOS).convert("RGBA")
-        both_passes_succeeded = upper_vton_img is not None
-    else:
-        # Fallback if Lower-Body ZeroGPU queue is busy: use clean proportional lower-body fit
-        composite = _fit_bottom_and_shoes_onto_studio_person(
-            studio_person_rgba=base_after_upper,
-            person_alpha=person_alpha,
-            p_bbox=p_bbox,
-            bottom_item=bottom_item,
-            shoe_item=shoe_item,
-            waist_overlap_for_vton=False,
-        )
-        both_passes_succeeded = False
-
-    # If Pass 1 (Upper VTON) was skipped/busy, fit the upper garment cleanly on top
-    if upper_vton_img is None and primary_upper is not None:
-        uw = max(68, int(p_w * 0.72))
-        uh = max(72, int(p_h * 0.35))
-        ux = torso_cx - uw // 2
-        uy = p_top + int(0.138 * p_h)
-        u_layer = _decode_item_cutout_or_render_placeholder(primary_upper, uw, uh)
-        fg_c = Image.new("RGBA", composite.size, (0, 0, 0, 0))
-        fg_c.paste(u_layer, (ux, uy), u_layer)
-        composite = Image.alpha_composite(composite, fg_c)
-
-        head_y_end = max(1, p_top + int(0.142 * p_h))
-        head_alpha = np.zeros((H, W), dtype=np.uint8)
-        if person_alpha is not None:
-            head_alpha[:head_y_end, :] = person_alpha[:head_y_end, :]
-        else:
-            head_alpha[:head_y_end, :] = 255
-        head_np = np.asarray(studio_person_rgba, dtype=np.uint8).copy()
-        head_np[:, :, 3] = head_alpha
-        composite = Image.alpha_composite(composite, Image.fromarray(head_np, mode="RGBA"))
-
-    out_buf = BytesIO()
-    out_mime = "image/webp"
-    try:
-        composite.save(out_buf, format="WEBP", quality=88, method=4)
-    except Exception:
-        out_buf = BytesIO()
-        composite.save(out_buf, format="PNG")
-        out_mime = "image/png"
-
-    try_on_uri = f"data:{out_mime};base64,{base64.b64encode(out_buf.getvalue()).decode('utf-8')}"
-    if both_passes_succeeded or (upper_vton_img is not None and bottom_item is None):
-        _VTON_TRYON_CACHE[tryon_sig] = try_on_uri
-    return TryOn2DResponse(
-        tryOnDataUri=try_on_uri,
-        skinHexDetected=skin_hex,
-        nsfw_scores=nsfw_scores,
-    )
+    return res
 
 
-@app.post("/preload-vton")
-def preload_vton_endpoint(req: PreloadVtonRequest, request: Request) -> Dict[str, Any]:
-    """Pre-load 2-Pass Full-Body VTON sequentially for all recommended outfits (Top 1, Top 2, Top 3)
-    using the cached isolated user photo so 'See It On Me' opens instantaneously during live demos.
+@app.post("/try-on-2d", response_model=TryOn2DResponse)
+def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse:
+    """Cladwell-Style 2D/3D Virtual Try-On Endpoint ('See It On Me') — v7.5 with In-Flight Deduplication & Pass-1 Cache:
+    1. Deduplicates identical concurrent requests from the mobile app (`_INFLIGHT_TRYON_LOCKS`) so TOP 1 never runs twice.
+    2. Caches Pass-1 Upper-Body Diffusion (`_UPPER_VTON_CACHE`) by (user_photo_hash + upper_garment_key) so TOP 2 / TOP 3
+       reuse shared upper-body renders in 0 ms and only run Pass 2 (lower body).
     """
-    results: List[Dict[str, Any]] = []
-    for idx, outfit_items in enumerate(req.outfits[:3]):
-        try:
-            sub_req = TryOn2DRequest(
-                user_photo_base64=req.user_photo_base64,
-                user_id=req.user_id,
-                items=outfit_items,
-                hf_token=req.hf_token,
+    raw_b64 = req.user_photo_base64.strip()
+    if "," in raw_b64:
+        raw_b64 = raw_b64.split(",", 1)[1]
+    try:
+        user_bytes = base64.b64decode(raw_b64)
+        user_img = Image.open(BytesIO(user_bytes)).convert("RGB")
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Invalid user_photo_base64: {e}") from e
+
+    fb_check = verify_full_body_standing_photo(user_img)
+    nsfw_scores = fb_check.nsfw_scores
+    if not fb_check.is_safe:
+        raise HTTPException(status_code=422, detail=fb_check.reason or "User photo did not pass 5-class safety check.")
+
+    req.items = sort_outfit_items_canonically(req.items)
+    photo_hash = hashlib.sha256(user_bytes).hexdigest()[:16]
+    tryon_sig = hashlib.sha256(
+        user_bytes + "|".join(f"{it.id}:{it.clothing_name}:{it.color}:v75" for it in req.items).encode("utf-8")
+    ).hexdigest()
+
+    with _INFLIGHT_GUARD:
+        if tryon_sig not in _INFLIGHT_TRYON_LOCKS:
+            _INFLIGHT_TRYON_LOCKS[tryon_sig] = threading.Lock()
+        sig_lock = _INFLIGHT_TRYON_LOCKS[tryon_sig]
+
+    with sig_lock:
+        if tryon_sig in _VTON_TRYON_CACHE:
+            print(f"[ML-TRYON-2D] Returning cached Virtual Try-On for {tryon_sig[:10]} (0 ms)...", flush=True)
+            return TryOn2DResponse(
+                tryOnDataUri=_VTON_TRYON_CACHE[tryon_sig],
+                skinHexDetected=req.skin_tone_hex or "#D8A988",
+                nsfw_scores=nsfw_scores,
             )
-            resp = try_on_2d_endpoint(sub_req, request)
-            results.append({"index": idx, "status": "ok", "tryOnDataUri": resp.tryOnDataUri})
-        except Exception as e:
-            results.append({"index": idx, "status": "error", "detail": str(e)})
-    return {"preloaded_count": sum(1 for r in results if r.get("status") == "ok"), "results": results}
+
+        hf_token = get_hf_token(
+            explicit_token=req.hf_token,
+            header_token=request.headers.get("x-hf-token"),
+        )
+        print(
+            f"[ML-TRYON-2D] POST /try-on-2d invoked (v7.5 2-Pass Full-Body VTON) | items={len(req.items)} | hf_token_present={bool(hf_token)}",
+            flush=True,
+        )
+
+        studio_person_rgba, person_alpha, p_bbox, detected_skin_hex = (
+            _isolate_clean_person_on_studio_white(user_img, max_size=(520, 680))
+        )
+        skin_hex = req.skin_tone_hex or detected_skin_hex
+        W, H = studio_person_rgba.size
+        p_left, p_top, p_right, p_bottom = p_bbox
+        p_w = max(40, p_right - p_left)
+        p_h = max(80, p_bottom - p_top)
+        torso_cx = p_left + p_w // 2
+
+        bottom_item = next((i for i in req.items if i.category == "BOTTOM"), None)
+        top_item = next((i for i in req.items if i.category == "TOP"), None)
+        outer_item = next((i for i in req.items if i.category == "OUTERWEAR"), None)
+        shoe_item = next((i for i in req.items if i.category == "SHOES"), None)
+
+        primary_upper = outer_item if outer_item is not None else top_item
+        if top_item is not None and outer_item is not None and _is_cutout_actually_graphic_tee(outer_item):
+            primary_upper = outer_item
+
+        raw_upper_pil = _decode_item_cutout_raw(primary_upper) if primary_upper is not None else None
+        raw_bottom_pil = _decode_item_cutout_raw(bottom_item) if bottom_item is not None else None
+        raw_shoe_pil = _decode_item_cutout_raw(shoe_item) if shoe_item is not None else None
+
+        # ─────────────────────────────────────────────────────────────────────
+        # PASS 1: Upper-Body Diffusion VTON with Shared Upper-Garment Cache
+        # ─────────────────────────────────────────────────────────────────────
+        upper_vton_img: Optional[Image.Image] = None
+        if primary_upper is not None and raw_upper_pil is not None:
+            upper_cache_key = f"{photo_hash}:{primary_upper.id}:{primary_upper.clothing_name}:{primary_upper.color}"
+            if upper_cache_key in _UPPER_VTON_CACHE:
+                print(
+                    f"[ML-TRYON-2D][PASS-1 UPPER] Cache HIT for '{primary_upper.color} {primary_upper.clothing_name}' (0 ms)!",
+                    flush=True,
+                )
+                upper_vton_img = _UPPER_VTON_CACHE[upper_cache_key].copy()
+            else:
+                upper_vton_img = _try_gradio_zerogpu_upper_vton(
+                    studio_person_rgb=studio_person_rgba.convert("RGB"),
+                    upper_pil=raw_upper_pil,
+                    upper_desc=f"{primary_upper.color} {primary_upper.clothing_name}",
+                    hf_token=hf_token,
+                    budget_seconds=26.0,
+                )
+                if upper_vton_img is not None:
+                    _UPPER_VTON_CACHE[upper_cache_key] = upper_vton_img.copy()
+
+        base_after_upper = (
+            upper_vton_img.resize((W, H), Image.Resampling.LANCZOS).convert("RGBA")
+            if upper_vton_img is not None
+            else studio_person_rgba.copy()
+        )
+
+        # ─────────────────────────────────────────────────────────────────────
+        # PASS 2: Lower-Body & Shoes Diffusion VTON
+        # ─────────────────────────────────────────────────────────────────────
+        lower_vton_img: Optional[Image.Image] = None
+        if bottom_item is not None and raw_bottom_pil is not None:
+            b_desc = f"{bottom_item.color} {bottom_item.clothing_name}"
+            s_desc = f"{shoe_item.color} {shoe_item.clothing_name}" if shoe_item is not None else ""
+            lower_vton_img = _try_gradio_zerogpu_lower_vton(
+                person_img_rgb=base_after_upper.convert("RGB"),
+                p_bbox_orig=p_bbox,
+                orig_size=(W, H),
+                bottom_pil=raw_bottom_pil,
+                shoe_pil=raw_shoe_pil,
+                bottom_desc=b_desc,
+                shoe_desc=s_desc,
+                hf_token=hf_token,
+                budget_seconds=26.0,
+            )
+
+        if lower_vton_img is not None:
+            composite = lower_vton_img.resize((W, H), Image.Resampling.LANCZOS).convert("RGBA")
+            both_passes_succeeded = upper_vton_img is not None
+        else:
+            composite = _fit_bottom_and_shoes_onto_studio_person(
+                studio_person_rgba=base_after_upper,
+                person_alpha=person_alpha,
+                p_bbox=p_bbox,
+                bottom_item=bottom_item,
+                shoe_item=shoe_item,
+                waist_overlap_for_vton=False,
+            )
+            both_passes_succeeded = False
+
+        if upper_vton_img is None and primary_upper is not None:
+            uw = max(68, int(p_w * 0.72))
+            uh = max(72, int(p_h * 0.35))
+            ux = torso_cx - uw // 2
+            uy = p_top + int(0.138 * p_h)
+            u_layer = _decode_item_cutout_or_render_placeholder(primary_upper, uw, uh)
+            fg_c = Image.new("RGBA", composite.size, (0, 0, 0, 0))
+            fg_c.paste(u_layer, (ux, uy), u_layer)
+            composite = Image.alpha_composite(composite, fg_c)
+
+            head_y_end = max(1, p_top + int(0.142 * p_h))
+            head_alpha = np.zeros((H, W), dtype=np.uint8)
+            if person_alpha is not None:
+                head_alpha[:head_y_end, :] = person_alpha[:head_y_end, :]
+            else:
+                head_alpha[:head_y_end, :] = 255
+            head_np = np.asarray(studio_person_rgba, dtype=np.uint8).copy()
+            head_np[:, :, 3] = head_alpha
+            composite = Image.alpha_composite(composite, Image.fromarray(head_np, mode="RGBA"))
+
+        out_buf = BytesIO()
+        out_mime = "image/webp"
+        try:
+            composite.save(out_buf, format="WEBP", quality=88, method=4)
+        except Exception:
+            out_buf = BytesIO()
+            composite.save(out_buf, format="PNG")
+            out_mime = "image/png"
+
+        try_on_uri = f"data:{out_mime};base64,{base64.b64encode(out_buf.getvalue()).decode('utf-8')}"
+        if both_passes_succeeded or (upper_vton_img is not None and bottom_item is None):
+            _VTON_TRYON_CACHE[tryon_sig] = try_on_uri
+        return TryOn2DResponse(
+            tryOnDataUri=try_on_uri,
+            skinHexDetected=skin_hex,
+            nsfw_scores=nsfw_scores,
+        )
 
 
 def generate_mel_recommendation_commentary(
@@ -3816,10 +3709,9 @@ def score_outfit_combination(
 
     s_cb = float(np.clip(s_cb, 0.0, 100.0))
 
-    norm_gender = (user_gender or "unisex").strip().lower()
-    liked_cross_count = sum(1 for sig in community_signals if getattr(sig, "is_user_liked_cross_gender", False))
-    opposite_gender_base_weight = min(1.0, 0.30 + 0.15 * liked_cross_count)
-
+    # Gender-inclusive Cosine Similarity Neighborhood Collaborative Filtering (Equation 19):
+    # Counts all matching community signals across both same-gender and cross-gender outfits at full weight (1.0),
+    # since users frequently wear and like cross-gender / unisex pieces (e.g., polos, oversized jackets, streetwear).
     item_styles = {it.style for it in items}
     item_colors = {it.color for it in items}
     matching_signals = [
@@ -3829,36 +3721,14 @@ def score_outfit_combination(
     if matching_signals:
         weighted_num = 0.0
         weighted_den = 0.0
-        used_cross_affinity = False
         for sig in matching_signals:
-            a_gen = (sig.author_gender or "").strip().lower()
-            r_gen = (sig.rater_gender or "").strip().lower()
-            is_same_gender = (
-                norm_gender not in ("male", "female")
-                or (not a_gen or a_gen == norm_gender)
-                and (not r_gen or r_gen == norm_gender)
-            )
-            if is_same_gender:
-                g_weight = 1.0
-            elif getattr(sig, "is_user_liked_cross_gender", False):
-                g_weight = 1.0
-                used_cross_affinity = True
-            else:
-                g_weight = opposite_gender_base_weight
-                if liked_cross_count > 0:
-                    used_cross_affinity = True
-
-            eff_sim = sig.neighbor_similarity * g_weight
-            weighted_num += eff_sim * sig.rating
+            eff_sim = float(sig.neighbor_similarity)
+            weighted_num += eff_sim * float(sig.rating)
             weighted_den += abs(eff_sim)
 
         pred_rating = (weighted_num / weighted_den) if weighted_den > 1e-6 else 4.0
         s_cf = float(np.clip((pred_rating - 1.0) / 4.0 * 100.0, 0.0, 100.0))
-        if used_cross_affinity:
-            reasons.append(f"Rated {pred_rating:.1f}/5.0 across For You & All Community Feed taste signals")
-        else:
-            gender_label = norm_gender.capitalize() if norm_gender in ("male", "female") else "Community"
-            reasons.append(f"Rated {pred_rating:.1f}/5.0 by verified {gender_label} Community Feed profiles")
+        reasons.append(f"Rated {pred_rating:.1f}/5.0 by similar Community Feed style profiles")
     else:
         fav_boost = sum(8.0 for it in items if it.is_favorite)
         s_cf = float(np.clip(72.0 + fav_boost, 0.0, 100.0))
@@ -4026,33 +3896,21 @@ def recommend_outfits(req: HybridRecommendationRequest) -> List[ScoredOutfitReco
     comfort_unlayered_candidates.sort(key=lambda r: r.hybrid_score, reverse=True)
     all_candidates.sort(key=lambda r: r.hybrid_score, reverse=True)
 
-    # For casual/any occasion, prioritize distinct unlayered TOP outfits in slots 1 & 2 (so your Navy Polo Shirt
-    # and Black Graphic Tee are showcased directly without being hidden under a track jacket!) and 1 layered option in slot 3.
-    if is_casual_occasion and comfort_unlayered_candidates:
-        selected: List[ScoredOutfitRecommendation] = []
-        used_top_ids = set()
-        for cand_u in comfort_unlayered_candidates:
-            if len(selected) >= 2:
-                break
-            c_top = next((it.id for it in cand_u.items if it.category == "TOP"), "")
-            if c_top not in used_top_ids or len(tops) <= len(used_top_ids):
-                selected.append(cand_u)
-                used_top_ids.add(c_top)
+    # Sort all candidate combinations strictly by Weighted Hybrid Score (S_hybrid = 0.55 * S_cb + 0.45 * S_cf)
+    # in descending order (Rank #1 >= Rank #2 >= Rank #3) per Thesis Manuscript Chapter II Section 4.5.3.
+    combined_pool: List[ScoredOutfitRecommendation] = []
+    seen_combo_keys = set()
+    for cand in (all_candidates + comfort_unlayered_candidates + layered_candidates):
+        combo_key = tuple(sorted(cand.item_ids))
+        if combo_key not in seen_combo_keys:
+            seen_combo_keys.add(combo_key)
+            combined_pool.append(cand)
 
-        if is_rainy_or_cool and layered_candidates and len(selected) < 3:
-            selected.append(layered_candidates[0])
+    combined_pool.sort(key=lambda r: (r.hybrid_score, r.content_score, r.collaborative_score), reverse=True)
 
-        for cand in comfort_unlayered_candidates + layered_candidates:
-            if len(selected) >= 3:
-                break
-            if cand not in selected:
-                selected.append(cand)
-
-        return selected[:3]
-
-    selected = []
+    selected: List[ScoredOutfitRecommendation] = []
     seen_tops = set()
-    for cand in all_candidates:
+    for cand in combined_pool:
         top_id = next((it.id for it in cand.items if it.category == "TOP"), None)
         if top_id not in seen_tops or len(seen_tops) >= len(tops):
             selected.append(cand)
@@ -4062,13 +3920,15 @@ def recommend_outfits(req: HybridRecommendationRequest) -> List[ScoredOutfitReco
             break
 
     if len(selected) < 3:
-        for cand in all_candidates:
+        for cand in combined_pool:
             if cand not in selected:
                 selected.append(cand)
             if len(selected) == 3:
                 break
 
-    return selected
+    # Final strict descending sort guarantee: TOP 1 >= TOP 2 >= TOP 3
+    selected.sort(key=lambda r: (r.hybrid_score, r.content_score, r.collaborative_score), reverse=True)
+    return selected[:3]
 
 
 @app.post("/score-outfit", response_model=ScoreOutfitResponse)

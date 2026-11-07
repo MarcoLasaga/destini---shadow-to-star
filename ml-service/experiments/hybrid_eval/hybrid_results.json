@@ -1,0 +1,10 @@
+{
+  "queries_evaluated": 100,
+  "alpha": 0.55,
+  "precision_at_3": 91.33,
+  "ndcg_at_3": 0.9242,
+  "avg_latency_ms": 1.44,
+  "target_precision_at_3": 85.0,
+  "target_latency_ms": 800.0,
+  "passed": true
+}
