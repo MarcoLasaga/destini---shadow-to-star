@@ -412,10 +412,35 @@ function mapOutfit(
   genderMatchedSignal = 0
 ): GeneratedOutfit {
   const occasion = outfit.occasion || 'Casual';
-  const { contentScore, collaborativeScore, hybridScore, sustainPercent, reasons: formulaReasons } =
-    calculateItemScores(outfit.items, occasion, index, weather, noNewClothesMode, genderMatchedSignal);
+  const fallbackScores = calculateItemScores(
+    outfit.items || [],
+    occasion,
+    index,
+    weather,
+    noNewClothesMode,
+    genderMatchedSignal
+  );
 
-  const uniqueReasons = outfit.reasons.filter(
+  const rawHybrid =
+    typeof outfit.hybrid_score === 'number'
+      ? outfit.hybrid_score
+      : typeof outfit.score === 'number'
+      ? outfit.score
+      : fallbackScores.hybridScore;
+  const hybridScore = Math.round(rawHybrid);
+  const contentScore =
+    typeof outfit.content_score === 'number'
+      ? Math.round(outfit.content_score)
+      : fallbackScores.contentScore;
+  const collaborativeScore =
+    typeof outfit.collaborative_score === 'number'
+      ? Math.round(outfit.collaborative_score)
+      : fallbackScores.collaborativeScore;
+  const sustainPercent = fallbackScores.sustainPercent;
+  const formulaReasons = fallbackScores.reasons;
+
+  const rawReasons = Array.isArray(outfit.reasons) ? outfit.reasons : [];
+  const uniqueReasons = rawReasons.filter(
     (reason, idx, reasons) =>
       reasons.findIndex((candidate) => candidate.trim().toLowerCase() === reason.trim().toLowerCase()) === idx
   );
@@ -432,7 +457,7 @@ function mapOutfit(
     explainabilityReasons.push('100% Wardrobe Reuse: Zero new purchases required');
   }
 
-  const badge = index === 0 ? 'Top Pick · Best Hybrid Match' : index === 1 ? 'High Style Harmony' : 'Casual Alternative';
+  const badge = `${occasion.charAt(0).toUpperCase() + occasion.slice(1).toLowerCase()} Look`;
 
   const mappedClothingItems: OutfitClothingItem[] = outfit.items.map((item) => {
     const slotType = classifyAnatomicalSlot(item.clothing_name, item.category);
@@ -999,6 +1024,76 @@ export function styleAroundPinnedSlots(
   return mapOutfit(syntheticApiOutfit, 0, weather, noNewClothesMode);
 }
 
+function enforceStrictDescendingTop3(outfits: GeneratedOutfit[]): GeneratedOutfit[] {
+  const top3 = [...outfits]
+    .slice(0, 3)
+    .sort(
+      (a, b) =>
+        (b.hybridScore ?? b.matchPercent ?? 0) - (a.hybridScore ?? a.matchPercent ?? 0)
+    );
+
+  // Guarantee strict non-increasing score hierarchy: TOP 1 >= TOP 2 >= TOP 3
+  for (let i = 1; i < top3.length; i++) {
+    const prevScore = top3[i - 1].hybridScore ?? top3[i - 1].matchPercent ?? 90;
+    const currScore = top3[i].hybridScore ?? top3[i].matchPercent ?? 85;
+    if (currScore > prevScore) {
+      top3[i] = {
+        ...top3[i],
+        hybridScore: prevScore,
+        matchPercent: prevScore,
+      };
+    }
+  }
+  return top3;
+}
+
+function hydrateApiOutfitsFromBackend(
+  rawOutfits: ApiOutfit[],
+  wardrobePool?: RecommendParams['wardrobeItems'],
+  requestedOccasion?: string
+): ApiOutfit[] {
+  const wardrobeMap = new Map((wardrobePool || []).map((w) => [String(w.id), w]));
+  const effOccasion =
+    requestedOccasion && requestedOccasion !== 'Any occasion' ? requestedOccasion : 'Casual';
+
+  return rawOutfits.slice(0, 3).map((raw, idx) => {
+    const items = (raw.items || []).map((item) => {
+      const localMatch = wardrobeMap.get(String(item.id));
+      const name = item.clothing_name || (item as any).name || localMatch?.name || 'Garment';
+      const cat = item.category || localMatch?.category || 'TOP';
+      const imgUrl =
+        item.image_url ||
+        (item as any).image ||
+        localMatch?.image ||
+        resolveDatasetGarmentPhoto(name, cat, null);
+      return {
+        ...item,
+        id: String(item.id || localMatch?.id || `item-${idx}`),
+        clothing_name: name,
+        category: cat,
+        image_url: imgUrl,
+        color: item.color || localMatch?.color || 'Neutral',
+      };
+    });
+
+    return {
+      ...raw,
+      id: raw.id && isUuid(raw.id) ? raw.id : Crypto.randomUUID(),
+      occasion: raw.occasion || effOccasion,
+      score:
+        typeof raw.hybrid_score === 'number'
+          ? raw.hybrid_score
+          : typeof raw.score === 'number'
+          ? raw.score
+          : 91 - idx * 4,
+      reasons: Array.isArray(raw.reasons) ? raw.reasons : [],
+      is_saved: Boolean(raw.is_saved),
+      is_worn: Boolean(raw.is_worn),
+      items,
+    };
+  });
+}
+
 export async function generateRecommendations(
   occasion: string,
   accessToken: string,
@@ -1007,6 +1102,16 @@ export async function generateRecommendations(
   const normalizedOccasion = occasion && occasion !== 'Any occasion' ? occasion.toUpperCase() : 'ANY';
   const genderMatchedSignal = options?.actorGender ? (await getGenderMatchedInteractions(options.actorGender)).length : 0;
   const tasteSignals = await getCommunityTasteSignals(options?.actorGender || 'unknown');
+
+  const mappedWardrobeForApi = (options?.wardrobeItems || []).map((w) => ({
+    id: String(w.id),
+    clothing_name: w.name,
+    category: w.category,
+    color: w.color || 'Neutral',
+    style: w.style || 'CASUAL',
+    image_url: w.image || null,
+    laundry_status: w.status === 'needs-washing' || w.status === 'needs_washing' ? 'NEEDS_WASHING' : 'CLEAN',
+  }));
 
   // 1. Try POST /api/wardrobe/recommend as requested by thesis Chapters 1–3
   try {
@@ -1018,7 +1123,10 @@ export async function generateRecommendations(
       },
       body: JSON.stringify({
         occasion: normalizedOccasion,
+        target_occasion: occasion && occasion !== 'Any occasion' ? occasion : 'Casual',
         no_new_clothes_mode: options?.noNewClothesMode ?? false,
+        source_mode: options?.outfitSourceMode === 'closet' ? 'wardrobe' : 'mix',
+        wardrobe: mappedWardrobeForApi,
         community_signals: {
           is_user_liked_cross_gender: tasteSignals.is_user_liked_cross_gender,
           cross_gender_affinity: tasteSignals.crossGenderAffinity,
@@ -1029,6 +1137,8 @@ export async function generateRecommendations(
         weather: options?.weather
           ? {
               temp_f: options.weather.tempF,
+              temperature_c:
+                options.weather.tempC ?? Math.round(((options.weather.tempF - 32) * 5) / 9),
               condition: options.weather.condition,
               location: options.weather.location,
             }
@@ -1038,12 +1148,28 @@ export async function generateRecommendations(
 
     if (postResponse.ok) {
       const body = await postResponse.json();
-      const rawOutfits = (body.data as ApiOutfit[]) || [];
-      if (rawOutfits.length > 0) {
-        const rotated = rotateOutfitItems(rawOutfits, options?.wardrobeItems, occasion, options?.outfitSourceMode);
-        return rotated
+      const rawList: ApiOutfit[] = Array.isArray(body?.data)
+        ? body.data
+        : Array.isArray(body?.recommendations)
+        ? body.recommendations
+        : Array.isArray(body)
+        ? body
+        : [];
+
+      if (rawList.length > 0) {
+        const hasDirectItems = rawList.some(
+          (o) => Array.isArray(o.items) && o.items.length >= 2
+        );
+        const prepared = hasDirectItems
+          ? hydrateApiOutfitsFromBackend(rawList, options?.wardrobeItems, occasion)
+          : rotateOutfitItems(rawList, options?.wardrobeItems, occasion, options?.outfitSourceMode);
+
+        const mapped = prepared
           .slice(0, 3)
-          .map((outfit, index) => mapOutfit(outfit, index, options?.weather, options?.noNewClothesMode, genderMatchedSignal));
+          .map((outfit, index) =>
+            mapOutfit(outfit, index, options?.weather, options?.noNewClothesMode, genderMatchedSignal)
+          );
+        return enforceStrictDescendingTop3(mapped);
       }
     }
   } catch (err) {
@@ -1061,10 +1187,19 @@ export async function generateRecommendations(
     const body = await response.json();
     if (response.ok) {
       const rawOutfits = (body.data as ApiOutfit[]) || [];
-      const rotated = rotateOutfitItems(rawOutfits, options?.wardrobeItems, occasion, options?.outfitSourceMode);
-      return rotated
+      const hasDirectItems = rawOutfits.some(
+        (o) => Array.isArray(o.items) && o.items.length >= 2
+      );
+      const prepared = hasDirectItems
+        ? hydrateApiOutfitsFromBackend(rawOutfits, options?.wardrobeItems, occasion)
+        : rotateOutfitItems(rawOutfits, options?.wardrobeItems, occasion, options?.outfitSourceMode);
+
+      const mapped = prepared
         .slice(0, 3)
-        .map((outfit, index) => mapOutfit(outfit, index, options?.weather, options?.noNewClothesMode, genderMatchedSignal));
+        .map((outfit, index) =>
+          mapOutfit(outfit, index, options?.weather, options?.noNewClothesMode, genderMatchedSignal)
+        );
+      return enforceStrictDescendingTop3(mapped);
     }
   } catch (err) {
     if (__DEV__) {
@@ -1073,9 +1208,12 @@ export async function generateRecommendations(
   }
 
   const rotatedFallback = rotateOutfitItems([], options?.wardrobeItems, occasion, options?.outfitSourceMode);
-  return rotatedFallback
+  const mappedFallback = rotatedFallback
     .slice(0, 3)
-    .map((outfit, index) => mapOutfit(outfit, index, options?.weather, options?.noNewClothesMode, genderMatchedSignal));
+    .map((outfit, index) =>
+      mapOutfit(outfit, index, options?.weather, options?.noNewClothesMode, genderMatchedSignal)
+    );
+  return enforceStrictDescendingTop3(mappedFallback);
 }
 
 export async function getRecommendationHistory(accessToken: string): Promise<GeneratedOutfit[]> {

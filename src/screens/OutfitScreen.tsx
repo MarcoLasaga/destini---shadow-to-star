@@ -68,29 +68,22 @@ const toAnatomical = (slot: OutfitSlotKey) =>
 
 const PERMANENT_RANKS = ['TOP 1', 'TOP 2', 'TOP 3'] as const;
 
-const ROLE_BADGES = [
-  'Weather-Smart',
-  'Signature Comfort',
-  'Fresh Mix',
-] as const;
-
 const STYLING_NOTES_BY_RANK = [
   "Cute fit incoming! Let's style this look!",
   "Looking good today! Your vibe is ready.",
   "Your next favorite look awaits!",
 ] as const;
 
-function formatCleanOutfitTitle(rawName?: string, occasionLabel?: string, idx = 0): string {
-  const fallbackTitles = ['Everyday Essential', 'Relaxed Editorial', 'Modern Classic'];
-  if (!rawName) return fallbackTitles[idx % fallbackTitles.length];
+function formatCleanOutfitTitle(rawName?: string, occasionLabel?: string, _idx = 0): string {
+  const occ =
+    occasionLabel && occasionLabel !== 'Any occasion' ? occasionLabel : 'Casual';
+  if (!rawName) return `${occ} Look`;
   // Strip robotic "· Item1 + Item2" concatenations if present
   const beforeBullet = rawName.split('·')[0].trim();
   if (beforeBullet && beforeBullet.length >= 3 && !/\bIm\b/i.test(beforeBullet)) {
     return beforeBullet;
   }
-  const occ =
-    occasionLabel && occasionLabel !== 'Any occasion' ? occasionLabel : 'Everyday';
-  return `${occ} ${fallbackTitles[idx % fallbackTitles.length]}`;
+  return `${occ} Look`;
 }
 
 const getSlotRank = (item?: { category?: string; slotType?: string; name?: string } | null): number => {
@@ -168,6 +161,22 @@ export default function OutfitScreen() {
   const [vtonSignatureCache, setVtonSignatureCache] = useState<Record<string, string>>({});
   const [isPreloadingVton, setIsPreloadingVton] = useState<boolean>(false);
   const preloadRunIdRef = useRef(0);
+
+  // In-flight guard refs so TOP 1 (and each rank) is only requested ONCE without duplicate concurrent /try-on-2d calls
+  const inFlightVtonRef = useRef<Set<string>>(new Set());
+  const inFlightVtonPromisesRef = useRef<
+    Map<string, Promise<{ compositeDataUri: string | null; usedServerComposite: boolean }>>
+  >(new Map());
+  const vtonCacheByOutfitIndexRef = useRef<Record<number, string>>({});
+  const vtonSignatureCacheRef = useRef<Record<string, string>>({});
+
+  useEffect(() => {
+    vtonCacheByOutfitIndexRef.current = vtonCacheByOutfitIndex;
+  }, [vtonCacheByOutfitIndex]);
+
+  useEffect(() => {
+    vtonSignatureCacheRef.current = vtonSignatureCache;
+  }, [vtonSignatureCache]);
 
   const [wardrobeOutfits, setWardrobeOutfits] = useState<GeneratedOutfit[]>([]);
   const [mixOutfits, setMixOutfits] = useState<GeneratedOutfit[]>([]);
@@ -265,21 +274,40 @@ export default function OutfitScreen() {
   const hasCompleteWardrobe = hasTop && hasBottom && hasShoes && items.length >= 3;
   const sourceMode: 'wardrobe' | 'mix' = outfitSourceMode === 'closet' ? 'wardrobe' : 'mix';
 
-  // Dynamically compute deterministic hybrid score for all top-3 outfits
+  // Preserve the Top 3 recommendations in strict descending Hybrid Score order (TOP 1 >= TOP 2 >= TOP 3)
   const scoredCurrentOutfits = useMemo(() => {
-    return currentOutfits.slice(0, 3).map((outfit) => {
-      const calculatedScore = computeAccurateOutfitScore(
-        outfit.clothingItems || [],
-        profile,
-        weather,
-        occasion
-      );
+    const mapped = currentOutfits.slice(0, 3).map((outfit) => {
+      const existingScore = outfit.hybridScore ?? outfit.matchPercent;
+      const resolvedScore =
+        typeof existingScore === 'number' && existingScore > 0
+          ? Math.round(existingScore)
+          : computeAccurateOutfitScore(
+              outfit.clothingItems || [],
+              profile,
+              weather,
+              occasion
+            );
       return {
         ...outfit,
-        hybridScore: calculatedScore,
-        matchPercent: calculatedScore,
+        hybridScore: resolvedScore,
+        matchPercent: resolvedScore,
       };
     });
+
+    // Guarantee strict non-increasing score hierarchy on tabs: TOP 1 >= TOP 2 >= TOP 3
+    for (let i = 1; i < mapped.length; i++) {
+      const prevScore = mapped[i - 1].hybridScore ?? mapped[i - 1].matchPercent ?? 90;
+      const currScore = mapped[i].hybridScore ?? mapped[i].matchPercent ?? 85;
+      if (currScore > prevScore) {
+        mapped[i] = {
+          ...mapped[i],
+          hybridScore: prevScore,
+          matchPercent: prevScore,
+        };
+      }
+    }
+
+    return mapped;
   }, [currentOutfits, profile, weather, occasion]);
 
   useEffect(() => {
@@ -316,6 +344,108 @@ export default function OutfitScreen() {
     }));
   }, []);
 
+  // Deduplicated single-outfit VTON renderer using inFlightVtonRef guard
+  const renderSingleOutfitVton = useCallback(
+    async (
+      idx: number,
+      outfit: GeneratedOutfit,
+      photoSource: string
+    ): Promise<string | null> => {
+      const sig = buildOutfitSignature(photoSource, outfit) || `rank_${idx}_${outfit.id}`;
+      const rankKey = `rank_${idx}`;
+
+      // 1. Return immediately if already cached in memory or signature cache
+      const cachedDirect =
+        vtonCacheByOutfitIndexRef.current[idx] || vtonSignatureCacheRef.current[sig];
+      if (cachedDirect) {
+        if (!vtonCacheByOutfitIndexRef.current[idx]) {
+          vtonCacheByOutfitIndexRef.current[idx] = cachedDirect;
+          setVtonCacheByOutfitIndex((prev) => ({ ...prev, [idx]: cachedDirect }));
+        }
+        return cachedDirect;
+      }
+
+      // 2. In-flight guard: if this outfit/rank is currently rendering, await existing promise
+      const existingPromise =
+        inFlightVtonPromisesRef.current.get(sig) ||
+        inFlightVtonPromisesRef.current.get(rankKey);
+      if (
+        existingPromise ||
+        inFlightVtonRef.current.has(sig) ||
+        inFlightVtonRef.current.has(rankKey)
+      ) {
+        if (existingPromise) {
+          try {
+            const sharedRes = await existingPromise;
+            if (sharedRes?.compositeDataUri) {
+              const uri = sharedRes.compositeDataUri;
+              vtonCacheByOutfitIndexRef.current[idx] = uri;
+              setVtonCacheByOutfitIndex((prev) => ({ ...prev, [idx]: uri }));
+              return uri;
+            }
+          } catch {
+            return null;
+          }
+        }
+        return vtonCacheByOutfitIndexRef.current[idx] || null;
+      }
+
+      // 3. Mark as in-flight before launching POST /try-on-2d
+      inFlightVtonRef.current.add(sig);
+      inFlightVtonRef.current.add(rankKey);
+
+      const reqPromise = requestTryOn2D(
+        photoSource,
+        normalizeItemsForVton(outfit.clothingItems || []),
+        session?.access_token,
+        65000
+      );
+      inFlightVtonPromisesRef.current.set(sig, reqPromise);
+      inFlightVtonPromisesRef.current.set(rankKey, reqPromise);
+
+      try {
+        const res = await reqPromise;
+        if (res?.compositeDataUri) {
+          const compUri = res.compositeDataUri;
+          vtonCacheByOutfitIndexRef.current[idx] = compUri;
+          setVtonCacheByOutfitIndex((prev) => ({
+            ...prev,
+            [idx]: compUri,
+          }));
+
+          vtonSignatureCacheRef.current[sig] = compUri;
+          setVtonSignatureCache((prev) => {
+            const updated = { ...prev, [sig]: compUri };
+            const keys = Object.keys(updated);
+            if (keys.length > 12) {
+              delete updated[keys[0]];
+            }
+            AsyncStorage.setItem(VTON_SIGNATURE_CACHE_KEY, JSON.stringify(updated)).catch(() => {});
+            return updated;
+          });
+          return compUri;
+        }
+        return null;
+      } catch {
+        return null;
+      } finally {
+        inFlightVtonRef.current.delete(sig);
+        inFlightVtonRef.current.delete(rankKey);
+        inFlightVtonPromisesRef.current.delete(sig);
+        inFlightVtonPromisesRef.current.delete(rankKey);
+      }
+    },
+    [normalizeItemsForVton, session?.access_token]
+  );
+
+  const top3SignaturesKey = useMemo(
+    () =>
+      top3
+        .map((o, idx) => buildOutfitSignature(photoSourceForVton || '', o) || `${o.id}_${idx}`)
+        .join('||'),
+    [top3, photoSourceForVton]
+  );
+
   // Sequential Background VTON Pre-Loading for ALL Recommended Outfits (Top 1 -> Top 2 -> Top 3)
   useEffect(() => {
     if (!isFullBodyPhotoVerified || !photoSourceForVton || top3.length === 0) {
@@ -331,55 +461,24 @@ export default function OutfitScreen() {
       const initialHits: Record<number, string> = {};
       for (let idx = 0; idx < top3.length; idx++) {
         const sig = buildOutfitSignature(photoSourceForVton, top3[idx]);
-        if (sig && vtonSignatureCache[sig]) {
-          initialHits[idx] = vtonSignatureCache[sig];
+        if (sig && vtonSignatureCacheRef.current[sig]) {
+          initialHits[idx] = vtonSignatureCacheRef.current[sig];
         }
       }
       if (Object.keys(initialHits).length > 0 && preloadRunIdRef.current === runId) {
+        vtonCacheByOutfitIndexRef.current = {
+          ...vtonCacheByOutfitIndexRef.current,
+          ...initialHits,
+        };
         setVtonCacheByOutfitIndex((prev) => ({ ...prev, ...initialHits }));
       }
 
-      // Step 2: Sequentially pre-load remaining uncached outfits (idx = 0 -> 1 -> 2)
+      // Step 2: Render TOP 1 (idx = 0) first; only after TOP 1 finishes, sequentially pre-load TOP 2 and TOP 3
       for (let idx = 0; idx < top3.length; idx++) {
         if (preloadRunIdRef.current !== runId) return;
-
         const outfit = top3[idx];
-        const sig = buildOutfitSignature(photoSourceForVton, outfit);
-        if (initialHits[idx] || (sig && vtonSignatureCache[sig])) {
-          continue;
-        }
-
-        try {
-          const res = await requestTryOn2D(
-            photoSourceForVton,
-            normalizeItemsForVton(outfit.clothingItems || []),
-            session?.access_token,
-            65000
-          );
-
-          if (preloadRunIdRef.current !== runId) return;
-
-          if (res?.compositeDataUri) {
-            setVtonCacheByOutfitIndex((prev) => ({
-              ...prev,
-              [idx]: res.compositeDataUri!,
-            }));
-
-            if (sig) {
-              setVtonSignatureCache((prev) => {
-                const updated = { ...prev, [sig]: res.compositeDataUri! };
-                const keys = Object.keys(updated);
-                if (keys.length > 12) {
-                  delete updated[keys[0]];
-                }
-                AsyncStorage.setItem(VTON_SIGNATURE_CACHE_KEY, JSON.stringify(updated)).catch(() => {});
-                return updated;
-              });
-            }
-          }
-        } catch {
-          // Continue to next outfit in queue
-        }
+        if (!outfit) continue;
+        await renderSingleOutfitVton(idx, outfit, photoSourceForVton);
       }
 
       if (preloadRunIdRef.current === runId) {
@@ -391,9 +490,8 @@ export default function OutfitScreen() {
   }, [
     isFullBodyPhotoVerified,
     photoSourceForVton,
-    top3,
-    session?.access_token,
-    normalizeItemsForVton,
+    top3SignaturesKey,
+    renderSingleOutfitVton,
   ]);
 
   const preloadedCount = useMemo(() => {
@@ -627,7 +725,6 @@ export default function OutfitScreen() {
 
   const activeCompositeUri = vtonCacheByOutfitIndex[activeIndex] || null;
   const activeScore = activeOutfit?.hybridScore ?? activeOutfit?.matchPercent ?? 90;
-  const activeRoleBadge = ROLE_BADGES[activeIndex] || ROLE_BADGES[0];
   const cleanActiveTitle = formatCleanOutfitTitle(activeOutfit?.name, occasion, activeIndex);
 
   return (
@@ -835,28 +932,11 @@ export default function OutfitScreen() {
               </View>
             </View>
 
-            {/* Clean Editorial Title + Role Pill Row */}
+            {/* Clean Editorial Title Row (No Archetype Badge) */}
             <View style={styles.altaTitleRow}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.altaOutfitTitle, { color: theme.text }]} numberOfLines={1}>
                   {cleanActiveTitle}
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.roleBadgePill,
-                  {
-                    backgroundColor: isDark ? 'rgba(54, 69, 54, 0.45)' : '#EBF0EB',
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.roleBadgePillText,
-                    { color: isDark ? '#F3F1EF' : '#364536' },
-                  ]}
-                >
-                  {activeRoleBadge}
                 </Text>
               </View>
             </View>

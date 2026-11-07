@@ -270,15 +270,15 @@ export default function OutfitCustomizeModal({
             </View>
           </View>
 
-          {/* Action Buttons: Wear Today + Close */}
+          {/* Action Buttons: Save Customized Outfit + Close */}
           <View style={styles.headerRightActions}>
             <Pressable
               onPress={handleWearToday}
               style={[styles.wearTodayBtn, { backgroundColor: '#364536' }]}
-              accessibilityLabel="Wear this outfit today"
+              accessibilityLabel="Save customized outfit"
             >
               <Ionicons name="checkmark-circle" size={14} color="#FFFFFF" />
-              <Text style={styles.wearTodayText}>Wear Today</Text>
+              <Text style={styles.wearTodayText}>Save Customized Outfit</Text>
             </Pressable>
             <Pressable
               onPress={handleClose}

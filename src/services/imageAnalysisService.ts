@@ -495,6 +495,11 @@ export async function verifyFullBodyPhoto(
  * { user_photo_base64, items, hf_token }
  * Uses yisol/IDM-VTON diffusion on Hugging Face ZeroGPU with 65s timeout.
  */
+const inFlightTryOn2DRequests = new Map<
+  string,
+  Promise<{ compositeDataUri: string | null; usedServerComposite: boolean }>
+>();
+
 export async function requestTryOn2D(
   userFullBodyPhotoUri: string,
   items: Array<any>,
@@ -505,55 +510,82 @@ export async function requestTryOn2D(
   const userPhotoBase64 = await uriToBase64(userFullBodyPhotoUri);
   const normalizedItems = (items || []).map(normalizeItemForMlService);
 
-  const payload = {
-    user_photo_base64: userPhotoBase64,
-    items: normalizedItems,
-    hf_token: hfToken || undefined,
-  };
+  const itemSig = normalizedItems
+    .map((it) => `${it.id || it.clothing_name}_${it.category}`)
+    .sort()
+    .join('|');
+  const dedupeKey = `${userPhotoBase64.slice(-48)}::${itemSig}`;
 
-  const endpoints = [
-    `${ML_SPACE_URL}/try-on-2d`,
-    `${getApiUrl()}/wardrobe/try-on-2d`,
-    `${getApiUrl()}/try-on-2d`,
-  ];
-
-  for (const endpoint of endpoints) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-          ...(hfToken ? { 'x-hf-token': hfToken } : {}),
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
-      clearTimeout(timer);
-
-      if (response.ok) {
-        const body = await response.json();
-        const raw = body?.data || body || {};
-        const compositeUri =
-          raw.tryOnDataUri ||
-          raw.try_on_data_uri ||
-          raw.compositeDataUri ||
-          raw.composite_data_uri ||
-          raw.try_on_image ||
-          raw.image_url ||
-          null;
-        if (compositeUri && typeof compositeUri === 'string') {
-          return { compositeDataUri: compositeUri, usedServerComposite: true };
-        }
-      }
-    } catch {
-      clearTimeout(timer);
-    }
+  const existingInFlight = inFlightTryOn2DRequests.get(dedupeKey);
+  if (existingInFlight) {
+    return existingInFlight;
   }
 
-  return { compositeDataUri: null, usedServerComposite: false };
+  const runRequest = (async (): Promise<{
+    compositeDataUri: string | null;
+    usedServerComposite: boolean;
+  }> => {
+    const payload = {
+      user_photo_base64: userPhotoBase64,
+      items: normalizedItems,
+      hf_token: hfToken || undefined,
+    };
+
+    const endpoints = [
+      `${ML_SPACE_URL}/try-on-2d`,
+      `${getApiUrl()}/wardrobe/try-on-2d`,
+      `${getApiUrl()}/try-on-2d`,
+    ];
+
+    for (const endpoint of endpoints) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+            ...(hfToken ? { 'x-hf-token': hfToken } : {}),
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+        clearTimeout(timer);
+
+        if (response.ok) {
+          const body = await response.json();
+          const raw = body?.data || body || {};
+          const compositeUri =
+            raw.tryOnDataUri ||
+            raw.try_on_data_uri ||
+            raw.compositeDataUri ||
+            raw.composite_data_uri ||
+            raw.try_on_image ||
+            raw.image_url ||
+            null;
+          if (compositeUri && typeof compositeUri === 'string') {
+            return { compositeDataUri: compositeUri, usedServerComposite: true };
+          }
+        }
+        // If primary ML Space responded with an HTTP status, do not duplicate the call via proxy
+        if (endpoint.startsWith(ML_SPACE_URL)) {
+          break;
+        }
+      } catch {
+        clearTimeout(timer);
+      }
+    }
+
+    return { compositeDataUri: null, usedServerComposite: false };
+  })();
+
+  inFlightTryOn2DRequests.set(dedupeKey, runRequest);
+  try {
+    return await runRequest;
+  } finally {
+    inFlightTryOn2DRequests.delete(dedupeKey);
+  }
 }
 
 export const analyzeImage = analyzeClothingImage;
