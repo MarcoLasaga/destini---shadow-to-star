@@ -63,38 +63,32 @@ export const cookbookMock = {
 export const faqData: FaqItem[] = [
   {
     id: 'add-clothes',
-    question: 'How do I add clothes to my wardrobe?',
+    question: 'How do I add clothes to my Smart Wardrobe?',
     answer:
-      'Go to the Wardrobe tab and tap the "+" button. You can take a photo or upload from your gallery, then fill in the details.',
+      'Tap the + button in the Wardrobe tab to snap a photo or batch-upload up to 15 garment photos at once. StyleSense automatically removes the background via remove.bg, classifies each piece into 5 categories and 33 subtypes using our fine-tuned ResNet-50 CNN, and extracts its dominant CIELAB (K = 2) color palette.',
   },
   {
     id: 'outfit-generator',
-    question: 'How does the outfit generator work?',
+    question: 'How does the Outfit Generator work?',
     answer:
-      'The generator picks items from your clean wardrobe based on the season, weather, and occasion you choose. It avoids items that need washing.',
+      'Select your Target Occasion, choose between My Wardrobe (your own clothes) or Mix & Match (blending your wardrobe with suggested catalog pieces), and tap Generate Outfits. Our Weighted Hybrid Recommender combines 55% Content-Based Filtering (CIELAB color harmony, style coherence, occasion dress code, and real-time OpenWeatherMap weather) with 45% Collaborative Filtering to rank your Top 3 outfits.',
   },
   {
-    id: 'sustainability-score',
-    question: 'How is the sustainability score calculated?',
+    id: 'virtual-try-on',
+    question: "How does 'See It On Me' Virtual Try-On work?",
     answer:
-      "It's based on how often you wear your clothes. More wears per item = higher score. We encourage wearing each item at least 30 times.",
+      "Tap 'See It On Me' on any recommended outfit and upload or capture a standing photo. StyleSense uses a 2-pass full-body diffusion pipeline (IDM-VTON) to visualize the recommended Top, Outerwear, Bottom, and Shoes directly on your photo. Your photo stays 100% private and is never shared publicly.",
   },
   {
-    id: 'plan-outfits',
-    question: 'Can I plan outfits for specific dates?',
+    id: 'customize-outfit',
+    question: 'How do I customize a recommended outfit?',
     answer:
-      'Yes. Use the Planner tab to assign outfits to dates. You can also view the weekly planner together with weather forecasts.',
+      'Tap the Customize button on any recommended outfit to swap a garment slot with another item from your wardrobe or deselect optional layers like Outerwear or Accessories. Our mascot Mel recalculates your hybrid compatibility score in real time and explains how your swap affects the overall look before you tap Save Customized Outfit.',
   },
   {
-    id: 'mark-worn',
-    question: 'What happens when I mark an outfit as worn?',
+    id: 'community-moderation',
+    question: 'How does the Community Feed and AI Moderation work?',
     answer:
-      "Each clothing item's wear count increases, the last worn date updates, and the clothing item gradually progresses toward its laundry threshold.",
-  },
-  {
-    id: 'packing-assistant',
-    question: 'How does the packing assistant work?',
-    answer:
-      'Enter your destination and travel dates. StyleSense suggests clothing from your wardrobe and automatically generates a packing checklist based on your trip.',
+      'You can publish saved outfits to the Community Feed and like, save, repost, or follow other users. Your interactions help train the collaborative filtering engine, while automated 5-class NSFW image detection and bilingual (English and Tagalog) profanity filtering keep the community safe.',
   },
 ];

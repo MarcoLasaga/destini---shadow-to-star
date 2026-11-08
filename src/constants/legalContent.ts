@@ -6,16 +6,16 @@ Last updated: July 2026
 StyleSense collects information you provide directly, including your name, email address, clothing preferences, and wardrobe details you choose to add to the application.
 
 2. USER INFORMATION
-We store your profile information (name, display name, clothing sizes, and location) to personalize your experience, including outfit recommendations and packing suggestions.
+We store your profile information (name, display name, clothing sizes, and location) to personalize your experience, including personalized outfit recommendations and virtual try-on.
 
 3. WARDROBE IMAGES
-Photos of clothing items you upload are stored to build your digital wardrobe. These images are used solely to power features such as outfit generation, wardrobe analytics, and the packing assistant.
+Photos of clothing items you upload are stored to build your digital wardrobe. These images are used solely to power features such as outfit generation, color harmony analysis, and virtual try-on.
 
 4. LOCATION USAGE
-With your permission, StyleSense accesses your device location to provide local weather data and destination-based packing suggestions. Location data is not shared with third parties for advertising purposes.
+With your permission, StyleSense accesses your device location to provide real-time local weather context for outfit recommendations. Location data is not shared with third parties for advertising purposes.
 
 5. WEATHER SERVICES
-We use third-party weather providers to display current conditions and forecasts relevant to your outfit and packing recommendations. These requests include only the coordinates necessary to retrieve weather data.
+We use third-party weather providers to display current conditions and forecasts relevant to your outfit recommendations. These requests include only the coordinates necessary to retrieve weather data.
 
 6. ANALYTICS
 We may collect anonymized usage analytics to improve application performance and user experience. This data does not personally identify you.

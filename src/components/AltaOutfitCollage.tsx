@@ -59,14 +59,6 @@ interface AltaOutfitCollageProps {
 
 type CollageSlotKey = 'TOP' | 'OUTERWEAR' | 'BOTTOM' | 'SHOES' | 'ACCESSORIES';
 
-const SLOT_BADGE_LABELS: Record<CollageSlotKey, string> = {
-  TOP: 'TOP',
-  OUTERWEAR: 'LAYER',
-  BOTTOM: 'BOTTOM',
-  SHOES: 'SHOES',
-  ACCESSORIES: 'DETAIL',
-};
-
 function classifyCollageSlot(item: AltaCollageItem): CollageSlotKey {
   const role = (item.layerRole || item.layer_role || '').toUpperCase().trim();
   if (role === 'INNER_BASE') return 'TOP';
@@ -180,17 +172,13 @@ export default function AltaOutfitCollage({
     );
   };
 
-  // Studio tile styling so dark garments never vanish into dark backgrounds
-  const canvasBg = isDark ? '#141816' : '#EFECE6';
-  const canvasBorder = isDark ? '#252D29' : '#DFDCD5';
-  const tileBg = isDark ? '#1E2521' : '#FFFFFF';
-  const tileBorder = isDark ? '#2D3731' : '#E5E2DB';
-
-  const renderStudioTile = (
+  // Render clean borderless cutout inside the single unified #FFFFFF studio container
+  const renderFlatLayCutout = (
     piece: AltaCollageItem | null,
     flexWeight: number,
     slotOverride?: CollageSlotKey,
-    keySuffix = 'tile'
+    keySuffix = 'cutout',
+    extraStyle?: any
   ) => {
     if (!piece) return null;
     const slotKey = slotOverride || classifyCollageSlot(piece);
@@ -225,66 +213,40 @@ export default function AltaOutfitCollage({
       <Wrapper
         key={itemKey}
         onPress={interactive ? () => handleTapPiece(piece) : undefined}
+        accessibilityLabel={`Inspect ${displayName}`}
         style={[
-          styles.studioTile,
+          styles.cutoutSlot,
           {
             flex: flexWeight,
-            backgroundColor: tileBg,
-            borderColor: isSelected ? '#4C6B54' : tileBorder,
-            borderWidth: isSelected ? 1.8 : 1,
-            borderRadius: compact ? 10 : 14,
-            padding: compact ? 5 : 10,
+            backgroundColor: isSelected ? 'rgba(54, 69, 54, 0.06)' : 'transparent',
+            borderColor: isSelected ? 'rgba(54, 69, 54, 0.28)' : 'transparent',
+            borderWidth: isSelected ? 1.5 : 0,
+            borderRadius: 12,
           },
+          extraStyle,
         ]}
       >
-        <View style={styles.tileImageStage}>
-          {hasValidUri && uri ? (
-            <Image
-              source={{ uri }}
-              style={styles.cutoutImage}
-              resizeMode="contain"
-              onError={() =>
-                setFailedUris((prev) => ({
-                  ...prev,
-                  [itemKey]: true,
-                }))
-              }
-            />
-          ) : (
-            <CanonicalStudioGarmentSvg
-              name={displayName}
-              category={piece.category || slotKey}
-              vectorSubtype={piece.vector_subtype}
-              colorHex={primaryHex}
-              secondaryColor={secondaryHex || undefined}
-              size={compact ? 58 : 108}
-            />
-          )}
-        </View>
-
-        {!compact && (
-          <View style={styles.tileFooterRow}>
-            <View
-              style={[
-                styles.tileColorDot,
-                {
-                  backgroundColor: primaryHex,
-                  borderColor: isDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.16)',
-                },
-              ]}
-            />
-            <Text style={[styles.tilePieceName, { color: theme.text }]} numberOfLines={1}>
-              {displayName}
-            </Text>
-            <Text
-              style={[
-                styles.tileSlotTag,
-                { color: isDark ? '#8AB896' : '#364536' },
-              ]}
-            >
-              {SLOT_BADGE_LABELS[slotKey]}
-            </Text>
-          </View>
+        {hasValidUri && uri ? (
+          <Image
+            source={{ uri }}
+            style={styles.cutoutImage}
+            resizeMode="contain"
+            onError={() =>
+              setFailedUris((prev) => ({
+                ...prev,
+                [itemKey]: true,
+              }))
+            }
+          />
+        ) : (
+          <CanonicalStudioGarmentSvg
+            name={displayName}
+            category={piece.category || slotKey}
+            vectorSubtype={piece.vector_subtype}
+            colorHex={primaryHex}
+            secondaryColor={secondaryHex || undefined}
+            size={compact ? 64 : 118}
+          />
         )}
       </Wrapper>
     );
@@ -345,7 +307,7 @@ export default function AltaOutfitCollage({
       cleanedRawNote ||
       (secondaryName
         ? `${primaryName} base paired with ${secondaryName} accent.`
-        : `Solid ${primaryName.toLowerCase()} tone.`);
+        : `Dominant ${primaryName.toLowerCase()} tone.`);
 
     return (
       <Pressable
@@ -428,48 +390,59 @@ export default function AltaOutfitCollage({
       style={[
         styles.canvasContainer,
         {
-          backgroundColor: canvasBg,
-          borderColor: canvasBorder,
-          borderWidth: 1,
-          borderRadius: compact ? 12 : 18,
-          padding: compact ? 6 : 12,
-          aspectRatio: compact ? 0.92 : 0.94,
+          backgroundColor: '#FFFFFF',
+          borderColor: isDark ? 'rgba(255, 255, 255, 0.14)' : '#E5E2DB',
+          borderRadius: compact ? 14 : 20,
+          paddingHorizontal: compact ? 8 : 16,
+          paddingVertical: compact ? 8 : 14,
+          aspectRatio: compact ? 0.94 : 0.96,
         },
       ]}
     >
-      <View style={[styles.bentoGridRow, { gap: compact ? 6 : 10 }]}>
-        {/* Left Column: Primary Top + Bottom (or Shoes if 2-piece look) */}
-        <View style={[styles.bentoColumn, { gap: compact ? 6 : 10 }]}>
-          {renderStudioTile(grouped.top, 1.15, 'TOP', 'left-top')}
+      <View style={styles.flatLayStage}>
+        {/* Left/Center Primary Column: Top (upper-left) + Bottom tucked closely underneath */}
+        <View style={[styles.leftPrimaryColumn, { flex: rightColumnHasUpper ? 1.18 : 1.1 }]}>
+          {renderFlatLayCutout(grouped.top, 1.08, 'TOP', 'left-top', {
+            marginBottom: compact ? -4 : -8,
+            zIndex: 2,
+          })}
           {rightColumnHasUpper
-            ? renderStudioTile(grouped.bottom, 1.25, 'BOTTOM', 'left-bottom')
-            : renderStudioTile(grouped.shoes, 0.85, 'SHOES', 'left-shoes')}
+            ? renderFlatLayCutout(grouped.bottom, 1.18, 'BOTTOM', 'left-bottom', {
+                marginTop: compact ? -4 : -6,
+                zIndex: 1,
+              })
+            : renderFlatLayCutout(grouped.shoes, 0.82, 'SHOES', 'left-shoes')}
         </View>
 
-        {/* Right Column: Outerwear / Accessories + Footwear (or Bottom if 3-piece look) */}
-        <View style={[styles.bentoColumn, { gap: compact ? 6 : 10 }]}>
+        {/* Right Companion Column: Outerwear / Accessory (upper-right) + Shoes (lower-right) */}
+        <View style={[styles.rightCompanionColumn, { flex: 0.92 }]}>
           {hasOuterwear ? (
             <>
-              {renderStudioTile(grouped.outerwear, 1.15, 'OUTERWEAR', 'right-outer')}
+              {renderFlatLayCutout(grouped.outerwear, 1.12, 'OUTERWEAR', 'right-outer')}
               {hasAccessories
-                ? renderStudioTile(grouped.accessories[0], 0.85, 'ACCESSORIES', 'right-acc-0')
+                ? renderFlatLayCutout(grouped.accessories[0], 0.68, 'ACCESSORIES', 'right-acc-0')
                 : null}
-              {renderStudioTile(grouped.shoes, 0.85, 'SHOES', 'right-shoes')}
+              {renderFlatLayCutout(grouped.shoes, 0.82, 'SHOES', 'right-shoes')}
             </>
           ) : hasAccessories ? (
             <>
               {grouped.accessories.slice(0, 2).map((acc, idx) =>
-                renderStudioTile(acc, 0.95, 'ACCESSORIES', `right-acc-${idx}`)
+                renderFlatLayCutout(acc, 0.78, 'ACCESSORIES', `right-acc-${idx}`)
               )}
-              {renderStudioTile(grouped.shoes, 0.95, 'SHOES', 'right-shoes-with-acc')}
+              {renderFlatLayCutout(grouped.shoes, 0.92, 'SHOES', 'right-shoes-with-acc')}
             </>
           ) : (
-            renderStudioTile(grouped.bottom, 1, 'BOTTOM', 'right-bottom-solo')
+            <>
+              {renderFlatLayCutout(grouped.bottom, 1.15, 'BOTTOM', 'right-bottom-solo')}
+              {grouped.shoes
+                ? renderFlatLayCutout(grouped.shoes, 0.85, 'SHOES', 'right-shoes-solo')
+                : null}
+            </>
           )}
         </View>
       </View>
 
-      {/* Interactive Garment Popover */}
+      {/* Interactive Garment Popover when user taps any garment cutout */}
       {renderPopover()}
 
       {/* Pagination Indicator Centered at Bottom */}
@@ -488,13 +461,7 @@ export default function AltaOutfitCollage({
                   style={[
                     isActive ? styles.paginationActiveBar : styles.paginationDot,
                     {
-                      backgroundColor: isActive
-                        ? isDark
-                          ? '#8AB896'
-                          : '#364536'
-                        : isDark
-                        ? '#38443D'
-                        : '#B8B5B0',
+                      backgroundColor: isActive ? '#364536' : '#C6C3BD',
                     },
                   ]}
                 />
@@ -510,65 +477,51 @@ export default function AltaOutfitCollage({
 const styles = StyleSheet.create({
   canvasContainer: {
     width: '100%',
+    borderWidth: 1,
     justifyContent: 'space-between',
     overflow: 'hidden',
     position: 'relative',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  bentoGridRow: {
+  flatLayStage: {
     flex: 1,
     flexDirection: 'row',
-    alignItems: 'stretch',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 4,
   },
-  bentoColumn: {
-    flex: 1,
+  leftPrimaryColumn: {
     height: '100%',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  studioTile: {
-    width: '100%',
-    justifyContent: 'space-between',
-    overflow: 'hidden',
+  rightCompanionColumn: {
+    height: '100%',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 4,
   },
-  tileImageStage: {
-    flex: 1,
+  cutoutSlot: {
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 2,
+    padding: 2,
   },
   cutoutImage: {
-    width: '94%',
-    height: '94%',
-  },
-  tileFooterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingTop: 4,
-  },
-  tileColorDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    borderWidth: 0.8,
-  },
-  tilePieceName: {
-    flex: 1,
-    fontSize: 10.5,
-    fontWeight: '700',
-  },
-  tileSlotTag: {
-    fontSize: 8.5,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    width: '95%',
+    height: '95%',
   },
   paginationBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingTop: 8,
+    paddingTop: 6,
   },
   paginationHit: {
     padding: 2,
@@ -589,7 +542,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 12,
     right: 12,
-    bottom: 28,
+    bottom: 26,
     borderRadius: 14,
     borderWidth: 1,
     padding: 12,
@@ -599,6 +552,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 5,
+    zIndex: 20,
   },
   popoverHeader: {
     flexDirection: 'row',

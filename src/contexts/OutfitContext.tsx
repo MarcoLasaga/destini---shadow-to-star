@@ -303,21 +303,13 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
     [session, noNewClothesMode, outfitSourceMode, weather, wardrobe.items, localPrefs, profile.gender]
   );
 
-  const setOccasion = useCallback(
-    (newOccasion: string) => {
-      setOccasionState(newOccasion);
-      runWithLoading(newOccasion, noNewClothesMode, outfitSourceMode);
-    },
-    [noNewClothesMode, outfitSourceMode, runWithLoading]
-  );
+  const setOccasion = useCallback((newOccasion: string) => {
+    setOccasionState(newOccasion);
+  }, []);
 
-  const setOutfitSourceMode = useCallback(
-    (newSourceMode: 'closet' | 'bestForOccasion') => {
-      setOutfitSourceModeState(newSourceMode);
-      runWithLoading(occasion, noNewClothesMode, newSourceMode);
-    },
-    [occasion, noNewClothesMode, runWithLoading]
-  );
+  const setOutfitSourceMode = useCallback((newSourceMode: 'closet' | 'bestForOccasion') => {
+    setOutfitSourceModeState(newSourceMode);
+  }, []);
 
   const toggleNoNewClothesMode = useCallback(() => {
     setNoNewClothesMode((prev) => {

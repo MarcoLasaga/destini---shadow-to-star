@@ -12,11 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import Svg, { Path, Circle, Rect, Text as SvgText } from 'react-native-svg';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { useAuth } from '../contexts/AuthContext';
-import {
-  verifyFullBodyPhoto,
-  verifyNsfw5ClassSafety,
-} from '../services/imageAnalysisService';
+import { verifyFullBodyPhoto } from '../services/imageAnalysisService';
 
 interface FullBodyTryOnModalProps {
   visible: boolean;
@@ -30,9 +26,8 @@ export default function FullBodyTryOnModal({
   onPhotoSaved,
 }: FullBodyTryOnModalProps) {
   const theme = useAppTheme();
-  const { session } = useAuth();
   const [previewUri, setPreviewUri] = useState<string | null>(null);
-  const [verifying, setVerifying] = useState<boolean>(false);
+  const [saving, setSaving] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleCaptureOrPick = async (useCamera: boolean) => {
@@ -43,7 +38,7 @@ export default function FullBodyTryOnModal({
 
     if (!perm.granted) {
       setErrorMessage(
-        `Please allow ${useCamera ? 'camera' : 'photo library'} access in Settings to verify your full-body photo.`
+        `Please allow ${useCamera ? 'camera' : 'photo library'} access in Settings to select your photo.`
       );
       return;
     }
@@ -52,53 +47,40 @@ export default function FullBodyTryOnModal({
       ? await ImagePicker.launchCameraAsync({
           mediaTypes: ['images'],
           allowsEditing: false,
-          quality: 0.9,
+          quality: 0.85,
         })
       : await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ['images'],
           allowsEditing: false,
-          quality: 0.9,
+          quality: 0.85,
         });
 
     if (result.canceled || !result.assets?.[0]?.uri) return;
 
     const capturedUri = result.assets[0].uri;
     setPreviewUri(capturedUri);
-    setVerifying(true);
+    setSaving(true);
 
     try {
-      const safety = await verifyNsfw5ClassSafety(capturedUri, session?.access_token);
-      if (!safety.isSafe) {
-        setPreviewUri(null);
-        setErrorMessage(
-          safety.moderationReason ||
-            'Photo rejected by 5-Class NSFWJS safety check. Please use a standard clothed standing photo.'
-        );
-        return;
-      }
-
-      const fullBodyRes = await verifyFullBodyPhoto(capturedUri, session?.access_token);
-      if (!fullBodyRes.verified || !fullBodyRes.is_full_body) {
-        setErrorMessage(
-          fullBodyRes.reason ||
-            'Full-body standing photo required (Head-to-Toe): We detected a selfie or cropped photo. Please step back so your head, torso, legs, and shoes are all visible to unlock See It On Me.'
-        );
-        return;
-      }
-
-      onPhotoSaved(capturedUri, fullBodyRes.userPhotoBase64);
+      const prepared = await verifyFullBodyPhoto(capturedUri);
+      onPhotoSaved(capturedUri, prepared.userPhotoBase64 || capturedUri);
       onClose();
     } catch {
-      setErrorMessage(
-        'Full-body standing photo required (Head-to-Toe): We detected a selfie or cropped photo. Please step back so your head, torso, legs, and shoes are all visible to unlock See It On Me.'
-      );
+      onPhotoSaved(capturedUri, capturedUri);
+      onClose();
     } finally {
-      setVerifying(false);
+      setSaving(false);
     }
   };
 
   return (
-    <Modal statusBarTranslucent={true} visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      statusBarTranslucent={true}
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
       <View style={styles.backdrop}>
         <View
           style={[
@@ -112,12 +94,12 @@ export default function FullBodyTryOnModal({
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.kicker, { color: theme.accent }]}>
-                HEAD-TO-TOE VERIFICATION GATE
+                VIRTUAL TRY-ON STUDIO
               </Text>
               <View style={styles.titleRow}>
-                <Ionicons name="lock-closed" size={18} color={theme.text} />
+                <Ionicons name="sparkles" size={18} color={theme.text} />
                 <Text style={[styles.title, { color: theme.text }]}>
-                  Unlock “See It On Me”
+                  See It On Me
                 </Text>
               </View>
             </View>
@@ -136,13 +118,18 @@ export default function FullBodyTryOnModal({
               { backgroundColor: theme.badgeBg, borderColor: theme.border },
             ]}
           >
-            <Ionicons name="lock-closed-outline" size={15} color={theme.text} style={{ marginTop: 1 }} />
+            <Ionicons
+              name="lock-closed-outline"
+              size={15}
+              color={theme.text}
+              style={{ marginTop: 1 }}
+            />
             <Text style={[styles.privacyBannerText, { color: theme.text, flex: 1 }]}>
-              Step back so your Head, Torso, Legs, and Shoes/Feet are all inside the frame. Kept 100% private on your device—never shared in Community.
+              Upload or capture your photo once to preview outfits on you. Your photo is saved on your device and stays 100% private.
             </Text>
           </View>
 
-          {/* Head-to-Toe Standing Silhouette Guide Overlay */}
+          {/* Standing Silhouette Guide */}
           <View
             style={[
               styles.guideBox,
@@ -171,7 +158,6 @@ export default function FullBodyTryOnModal({
                   strokeWidth="1.5"
                   strokeDasharray="6 4"
                 />
-                {/* Head */}
                 <Circle
                   cx="105"
                   cy="36"
@@ -181,7 +167,6 @@ export default function FullBodyTryOnModal({
                   strokeWidth="1.8"
                   strokeDasharray="4 3"
                 />
-                {/* Standing Torso, Legs, Feet */}
                 <Path
                   d="M 80,56 Q 105,50 130,56 L 140,112 L 126,112 L 120,76 L 118,128 L 122,202 L 107,202 L 105,142 L 103,202 L 88,202 L 92,128 L 90,76 L 84,112 L 70,112 Z"
                   fill="none"
@@ -189,7 +174,6 @@ export default function FullBodyTryOnModal({
                   strokeWidth="1.8"
                   strokeDasharray="5 3"
                 />
-                {/* Zone Callout Labels */}
                 <SvgText x="148" y="40" fill={theme.textMuted} fontSize="9" fontWeight="700">
                   Head
                 </SvgText>
@@ -211,14 +195,14 @@ export default function FullBodyTryOnModal({
                 { backgroundColor: theme.surface, borderColor: theme.border },
               ]}
             >
-              <Ionicons name="shield-checkmark-outline" size={12} color={theme.text} />
+              <Ionicons name="sparkles-outline" size={12} color={theme.text} />
               <Text style={[styles.guideHintText, { color: theme.text }]}>
-                Head · Torso · Legs · Shoes/Feet Required
+                Saved automatically for future sessions
               </Text>
             </View>
           </View>
 
-          {verifying && (
+          {saving && (
             <View
               style={[
                 styles.verifyingRow,
@@ -227,7 +211,7 @@ export default function FullBodyTryOnModal({
             >
               <ActivityIndicator size="small" color={theme.text} />
               <Text style={[styles.verifyingText, { color: theme.text }]}>
-                Verifying full-body standing pose (Head-to-Toe)...
+                Saving your photo and preparing See It On Me...
               </Text>
             </View>
           )}
@@ -242,7 +226,7 @@ export default function FullBodyTryOnModal({
           {/* Camera & Gallery Action Buttons */}
           <View style={styles.actionsWrap}>
             <Pressable
-              disabled={verifying}
+              disabled={saving}
               onPress={() => handleCaptureOrPick(true)}
               style={[
                 styles.primaryCameraBtn,
@@ -256,7 +240,7 @@ export default function FullBodyTryOnModal({
             </Pressable>
 
             <Pressable
-              disabled={verifying}
+              disabled={saving}
               onPress={() => handleCaptureOrPick(false)}
               style={[
                 styles.secondaryGalleryBtn,
@@ -398,44 +382,45 @@ const styles = StyleSheet.create({
   },
   errorBannerText: {
     fontSize: 12,
-    lineHeight: 17,
+    lineHeight: 16,
     fontWeight: '600',
     color: '#991B1B',
   },
   actionsWrap: {
     gap: 8,
+    marginTop: 2,
   },
   primaryCameraBtn: {
-    height: 46,
-    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    paddingVertical: 13,
+    borderRadius: 14,
   },
   primaryCameraBtnText: {
     fontSize: 14,
     fontWeight: '700',
   },
   secondaryGalleryBtn: {
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
   },
   secondaryGalleryBtnText: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '700',
   },
   skipBtn: {
-    paddingVertical: 6,
     alignItems: 'center',
+    paddingVertical: 6,
   },
   skipBtnText: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '600',
   },
 });

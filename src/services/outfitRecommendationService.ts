@@ -1024,25 +1024,38 @@ export function styleAroundPinnedSlots(
   return mapOutfit(syntheticApiOutfit, 0, weather, noNewClothesMode);
 }
 
-function enforceStrictDescendingTop3(outfits: GeneratedOutfit[]): GeneratedOutfit[] {
+export function enforceStrictDescendingTop3(outfits: GeneratedOutfit[]): GeneratedOutfit[] {
   const top3 = [...outfits]
     .slice(0, 3)
-    .sort(
-      (a, b) =>
-        (b.hybridScore ?? b.matchPercent ?? 0) - (a.hybridScore ?? a.matchPercent ?? 0)
-    );
+    .sort((a, b) => {
+      const hybDiff = (b.hybridScore ?? b.matchPercent ?? 0) - (a.hybridScore ?? a.matchPercent ?? 0);
+      if (hybDiff !== 0) return hybDiff;
+      const cbDiff = (b.contentScore ?? 0) - (a.contentScore ?? 0);
+      if (cbDiff !== 0) return cbDiff;
+      return (b.collaborativeScore ?? 0) - (a.collaborativeScore ?? 0);
+    });
 
-  // Guarantee strict non-increasing score hierarchy: TOP 1 >= TOP 2 >= TOP 3
+  if (top3.length > 0) {
+    const firstRounded = Math.round(top3[0].hybridScore ?? top3[0].matchPercent ?? 91);
+    top3[0] = {
+      ...top3[0],
+      hybridScore: firstRounded,
+      matchPercent: firstRounded,
+    };
+  }
+
+  // Tie-breaker: guarantee strictly descending DISTINCT integer scores (TOP 1 > TOP 2 > TOP 3)
   for (let i = 1; i < top3.length; i++) {
-    const prevScore = top3[i - 1].hybridScore ?? top3[i - 1].matchPercent ?? 90;
-    const currScore = top3[i].hybridScore ?? top3[i].matchPercent ?? 85;
-    if (currScore > prevScore) {
-      top3[i] = {
-        ...top3[i],
-        hybridScore: prevScore,
-        matchPercent: prevScore,
-      };
+    const prevScore = Math.round(top3[i - 1].hybridScore ?? top3[i - 1].matchPercent ?? 91);
+    let currScore = Math.round(top3[i].hybridScore ?? top3[i].matchPercent ?? prevScore - 3);
+    if (currScore >= prevScore) {
+      currScore = Math.max(60, prevScore - 3);
     }
+    top3[i] = {
+      ...top3[i],
+      hybridScore: currScore,
+      matchPercent: currScore,
+    };
   }
   return top3;
 }

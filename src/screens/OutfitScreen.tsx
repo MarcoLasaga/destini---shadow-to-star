@@ -50,6 +50,8 @@ const PRIVATE_FULLBODY_URI_KEY = '@stylesense_private_fullbody_uri';
 const PRIVATE_FULLBODY_BASE64_KEY = '@stylesense_fullbody_base64';
 const PRIVATE_FULLBODY_VERIFIED_KEY = '@stylesense_fullbody_verified';
 const VTON_SIGNATURE_CACHE_KEY = '@stylesense_vton_sig_cache_v1';
+const getFullBodyPhotoStorageKey = (userId?: string) =>
+  `@stylesense_user_fullbody_photo_v2_${userId || 'guest'}`;
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -180,36 +182,75 @@ export default function OutfitScreen() {
 
   const [wardrobeOutfits, setWardrobeOutfits] = useState<GeneratedOutfit[]>([]);
   const [mixOutfits, setMixOutfits] = useState<GeneratedOutfit[]>([]);
-  const [reaction, setReaction] = useState("Let's find your vibe!");
+  const [reaction, setReaction] = useState(
+    'Select your Target Occasion and tap ✨ Generate Outfits!'
+  );
+  const [hasGeneratedInSession, setHasGeneratedInSession] = useState<boolean>(
+    Boolean(currentOutfits.length > 0)
+  );
+  const [pendingParamChange, setPendingParamChange] = useState<boolean>(false);
 
-  // Load persisted full-body photo, verification status, and VTON signature cache on mount
+  // Load persisted full-body photo (v2 per-user key + guest fallback + legacy keys) and VTON signature cache on mount
   useEffect(() => {
     (async () => {
       try {
-        const [storedUri, storedBase64, storedVerified, storedSigCache] = await Promise.all([
+        const userKey = getFullBodyPhotoStorageKey(session?.user?.id);
+        const guestKey = getFullBodyPhotoStorageKey('guest');
+        const [
+          storedV2User,
+          storedV2Guest,
+          storedUri,
+          storedBase64,
+          storedSigCache,
+        ] = await Promise.all([
+          AsyncStorage.getItem(userKey),
+          AsyncStorage.getItem(guestKey),
           AsyncStorage.getItem(PRIVATE_FULLBODY_URI_KEY),
           AsyncStorage.getItem(PRIVATE_FULLBODY_BASE64_KEY),
-          AsyncStorage.getItem(PRIVATE_FULLBODY_VERIFIED_KEY),
           AsyncStorage.getItem(VTON_SIGNATURE_CACHE_KEY),
         ]);
 
-        if (storedUri) {
-          setFullBodyPhotoUri(storedUri);
-        } else if (profile?.userFullBodyPhotoUri) {
-          setFullBodyPhotoUri(profile.userFullBodyPhotoUri);
+        let resolvedUri: string | null = null;
+        let resolvedBase64: string | null = null;
+
+        const rawV2 = storedV2User || storedV2Guest;
+        if (rawV2) {
+          try {
+            const parsedV2 = JSON.parse(rawV2);
+            if (parsedV2 && typeof parsedV2 === 'object') {
+              resolvedUri = parsedV2.uri || parsedV2.base64 || null;
+              resolvedBase64 = parsedV2.base64 || parsedV2.uri || null;
+            } else if (typeof rawV2 === 'string') {
+              resolvedUri = rawV2;
+              resolvedBase64 = rawV2;
+            }
+          } catch {
+            resolvedUri = rawV2;
+            resolvedBase64 = rawV2;
+          }
         }
 
-        if (storedBase64) {
-          setUserFullBodyPhotoBase64(storedBase64);
+        if (!resolvedUri) {
+          resolvedUri = storedUri || profile?.userFullBodyPhotoUri || storedBase64 || null;
+        }
+        if (!resolvedBase64) {
+          resolvedBase64 = storedBase64 || resolvedUri || null;
         }
 
-        if (storedVerified === 'true' && (storedUri || storedBase64 || profile?.userFullBodyPhotoUri)) {
+        if (resolvedUri) {
+          setFullBodyPhotoUri(resolvedUri);
+        }
+        if (resolvedBase64) {
+          setUserFullBodyPhotoBase64(resolvedBase64);
+        }
+        if (resolvedUri || resolvedBase64) {
           setIsFullBodyPhotoVerified(true);
         }
 
         if (storedSigCache) {
           const parsed = JSON.parse(storedSigCache);
           if (parsed && typeof parsed === 'object') {
+            vtonSignatureCacheRef.current = parsed;
             setVtonSignatureCache(parsed);
           }
         }
@@ -217,13 +258,7 @@ export default function OutfitScreen() {
         // Non-fatal
       }
     })();
-  }, [profile?.userFullBodyPhotoUri]);
-
-  useEffect(() => {
-    if (!currentOutfit && !isLoading) {
-      generateOutfit();
-    }
-  }, [currentOutfit, isLoading, generateOutfit]);
+  }, [session?.user?.id, profile?.userFullBodyPhotoUri]);
 
   useEffect(() => {
     if (weather) {
@@ -274,7 +309,7 @@ export default function OutfitScreen() {
   const hasCompleteWardrobe = hasTop && hasBottom && hasShoes && items.length >= 3;
   const sourceMode: 'wardrobe' | 'mix' = outfitSourceMode === 'closet' ? 'wardrobe' : 'mix';
 
-  // Preserve the Top 3 recommendations in strict descending Hybrid Score order (TOP 1 >= TOP 2 >= TOP 3)
+  // Preserve the Top 3 recommendations in strict descending DISTINCT Hybrid Score order (TOP 1 > TOP 2 > TOP 3)
   const scoredCurrentOutfits = useMemo(() => {
     const mapped = currentOutfits.slice(0, 3).map((outfit) => {
       const existingScore = outfit.hybridScore ?? outfit.matchPercent;
@@ -294,17 +329,18 @@ export default function OutfitScreen() {
       };
     });
 
-    // Guarantee strict non-increasing score hierarchy on tabs: TOP 1 >= TOP 2 >= TOP 3
+    // Tie-breaker: guarantee strictly descending DISTINCT scores on tabs (TOP 1 > TOP 2 > TOP 3)
     for (let i = 1; i < mapped.length; i++) {
-      const prevScore = mapped[i - 1].hybridScore ?? mapped[i - 1].matchPercent ?? 90;
-      const currScore = mapped[i].hybridScore ?? mapped[i].matchPercent ?? 85;
-      if (currScore > prevScore) {
-        mapped[i] = {
-          ...mapped[i],
-          hybridScore: prevScore,
-          matchPercent: prevScore,
-        };
+      const prevScore = Math.round(mapped[i - 1].hybridScore ?? mapped[i - 1].matchPercent ?? 91);
+      let currScore = Math.round(mapped[i].hybridScore ?? mapped[i].matchPercent ?? prevScore - 3);
+      if (currScore >= prevScore) {
+        currScore = Math.max(60, prevScore - 3);
       }
+      mapped[i] = {
+        ...mapped[i],
+        hybridScore: currScore,
+        matchPercent: currScore,
+      };
     }
 
     return mapped;
@@ -448,7 +484,7 @@ export default function OutfitScreen() {
 
   // Sequential Background VTON Pre-Loading for ALL Recommended Outfits (Top 1 -> Top 2 -> Top 3)
   useEffect(() => {
-    if (!isFullBodyPhotoVerified || !photoSourceForVton || top3.length === 0) {
+    if (!photoSourceForVton || top3.length === 0) {
       return;
     }
 
@@ -488,7 +524,6 @@ export default function OutfitScreen() {
 
     preloadAllOutfitsVton();
   }, [
-    isFullBodyPhotoVerified,
     photoSourceForVton,
     top3SignaturesKey,
     renderSingleOutfitVton,
@@ -504,29 +539,40 @@ export default function OutfitScreen() {
 
   // Handle tapping "See It On Me" pill in the ALTA action bar
   const handlePressSeeItOnMe = () => {
-    if (!isFullBodyPhotoVerified || !photoSourceForVton) {
+    if (!photoSourceForVton) {
       setFullBodyModalVisible(true);
       return;
     }
     setSeeItOnMeVisible(true);
   };
 
-  // Called once FullBodyTryOnModal verifies head-to-toe standing photo via POST /verify-full-body
+  // Called once FullBodyTryOnModal saves the user's selected or captured photo
   const handleFullBodyPhotoSaved = async (uri: string, base64DataUri?: string) => {
     const cleanBase64 = base64DataUri || uri;
     setFullBodyPhotoUri(uri);
     setUserFullBodyPhotoBase64(cleanBase64);
     setIsFullBodyPhotoVerified(true);
+    vtonCacheByOutfitIndexRef.current = {};
     setVtonCacheByOutfitIndex({});
 
+    const userKey = getFullBodyPhotoStorageKey(session?.user?.id);
+    const guestKey = getFullBodyPhotoStorageKey('guest');
+    const serialized = JSON.stringify({
+      uri,
+      base64: cleanBase64,
+      updatedAt: Date.now(),
+    });
+
     await Promise.all([
+      AsyncStorage.setItem(userKey, serialized).catch(() => {}),
+      AsyncStorage.setItem(guestKey, serialized).catch(() => {}),
       AsyncStorage.setItem(PRIVATE_FULLBODY_URI_KEY, uri).catch(() => {}),
       AsyncStorage.setItem(PRIVATE_FULLBODY_BASE64_KEY, cleanBase64).catch(() => {}),
       AsyncStorage.setItem(PRIVATE_FULLBODY_VERIFIED_KEY, 'true').catch(() => {}),
       updateProfile({ userFullBodyPhotoUri: uri }).catch(() => {}),
     ]);
 
-    showToast('Full-body standing photo verified! Unlocking See It On Me...');
+    showToast('Photo saved! Opening See It On Me...');
     setSeeItOnMeVisible(true);
   };
 
@@ -633,9 +679,9 @@ export default function OutfitScreen() {
     }
   };
 
-  // Natural, fashion-forward Mel stylist description without CIELAB or raw item concatenation (PDF Page 12)
+  // Natural, fashion-forward Mel stylist description synced to the active tab's exact Hybrid Score
   useEffect(() => {
-    if (activeOutfit) {
+    if (activeOutfit && hasGeneratedInSession) {
       const s = activeOutfit.hybridScore ?? activeOutfit.matchPercent ?? 88;
       const cuteNotes = [
         `Cute fit incoming! (${s}% match)`,
@@ -644,7 +690,31 @@ export default function OutfitScreen() {
       ];
       setReaction(cuteNotes[activeIndex % cuteNotes.length]);
     }
-  }, [activeOutfit?.id, activeIndex, occasion]);
+  }, [
+    activeOutfit?.id,
+    activeOutfit?.hybridScore,
+    activeOutfit?.matchPercent,
+    activeIndex,
+    occasion,
+    hasGeneratedInSession,
+  ]);
+
+  const handleSelectOccasion = (nextOccasion: string) => {
+    setOccasion(nextOccasion);
+    setPendingParamChange(true);
+  };
+
+  const handleSelectSourceMode = (nextMode: 'closet' | 'bestForOccasion') => {
+    setOutfitSourceMode(nextMode);
+    setPendingParamChange(true);
+  };
+
+  const handleTriggerGenerateOutfits = async () => {
+    setHasGeneratedInSession(true);
+    setPendingParamChange(false);
+    setActiveIndex(0);
+    await generateOutfit();
+  };
 
   // ALTA Left Action Bar Handlers
   const handleToggleLikeSave = () => {
@@ -714,18 +784,22 @@ export default function OutfitScreen() {
   }, [activeOutfit?.clothingItems]);
 
   const seeItOnMeButtonLabel = useMemo(() => {
-    if (!isFullBodyPhotoVerified || !photoSourceForVton) {
+    if (!photoSourceForVton) {
       return 'See It On Me';
     }
     if (isPreloadingVton && preloadedCount < top3.length) {
       return `See It On Me · ${Math.max(1, preloadedCount)}/${top3.length}`;
     }
     return 'See It On Me';
-  }, [isFullBodyPhotoVerified, photoSourceForVton, isPreloadingVton, preloadedCount, top3.length]);
+  }, [photoSourceForVton, isPreloadingVton, preloadedCount, top3.length]);
 
   const activeCompositeUri = vtonCacheByOutfitIndex[activeIndex] || null;
   const activeScore = activeOutfit?.hybridScore ?? activeOutfit?.matchPercent ?? 90;
   const cleanActiveTitle = formatCleanOutfitTitle(activeOutfit?.name, occasion, activeIndex);
+  const generateButtonLabel =
+    !hasGeneratedInSession || pendingParamChange || !activeOutfit
+      ? '✨ Generate Outfits'
+      : '✨ Regenerate Outfits';
 
   return (
     <SafeAreaView
@@ -736,7 +810,7 @@ export default function OutfitScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingTop: 22 }]}
       >
-        {/* Screen Header */}
+        {/* Screen Header (No top-right reset icon) */}
         <View style={styles.header}>
           <View>
             <View style={styles.kickerRow}>
@@ -747,24 +821,12 @@ export default function OutfitScreen() {
             </View>
             <Text style={[styles.title, { color: theme.text }]}>Recommendations</Text>
           </View>
-          <View style={styles.headerActions}>
-            <Pressable
-              onPress={generateOutfit}
-              style={[
-                styles.refresh,
-                { backgroundColor: theme.surface, borderColor: theme.border },
-              ]}
-              accessibilityLabel="Refresh outfits"
-            >
-              <Ionicons name="refresh" size={18} color={theme.text} />
-            </Pressable>
-          </View>
         </View>
 
-        {/* Controls: Target Occasion & Wardrobe Source Toggle */}
+        {/* Controls: Target Occasion, Wardrobe Source Toggle & Primary Generate Outfits CTA */}
         <View style={styles.controls}>
           <Text style={[styles.controlLabel, { color: theme.textMuted }]}>TARGET OCCASION</Text>
-          <OccasionDropdown value={occasion} onChange={setOccasion} />
+          <OccasionDropdown value={occasion} onChange={handleSelectOccasion} />
 
           <View
             style={[
@@ -773,7 +835,7 @@ export default function OutfitScreen() {
             ]}
           >
             <Pressable
-              onPress={() => setOutfitSourceMode('closet')}
+              onPress={() => handleSelectSourceMode('closet')}
               style={[
                 styles.sourceOption,
                 outfitSourceMode === 'closet' && { backgroundColor: '#364536' },
@@ -792,7 +854,7 @@ export default function OutfitScreen() {
               </Text>
             </Pressable>
             <Pressable
-              onPress={() => setOutfitSourceMode('bestForOccasion')}
+              onPress={() => handleSelectSourceMode('bestForOccasion')}
               style={[
                 styles.sourceOption,
                 outfitSourceMode === 'bestForOccasion' && { backgroundColor: '#364536' },
@@ -813,6 +875,30 @@ export default function OutfitScreen() {
               </Text>
             </Pressable>
           </View>
+
+          <Pressable
+            onPress={handleTriggerGenerateOutfits}
+            disabled={isLoading}
+            style={[
+              styles.generateOutfitsBtn,
+              {
+                backgroundColor: '#364536',
+                opacity: isLoading ? 0.75 : 1,
+              },
+            ]}
+            accessibilityLabel="Generate Outfits"
+          >
+            {isLoading ? (
+              <View style={styles.generateBtnInner}>
+                <ActivityIndicator size="small" color="#F3F1EF" />
+                <Text style={styles.generateOutfitsBtnText}>
+                  Curating Top 3 Outfits...
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.generateOutfitsBtnText}>{generateButtonLabel}</Text>
+            )}
+          </Pressable>
         </View>
 
         {sourceMode === 'mix' && catalogOnly && !showEmptyWardrobePrompt && (
@@ -832,8 +918,35 @@ export default function OutfitScreen() {
         
 
 
-        {/* Empty or Incomplete Wardrobe Guard for My Wardrobe mode */}
-        {showEmptyWardrobePrompt ? (
+        {/* Pre-Generate Studio Prompt or Incomplete Wardrobe Guard */}
+        {!hasGeneratedInSession && !isLoading ? (
+          <View
+            style={[
+              styles.loadingCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <Ionicons name="sparkles-outline" size={26} color="#E83E35" />
+            <Text
+              style={{
+                fontSize: 15,
+                fontWeight: '800',
+                color: theme.text,
+                textAlign: 'center',
+              }}
+            >
+              Ready to Style Your Top 3 Looks
+            </Text>
+            <Text
+              style={[
+                styles.loadingText,
+                { color: theme.textMuted, textAlign: 'center', lineHeight: 19 },
+              ]}
+            >
+              Choose your Target Occasion and source mode above, then tap "✨ Generate Outfits" to rank your Top 3 looks.
+            </Text>
+          </View>
+        ) : showEmptyWardrobePrompt ? (
           <View
             style={[
               styles.emptyPromptCard,
@@ -1095,11 +1208,7 @@ export default function OutfitScreen() {
                 ]}
               >
                 <Ionicons
-                  name={
-                    !isFullBodyPhotoVerified || !photoSourceForVton
-                      ? 'lock-closed-outline'
-                      : 'sparkles'
-                  }
+                  name="sparkles"
                   size={14}
                   color="#E83E35"
                 />
@@ -1479,6 +1588,27 @@ const styles = StyleSheet.create({
   sourceText: {
     fontSize: 12,
     fontWeight: '700',
+  },
+  generateOutfitsBtn: {
+    width: '100%',
+    borderRadius: 12,
+    paddingVertical: 12.5,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  generateBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  generateOutfitsBtnText: {
+    color: '#F3F1EF',
+    fontSize: 13.5,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   emptyBanner: {
     marginBottom: 10,
