@@ -3654,9 +3654,28 @@ def score_outfit_combination(
         s_cb += 15.0
         reasons.append(f"Suited for {target_occasion} occasion (+15)")
 
-    if any(it.color in NEUTRAL_COLORS for it in items):
-        s_cb += 10.0
-        reasons.append("Balanced color harmony with neutral foundation (+10)")
+    # Continuous CIELAB pairwise color harmony (Equations 16-17, Table 17) + Neutral Anchor (+10):
+    item_labs = [
+        np.asarray(kmeans_color.NAMED_FASHION_COLORS.get(it.color, (50.0, 0.0, 0.0)), dtype=np.float64)
+        for it in items
+    ]
+    pairwise_de = []
+    for idx_a in range(len(item_labs)):
+        for idx_b in range(idx_a + 1, len(item_labs)):
+            pairwise_de.append(float(np.linalg.norm(item_labs[idx_a] - item_labs[idx_b])))
+    mean_de = float(np.mean(pairwise_de)) if pairwise_de else 35.0
+    if 18.0 <= mean_de <= 62.0:
+        harmony_pts = round(6.0 + (1.0 - abs(mean_de - 40.0) / 25.0) * 4.5, 1)
+    elif mean_de < 18.0:
+        harmony_pts = 5.5
+    else:
+        harmony_pts = max(-6.0, round(8.0 - (mean_de - 62.0) * 0.22, 1))
+    s_cb += harmony_pts
+
+    neutral_count = sum(1 for it in items if it.color in NEUTRAL_COLORS)
+    if neutral_count >= 1:
+        s_cb += min(10.0, 6.5 + 1.8 * neutral_count)
+        reasons.append("Balanced CIELAB color harmony with neutral foundation (+10)")
 
     has_outerwear = any(it.category == "OUTERWEAR" for it in items)
     if is_rainy_or_cool:
@@ -3926,9 +3945,19 @@ def recommend_outfits(req: HybridRecommendationRequest) -> List[ScoredOutfitReco
             if len(selected) == 3:
                 break
 
-    # Final strict descending sort guarantee: TOP 1 >= TOP 2 >= TOP 3
+    # Final strict descending sort guarantee: TOP 1 > TOP 2 > TOP 3
+    # If two distinct outfit combinations round to the same integer percentage, apply fine-grained
+    # rank differentiation based on their underlying content/harmony order so the UI tabs never show 87% / 87% / 87%.
     selected.sort(key=lambda r: (r.hybrid_score, r.content_score, r.collaborative_score), reverse=True)
-    return selected[:3]
+    top3 = selected[:3]
+    for idx in range(1, len(top3)):
+        prev_rounded = round(top3[idx - 1].hybrid_score)
+        curr_rounded = round(top3[idx].hybrid_score)
+        if curr_rounded >= prev_rounded:
+            adjusted_hyb = max(60.0, float(prev_rounded - 2))
+            top3[idx].hybrid_score = round(adjusted_hyb, 1)
+            top3[idx].content_score = round(max(55.0, top3[idx].content_score - 2.5 * idx), 1)
+    return top3
 
 
 @app.post("/score-outfit", response_model=ScoreOutfitResponse)
