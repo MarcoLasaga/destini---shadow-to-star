@@ -77,6 +77,7 @@ interface Props {
   sourceMode?: 'wardrobe' | 'mix' | 'closet' | 'bestForOccasion';
   onClose: () => void;
   onEquip: (item: OutfitClothingItem | null, slot: MannequinSlot) => void;
+  onSaveCustomized?: (customizedOutfit: GeneratedOutfit) => void;
 }
 
 const CARD_WIDTH = 126;
@@ -91,6 +92,7 @@ export default function OutfitCustomizeModal({
   sourceMode = 'mix',
   onClose,
   onEquip,
+  onSaveCustomized,
 }: Props) {
   const theme = useAppTheme();
   const isDark = theme.mode === 'dark';
@@ -220,7 +222,8 @@ export default function OutfitCustomizeModal({
   };
 
   const handleWearToday = () => {
-    showToast('Outfit confirmed for today! Looking sharp.');
+    onSaveCustomized?.(outfit);
+    showToast('Customized outfit saved! Updating virtual try-on...');
     handleClose();
   };
 

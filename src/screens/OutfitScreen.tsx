@@ -109,14 +109,22 @@ const getSlotOrderedLabel = (item?: { category?: string; slotType?: string; name
   return '5. ACCESSORY';
 };
 
+const getOutfitItemsCacheKey = (outfit?: GeneratedOutfit | null): string => {
+  if (!outfit) return '';
+  const rawItems: OutfitClothingItem[] =
+    ((outfit as any).items as OutfitClothingItem[]) || outfit.clothingItems || [];
+  return rawItems
+    .map((i) => String(i.id || i.name || ''))
+    .filter(Boolean)
+    .sort()
+    .join('_');
+};
+
 const buildOutfitSignature = (photoSource: string, outfit?: GeneratedOutfit | null): string => {
   if (!outfit || !photoSource) return '';
   const photoHash = photoSource.slice(-42);
-  const itemSig = (outfit.clothingItems || [])
-    .map((ci) => `${ci.id || ci.name}_${ci.category || ''}`)
-    .sort()
-    .join('|');
-  return `${photoHash}::${outfit.id || 'o'}::${itemSig}`;
+  const itemsKey = getOutfitItemsCacheKey(outfit);
+  return `${photoHash}::${itemsKey}`;
 };
 
 export default function OutfitScreen() {
@@ -158,23 +166,23 @@ export default function OutfitScreen() {
   const [userFullBodyPhotoBase64, setUserFullBodyPhotoBase64] = useState<string | null>(null);
   const [isFullBodyPhotoVerified, setIsFullBodyPhotoVerified] = useState<boolean>(false);
 
-  // Sequential VTON cache by outfit index (0 -> Top 1, 1 -> Top 2, 2 -> Top 3) + persistent signature map
-  const [vtonCacheByOutfitIndex, setVtonCacheByOutfitIndex] = useState<Record<number, string>>({});
+  // VTON cache keyed by sorted garment IDs (outfit.items.map(i => i.id).sort().join('_')) + persistent photo+items signature map
+  const [vtonCacheByItemsKey, setVtonCacheByItemsKey] = useState<Record<string, string>>({});
   const [vtonSignatureCache, setVtonSignatureCache] = useState<Record<string, string>>({});
   const [isPreloadingVton, setIsPreloadingVton] = useState<boolean>(false);
   const preloadRunIdRef = useRef(0);
 
-  // In-flight guard refs so TOP 1 (and each rank) is only requested ONCE without duplicate concurrent /try-on-2d calls
+  // In-flight guard refs keyed by garment-ID signature so each unique outfit combination is requested ONCE
   const inFlightVtonRef = useRef<Set<string>>(new Set());
   const inFlightVtonPromisesRef = useRef<
     Map<string, Promise<{ compositeDataUri: string | null; usedServerComposite: boolean }>>
   >(new Map());
-  const vtonCacheByOutfitIndexRef = useRef<Record<number, string>>({});
+  const vtonCacheByItemsKeyRef = useRef<Record<string, string>>({});
   const vtonSignatureCacheRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
-    vtonCacheByOutfitIndexRef.current = vtonCacheByOutfitIndex;
-  }, [vtonCacheByOutfitIndex]);
+    vtonCacheByItemsKeyRef.current = vtonCacheByItemsKey;
+  }, [vtonCacheByItemsKey]);
 
   useEffect(() => {
     vtonSignatureCacheRef.current = vtonSignatureCache;
@@ -380,55 +388,60 @@ export default function OutfitScreen() {
     }));
   }, []);
 
-  // Deduplicated single-outfit VTON renderer using inFlightVtonRef guard
+  // Deduplicated single-outfit VTON renderer keyed by sorted garment IDs
   const renderSingleOutfitVton = useCallback(
     async (
-      idx: number,
+      _idx: number,
       outfit: GeneratedOutfit,
-      photoSource: string
+      photoSource: string,
+      forceRefresh = false
     ): Promise<string | null> => {
-      const sig = buildOutfitSignature(photoSource, outfit) || `rank_${idx}_${outfit.id}`;
-      const rankKey = `rank_${idx}`;
+      const itemsKey = getOutfitItemsCacheKey(outfit);
+      const sig = buildOutfitSignature(photoSource, outfit) || itemsKey;
+      if (!itemsKey || !sig) return null;
 
-      // 1. Return immediately if already cached in memory or signature cache
-      const cachedDirect =
-        vtonCacheByOutfitIndexRef.current[idx] || vtonSignatureCacheRef.current[sig];
-      if (cachedDirect) {
-        if (!vtonCacheByOutfitIndexRef.current[idx]) {
-          vtonCacheByOutfitIndexRef.current[idx] = cachedDirect;
-          setVtonCacheByOutfitIndex((prev) => ({ ...prev, [idx]: cachedDirect }));
+      // 1. Return immediately if already cached for this exact garment-ID set (unless forceRefresh is requested)
+      if (!forceRefresh) {
+        const cachedDirect =
+          vtonCacheByItemsKeyRef.current[itemsKey] || vtonSignatureCacheRef.current[sig];
+        if (cachedDirect) {
+          if (!vtonCacheByItemsKeyRef.current[itemsKey]) {
+            vtonCacheByItemsKeyRef.current[itemsKey] = cachedDirect;
+            setVtonCacheByItemsKey((prev) => ({ ...prev, [itemsKey]: cachedDirect }));
+          }
+          return cachedDirect;
         }
-        return cachedDirect;
       }
 
-      // 2. In-flight guard: if this outfit/rank is currently rendering, await existing promise
+      // 2. In-flight guard: if this exact garment-ID combination is currently rendering, await existing promise
       const existingPromise =
         inFlightVtonPromisesRef.current.get(sig) ||
-        inFlightVtonPromisesRef.current.get(rankKey);
+        inFlightVtonPromisesRef.current.get(itemsKey);
       if (
-        existingPromise ||
-        inFlightVtonRef.current.has(sig) ||
-        inFlightVtonRef.current.has(rankKey)
+        !forceRefresh &&
+        (existingPromise ||
+          inFlightVtonRef.current.has(sig) ||
+          inFlightVtonRef.current.has(itemsKey))
       ) {
         if (existingPromise) {
           try {
             const sharedRes = await existingPromise;
             if (sharedRes?.compositeDataUri) {
               const uri = sharedRes.compositeDataUri;
-              vtonCacheByOutfitIndexRef.current[idx] = uri;
-              setVtonCacheByOutfitIndex((prev) => ({ ...prev, [idx]: uri }));
+              vtonCacheByItemsKeyRef.current[itemsKey] = uri;
+              setVtonCacheByItemsKey((prev) => ({ ...prev, [itemsKey]: uri }));
               return uri;
             }
           } catch {
             return null;
           }
         }
-        return vtonCacheByOutfitIndexRef.current[idx] || null;
+        return vtonCacheByItemsKeyRef.current[itemsKey] || null;
       }
 
-      // 3. Mark as in-flight before launching POST /try-on-2d
+      // 3. Mark garment-ID signature as in-flight before launching POST /try-on-2d
       inFlightVtonRef.current.add(sig);
-      inFlightVtonRef.current.add(rankKey);
+      inFlightVtonRef.current.add(itemsKey);
 
       const reqPromise = requestTryOn2D(
         photoSource,
@@ -437,16 +450,16 @@ export default function OutfitScreen() {
         65000
       );
       inFlightVtonPromisesRef.current.set(sig, reqPromise);
-      inFlightVtonPromisesRef.current.set(rankKey, reqPromise);
+      inFlightVtonPromisesRef.current.set(itemsKey, reqPromise);
 
       try {
         const res = await reqPromise;
         if (res?.compositeDataUri) {
           const compUri = res.compositeDataUri;
-          vtonCacheByOutfitIndexRef.current[idx] = compUri;
-          setVtonCacheByOutfitIndex((prev) => ({
+          vtonCacheByItemsKeyRef.current[itemsKey] = compUri;
+          setVtonCacheByItemsKey((prev) => ({
             ...prev,
-            [idx]: compUri,
+            [itemsKey]: compUri,
           }));
 
           vtonSignatureCacheRef.current[sig] = compUri;
@@ -466,9 +479,9 @@ export default function OutfitScreen() {
         return null;
       } finally {
         inFlightVtonRef.current.delete(sig);
-        inFlightVtonRef.current.delete(rankKey);
+        inFlightVtonRef.current.delete(itemsKey);
         inFlightVtonPromisesRef.current.delete(sig);
-        inFlightVtonPromisesRef.current.delete(rankKey);
+        inFlightVtonPromisesRef.current.delete(itemsKey);
       }
     },
     [normalizeItemsForVton, session?.access_token]
@@ -477,7 +490,7 @@ export default function OutfitScreen() {
   const top3SignaturesKey = useMemo(
     () =>
       top3
-        .map((o, idx) => buildOutfitSignature(photoSourceForVton || '', o) || `${o.id}_${idx}`)
+        .map((o, idx) => buildOutfitSignature(photoSourceForVton || '', o) || `${getOutfitItemsCacheKey(o)}_${idx}`)
         .join('||'),
     [top3, photoSourceForVton]
   );
@@ -494,19 +507,20 @@ export default function OutfitScreen() {
       setIsPreloadingVton(true);
 
       // Step 1: Hydrate any outfits already in persistent signature cache immediately (0ms)
-      const initialHits: Record<number, string> = {};
+      const initialHits: Record<string, string> = {};
       for (let idx = 0; idx < top3.length; idx++) {
+        const itemsKey = getOutfitItemsCacheKey(top3[idx]);
         const sig = buildOutfitSignature(photoSourceForVton, top3[idx]);
-        if (sig && vtonSignatureCacheRef.current[sig]) {
-          initialHits[idx] = vtonSignatureCacheRef.current[sig];
+        if (itemsKey && sig && vtonSignatureCacheRef.current[sig]) {
+          initialHits[itemsKey] = vtonSignatureCacheRef.current[sig];
         }
       }
       if (Object.keys(initialHits).length > 0 && preloadRunIdRef.current === runId) {
-        vtonCacheByOutfitIndexRef.current = {
-          ...vtonCacheByOutfitIndexRef.current,
+        vtonCacheByItemsKeyRef.current = {
+          ...vtonCacheByItemsKeyRef.current,
           ...initialHits,
         };
-        setVtonCacheByOutfitIndex((prev) => ({ ...prev, ...initialHits }));
+        setVtonCacheByItemsKey((prev) => ({ ...prev, ...initialHits }));
       }
 
       // Step 2: Render TOP 1 (idx = 0) first; only after TOP 1 finishes, sequentially pre-load TOP 2 and TOP 3
@@ -532,10 +546,14 @@ export default function OutfitScreen() {
   const preloadedCount = useMemo(() => {
     let count = 0;
     for (let i = 0; i < top3.length; i++) {
-      if (vtonCacheByOutfitIndex[i]) count++;
+      const iKey = getOutfitItemsCacheKey(top3[i]);
+      const sig = photoSourceForVton ? buildOutfitSignature(photoSourceForVton, top3[i]) : '';
+      if ((iKey && vtonCacheByItemsKey[iKey]) || (sig && vtonSignatureCache[sig])) {
+        count++;
+      }
     }
     return count;
-  }, [top3.length, vtonCacheByOutfitIndex]);
+  }, [top3, photoSourceForVton, vtonCacheByItemsKey, vtonSignatureCache]);
 
   // Handle tapping "See It On Me" pill in the ALTA action bar
   const handlePressSeeItOnMe = () => {
@@ -552,8 +570,8 @@ export default function OutfitScreen() {
     setFullBodyPhotoUri(uri);
     setUserFullBodyPhotoBase64(cleanBase64);
     setIsFullBodyPhotoVerified(true);
-    vtonCacheByOutfitIndexRef.current = {};
-    setVtonCacheByOutfitIndex({});
+    vtonCacheByItemsKeyRef.current = {};
+    setVtonCacheByItemsKey({});
 
     const userKey = getFullBodyPhotoStorageKey(session?.user?.id);
     const guestKey = getFullBodyPhotoStorageKey('guest');
@@ -656,13 +674,39 @@ export default function OutfitScreen() {
       }
     }
 
-    const nextScore = computeAccurateOutfitScore(nextItems, profile, weather, occasion);
+    const prevItemsKey = getOutfitItemsCacheKey(activeOutfit);
+    const prevSig = photoSourceForVton
+      ? buildOutfitSignature(photoSourceForVton, activeOutfit)
+      : '';
+    const updatedOutfitPreview: GeneratedOutfit = {
+      ...activeOutfit,
+      clothingItems: nextItems,
+    };
+    const nextItemsKey = getOutfitItemsCacheKey(updatedOutfitPreview);
+    const nextSig = photoSourceForVton
+      ? buildOutfitSignature(photoSourceForVton, updatedOutfitPreview)
+      : '';
 
-    setVtonCacheByOutfitIndex((prev) => {
+    // Clear any cached VTON entry for both the previous and updated item keys of this outfit
+    setVtonCacheByItemsKey((prev) => {
       const copy = { ...prev };
-      delete copy[activeIndex];
+      if (prevItemsKey) delete copy[prevItemsKey];
+      if (nextItemsKey) delete copy[nextItemsKey];
+      vtonCacheByItemsKeyRef.current = copy;
       return copy;
     });
+    if (prevSig || nextSig) {
+      setVtonSignatureCache((prev) => {
+        const copy = { ...prev };
+        if (prevSig) delete copy[prevSig];
+        if (nextSig) delete copy[nextSig];
+        vtonSignatureCacheRef.current = copy;
+        AsyncStorage.setItem(VTON_SIGNATURE_CACHE_KEY, JSON.stringify(copy)).catch(() => {});
+        return copy;
+      });
+    }
+
+    const nextScore = computeAccurateOutfitScore(nextItems, profile, weather, occasion);
 
     updateOutfitEverywhere(activeOutfit.id, {
       clothingItems: nextItems,
@@ -678,6 +722,50 @@ export default function OutfitScreen() {
       setReaction(`Fresh update! ${nextScore}% style match!`);
     }
   };
+
+  // When user saves a customized outfit in OutfitCustomizeModal, clear its cached VTON URI and trigger a fresh /try-on-2d render
+  const handleSaveCustomizedOutfit = useCallback(
+    (customizedOutfit?: GeneratedOutfit) => {
+      const targetOutfit = customizedOutfit || activeOutfit;
+      if (!targetOutfit) return;
+
+      const itemsKey = getOutfitItemsCacheKey(targetOutfit);
+      const sig = photoSourceForVton
+        ? buildOutfitSignature(photoSourceForVton, targetOutfit)
+        : '';
+
+      if (itemsKey) {
+        delete vtonCacheByItemsKeyRef.current[itemsKey];
+        inFlightVtonRef.current.delete(itemsKey);
+        inFlightVtonPromisesRef.current.delete(itemsKey);
+      }
+      if (sig) {
+        delete vtonSignatureCacheRef.current[sig];
+        inFlightVtonRef.current.delete(sig);
+        inFlightVtonPromisesRef.current.delete(sig);
+      }
+
+      setVtonCacheByItemsKey((prev) => {
+        const next = { ...prev };
+        if (itemsKey) delete next[itemsKey];
+        return next;
+      });
+
+      if (sig) {
+        setVtonSignatureCache((prev) => {
+          const next = { ...prev };
+          delete next[sig];
+          AsyncStorage.setItem(VTON_SIGNATURE_CACHE_KEY, JSON.stringify(next)).catch(() => {});
+          return next;
+        });
+      }
+
+      if (photoSourceForVton) {
+        renderSingleOutfitVton(activeIndex, targetOutfit, photoSourceForVton, true);
+      }
+    },
+    [activeOutfit, activeIndex, photoSourceForVton, renderSingleOutfitVton]
+  );
 
   // Natural, fashion-forward Mel stylist description synced to the active tab's exact Hybrid Score
   useEffect(() => {
@@ -793,7 +881,15 @@ export default function OutfitScreen() {
     return 'See It On Me';
   }, [photoSourceForVton, isPreloadingVton, preloadedCount, top3.length]);
 
-  const activeCompositeUri = vtonCacheByOutfitIndex[activeIndex] || null;
+  const activeOutfitItemsKey = getOutfitItemsCacheKey(activeOutfit);
+  const activeOutfitSig =
+    photoSourceForVton && activeOutfit
+      ? buildOutfitSignature(photoSourceForVton, activeOutfit)
+      : '';
+  const activeCompositeUri =
+    (activeOutfitItemsKey && vtonCacheByItemsKey[activeOutfitItemsKey]) ||
+    (activeOutfitSig && vtonSignatureCache[activeOutfitSig]) ||
+    null;
   const activeScore = activeOutfit?.hybridScore ?? activeOutfit?.matchPercent ?? 90;
   const cleanActiveTitle = formatCleanOutfitTitle(activeOutfit?.name, occasion, activeIndex);
   const generateButtonLabel =
@@ -1284,7 +1380,12 @@ export default function OutfitScreen() {
               {top3.map((o, idx) => {
                 const isCurrent = idx === activeIndex;
                 const s = o.hybridScore ?? o.matchPercent ?? 90;
-                const isReady = Boolean(vtonCacheByOutfitIndex[idx]);
+                const itemKey = getOutfitItemsCacheKey(o);
+                const itemSig = photoSourceForVton ? buildOutfitSignature(photoSourceForVton, o) : '';
+                const isReady = Boolean(
+                  (itemKey && vtonCacheByItemsKey[itemKey]) ||
+                    (itemSig && vtonSignatureCache[itemSig])
+                );
                 return (
                   <Pressable
                     key={o.id || idx}
@@ -1487,6 +1588,7 @@ export default function OutfitScreen() {
           sourceMode={outfitSourceMode === 'closet' ? 'wardrobe' : 'mix'}
           onClose={() => setCustomizing(false)}
           onEquip={chooseItem as any}
+          onSaveCustomized={handleSaveCustomizedOutfit}
         />
       )}
     </SafeAreaView>
