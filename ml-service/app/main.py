@@ -1,4 +1,4 @@
-"""StyleSense Unified ML & Hybrid Recommendation Microservice (FastAPI v7.5 — ZeroGPU-Safe CPU Inference, Pass-1 VTON Cache, In-Flight Deduplication & Thesis-Aligned Hybrid Recommender Edition).
+"""StyleSense Unified ML & Hybrid Recommendation Microservice (FastAPI v7.7 — ZeroGPU-Safe CPU Inference, Pass-1 VTON Cache, In-Flight Deduplication & Thesis-Aligned Hybrid Recommender Edition).
 
 Implements:
 1. Official remove.bg API Background Removal (size="preview") with graceful local
@@ -2361,7 +2361,7 @@ async def lifespan(_: FastAPI):
     AUX_IMAGENET_MODEL = None
 
 
-app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="7.5.0", lifespan=lifespan)
+app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="7.7.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -2381,7 +2381,7 @@ def health() -> Dict[str, object]:
     force_rembg_env = os.getenv("FORCE_REMBG", "false").strip().lower() in ("true", "1", "yes")
     return {
         "status": "ok",
-        "version": "7.5.0",
+        "version": "7.7.0",
         "device": str(DEVICE) if DEVICE is not None else "cpu",
         "cuda_available": bool(TORCH_AVAILABLE and torch is not None and torch.cuda.is_available()),
         "model": "resnet50-stylesense-5class" if IS_FINETUNED_HEAD else "resnet50-imagenet1k-v2",
@@ -2846,7 +2846,7 @@ def _try_gradio_zerogpu_upper_vton(
                         garment_des=upper_desc or "shirt",
                         is_checked=True,
                         is_checked_crop=False,
-                        denoise_steps=15,
+                        denoise_steps=20,
                         seed=42,
                         api_name="/tryon",
                     )
@@ -3025,7 +3025,7 @@ def _try_gradio_zerogpu_lower_vton(
                         garment_des=full_lower_prompt,
                         is_checked=False,
                         is_checked_crop=False,
-                        denoise_steps=15,
+                        denoise_steps=20,
                         seed=42,
                         api_name="/tryon",
                     )
@@ -3061,7 +3061,7 @@ def _try_gradio_zerogpu_lower_vton(
                         garment_des=full_lower_prompt,
                         is_checked=True,
                         is_checked_crop=False,
-                        denoise_steps=15,
+                        denoise_steps=20,
                         seed=42,
                         category="lower_body",
                         api_name="/tryon",
@@ -3096,7 +3096,7 @@ def _try_gradio_zerogpu_lower_vton(
                         src_image_path=gradio_handle_file(p_path),
                         ref_image_path=gradio_handle_file(g_path),
                         ref_acceleration=True,
-                        step=15,
+                        step=30,
                         scale=2.5,
                         seed=42,
                         vt_model_type="dress_code",
@@ -3357,7 +3357,7 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
     req.items = sort_outfit_items_canonically(req.items)
     photo_hash = hashlib.sha256(user_bytes).hexdigest()[:16]
     tryon_sig = hashlib.sha256(
-        user_bytes + "|".join(f"{it.id}:{it.clothing_name}:{it.color}:v75" for it in req.items).encode("utf-8")
+        user_bytes + "|".join(f"{it.id}:{it.clothing_name}:{it.color}:v77" for it in req.items).encode("utf-8")
     ).hexdigest()
 
     with _INFLIGHT_GUARD:
