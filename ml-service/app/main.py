@@ -1,4 +1,4 @@
-"""StyleSense Unified ML & Hybrid Recommendation Microservice (FastAPI v7.8 — ZeroGPU-Safe CPU Inference, Pass-1 VTON Cache, In-Flight Deduplication & Thesis-Aligned Hybrid Recommender Edition).
+"""StyleSense Unified ML & Hybrid Recommendation Microservice (FastAPI v7.9 — ZeroGPU-Safe CPU Inference, Pass-1 VTON Cache, In-Flight Deduplication & Thesis-Aligned Hybrid Recommender Edition).
 
 Implements:
 1. Official remove.bg API Background Removal (size="preview") with graceful local
@@ -580,9 +580,6 @@ class WardrobeItemInput(BaseModel):
     worn_within_7_days: Optional[bool] = False
 
     def __init__(self, **data: Any) -> None:
-        norm_cat = _normalize_category_str(data.get("category"))
-        data["category"] = norm_cat
-
         resolved_name = (
             data.get("clothing_name")
             or data.get("name")
@@ -592,6 +589,17 @@ class WardrobeItemInput(BaseModel):
             or "Garment"
         )
         name_str = str(resolved_name).strip()
+        name_low = name_str.lower()
+
+        norm_cat = _normalize_category_str(data.get("category"))
+        # Auto-heal legacy wardrobe items whose category was accidentally saved as BOTTOM when the name is clearly a TOP (e.g., "Black Short-sleeve Top", "Tank Top")
+        if any(w in name_low for w in ("short-sleeve top", "long-sleeve top", "tank top", "crop top", "t-shirt", "tshirt", "polo shirt", "button-down", "blouse", "singlet", "muscle tee")) or (
+            norm_cat == "BOTTOM" and any(w in name_low for w in (" top", "shirt", "polo", "tank", "tee")) and not any(w in name_low for w in ("pant", "jean", "short", "trouser", "skirt", "jogger"))
+        ):
+            norm_cat = "TOP"
+        elif norm_cat == "TOP" and any(w in name_low for w in ("denim jeans", "jeans", "track pants", "cargo pants", "athletic shorts", "casual shorts", "trousers", "slacks", "pleated skirt")):
+            norm_cat = "BOTTOM"
+        data["category"] = norm_cat
 
         if norm_cat == "TOP":
             for outer_term in ("Track Jacket", "Windbreaker Jacket", "Windbreaker", "Pullover Hoodie", "Zip-Up Hoodie", "Jacket", "Hoodie"):
@@ -2393,7 +2401,7 @@ async def lifespan(_: FastAPI):
     AUX_IMAGENET_MODEL = None
 
 
-app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="7.8.0", lifespan=lifespan)
+app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="7.9.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -2413,7 +2421,7 @@ def health() -> Dict[str, object]:
     force_rembg_env = os.getenv("FORCE_REMBG", "false").strip().lower() in ("true", "1", "yes")
     return {
         "status": "ok",
-        "version": "7.8.0",
+        "version": "7.9.0",
         "device": str(DEVICE) if DEVICE is not None else "cpu",
         "cuda_available": bool(TORCH_AVAILABLE and torch is not None and torch.cuda.is_available()),
         "model": "resnet50-stylesense-5class" if IS_FINETUNED_HEAD else "resnet50-imagenet1k-v2",
