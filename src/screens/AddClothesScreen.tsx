@@ -17,7 +17,12 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../contexts/AuthContext';
 import { useWardrobe } from '../contexts/WardrobeContext';
 import { supabase } from '../integrations/supabase/client';
-import { analyzeClothingImage, ClothingPrediction, Nsfw5ClassScores } from '../services/imageAnalysisService';
+import {
+  analyzeClothingImage,
+  ClothingPrediction,
+  compressImageForAnalysis,
+  Nsfw5ClassScores,
+} from '../services/imageAnalysisService';
 import { containsProfanityOrSlurs } from '../services/communityService';
 import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
 import TextField from '../components/TextField';
@@ -284,13 +289,13 @@ export default function AddClothesScreen() {
           mediaTypes: ['images'],
           allowsEditing: true,
           aspect: [4, 5],
-          quality: 0.9,
+          quality: 0.8,
         })
       : await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ['images'],
           allowsEditing: true,
           aspect: [4, 5],
-          quality: 0.9,
+          quality: 0.8,
         });
     if (result.canceled || !result.assets[0]) return;
 
@@ -301,8 +306,14 @@ export default function AddClothesScreen() {
     setLowConfidenceWarning(false);
 
     const asset = result.assets[0];
-    setImageUri(asset.uri);
-    setOriginalUri(asset.uri);
+    const compressedAsset = await compressImageForAnalysis(
+      asset.uri,
+      asset.width,
+      asset.height
+    );
+    const preparedUri = compressedAsset.uri || asset.uri;
+    setImageUri(preparedUri);
+    setOriginalUri(preparedUri);
     setCutoutUri(null);
     setBeautifiedUri(null);
     setBeautifiedMethod(null);
@@ -315,7 +326,12 @@ export default function AddClothesScreen() {
       setAnalyzing(true);
       setError('');
       try {
-        const prediction = await analyzeClothingImage(asset.uri, session.access_token);
+        const prediction = await analyzeClothingImage(
+          preparedUri,
+          session.access_token,
+          30000,
+          { width: asset.width, height: asset.height }
+        );
         const scores = prediction.nsfw_scores;
         setNsfwScores(scores || null);
         const neutralScore = typeof scores?.Neutral === 'number' ? scores.Neutral : 1.0;

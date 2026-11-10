@@ -19,7 +19,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { useWardrobe } from '../contexts/WardrobeContext';
 import { useToast } from '../contexts/ToastContext';
 import { supabase } from '../integrations/supabase/client';
-import { analyzeClothingImage, ClothingPrediction, Nsfw5ClassScores } from '../services/imageAnalysisService';
+import {
+  analyzeClothingImage,
+  ClothingPrediction,
+  compressImageForAnalysis,
+  Nsfw5ClassScores,
+} from '../services/imageAnalysisService';
 import { colorNameToHex, normalizeHexCode } from '../services/outfitRecommendationService';
 import { containsProfanityOrSlurs } from '../services/communityService';
 import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
@@ -348,21 +353,33 @@ export default function BatchAddClothesScreen() {
       return combined;
     });
 
-    // Analyze each selected image and update its draft entry in real time
+    // Analyze each selected image (auto-compressed if >1200px to width:1024, compress:0.82) and update its draft entry in real time
     for (let i = 0; i < placeholders.length; i++) {
       setAnalyzingIndex(i + 1);
       const placeholder = placeholders[i];
       const rawAsset = sliced[i];
 
       try {
+        const compressedAsset = await compressImageForAnalysis(
+          rawAsset.uri,
+          rawAsset.width,
+          rawAsset.height
+        );
+        const compressedUri = compressedAsset.uri || rawAsset.uri;
+
         let prediction: ClothingPrediction | null = null;
         if (session?.access_token) {
-          prediction = await analyzeClothingImage(rawAsset.uri, session.access_token);
+          prediction = await analyzeClothingImage(
+            compressedUri,
+            session.access_token,
+            30000,
+            { width: rawAsset.width, height: rawAsset.height }
+          );
         }
 
         const populated = buildDraftFromPrediction(
           placeholder.id,
-          rawAsset.uri,
+          compressedUri,
           prediction
         );
 
@@ -405,7 +422,7 @@ export default function BatchAddClothesScreen() {
       mediaTypes: ['images'],
       allowsMultipleSelection: true,
       selectionLimit: remaining,
-      quality: 0.9,
+      quality: 0.8,
     });
     if (result.canceled || !result.assets?.length) return;
     await ingestAssets(result.assets);

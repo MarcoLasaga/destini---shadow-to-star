@@ -2,6 +2,50 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { getApiUrl } from './apiConfig';
 
 const ML_SPACE_URL = 'https://jdyyy1-stylesense-ml.hf.space';
+export const MAX_IMAGE_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB limit for Ultra-HD mobile camera photos
+export const MAX_ANALYSIS_IMAGE_DIMENSION = 1200;
+export const TARGET_ANALYSIS_IMAGE_WIDTH = 1024;
+export const ANALYSIS_IMAGE_COMPRESS_QUALITY = 0.82;
+
+/**
+ * Auto-compresses Ultra-HD camera photos (> 1200px or multi-MB) down to width: 1024, compress: 0.82 JPEG (~250 KB)
+ * before base64 encoding or multipart upload so /analyze and /analyze-batch complete in 1–2s without payload errors.
+ */
+export async function compressImageForAnalysis(
+  uri: string,
+  width?: number,
+  height?: number
+): Promise<{ uri: string; base64?: string }> {
+  if (!uri) return { uri: '' };
+  if (uri.startsWith('data:image')) {
+    const parts = uri.split(',');
+    return { uri, base64: parts[1] || undefined };
+  }
+  if (uri.startsWith('http://') || uri.startsWith('https://')) {
+    return { uri };
+  }
+  try {
+    const needsResize =
+      !width ||
+      !height ||
+      width > MAX_ANALYSIS_IMAGE_DIMENSION ||
+      height > MAX_ANALYSIS_IMAGE_DIMENSION;
+    const actions: ImageManipulator.Action[] = needsResize
+      ? [{ resize: { width: TARGET_ANALYSIS_IMAGE_WIDTH } }]
+      : [];
+    const manip = await ImageManipulator.manipulateAsync(uri, actions, {
+      compress: ANALYSIS_IMAGE_COMPRESS_QUALITY,
+      format: ImageManipulator.SaveFormat.JPEG,
+      base64: true,
+    });
+    return {
+      uri: manip.uri || uri,
+      base64: manip.base64 || undefined,
+    };
+  } catch {
+    return { uri };
+  }
+}
 
 export interface ClothingPaletteCluster {
   name: string;
@@ -107,8 +151,9 @@ export async function verifyNsfw5ClassSafety(
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
+    const compressed = await compressImageForAnalysis(uri);
     const form = new FormData();
-    form.append('image', { uri, name: 'safety_scan.jpg', type: 'image/jpeg' } as any);
+    form.append('image', { uri: compressed.uri, name: 'safety_scan.jpg', type: 'image/jpeg' } as any);
 
     const response = await fetch(`${getApiUrl()}/wardrobe/analyze`, {
       method: 'POST',
@@ -163,10 +208,16 @@ export async function verifyNsfw5ClassSafety(
 export async function analyzeClothingImage(
   uri: string,
   accessToken: string,
-  timeoutMs = 30000
+  timeoutMs = 30000,
+  dimensions?: { width?: number; height?: number }
 ): Promise<ClothingPrediction> {
+  const compressed = await compressImageForAnalysis(
+    uri,
+    dimensions?.width,
+    dimensions?.height
+  );
   const form = new FormData();
-  form.append('image', { uri, name: 'clothing.jpg', type: 'image/jpeg' } as any);
+  form.append('image', { uri: compressed.uri, name: 'clothing.jpg', type: 'image/jpeg' } as any);
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -253,10 +304,14 @@ export async function analyzeClothingImage(
 }
 
 /**
- * Helper to ensure an image URI is converted to a base64 data string (or stripped base64)
- * before sending to Hugging Face FastAPI endpoints.
+ * Helper to ensure an image URI is auto-compressed (width: 1024, compress: 0.82) and converted
+ * to a base64 data string before sending to /analyze-batch or Hugging Face FastAPI endpoints.
  */
-export async function uriToBase64(uri: string): Promise<string> {
+export async function uriToBase64(
+  uri: string,
+  width?: number,
+  height?: number
+): Promise<string> {
   if (!uri) return '';
   if (uri.startsWith('data:image')) {
     const parts = uri.split(',');
@@ -267,15 +322,87 @@ export async function uriToBase64(uri: string): Promise<string> {
     return uri;
   }
   try {
-    const manip = await ImageManipulator.manipulateAsync(uri, [], {
-      base64: true,
-      format: ImageManipulator.SaveFormat.JPEG,
-      compress: 0.9,
-    });
+    const compressed = await compressImageForAnalysis(uri, width, height);
+    if (compressed.base64) {
+      return compressed.base64;
+    }
+    const manip = await ImageManipulator.manipulateAsync(
+      compressed.uri,
+      [{ resize: { width: TARGET_ANALYSIS_IMAGE_WIDTH } }],
+      {
+        base64: true,
+        format: ImageManipulator.SaveFormat.JPEG,
+        compress: ANALYSIS_IMAGE_COMPRESS_QUALITY,
+      }
+    );
     return manip.base64 || uri;
   } catch {
     return uri;
   }
+}
+
+/**
+ * Batch Clothing Image Analysis (`POST /analyze-batch` with compressed ~250KB base64 images):
+ * Auto-resizes images > 1200px down to width: 1024, compress: 0.82 before base64 encoding.
+ */
+export async function analyzeBatchClothingImages(
+  assets: Array<string | { uri: string; width?: number; height?: number }>,
+  accessToken: string,
+  timeoutMs = 35000
+): Promise<ClothingPrediction[]> {
+  const normalizedAssets = (assets || []).slice(0, 15).map((item) =>
+    typeof item === 'string' ? { uri: item } : item
+  );
+  if (normalizedAssets.length === 0) return [];
+
+  const compressedList = await Promise.all(
+    normalizedAssets.map((a) => compressImageForAnalysis(a.uri, a.width, a.height))
+  );
+  const base64Images = await Promise.all(
+    compressedList.map((c, idx) =>
+      c.base64 ? Promise.resolve(c.base64) : uriToBase64(c.uri, normalizedAssets[idx]?.width, normalizedAssets[idx]?.height)
+    )
+  );
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${getApiUrl()}/wardrobe/analyze-batch`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: JSON.stringify({ images: base64Images }),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (response.ok) {
+      const body = await response.json();
+      const rawList = Array.isArray(body?.data)
+        ? body.data
+        : Array.isArray(body?.results)
+        ? body.results
+        : Array.isArray(body)
+        ? body
+        : null;
+      if (rawList && rawList.length > 0) {
+        return rawList as ClothingPrediction[];
+      }
+    }
+  } catch {
+    clearTimeout(timer);
+  }
+
+  // Fallback to individual compressed analysis
+  return Promise.all(
+    compressedList.map((c, idx) =>
+      analyzeClothingImage(c.uri, accessToken, timeoutMs, {
+        width: normalizedAssets[idx]?.width,
+        height: normalizedAssets[idx]?.height,
+      })
+    )
+  );
 }
 
 export const normalizeCategory = (

@@ -71,7 +71,7 @@ export default function WardrobeScreen() {
       mediaTypes: ['images'],
       allowsMultipleSelection: true,
       selectionLimit: 10,
-      quality: 0.9,
+      quality: 0.8,
     });
     if (result.canceled || !result.assets?.length) return;
     navigation.navigate('BatchAddClothes', {
