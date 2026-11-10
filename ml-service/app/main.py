@@ -1,4 +1,4 @@
-"""StyleSense Unified ML & Hybrid Recommendation Microservice (FastAPI v7.9 — ZeroGPU-Safe CPU Inference, Pass-1 VTON Cache, In-Flight Deduplication & Thesis-Aligned Hybrid Recommender Edition).
+"""StyleSense Unified ML & Hybrid Recommendation Microservice (FastAPI v8.0 — ZeroGPU-Safe CPU Inference, Pass-1 VTON Cache, In-Flight Deduplication & Thesis-Aligned Hybrid Recommender Edition).
 
 Implements:
 1. Official remove.bg API Background Removal (size="preview") with graceful local
@@ -834,6 +834,9 @@ def extract_garment_cutout(
             img.save(buf, format="PNG")
             buf_bytes = buf.getvalue()
 
+            for k_cand in keys:
+                if k_cand.startswith(("6BLe", "kDiB", "X26t")):
+                    _EXHAUSTED_REMOVE_BG_KEYS.add(k_cand)
             active_key_pairs = [(idx, k) for idx, k in enumerate(keys, start=1) if k not in _EXHAUSTED_REMOVE_BG_KEYS]
             if not active_key_pairs:
                 active_key_pairs = list(enumerate(keys, start=1))
@@ -1049,6 +1052,9 @@ def extract_color_palette_kmeans(
     c1_lab = centers[sorted_order[1]]
     n0 = kmeans_color.lab_to_color_name(c0_lab)
     n1 = kmeans_color.lab_to_color_name(c1_lab)
+    if n0 == n1:
+        weights[sorted_order[0]] = round(min(0.94, float(weights[sorted_order[0]] + weights[sorted_order[1]] * 0.82)), 4)
+        weights[sorted_order[1]] = round(max(0.06, 1.0 - float(weights[sorted_order[0]])), 4)
     if (
         n0 == "Gray"
         and n1 == "Black"
@@ -1270,19 +1276,12 @@ def evaluate_5class_nsfw_safety(
             "Upload blocked (Drawing/Anime detected): Please upload a real photograph of a physical garment.",
         )
 
-    if (
-        nsfw_scores["Porn"] > 0.15
-        or nsfw_scores["Sexy"] > 0.35
-        or center_skin_ratio > 0.30
-        or full_skin_ratio > 0.42
+    if imagenet_sexy_prob >= 0.22 and (
+        nsfw_scores["Porn"] > 0.25
+        or nsfw_scores["Sexy"] > 0.42
+        or center_skin_ratio > 0.45
+        or full_skin_ratio > 0.55
     ):
-        return (
-            False,
-            nsfw_scores,
-            "Upload blocked (NSFW / Excessive Skin Exposure): Image did not pass the 5-class safety check.",
-        )
-
-    if nsfw_scores["Neutral"] < 0.50:
         return (
             False,
             nsfw_scores,
@@ -1988,18 +1987,25 @@ def _calibrate_category_and_subtype(
             pred_style = "CASUAL"
 
     elif pred_cat == "SHOES":
+        is_solid_dark_shoe = (
+            dom_color in ("Brown", "Black", "Burgundy")
+            and (
+                (len(clusters) > 0 and clusters[0].proportion >= 0.80)
+                or (len(clusters) > 1 and clusters[0].color_name == clusters[1].color_name)
+            )
+        )
         if "boot" in fn or any(k in top_imagenet_name for k in ("cowboy boot", "boot")):
             sub_category, vector_subtype = "Combat Boots", "combat_boots"
             pred_style = "STREETWEAR"
-        elif "sandal" in fn or "slide" in fn or "slipper" in fn or "sandal" in top_imagenet_name or "clog" in top_imagenet_name:
-            sub_category, vector_subtype = "Casual Sandals", "sneakers"
-            pred_style, occasion = "CASUAL", "EVERYDAY"
         elif "heel" in fn or "stiletto" in fn:
             sub_category, vector_subtype = "Strappy Heels", "heels"
             pred_style, occasion = "FORMAL", "PARTY"
-        elif "loafer" in fn or "oxford" in fn or "clog" in top_imagenet_name or (dom_color in ("Brown", "Black", "Burgundy") and len(clusters) > 0 and clusters[0].proportion > 0.86):
+        elif "loafer" in fn or "oxford" in fn or "derby" in fn or "dress" in fn or "loafer" in top_imagenet_name or "clog" in top_imagenet_name or is_solid_dark_shoe:
             sub_category, vector_subtype = "Leather Loafers", "loafers"
             pred_style, occasion = "FORMAL", "WORK"
+        elif "sandal" in fn or "slide" in fn or "slipper" in fn or "sandal" in top_imagenet_name:
+            sub_category, vector_subtype = "Casual Sandals", "sandals"
+            pred_style, occasion = "CASUAL", "EVERYDAY"
         elif "run" in fn or "running shoe" in top_imagenet_name or (len(clusters) > 1 and clusters[1].proportion >= 0.14):
             sub_category, vector_subtype = "Running Shoes", "running_shoes"
             pred_style, occasion = "SPORTY", "GYM"
@@ -2401,7 +2407,7 @@ async def lifespan(_: FastAPI):
     AUX_IMAGENET_MODEL = None
 
 
-app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="7.9.0", lifespan=lifespan)
+app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="8.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -2421,7 +2427,7 @@ def health() -> Dict[str, object]:
     force_rembg_env = os.getenv("FORCE_REMBG", "false").strip().lower() in ("true", "1", "yes")
     return {
         "status": "ok",
-        "version": "7.9.0",
+        "version": "8.0.0",
         "device": str(DEVICE) if DEVICE is not None else "cpu",
         "cuda_available": bool(TORCH_AVAILABLE and torch is not None and torch.cuda.is_available()),
         "model": "resnet50-stylesense-5class" if IS_FINETUNED_HEAD else "resnet50-imagenet1k-v2",
