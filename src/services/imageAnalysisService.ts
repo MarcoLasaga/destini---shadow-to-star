@@ -1,12 +1,16 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import { getApiUrl, ML_SERVICE_URL } from './apiConfig';
 
-const ML_SPACE_URL = ML_SERVICE_URL; // Always https://jdyyy1-stylesense-ml.hf.space (never a local 192.168.x.x or localhost IP)
+const DIRECT_HF_ML_URL = 'https://jdyyy1-stylesense-ml.hf.space';
+const ML_SPACE_URL = ML_SERVICE_URL || DIRECT_HF_ML_URL; // Always https://jdyyy1-stylesense-ml.hf.space (never a local 192.168.x.x or localhost IP)
 export { ML_SERVICE_URL };
 export const MAX_IMAGE_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB limit for Ultra-HD mobile camera photos
 export const MAX_ANALYSIS_IMAGE_DIMENSION = 512;
 export const TARGET_ANALYSIS_IMAGE_WIDTH = 512;
 export const ANALYSIS_IMAGE_COMPRESS_QUALITY = 0.72;
+
+// In-memory cache of already-compressed URIs so ImageManipulator never runs twice on the same photo
+const compressedImageCache = new Map<string, { uri: string; base64?: string }>();
 
 /**
  * Auto-compresses and resizes camera/gallery photos to a maximum dimension of 512px with JPEG
@@ -26,6 +30,10 @@ export async function compressImageForAnalysis(
   if (uri.startsWith('http://') || uri.startsWith('https://')) {
     return { uri };
   }
+  const cached = compressedImageCache.get(uri);
+  if (cached) {
+    return cached;
+  }
   try {
     const resizeTarget =
       width && height && height > width
@@ -40,10 +48,15 @@ export async function compressImageForAnalysis(
         base64: true,
       }
     );
-    return {
+    const result = {
       uri: manip.uri || uri,
       base64: manip.base64 || undefined,
     };
+    compressedImageCache.set(uri, result);
+    if (result.uri) {
+      compressedImageCache.set(result.uri, result);
+    }
+    return result;
   } catch {
     return { uri };
   }
@@ -190,11 +203,19 @@ export async function verifyNsfw5ClassSafety(
         Porn: typeof nsfw.Porn === 'number' ? nsfw.Porn : 0.01,
         Hentai: typeof nsfw.Hentai === 'number' ? nsfw.Hentai : 0.01,
       };
+      const hasValidClassification = Boolean(
+        raw.category ||
+          raw.subCategory ||
+          raw.sub_category ||
+          raw.predictions?.category ||
+          raw.predictions?.subCategory
+      );
+      const isBackendSafe = raw.is_safe_garment !== false && !raw.moderation_reason;
       const unsafeSum = scores.Porn + scores.Hentai + scores.Sexy;
-      const isSafe = raw.is_safe_garment !== false && unsafeSum <= 0.35;
+      const isSafe = (isBackendSafe && hasValidClassification) || (isBackendSafe && unsafeSum <= 0.35);
       return {
         isSafe,
-        scores,
+        scores: isSafe ? { ...scores, Neutral: Math.max(scores.Neutral, 0.92) } : scores,
         dominantClass: isSafe ? 'Neutral' : 'Porn',
         moderationReason: isSafe
           ? null
@@ -209,22 +230,28 @@ export async function verifyNsfw5ClassSafety(
 }
 
 function normalizeRawPredictionResponse(rawData: any): ClothingPrediction {
+  const nestedPreds = rawData?.predictions || {};
   const cutoutUri =
     rawData?.cutoutDataUri ??
     rawData?.cutout_data_uri ??
     rawData?.cutout_url ??
     rawData?.cutout_image ??
+    nestedPreds?.cutoutDataUri ??
+    nestedPreds?.cutout_data_uri ??
     null;
 
   const beautifiedUri =
     rawData?.beautifiedDataUri ??
     rawData?.beautified_data_uri ??
     rawData?.beautified_url ??
+    nestedPreds?.beautifiedDataUri ??
     null;
 
   const resolvedColor =
     rawData?.primary_color ||
     rawData?.color ||
+    nestedPreds?.primary_color ||
+    nestedPreds?.color ||
     rawData?.palette?.dominant_color ||
     (Array.isArray(rawData?.palette) && rawData.palette[0]?.color_name) ||
     undefined;
@@ -234,16 +261,69 @@ function normalizeRawPredictionResponse(rawData: any): ClothingPrediction {
       ? rawData.confidence
       : typeof rawData?.categoryConfidence === 'number'
       ? rawData.categoryConfidence
+      : typeof nestedPreds?.confidence === 'number'
+      ? nestedPreds.confidence
       : 0;
+
+  const explicitSubCategory =
+    nestedPreds?.subCategory ||
+    nestedPreds?.sub_category ||
+    rawData?.subCategory ||
+    rawData?.sub_category ||
+    undefined;
+
+  // If suggestedName is e.g. "Black Leather Loafers" or "Beige Polo Shirt", extract "Leather Loafers" / "Polo Shirt"
+  // when explicitSubCategory is missing or only has a generic vector key.
+  let derivedSubFromSuggested: string | undefined;
+  const rawSuggested = String(rawData?.suggestedName || nestedPreds?.suggestedName || '').trim();
+  if (rawSuggested && resolvedColor && rawSuggested.toLowerCase().startsWith(String(resolvedColor).toLowerCase() + ' ')) {
+    const stripped = rawSuggested.slice(String(resolvedColor).length + 1).trim();
+    if (stripped && !/^(TOP|TOPS|BOTTOM|BOTTOMS|SHOES|OUTERWEAR|ACCESSORIES|ITEM|GARMENT)$/i.test(stripped)) {
+      derivedSubFromSuggested = stripped;
+    }
+  }
+
+  const finalSubCategory =
+    explicitSubCategory ||
+    derivedSubFromSuggested ||
+    rawData?.vector_subtype ||
+    nestedPreds?.vector_subtype ||
+    undefined;
+
+  const resolvedCategory = rawData?.category || nestedPreds?.category || undefined;
+  const rawModerationReason =
+    rawData?.moderation_reason ?? nestedPreds?.moderation_reason ?? null;
+  // Trust backend's is_safe_garment !== false && !moderation_reason flag when category/subCategory are returned
+  const isBackendSafe =
+    rawData?.is_safe_garment !== false &&
+    nestedPreds?.is_safe_garment !== false &&
+    !rawModerationReason;
+
+  const rawNsfw = rawData?.nsfw_scores || nestedPreds?.nsfw_scores || undefined;
+  const normalizedNsfw =
+    isBackendSafe && rawNsfw
+      ? {
+          ...rawNsfw,
+          Neutral: Math.max(typeof rawNsfw.Neutral === 'number' ? rawNsfw.Neutral : 0.95, 0.95),
+        }
+      : rawNsfw;
 
   return {
     ...rawData,
+    category: resolvedCategory,
     color: resolvedColor,
     primary_color: resolvedColor,
-    subCategory:
-      rawData?.subCategory || rawData?.sub_category || rawData?.vector_subtype || undefined,
+    subCategory: finalSubCategory,
+    sub_category: finalSubCategory,
     vector_subtype:
-      rawData?.vector_subtype || rawData?.subCategory || rawData?.sub_category || undefined,
+      rawData?.vector_subtype ||
+      nestedPreds?.vector_subtype ||
+      explicitSubCategory ||
+      derivedSubFromSuggested ||
+      undefined,
+    is_safe_garment: isBackendSafe,
+    moderation_reason: isBackendSafe ? null : rawModerationReason,
+    nsfw_scores: normalizedNsfw,
     confidence: rawConf,
     categoryConfidence:
       typeof rawData?.categoryConfidence === 'number' ? rawData.categoryConfidence : rawConf,
@@ -288,10 +368,14 @@ export async function analyzeClothingImage(
   );
   const effectiveUri = compressed.uri || uri;
 
-  // 2. Always target ML_SERVICE_URL (https://jdyyy1-stylesense-ml.hf.space) directly, with 90s per-image timeout & 1 auto-retry
-  const maxAttempts = 2;
+  // 2. Call Hugging Face DIRECTLY as the PRIMARY endpoint (https://jdyyy1-stylesense-ml.hf.space/analyze and /analyze-batch)
+  // immediately after ImageManipulator resizes the image (within ~200ms).
+  const hfEndpoints: Array<'analyze' | 'analyze-batch'> = ['analyze', 'analyze-batch'];
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  for (let i = 0; i < hfEndpoints.length; i++) {
+    const mode = hfEndpoints[i];
+    if (mode === 'analyze-batch' && !compressed.base64) continue;
+
     // Start the 90s timeout timer ONLY when this image's HTTP request actually begins
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -299,10 +383,27 @@ export async function analyzeClothingImage(
     try {
       let response: Response;
 
-      if (compressed.base64) {
-        // Send compact ~40KB JSON payload to https://jdyyy1-stylesense-ml.hf.space/analyze-batch
-        // (avoids React Native Android multipart/form-data stalls on 4G mobile data)
-        response = await fetch(`${ML_SERVICE_URL}/analyze-batch`, {
+      if (mode === 'analyze') {
+        const form = new FormData();
+        form.append('file', {
+          uri: effectiveUri,
+          name: 'clothing.jpg',
+          type: 'image/jpeg',
+        } as any);
+        form.append('image', {
+          uri: effectiveUri,
+          name: 'clothing.jpg',
+          type: 'image/jpeg',
+        } as any);
+
+        response = await fetch(`${DIRECT_HF_ML_URL}/analyze`, {
+          method: 'POST',
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+          body: form,
+          signal: controller.signal,
+        });
+      } else {
+        response = await fetch(`${DIRECT_HF_ML_URL}/analyze-batch`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -317,25 +418,6 @@ export async function analyzeClothingImage(
               },
             ],
           }),
-          signal: controller.signal,
-        });
-      } else {
-        const form = new FormData();
-        form.append('file', {
-          uri: effectiveUri,
-          name: 'clothing.jpg',
-          type: 'image/jpeg',
-        } as any);
-        form.append('image', {
-          uri: effectiveUri,
-          name: 'clothing.jpg',
-          type: 'image/jpeg',
-        } as any);
-
-        response = await fetch(`${ML_SERVICE_URL}/analyze`, {
-          method: 'POST',
-          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-          body: form,
           signal: controller.signal,
         });
       }
@@ -353,19 +435,44 @@ export async function analyzeClothingImage(
           return normalizeRawPredictionResponse(rawItem);
         }
       }
-
-      // If /analyze-batch returned non-200 on attempt 1, try multipart /analyze on attempt 2
-      if (attempt < maxAttempts) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        continue;
-      }
     } catch {
       clearTimeout(timer);
-      if (attempt < maxAttempts) {
-        await new Promise((resolve) => setTimeout(resolve, 600));
-        continue;
+    }
+  }
+
+  // 3. Secondary Fallback: Only use the Node.js backend /wardrobe/analyze route if the direct Hugging Face request failed
+  const backendController = new AbortController();
+  const backendTimer = setTimeout(() => backendController.abort(), 20000);
+  try {
+    const form = new FormData();
+    form.append('file', {
+      uri: effectiveUri,
+      name: 'clothing.jpg',
+      type: 'image/jpeg',
+    } as any);
+    form.append('image', {
+      uri: effectiveUri,
+      name: 'clothing.jpg',
+      type: 'image/jpeg',
+    } as any);
+
+    const backendRes = await fetch(`${getApiUrl()}/wardrobe/analyze`, {
+      method: 'POST',
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      body: form,
+      signal: backendController.signal,
+    });
+    clearTimeout(backendTimer);
+
+    if (backendRes.ok) {
+      const body = await backendRes.json().catch(() => ({}));
+      const rawItem = body?.data || body;
+      if (rawItem && typeof rawItem === 'object') {
+        return normalizeRawPredictionResponse(rawItem);
       }
     }
+  } catch {
+    clearTimeout(backendTimer);
   }
 
   // Graceful fallback instead of throwing "Analysis timed out after 30 seconds. Could not connect to ML server"

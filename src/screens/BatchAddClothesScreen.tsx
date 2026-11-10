@@ -134,52 +134,6 @@ function buildDraftFromPrediction(
       ? prediction.categoryConfidence
       : 0;
 
-  const neutralScore =
-    typeof prediction?.nsfw_scores?.Neutral === 'number'
-      ? prediction.nsfw_scores.Neutral
-      : 1.0;
-  const isNsfwSafe = neutralScore >= 0.50;
-
-  // Only hard-block if strictly flagged as adult/prohibited content
-  if (!isNsfwSafe) {
-    return {
-      id: draftId,
-      originalUri,
-      cutoutDataUri: prediction?.cutoutDataUri ?? null,
-      cutoutUri: prediction?.cutoutDataUri ?? null,
-      beautifiedUri: null,
-      beautifiedMethod: null,
-      useBeautified: false,
-      useCanonicalStudio: false,
-      name: 'Inappropriate Content',
-      category: '',
-      subCategory: '',
-      vector_subtype: '',
-      layerRole: 'INNER_BASE',
-      layer_role: 'INNER_BASE',
-      color: detectedColor || '',
-      colorHex,
-      secondary_color: prediction?.secondary_color,
-      secondary_color_hex: prediction?.secondary_color_hex,
-      palette: prediction?.palette,
-      color_harmony_note: prediction?.color_harmony_note,
-      style: 'Casual',
-      occasion: 'Casual',
-      occasions: ['Casual'],
-      seasons: ['All'],
-      material: '',
-      brand: '',
-      confidence,
-      moderation_reason:
-        prediction?.moderation_reason ||
-        'Image rejected by safety check. Please upload appropriate clothing items.',
-      isSafeGarment: false,
-      isVerified: false,
-      analyzing: false,
-      nsfw_scores: prediction?.nsfw_scores,
-    };
-  }
-
   const rawSuggested = (prediction?.suggestedName || '').trim();
   const isGenericUppercase =
     !rawSuggested ||
@@ -201,12 +155,95 @@ function buildDraftFromPrediction(
     finalName = 'Garment';
   }
 
+  const rawExplicitSub = String(
+    (prediction as any)?.predictions?.subCategory ||
+      (prediction as any)?.predictions?.sub_category ||
+      prediction?.subCategory ||
+      prediction?.sub_category ||
+      ''
+  ).trim();
+
+  const nameWithoutColor =
+    detectedColor && finalName.toLowerCase().startsWith(detectedColor.toLowerCase() + ' ')
+      ? finalName.slice(detectedColor.length + 1).trim()
+      : finalName;
+
   const vectorSubtype = inferVectorSubtype(
     finalName,
     category || 'Tops',
-    prediction?.vector_subtype || prediction?.subCategory || prediction?.sub_category
+    rawExplicitSub || prediction?.vector_subtype
   );
-  const subCategoryLabel = formatSubtypeLabel(vectorSubtype, category || 'Tops');
+
+  const isGenericSub = (val: string) =>
+    !val ||
+    /^(TOP|TOPS|BOTTOM|BOTTOMS|SHOES|OUTERWEAR|ACCESSORIES|ITEM|GARMENT|CASUAL GARMENT)$/i.test(
+      val.trim()
+    );
+
+  // Sync overlay pill subtype with Item Name (e.g., "Leather Loafers" or "Polo Shirt") instead of overwriting with generic vectorSubtype ("Sneakers")
+  const subCategoryLabel =
+    !isGenericSub(nameWithoutColor) &&
+    (isGenericSub(rawExplicitSub) ||
+      /^(sneakers|tshirt|trousers|hoodie|jacket|watch)$/i.test(rawExplicitSub))
+      ? nameWithoutColor
+      : !isGenericSub(rawExplicitSub)
+      ? rawExplicitSub
+      : !isGenericSub(nameWithoutColor)
+      ? nameWithoutColor
+      : formatSubtypeLabel(vectorSubtype, category || 'Tops');
+
+  // Trust backend's is_safe_garment !== false && !moderation_reason flag when category/subCategory are returned
+  const isBackendSafe =
+    prediction?.is_safe_garment !== false && !prediction?.moderation_reason;
+  const neutralPlusDrawing =
+    (typeof prediction?.nsfw_scores?.Neutral === 'number'
+      ? prediction.nsfw_scores.Neutral
+      : 0.92) +
+    (typeof prediction?.nsfw_scores?.Drawing === 'number'
+      ? prediction.nsfw_scores.Drawing
+      : 0.05);
+  const isNsfwSafe =
+    isBackendSafe || (prediction?.is_safe_garment !== false && neutralPlusDrawing >= 0.50);
+
+  // Only hard-block if strictly flagged as adult/prohibited content
+  if (!isNsfwSafe) {
+    return {
+      id: draftId,
+      originalUri,
+      cutoutDataUri: prediction?.cutoutDataUri ?? null,
+      cutoutUri: prediction?.cutoutDataUri ?? null,
+      beautifiedUri: null,
+      beautifiedMethod: null,
+      useBeautified: false,
+      useCanonicalStudio: false,
+      name: 'Inappropriate Content',
+      category: '',
+      subCategory: subCategoryLabel || rawExplicitSub || 'Garment',
+      vector_subtype: vectorSubtype,
+      layerRole: 'INNER_BASE',
+      layer_role: 'INNER_BASE',
+      color: detectedColor || 'White',
+      colorHex,
+      secondary_color: prediction?.secondary_color,
+      secondary_color_hex: prediction?.secondary_color_hex,
+      palette: prediction?.palette,
+      color_harmony_note: prediction?.color_harmony_note,
+      style: 'Casual',
+      occasion: 'Casual',
+      occasions: ['Casual'],
+      seasons: ['All'],
+      material: '',
+      brand: '',
+      confidence,
+      moderation_reason:
+        prediction?.moderation_reason ||
+        'Image rejected by safety check. Please upload appropriate clothing items.',
+      isSafeGarment: false,
+      isVerified: false,
+      analyzing: false,
+      nsfw_scores: prediction?.nsfw_scores,
+    };
+  }
 
   const apiStyle = (prediction?.style || '').toUpperCase();
   let style = 'Casual';
@@ -840,34 +877,47 @@ export default function BatchAddClothesScreen() {
         >
           {/* Large Cutout Preview Card */}
           <View style={[styles.previewBox, { backgroundColor: theme.collageCanvas, borderColor: theme.border }]}>
-            <Image
-              source={{
-                uri:
-                  activeDraft.cutoutDataUri ||
-                  activeDraft.cutoutUri ||
-                  activeDraft.beautifiedUri ||
-                  activeDraft.originalUri,
-              }}
-              style={styles.previewImage}
-              resizeMode="contain"
-            />
+            <View style={styles.previewImageWrap}>
+              <Image
+                source={{
+                  uri:
+                    activeDraft.cutoutDataUri ||
+                    activeDraft.cutoutUri ||
+                    activeDraft.beautifiedUri ||
+                    activeDraft.originalUri,
+                }}
+                style={styles.previewImage}
+                resizeMode="contain"
+              />
+            </View>
 
             <View style={styles.previewCornerRow}>
-              <View
-                style={[
-                  styles.colorPreviewChip,
-                  { backgroundColor: theme.surface, borderColor: theme.border },
-                ]}
-              >
+              <View style={styles.previewTopPillRow}>
                 <View
                   style={[
-                    styles.colorPreviewDot,
-                    { backgroundColor: normalizeHexCode(activeDraft.colorHex, activeDraft.color) },
+                    styles.colorPreviewChip,
+                    { backgroundColor: theme.surface, borderColor: theme.border },
                   ]}
-                />
-                <Text style={[styles.colorPreviewText, { color: theme.text }]}>
-                  ● {activeDraft.color} ({normalizeHexCode(activeDraft.colorHex, activeDraft.color)}) · {activeDraft.subCategory || activeDraft.category} ({Math.round((activeDraft.confidence || 0) * 100)}%)
-                </Text>
+                >
+                  <View
+                    style={[
+                      styles.colorPreviewDot,
+                      { backgroundColor: normalizeHexCode(activeDraft.colorHex, activeDraft.color) },
+                    ]}
+                  />
+                  <Text style={[styles.colorPreviewText, { color: theme.text }]} numberOfLines={1}>
+                    ● {activeDraft.color} ({normalizeHexCode(activeDraft.colorHex, activeDraft.color)}) · {activeDraft.subCategory || (activeDraft as any)?.predictions?.subCategory || activeDraft.vector_subtype || activeDraft.category || 'Garment'} ({Math.round((activeDraft.confidence || 0) * 100)}%)
+                  </Text>
+                </View>
+
+                {activeDraft.isSafeGarment && Boolean(activeDraft.category) && (!activeDraft.isVerified || activeDraft.confidence < 0.55) && (
+                  <Pressable
+                    onPress={() => updateCurrentDraft({ isVerified: true, confidence: activeDraft.confidence > 0 ? activeDraft.confidence : 1.0, moderation_reason: null })}
+                    style={[styles.markVerifiedBtn, { backgroundColor: '#2F8F5B' }]}
+                  >
+                    <Text style={styles.markVerifiedBtnText}>Mark Reviewed</Text>
+                  </Pressable>
+                )}
               </View>
 
               {!activeDraft.isSafeGarment ? (
@@ -883,15 +933,6 @@ export default function BatchAddClothesScreen() {
                   </Text>
                 </View>
               ) : null}
-
-              {activeDraft.isSafeGarment && Boolean(activeDraft.category) && (!activeDraft.isVerified || activeDraft.confidence < 0.55) && (
-                <Pressable
-                  onPress={() => updateCurrentDraft({ isVerified: true, confidence: activeDraft.confidence > 0 ? activeDraft.confidence : 1.0, moderation_reason: null })}
-                  style={[styles.markVerifiedBtn, { backgroundColor: '#2F8F5B' }]}
-                >
-                  <Text style={styles.markVerifiedBtnText}>Mark Reviewed</Text>
-                </Pressable>
-              )}
             </View>
           </View>
 
@@ -1355,26 +1396,42 @@ const styles = StyleSheet.create({
     paddingBottom: 110,
   },
   previewBox: {
-    height: 200,
+    minHeight: 220,
     borderRadius: 18,
     borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'stretch',
+    justifyContent: 'space-between',
     padding: 12,
     position: 'relative',
+    overflow: 'hidden',
+  },
+  previewImageWrap: {
+    width: '100%',
+    height: 150,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   previewImage: {
     width: '100%',
     height: '100%',
   },
   previewCornerRow: {
-    position: 'absolute',
-    bottom: 10,
-    left: 10,
-    right: 10,
+    position: 'relative',
+    width: '100%',
+    maxWidth: '100%',
+    alignSelf: 'stretch',
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 6,
+    marginTop: 8,
+  },
+  previewTopPillRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 6,
+    width: '100%',
   },
   colorPreviewChip: {
     flexDirection: 'row',
@@ -1384,6 +1441,8 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 999,
     borderWidth: 1,
+    maxWidth: '100%',
+    flexShrink: 1,
   },
   colorPreviewDot: {
     width: 10,
@@ -1537,14 +1596,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF3C7',
     borderColor: '#F59E0B',
     borderWidth: 1,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    width: '100%',
+    maxWidth: '100%',
+    alignSelf: 'stretch',
+    flexShrink: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
   amberWarningText: {
-    fontSize: 10.5,
+    fontSize: 11,
+    lineHeight: 15,
     fontWeight: '800',
     color: '#92400E',
+    flex: 1,
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
 });
 

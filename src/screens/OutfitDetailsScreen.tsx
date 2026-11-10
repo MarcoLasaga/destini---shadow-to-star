@@ -34,7 +34,7 @@ export default function OutfitDetailsScreen() {
   const theme = useAppTheme();
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RootStackParamList, 'OutfitDetails'>>();
-  const { getOutfit, toggleSave, markAsWorn, submitWearFeedback, submitPreferenceEvent } = useOutfit();
+  const { getOutfit, toggleFavorite, toggleSave, markAsWorn, submitWearFeedback, submitPreferenceEvent } = useOutfit();
   const { refresh } = useCommunity();
   const { showToast } = useToast();
   const [shareVisible, setShareVisible] = useState(false);
@@ -118,13 +118,18 @@ export default function OutfitDetailsScreen() {
   };
 
   const handleLike = () => {
-    submitPreferenceEvent(outfit.id, 'LIKE');
-    showToast('Saved to your style preferences!');
+    const wasLiked = Boolean(outfit.favorited);
+    toggleFavorite(outfit.id);
+    if (wasLiked) {
+      showToast('Removed from liked & saved outfits.');
+    } else {
+      showToast('Saved to your style preferences!');
+    }
   };
 
   const handleDislike = () => {
     submitPreferenceEvent(outfit.id, 'DISLIKE');
-    showToast('Preference saved! We will adjust future looks.');
+    showToast('Preference saved! Removed from saved looks.');
   };
 
   const handleSave = () => {

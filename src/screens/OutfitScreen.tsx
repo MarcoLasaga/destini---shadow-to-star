@@ -824,13 +824,10 @@ export default function OutfitScreen() {
     const outfitId = activeOutfit.id;
     const willLike = !activeOutfit.favorited;
     toggleFavorite(outfitId);
-    if (!activeOutfit.saved && willLike) {
-      toggleSave(outfitId);
-    }
     if (willLike) {
       showToast('Saved to your liked looks.');
     } else {
-      showToast('Removed from liked looks.', {
+      showToast('Removed from liked & saved looks.', {
         variant: 'warning',
         undoLabel: 'Undo',
         onUndo: () => {

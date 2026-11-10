@@ -16,7 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useProfile } from '../contexts/ProfileContext';
 import { useCommunity } from '../contexts/CommunityContext';
-import { useOutfit } from '../contexts/OutfitContext';
+import { useOutfit, isPlaceholderOrEmptyOutfit } from '../contexts/OutfitContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useSettings } from '../contexts/SettingsContext';
@@ -47,7 +47,11 @@ export default function ProfileScreen() {
   const navigation = useNavigation<any>();
   const { profile, updateProfile, setAvatar } = useProfile();
   const community = useCommunity();
-  const { savedOutfits, toggleSave } = useOutfit();
+  const { savedOutfits: rawSavedOutfits, toggleSave, deleteSavedOutfit } = useOutfit();
+  const savedOutfits = useMemo(
+    () => rawSavedOutfits.filter((o) => !isPlaceholderOrEmptyOutfit(o) && o.saved !== false),
+    [rawSavedOutfits]
+  );
   const { logout, session } = useAuth();
   const { showToast } = useToast();
   const { themePreference, setThemePreference } = useSettings();
@@ -270,7 +274,7 @@ export default function ProfileScreen() {
     if (!removeSavedTarget) return;
     const target = removeSavedTarget;
     setRemoveSavedTarget(null);
-    toggleSave(target.id);
+    deleteSavedOutfit(target.id);
     showToast(`"${target.name}" removed from saved looks.`, {
       variant: 'warning',
       undoLabel: 'Undo',

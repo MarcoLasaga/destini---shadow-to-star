@@ -23,6 +23,31 @@ import { triggerSmartAlert } from '../services/notificationService';
 const LOCAL_OUTFIT_PREFS_KEY = '@stylesense_outfit_prefs_v1';
 const getUserSavedKey = (userId?: string) =>
   userId ? `@stylesense_saved_outfits_${userId}` : '@stylesense_saved_outfits_guest';
+const getUserDeletedKey = (userId?: string) =>
+  userId ? `@stylesense_deleted_outfit_ids_${userId}` : '@stylesense_deleted_outfit_ids_guest';
+
+export function getOutfitItemsSignature(outfit?: GeneratedOutfit | null): string {
+  if (!outfit || !Array.isArray(outfit.clothingItems) || outfit.clothingItems.length === 0) {
+    return '';
+  }
+  return outfit.clothingItems
+    .map((i) => String(i.id || i.name || '').trim().toLowerCase())
+    .filter(Boolean)
+    .sort()
+    .join('__');
+}
+
+export function isPlaceholderOrEmptyOutfit(outfit?: GeneratedOutfit | null): boolean {
+  if (!outfit) return true;
+  const title = String(outfit.name || '').trim();
+  if (/^(Curated Look #\d+|Optimal Hybrid Outfit)$/i.test(title)) {
+    return true;
+  }
+  if (!Array.isArray(outfit.clothingItems) || outfit.clothingItems.length === 0) {
+    return true;
+  }
+  return false;
+}
 
 interface OutfitContextValue {
   occasion: string;
@@ -65,6 +90,7 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
   const [currentOutfits, setCurrentOutfits] = useState<GeneratedOutfit[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [savedOutfits, setSavedOutfits] = useState<GeneratedOutfit[]>([]);
+  const [deletedOutfitIds, setDeletedOutfitIds] = useState<Set<string>>(new Set());
   const [history, setHistory] = useState<Record<string, GeneratedOutfit>>({});
   const [localPrefs, setLocalPrefs] = useState<Record<string, Partial<GeneratedOutfit>>>({});
 
@@ -86,23 +112,77 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // Load user-scoped saved outfits immediately when the logged in user changes
+  const recordDeletedOutfit = useCallback(
+    (id: string, sig?: string, userId?: string) => {
+      const delKey = getUserDeletedKey(userId);
+      setDeletedOutfitIds((prev) => {
+        const next = new Set(prev);
+        if (id) next.add(id);
+        if (sig) next.add(sig);
+        AsyncStorage.setItem(delKey, JSON.stringify(Array.from(next))).catch(() => {});
+        return next;
+      });
+    },
+    []
+  );
+
+  const unrecordDeletedOutfit = useCallback(
+    (id: string, sig?: string, userId?: string) => {
+      const delKey = getUserDeletedKey(userId);
+      setDeletedOutfitIds((prev) => {
+        const next = new Set(prev);
+        if (id) next.delete(id);
+        if (sig) next.delete(sig);
+        AsyncStorage.setItem(delKey, JSON.stringify(Array.from(next))).catch(() => {});
+        return next;
+      });
+    },
+    []
+  );
+
+  // Load user-scoped saved outfits and deleted outfit IDs immediately when the logged in user changes
   useEffect(() => {
     const userId = session?.user?.id;
-    if (!userId) {
-      setSavedOutfits([]);
-      return;
-    }
     const userKey = getUserSavedKey(userId);
-    AsyncStorage.getItem(userKey)
-      .then((raw) => {
-        if (raw) {
+    const delKey = getUserDeletedKey(userId);
+
+    Promise.all([AsyncStorage.getItem(userKey), AsyncStorage.getItem(delKey)])
+      .then(([rawSaved, rawDeleted]) => {
+        const delSet = new Set<string>();
+        if (rawDeleted) {
           try {
-            const cached = JSON.parse(raw);
-            if (Array.isArray(cached) && cached.length > 0) {
-              setSavedOutfits(cached);
+            const parsedDel = JSON.parse(rawDeleted);
+            if (Array.isArray(parsedDel)) {
+              parsedDel.forEach((entry) => delSet.add(String(entry)));
             }
           } catch {}
+        }
+        setDeletedOutfitIds(delSet);
+
+        if (!userId) {
+          setSavedOutfits([]);
+          return;
+        }
+
+        if (rawSaved) {
+          try {
+            const cached = JSON.parse(rawSaved);
+            if (Array.isArray(cached)) {
+              const filtered = cached.filter((o: GeneratedOutfit) => {
+                if (isPlaceholderOrEmptyOutfit(o)) return false;
+                if (o.saved === false) return false;
+                const sig = getOutfitItemsSignature(o);
+                if (delSet.has(o.id) || (sig && delSet.has(sig))) return false;
+                return true;
+              });
+              setSavedOutfits(filtered);
+              if (filtered.length !== cached.length) {
+                AsyncStorage.setItem(userKey, JSON.stringify(filtered)).catch(() => {});
+              }
+            }
+          } catch {}
+        } else {
+          setSavedOutfits([]);
         }
       })
       .catch(() => {});
@@ -114,13 +194,33 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
     if (!userId) return;
 
     const userKey = getUserSavedKey(userId);
+    const delKey = getUserDeletedKey(userId);
 
-    // 1. Load local cached saved outfits
+    // 0. Load deleted outfit IDs / signatures
+    const delSet = new Set<string>(deletedOutfitIds);
+    try {
+      const rawDel = await AsyncStorage.getItem(delKey);
+      if (rawDel) {
+        const parsedDel = JSON.parse(rawDel);
+        if (Array.isArray(parsedDel)) {
+          parsedDel.forEach((d) => delSet.add(String(d)));
+        }
+      }
+    } catch {}
+
+    // 1. Load local cached saved outfits (excluding placeholder/empty or deleted outfits)
     let localSaved: GeneratedOutfit[] = [];
     try {
       const raw = await AsyncStorage.getItem(userKey);
       if (raw) {
-        localSaved = JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          localSaved = parsed.filter((o: GeneratedOutfit) => {
+            if (isPlaceholderOrEmptyOutfit(o) || o.saved === false) return false;
+            const sig = getOutfitItemsSignature(o);
+            return !delSet.has(o.id) && (!sig || !delSet.has(sig));
+          });
+        }
       }
     } catch {}
 
@@ -128,11 +228,29 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
     let remoteSaved: GeneratedOutfit[] = [];
     if (token) {
       try {
-        remoteSaved = await fetchSavedOutfitsFromApi(token);
+        const apiList = await fetchSavedOutfitsFromApi(token);
+        for (const ro of apiList) {
+          const sig = getOutfitItemsSignature(ro);
+          if (isPlaceholderOrEmptyOutfit(ro) || delSet.has(ro.id) || (sig && delSet.has(sig))) {
+            // Proactively purge placeholder or deleted outfit from backend & Supabase
+            deleteOutfitFromApi(ro.id, token).catch(() => {});
+            if (isUuid(ro.id)) {
+              Promise.resolve(
+                supabase
+                  .from('outfit_recommendations' as any)
+                  .delete()
+                  .eq('id', ro.id)
+                  .eq('user_id', userId)
+              ).catch(() => {});
+            }
+          } else {
+            remoteSaved.push(ro);
+          }
+        }
       } catch {}
     }
 
-    // 3. Fallback check to Supabase directly if remoteSaved returned empty
+    // 3. Fallback check to Supabase directly if remoteSaved returned empty (never generating "Curated Look #2, #3, #4" with empty items)
     if (remoteSaved.length === 0) {
       try {
         const { data: dbRows } = await supabase
@@ -143,7 +261,8 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
           .order('created_at', { ascending: false });
 
         if (dbRows && dbRows.length > 0) {
-          remoteSaved = dbRows.map((row: any, idx: number) => {
+          for (const row of dbRows as any[]) {
+            if (delSet.has(row.id)) continue;
             const matchedItems: OutfitClothingItem[] = (row.item_ids || [])
               .map((iId: string) => wardrobe.items.find((w) => w.id === iId))
               .filter(Boolean)
@@ -158,9 +277,21 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
                 status: w.status || 'clean',
               }));
 
-            return {
+            // Never create empty white box "Curated Look #2, #3, #4" entries when items are missing
+            if (matchedItems.length === 0) {
+              Promise.resolve(
+                supabase
+                  .from('outfit_recommendations' as any)
+                  .update({ is_saved: false })
+                  .eq('id', row.id)
+                  .eq('user_id', userId)
+              ).catch(() => {});
+              continue;
+            }
+
+            const candidate: GeneratedOutfit = {
               id: row.id,
-              name: `${row.occasion || 'Curated'} Look #${idx + 1}`,
+              name: `${row.occasion || 'Casual'} Look · ${matchedItems[0].name}`,
               badge: 'Saved Look',
               image: matchedItems[0]?.image || '',
               occasionLabel: row.occasion || 'Casual',
@@ -193,30 +324,41 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
               saved: true,
               worn: Boolean(row.is_worn),
             };
-          });
+            const sig = getOutfitItemsSignature(candidate);
+            if (!sig || !delSet.has(sig)) {
+              remoteSaved.push(candidate);
+            }
+          }
         }
       } catch {}
     }
 
-    // 4. Merge strategy: combine local and remote without wiping
+    // 4. Merge strategy: combine local and remote while excluding deleted & placeholder outfits
     const mergedMap = new Map<string, GeneratedOutfit>();
+    const seenSigs = new Set<string>();
     for (const outfit of localSaved) {
-      if (outfit?.id && outfit.saved !== false) {
-        mergedMap.set(outfit.id, outfit);
+      if (outfit?.id && outfit.saved !== false && !isPlaceholderOrEmptyOutfit(outfit)) {
+        const sig = getOutfitItemsSignature(outfit);
+        if (!delSet.has(outfit.id) && (!sig || !delSet.has(sig))) {
+          mergedMap.set(outfit.id, outfit);
+          if (sig) seenSigs.add(sig);
+        }
       }
     }
     for (const outfit of remoteSaved) {
-      if (outfit?.id) {
-        const existing = mergedMap.get(outfit.id);
-        mergedMap.set(outfit.id, { ...(existing || {}), ...outfit, saved: true });
+      if (outfit?.id && !isPlaceholderOrEmptyOutfit(outfit)) {
+        const sig = getOutfitItemsSignature(outfit);
+        if (!delSet.has(outfit.id) && (!sig || (!delSet.has(sig) && !seenSigs.has(sig)))) {
+          const existing = mergedMap.get(outfit.id);
+          mergedMap.set(outfit.id, { ...(existing || {}), ...outfit, saved: true });
+          if (sig) seenSigs.add(sig);
+        }
       }
     }
 
     const mergedList = Array.from(mergedMap.values());
-    if (mergedList.length > 0 || localSaved.length > 0) {
-      setSavedOutfits(mergedList);
-      AsyncStorage.setItem(userKey, JSON.stringify(mergedList)).catch(() => {});
-    }
+    setSavedOutfits(mergedList);
+    AsyncStorage.setItem(userKey, JSON.stringify(mergedList)).catch(() => {});
 
     // 5. Sync any local outfits not yet in remote to Supabase
     if (localSaved.length > 0) {
@@ -373,31 +515,58 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
       if (!target) return;
       const nextSaved = !target.saved;
       const validId = isUuid(id) ? id : Crypto.randomUUID();
+      const targetSig = getOutfitItemsSignature(target);
       const updatedTarget: GeneratedOutfit = {
         ...target,
         id: validId,
         saved: nextSaved,
-        favorited: nextSaved ? true : target.favorited,
+        favorited: nextSaved ? true : false,
       };
 
-      updateOutfitEverywhere(id, { id: validId, saved: nextSaved, favorited: nextSaved ? true : target.favorited });
+      updateOutfitEverywhere(id, {
+        id: validId,
+        saved: nextSaved,
+        favorited: nextSaved ? true : false,
+      });
 
       const userId = session?.user?.id;
       const userKey = getUserSavedKey(userId);
 
+      if (nextSaved) {
+        unrecordDeletedOutfit(validId, targetSig, userId);
+        unrecordDeletedOutfit(id, targetSig, userId);
+      } else {
+        recordDeletedOutfit(validId, targetSig, userId);
+        recordDeletedOutfit(id, targetSig, userId);
+      }
+
       setSavedOutfits((prev) => {
         let next: GeneratedOutfit[];
         if (nextSaved) {
-          const exists = prev.some((o) => o.id === validId || o.id === id);
+          const exists = prev.some(
+            (o) =>
+              o.id === validId ||
+              o.id === id ||
+              (targetSig && getOutfitItemsSignature(o) === targetSig)
+          );
           next = exists
-            ? prev.map((o) => (o.id === validId || o.id === id ? updatedTarget : o))
+            ? prev.map((o) =>
+                o.id === validId ||
+                o.id === id ||
+                (targetSig && getOutfitItemsSignature(o) === targetSig)
+                  ? updatedTarget
+                  : o
+              )
             : [updatedTarget, ...prev];
         } else {
-          next = prev.filter((o) => o.id !== id && o.id !== validId);
+          next = prev.filter(
+            (o) =>
+              o.id !== id &&
+              o.id !== validId &&
+              (!targetSig || getOutfitItemsSignature(o) !== targetSig)
+          );
         }
-        if (userId) {
-          AsyncStorage.setItem(userKey, JSON.stringify(next)).catch(() => {});
-        }
+        AsyncStorage.setItem(userKey, JSON.stringify(next)).catch(() => {});
         return next;
       });
 
@@ -406,31 +575,46 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
           saveOutfitToApi(updatedTarget, session.access_token).catch(() => {});
         } else {
           deleteOutfitFromApi(validId, session.access_token).catch(() => {});
+          if (id !== validId) {
+            deleteOutfitFromApi(id, session.access_token).catch(() => {});
+          }
         }
       }
 
       if (userId) {
-        const itemIds = (updatedTarget.clothingItems || [])
-          .map((i) => i.id)
-          .filter((iId) => isUuid(iId));
-        Promise.resolve(
-          supabase
-            .from('outfit_recommendations' as any)
-            .upsert({
-              id: validId,
-              user_id: userId,
-              occasion: updatedTarget.occasionLabel || 'Casual',
-              item_ids: itemIds,
-              score: updatedTarget.matchPercent || 88,
-              reasons: (updatedTarget.whyReasons || []).map((r) => `${r.title}: ${r.description}`),
-              is_saved: nextSaved,
-              is_worn: Boolean(updatedTarget.worn),
-              updated_at: new Date().toISOString(),
-            })
-        ).catch(() => {});
+        if (nextSaved) {
+          const itemIds = (updatedTarget.clothingItems || [])
+            .map((i) => i.id)
+            .filter((iId) => isUuid(iId));
+          Promise.resolve(
+            supabase
+              .from('outfit_recommendations' as any)
+              .upsert({
+                id: validId,
+                user_id: userId,
+                occasion: updatedTarget.occasionLabel || 'Casual',
+                item_ids: itemIds,
+                score: updatedTarget.matchPercent || 88,
+                reasons: (updatedTarget.whyReasons || []).map(
+                  (r) => `${r.title}: ${r.description}`
+                ),
+                is_saved: true,
+                is_worn: Boolean(updatedTarget.worn),
+                updated_at: new Date().toISOString(),
+              })
+          ).catch(() => {});
+        } else {
+          Promise.resolve(
+            supabase
+              .from('outfit_recommendations' as any)
+              .delete()
+              .in('id', [id, validId].filter(isUuid))
+              .eq('user_id', userId)
+          ).catch(() => {});
+        }
       }
     },
-    [findTargetOutfit, updateOutfitEverywhere, session]
+    [findTargetOutfit, updateOutfitEverywhere, session, recordDeletedOutfit, unrecordDeletedOutfit]
   );
 
   const toggleFavorite = useCallback(
@@ -438,22 +622,102 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
       const target = findTargetOutfit(id);
       if (!target) return;
       const nextFav = !target.favorited;
-      updateOutfitEverywhere(id, { favorited: nextFav, disliked: false });
+      const targetSig = getOutfitItemsSignature(target);
+      const userId = session?.user?.id;
+      const userKey = getUserSavedKey(userId);
+
       if (nextFav) {
-        if (!target.saved) {
-          toggleSave(id);
+        // Liking -> set favorited: true, saved: true, and add to savedOutfits
+        const validId = isUuid(id) ? id : Crypto.randomUUID();
+        const updatedTarget: GeneratedOutfit = {
+          ...target,
+          id: validId,
+          favorited: true,
+          saved: true,
+          disliked: false,
+        };
+        updateOutfitEverywhere(id, {
+          id: validId,
+          favorited: true,
+          saved: true,
+          disliked: false,
+        });
+        unrecordDeletedOutfit(validId, targetSig, userId);
+        unrecordDeletedOutfit(id, targetSig, userId);
+
+        setSavedOutfits((prev) => {
+          const exists = prev.some(
+            (o) =>
+              o.id === validId ||
+              o.id === id ||
+              (targetSig && getOutfitItemsSignature(o) === targetSig)
+          );
+          const next = exists
+            ? prev.map((o) =>
+                o.id === validId ||
+                o.id === id ||
+                (targetSig && getOutfitItemsSignature(o) === targetSig)
+                  ? updatedTarget
+                  : o
+              )
+            : [updatedTarget, ...prev];
+          AsyncStorage.setItem(userKey, JSON.stringify(next)).catch(() => {});
+          return next;
+        });
+
+        if (session?.access_token) {
+          saveOutfitToApi(updatedTarget, session.access_token).catch(() => {});
         }
       } else {
-        if (session?.access_token) {
-          updateRecommendation(
-            id,
-            { eventType: 'UNSAVE', isSaved: false },
-            session.access_token
-          ).catch(() => {});
-        }
+        // Untoggling Like (abstaining) -> set favorited: false, saved: false, and immediately remove from savedOutfits
+        updateOutfitEverywhere(id, {
+          favorited: false,
+          saved: false,
+          disliked: false,
+        });
+        recordDeletedOutfit(id, targetSig, userId);
+
+        setSavedOutfits((prev) => {
+          const removedIds = prev
+            .filter(
+              (o) =>
+                o.id === id ||
+                (targetSig && getOutfitItemsSignature(o) === targetSig)
+            )
+            .map((o) => o.id);
+          const next = prev.filter(
+            (o) =>
+              o.id !== id &&
+              (!targetSig || getOutfitItemsSignature(o) !== targetSig)
+          );
+          AsyncStorage.setItem(userKey, JSON.stringify(next)).catch(() => {});
+          if (session?.access_token) {
+            [id, ...removedIds].forEach((rId) => {
+              deleteOutfitFromApi(rId, session.access_token!).catch(() => {});
+              updateRecommendation(
+                rId,
+                { eventType: 'UNSAVE', isSaved: false },
+                session.access_token!
+              ).catch(() => {});
+            });
+          }
+          if (userId) {
+            const uuids = Array.from(new Set([id, ...removedIds].filter(isUuid)));
+            if (uuids.length > 0) {
+              Promise.resolve(
+                supabase
+                  .from('outfit_recommendations' as any)
+                  .delete()
+                  .in('id', uuids)
+                  .eq('user_id', userId)
+              ).catch(() => {});
+            }
+          }
+          return next;
+        });
       }
     },
-    [findTargetOutfit, updateOutfitEverywhere, toggleSave, session]
+    [findTargetOutfit, updateOutfitEverywhere, session, recordDeletedOutfit, unrecordDeletedOutfit]
   );
 
   const markAsWorn = useCallback(
@@ -510,15 +774,37 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
       const target = findTargetOutfit(id);
       if (!target) return;
       const isLike = eventType === 'LIKE';
-      updateOutfitEverywhere(id, { favorited: isLike, disliked: !isLike });
+      const targetSig = getOutfitItemsSignature(target);
+      const userId = session?.user?.id;
+      const userKey = getUserSavedKey(userId);
+
+      if (isLike) {
+        if (!target.favorited) {
+          toggleFavorite(id);
+        }
+      } else {
+        // Switching to DISLIKE -> remove from likedOutfits and savedOutfits immediately
+        updateOutfitEverywhere(id, { favorited: false, saved: false, disliked: true });
+        recordDeletedOutfit(id, targetSig, userId);
+        setSavedOutfits((prev) => {
+          const next = prev.filter(
+            (o) =>
+              o.id !== id &&
+              (!targetSig || getOutfitItemsSignature(o) !== targetSig)
+          );
+          AsyncStorage.setItem(userKey, JSON.stringify(next)).catch(() => {});
+          return next;
+        });
+        if (session?.access_token) {
+          deleteOutfitFromApi(id, session.access_token).catch(() => {});
+        }
+      }
+
       if (session?.access_token) {
         updateRecommendation(id, { eventType }, session.access_token).catch(() => {});
       }
-      if (isLike && !target.saved) {
-        toggleSave(id);
-      }
     },
-    [findTargetOutfit, session, updateOutfitEverywhere, toggleSave]
+    [findTargetOutfit, session, updateOutfitEverywhere, toggleFavorite, recordDeletedOutfit]
   );
 
   const renameSavedOutfit = useCallback(
@@ -527,30 +813,36 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
       if (!trimmed) return;
       updateOutfitEverywhere(id, { name: trimmed });
       const userId = session?.user?.id;
-      if (userId) {
-        const userKey = getUserSavedKey(userId);
-        setSavedOutfits((prev) => {
-          const next = prev.map((o) => (o.id === id ? { ...o, name: trimmed } : o));
-          AsyncStorage.setItem(userKey, JSON.stringify(next)).catch(() => {});
-          return next;
-        });
-      }
+      const userKey = getUserSavedKey(userId);
+      setSavedOutfits((prev) => {
+        const next = prev.map((o) => (o.id === id ? { ...o, name: trimmed } : o));
+        AsyncStorage.setItem(userKey, JSON.stringify(next)).catch(() => {});
+        return next;
+      });
     },
     [updateOutfitEverywhere, session]
   );
 
   const deleteSavedOutfit = useCallback(
     (id: string) => {
-      updateOutfitEverywhere(id, { saved: false });
+      const target = findTargetOutfit(id);
+      const targetSig = getOutfitItemsSignature(target);
       const userId = session?.user?.id;
       const userKey = getUserSavedKey(userId);
+
+      updateOutfitEverywhere(id, { saved: false, favorited: false });
+      recordDeletedOutfit(id, targetSig, userId);
+
       setSavedOutfits((prev) => {
-        const next = prev.filter((o) => o.id !== id);
-        if (userId) {
-          AsyncStorage.setItem(userKey, JSON.stringify(next)).catch(() => {});
-        }
+        const next = prev.filter(
+          (o) =>
+            o.id !== id &&
+            (!targetSig || getOutfitItemsSignature(o) !== targetSig)
+        );
+        AsyncStorage.setItem(userKey, JSON.stringify(next)).catch(() => {});
         return next;
       });
+
       if (session?.access_token) {
         deleteOutfitFromApi(id, session.access_token).catch(() => {});
       }
@@ -558,13 +850,13 @@ export function OutfitProvider({ children }: { children: React.ReactNode }) {
         Promise.resolve(
           supabase
             .from('outfit_recommendations' as any)
-            .update({ is_saved: false, updated_at: new Date().toISOString() })
+            .delete()
             .eq('id', id)
             .eq('user_id', userId)
         ).catch(() => {});
       }
     },
-    [updateOutfitEverywhere, session]
+    [findTargetOutfit, updateOutfitEverywhere, session, recordDeletedOutfit]
   );
 
   const getOutfit = useCallback(

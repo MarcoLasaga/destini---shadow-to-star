@@ -128,12 +128,42 @@ function buildSafeAutoPrefill(prediction: ClothingPrediction | null): SafePrefil
     finalName = 'Garment';
   }
 
+  const rawExplicitSub = String(
+    (prediction as any)?.predictions?.subCategory ||
+      (prediction as any)?.predictions?.sub_category ||
+      prediction?.subCategory ||
+      prediction?.sub_category ||
+      ''
+  ).trim();
+
+  const nameWithoutColor =
+    detectedColor && finalName.toLowerCase().startsWith(detectedColor.toLowerCase() + ' ')
+      ? finalName.slice(detectedColor.length + 1).trim()
+      : finalName;
+
   const vectorSubtype = inferVectorSubtype(
     finalName,
     category || 'Tops',
-    prediction?.vector_subtype || prediction?.subCategory || prediction?.sub_category
+    rawExplicitSub || prediction?.vector_subtype
   );
-  const subCategoryLabel = formatSubtypeLabel(vectorSubtype, category || 'Tops');
+
+  const isGenericSub = (val: string) =>
+    !val ||
+    /^(TOP|TOPS|BOTTOM|BOTTOMS|SHOES|OUTERWEAR|ACCESSORIES|ITEM|GARMENT|CASUAL GARMENT)$/i.test(
+      val.trim()
+    );
+
+  // Sync overlay pill subtype with Item Name (e.g., "Leather Loafers" or "Polo Shirt") instead of overwriting with generic vectorSubtype ("Sneakers")
+  const subCategoryLabel =
+    !isGenericSub(nameWithoutColor) &&
+    (isGenericSub(rawExplicitSub) ||
+      /^(sneakers|tshirt|trousers|hoodie|jacket|watch)$/i.test(rawExplicitSub))
+      ? nameWithoutColor
+      : !isGenericSub(rawExplicitSub)
+      ? rawExplicitSub
+      : !isGenericSub(nameWithoutColor)
+      ? nameWithoutColor
+      : formatSubtypeLabel(vectorSubtype, category || 'Tops');
 
   // 4. Determine Style & Occasions
   const apiStyle = (prediction?.style || '').toUpperCase();
@@ -337,8 +367,13 @@ export default function AddClothesScreen() {
         );
         const scores = prediction.nsfw_scores;
         setNsfwScores(scores || null);
-        const neutralScore = typeof scores?.Neutral === 'number' ? scores.Neutral : 1.0;
-        const isNsfwSafe = neutralScore >= 0.50;
+        const isBackendSafe =
+          prediction.is_safe_garment !== false && !prediction.moderation_reason;
+        const neutralPlusDrawing =
+          (typeof scores?.Neutral === 'number' ? scores.Neutral : 0.92) +
+          (typeof scores?.Drawing === 'number' ? scores.Drawing : 0.05);
+        const isNsfwSafe =
+          isBackendSafe || (prediction.is_safe_garment !== false && neutralPlusDrawing >= 0.50);
 
         // Only hard-block if strictly flagged as adult/prohibited content
         if (!isNsfwSafe) {
@@ -352,6 +387,13 @@ export default function AddClothesScreen() {
           setImageUri(prediction.cutoutDataUri || asset.uri);
           setName('Inappropriate Image');
           setCategory('');
+          setSubCategory(
+            prediction.subCategory ||
+              prediction.sub_category ||
+              (prediction as any)?.predictions?.subCategory ||
+              prediction.vector_subtype ||
+              'Garment'
+          );
           return;
         }
 
@@ -595,17 +637,19 @@ export default function AddClothesScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Cutout Preview Canvas: Centered on theme-aware canvas with resizeMode="contain" */}
         <View style={[styles.photo, { backgroundColor: theme.collageCanvas, borderColor: theme.border }]}>
-          {imageUri ? (
-            <Image
-              source={{
-                uri: cutoutUri || beautifiedUri || imageUri,
-              }}
-              style={styles.photoImage}
-              resizeMode="contain"
-            />
-          ) : (
-            <Ionicons name="shirt-outline" size={48} color={theme.textMuted} />
-          )}
+          <View style={styles.photoImageWrap}>
+            {imageUri ? (
+              <Image
+                source={{
+                  uri: cutoutUri || beautifiedUri || imageUri,
+                }}
+                style={styles.photoImage}
+                resizeMode="contain"
+              />
+            ) : (
+              <Ionicons name="shirt-outline" size={48} color={theme.textMuted} />
+            )}
+          </View>
 
           {imageUri && (
             <View style={styles.previewOverlayBottom}>
@@ -621,8 +665,8 @@ export default function AddClothesScreen() {
                     { backgroundColor: normalizeHexCode(colorHex, color || 'White') },
                   ]}
                 />
-                <Text style={[styles.previewInfoPillText, { color: theme.text }]}>
-                  ● {color} ({normalizeHexCode(colorHex, color || 'White')}) · {subCategory || category} ({Math.round((confidence || 0) * 100)}%)
+                <Text style={[styles.previewInfoPillText, { color: theme.text }]} numberOfLines={1}>
+                  ● {color} ({normalizeHexCode(colorHex, color || 'White')}) · {subCategory || vectorSubtype || category || 'Garment'} ({Math.round((confidence || 0) * 100)}%)
                 </Text>
               </View>
 
@@ -862,13 +906,20 @@ const styles = StyleSheet.create({
   title: { fontSize: 17, fontWeight: '700' },
   content: { padding: 20, gap: 18, paddingBottom: 40 },
   photo: {
-    height: 230,
+    minHeight: 230,
     borderWidth: 1,
     borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'stretch',
+    justifyContent: 'space-between',
     overflow: 'hidden',
     padding: 12,
+    position: 'relative',
+  },
+  photoImageWrap: {
+    width: '100%',
+    height: 155,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   photoImage: { width: '100%', height: '100%', resizeMode: 'contain' },
   photoActions: { flexDirection: 'row', gap: 12 },
@@ -899,23 +950,26 @@ const styles = StyleSheet.create({
   save: { borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 6 },
   saveText: { fontSize: 15, fontWeight: '700' },
   previewOverlayBottom: {
-    position: 'absolute',
-    bottom: 10,
-    left: 10,
-    right: 54,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    position: 'relative',
+    width: '100%',
+    maxWidth: '100%',
+    alignSelf: 'stretch',
+    flexDirection: 'column',
     gap: 6,
-    alignItems: 'center',
+    alignItems: 'stretch',
+    marginTop: 8,
   },
   previewInfoPill: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-start',
     gap: 5,
     paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 999,
     borderWidth: 1,
+    maxWidth: '100%',
+    flexShrink: 1,
   },
   previewColorDot: {
     width: 9,
@@ -925,18 +979,29 @@ const styles = StyleSheet.create({
   previewInfoPillText: {
     fontSize: 10.5,
     fontWeight: '800',
+    flexShrink: 1,
   },
   amberWarningPill: {
     backgroundColor: '#FEF3C7',
     borderColor: '#F59E0B',
     borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    width: '100%',
+    maxWidth: '100%',
+    alignSelf: 'stretch',
+    flexShrink: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
   amberWarningText: {
-    fontSize: 10,
+    fontSize: 11,
+    lineHeight: 15,
     fontWeight: '800',
     color: '#92400E',
+    flex: 1,
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
 });
