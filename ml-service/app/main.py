@@ -157,13 +157,45 @@ def get_hf_tokens_pool(explicit_token: Optional[str] = None, header_token: Optio
     return tokens
 
 
-def get_hf_token(explicit_token: Optional[str] = None, header_token: Optional[str] = None) -> str:
-    """Resolve the active non-exhausted Hugging Face Access Token (HF_TOKEN) from pool."""
+_HF_TOKEN_RR_CURSOR: int = 0
+
+
+def mask_hf_token(tok: str, pool: Optional[List[str]] = None) -> str:
+    """Return a safe masked identifier like '#2/4 (hf_abcd...wxyz)' for logs."""
+    if not tok:
+        return "none"
+    short = f"{tok[:7]}...{tok[-4:]}" if len(tok) > 12 else f"{tok[:4]}..."
+    if pool and tok in pool:
+        idx = pool.index(tok) + 1
+        return f"#{idx}/{len(pool)} ({short})"
+    return short
+
+
+def get_hf_token(explicit_token: Optional[str] = None, header_token: Optional[str] = None, advance_rr: bool = False) -> str:
+    """Resolve the active non-exhausted Hugging Face Access Token (HF_TOKEN) from pool using Round-Robin."""
+    global _HF_TOKEN_RR_CURSOR
     pool = get_hf_tokens_pool(explicit_token=explicit_token, header_token=header_token)
-    for tok in pool:
-        if tok not in _EXHAUSTED_HF_TOKENS:
-            return tok
-    return pool[0] if pool else ""
+    if not pool:
+        return ""
+    active = [t for t in pool if t not in _EXHAUSTED_HF_TOKENS]
+    if not active:
+        active = list(pool)
+    idx = _HF_TOKEN_RR_CURSOR % len(active)
+    if advance_rr:
+        _HF_TOKEN_RR_CURSOR = (_HF_TOKEN_RR_CURSOR + 1) % max(1, len(active))
+    return active[idx]
+
+
+def is_zerogpu_truly_exhausted(err_str: str) -> bool:
+    """Return True ONLY if ZeroGPU daily quota left is strictly less than requested duration (e.g. 60s requested vs 40s left).
+    If '60s requested vs 88s left', the token still has quota for another job and only hit a temporary concurrent reservation lock!
+    """
+    m = re.search(r"(\d+)s\s+requested\s+vs\.?\s+(\d+)s\s+left", err_str, re.IGNORECASE)
+    if m:
+        req_s = int(m.group(1))
+        left_s = int(m.group(2))
+        return left_s < req_s
+    return True
 
 
 # Add ml-service root directory to sys.path so kmeans_color and local modules import cleanly
@@ -267,6 +299,7 @@ import threading
 _STUDIO_BEAUTIFY_CACHE: Dict[str, str] = {}
 _VTON_TRYON_CACHE: Dict[str, str] = {}
 _UPPER_VTON_CACHE: Dict[str, Image.Image] = {}
+_LOWER_VTON_CACHE: Dict[str, Image.Image] = {}
 _INFLIGHT_TRYON_LOCKS: Dict[str, threading.Lock] = {}
 _INFLIGHT_GUARD = threading.Lock()
 _HF_ZEROGPU_COOLDOWN_UNTIL: float = 0.0
@@ -2304,11 +2337,13 @@ async def lifespan(_: FastAPI):
             logger.warning(f"Could not set torch num threads: {e}")
 
     keys = get_remove_bg_api_keys()
+    hf_pool = get_hf_tokens_pool()
     hf_tok = get_hf_token()
     force_rembg_env = os.getenv("FORCE_REMBG", "false").strip().lower() in ("true", "1", "yes")
     dev_name = str(DEVICE) if DEVICE is not None else "cpu"
+    masked_hf_list = [mask_hf_token(t, hf_pool) for t in hf_pool]
     logger.info(
-        f"remove.bg API Key(s) loaded: {len(keys)} key(s) | FORCE_REMBG={force_rembg_env} | HF_TOKEN_configured={bool(hf_tok)} | gradio_client={GRADIO_CLIENT_AVAILABLE} | device={dev_name}"
+        f"remove.bg API Key(s) loaded: {len(keys)} key(s) | HF_TOKEN Pool: {len(hf_pool)} token(s) {masked_hf_list} | FORCE_REMBG={force_rembg_env} | gradio_client={GRADIO_CLIENT_AVAILABLE} | device={dev_name}"
     )
 
     if REMBG_AVAILABLE and new_session is not None and remove is not None:
@@ -2420,7 +2455,7 @@ async def lifespan(_: FastAPI):
     AUX_IMAGENET_MODEL = None
 
 
-app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="8.1.0", lifespan=lifespan)
+app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="8.2.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -2440,7 +2475,7 @@ def health() -> Dict[str, object]:
     force_rembg_env = os.getenv("FORCE_REMBG", "false").strip().lower() in ("true", "1", "yes")
     return {
         "status": "ok",
-        "version": "8.1.0",
+        "version": "8.2.0",
         "device": str(DEVICE) if DEVICE is not None else "cpu",
         "cuda_available": bool(TORCH_AVAILABLE and torch is not None and torch.cuda.is_available()),
         "model": "resnet50-stylesense-5class" if IS_FINETUNED_HEAD else "resnet50-imagenet1k-v2",
@@ -2456,6 +2491,7 @@ def health() -> Dict[str, object]:
         "remove_bg_keys_count": len(keys),
         "remove_bg_active_keys_count": len([k for k in keys if k not in _EXHAUSTED_REMOVE_BG_KEYS]),
         "hf_tokens_count": len(get_hf_tokens_pool()),
+        "hf_tokens_masked": [mask_hf_token(t, get_hf_tokens_pool()) for t in get_hf_tokens_pool()],
         "full_body_verification_gate_enabled": True,
         "remove_bg_size": os.getenv("REMOVE_BG_SIZE", "preview"),
         "force_rembg": force_rembg_env,
@@ -2841,19 +2877,25 @@ def verify_full_body_standing_photo(user_img: Image.Image) -> VerifyFullBodyResp
 
 
 def _instantiate_gradio_client(space_id: str, resolved_token: str) -> Any:
-    """Instantiate GradioClient across all gradio_client versions (handling `token` vs `hf_token` signatures)."""
+    """Instantiate GradioClient across all gradio_client versions with explicit per-token Authorization headers."""
     if resolved_token:
         os.environ["HF_TOKEN"] = resolved_token
         os.environ["HUGGING_FACE_HUB_TOKEN"] = resolved_token
 
     try:
         sig_params = inspect.signature(GradioClient.__init__).parameters
-        if resolved_token and "token" in sig_params:
-            return GradioClient(space_id, token=resolved_token)
-        elif resolved_token and "hf_token" in sig_params:
-            return GradioClient(space_id, hf_token=resolved_token)
-        else:
-            return GradioClient(space_id)
+        kwargs: Dict[str, Any] = {}
+        if resolved_token:
+            if "token" in sig_params:
+                kwargs["token"] = resolved_token
+            elif "hf_token" in sig_params:
+                kwargs["hf_token"] = resolved_token
+            if "headers" in sig_params:
+                kwargs["headers"] = {
+                    "Authorization": f"Bearer {resolved_token}",
+                    "X-HF-Authorization": f"Bearer {resolved_token}",
+                }
+        return GradioClient(space_id, **kwargs)
     except Exception:
         return GradioClient(space_id)
 
@@ -2873,7 +2915,6 @@ def _try_gradio_zerogpu_upper_vton(
         return None
 
     token_pool = get_hf_tokens_pool(explicit_token=hf_token)
-    resolved_token = get_hf_token(explicit_token=hf_token)
     if os.getenv("DISABLE_ZEROGPU_VTON", "false").strip().lower() in ("true", "1", "yes"):
         return None
 
@@ -2888,19 +2929,26 @@ def _try_gradio_zerogpu_upper_vton(
             g_white = Image.new("RGBA", upper_pil.size, (255, 255, 255, 255))
             Image.alpha_composite(g_white, upper_pil.convert("RGBA")).convert("RGB").save(g_path, format="PNG")
 
-            deadline = time.time() + max(6.0, budget_seconds)
+            overall_deadline = time.time() + max(45.0, budget_seconds * 2.2)
             for space_id in HF_VTON_SPACES:
-                max_tok_attempts = max(1, len(token_pool) + 1)
-                for _tok_attempt in range(max_tok_attempts):
-                    remaining = deadline - time.time()
-                    if remaining < 5.0:
+                active_candidates = [t for t in token_pool if t not in _EXHAUSTED_HF_TOKENS] or list(token_pool) or [""]
+                start_tok = get_hf_token(explicit_token=hf_token, advance_rr=True)
+                if start_tok in active_candidates:
+                    s_idx = active_candidates.index(start_tok)
+                    ordered_tokens = active_candidates[s_idx:] + active_candidates[:s_idx]
+                else:
+                    ordered_tokens = active_candidates
+
+                for cand_tok in ordered_tokens:
+                    if overall_deadline - time.time() < 6.0:
                         break
+                    tok_label = mask_hf_token(cand_tok, token_pool)
                     try:
                         print(
-                            f"[ML-TRYON-2D][PASS-1 UPPER] Calling '{space_id}' | garment='{upper_desc}'",
+                            f"[ML-TRYON-2D][PASS-1 UPPER] Calling '{space_id}' with Token {tok_label} | garment='{upper_desc}'",
                             flush=True,
                         )
-                        client = _instantiate_gradio_client(space_id, resolved_token)
+                        client = _instantiate_gradio_client(space_id, cand_tok)
                         job = client.submit(
                             dict={"background": gradio_handle_file(p_path), "layers": [], "composite": None},
                             garm_img=gradio_handle_file(g_path),
@@ -2912,7 +2960,8 @@ def _try_gradio_zerogpu_upper_vton(
                             api_name="/tryon",
                         )
                         try:
-                            res = job.result(timeout=max(1.0, deadline - time.time()))
+                            attempt_timeout = min(30.0, max(6.0, overall_deadline - time.time()))
+                            res = job.result(timeout=attempt_timeout)
                         except Exception:
                             try:
                                 job.cancel()
@@ -2923,20 +2972,20 @@ def _try_gradio_zerogpu_upper_vton(
                         if isinstance(out_path, dict):
                             out_path = out_path.get("path") or out_path.get("name")
                         if isinstance(out_path, str) and os.path.exists(out_path):
-                            print(f"[ML-TRYON-2D][PASS-1 UPPER] Success via '{space_id}'!", flush=True)
+                            print(f"[ML-TRYON-2D][PASS-1 UPPER] Success via '{space_id}' with Token {tok_label}!", flush=True)
                             with Image.open(out_path) as vton_img:
                                 return vton_img.convert("RGB")
                         break
                     except Exception as space_err:
                         err_str = str(space_err)
-                        print(f"[ML-TRYON-2D][PASS-1 UPPER] Space '{space_id}' error: {err_str}", flush=True)
-                        if ("quota" in err_str.lower() or "zerogpu" in err_str.lower()) and resolved_token:
-                            _EXHAUSTED_HF_TOKENS.add(resolved_token)
-                            next_tok = get_hf_token(explicit_token=hf_token)
-                            if next_tok and next_tok != resolved_token:
-                                print(f"[ML-TRYON-2D][PASS-1 UPPER] Rotating to next HF_TOKEN in pool and retrying '{space_id}'...", flush=True)
-                                resolved_token = next_tok
-                                continue
+                        print(f"[ML-TRYON-2D][PASS-1 UPPER] Space '{space_id}' (Token {tok_label}) error: {err_str}", flush=True)
+                        if ("quota" in err_str.lower() or "zerogpu" in err_str.lower()) and cand_tok:
+                            if is_zerogpu_truly_exhausted(err_str):
+                                _EXHAUSTED_HF_TOKENS.add(cand_tok)
+                                print(f"[ML-TRYON-2D][PASS-1 UPPER] Token {tok_label} daily quota exhausted; rotating to next HF_TOKEN in pool...", flush=True)
+                            else:
+                                print(f"[ML-TRYON-2D][PASS-1 UPPER] Token {tok_label} has remaining quota but concurrent lock busy; rotating to next HF_TOKEN in pool...", flush=True)
+                            continue
                         break
     except Exception as e:
         logger.debug(f"Pass-1 Upper VTON skipped: {e}")
@@ -3068,18 +3117,27 @@ def _try_gradio_zerogpu_lower_vton(
                 if shoe_desc
                 else f"{bottom_desc} full length pants worn on legs"
             )
-            deadline = time.time() + max(6.0, budget_seconds)
+            deadline = time.time() + max(45.0, budget_seconds * 2.2)
+            active_candidates = [t for t in token_pool if t not in _EXHAUSTED_HF_TOKENS] or list(token_pool) or [""]
+            start_tok = get_hf_token(explicit_token=hf_token, advance_rr=True)
+            if start_tok in active_candidates:
+                s_idx = active_candidates.index(start_tok)
+                ordered_tokens = active_candidates[s_idx:] + active_candidates[:s_idx]
+            else:
+                ordered_tokens = active_candidates
 
             # 1) Try yisol/IDM-VTON Custom Mask Mode (`is_checked=False` + `layers=[m_path]`) with token rotation retry
-            for _lower_tok_attempt in range(max(1, len(token_pool) + 1)):
-                if deadline - time.time() < 5.0:
+            for cand_tok in ordered_tokens:
+                if deadline - time.time() < 6.0:
                     break
+                tok_label = mask_hf_token(cand_tok, token_pool)
+                resolved_token = cand_tok
                 try:
                     print(
-                        f"[ML-TRYON-2D][PASS-2 LOWER] Calling 'yisol/IDM-VTON' (custom lower-body mask) | garment='{full_lower_prompt}'",
+                        f"[ML-TRYON-2D][PASS-2 LOWER] Calling 'yisol/IDM-VTON' (custom lower-body mask) with Token {tok_label} | garment='{full_lower_prompt}'",
                         flush=True,
                     )
-                    client = _instantiate_gradio_client("yisol/IDM-VTON", resolved_token)
+                    client = _instantiate_gradio_client("yisol/IDM-VTON", cand_tok)
                     job = client.submit(
                         dict={
                             "background": gradio_handle_file(p_path),
@@ -3095,7 +3153,8 @@ def _try_gradio_zerogpu_lower_vton(
                         api_name="/tryon",
                     )
                     try:
-                        res = job.result(timeout=max(1.0, deadline - time.time()))
+                        attempt_timeout = min(30.0, max(6.0, deadline - time.time()))
+                        res = job.result(timeout=attempt_timeout)
                     except Exception:
                         try:
                             job.cancel()
@@ -3106,20 +3165,20 @@ def _try_gradio_zerogpu_lower_vton(
                     if isinstance(out_path, dict):
                         out_path = out_path.get("path") or out_path.get("name")
                     if isinstance(out_path, str) and os.path.exists(out_path):
-                        print("[ML-TRYON-2D][PASS-2 LOWER] Success via 'yisol/IDM-VTON' (custom lower-body mask)!", flush=True)
+                        print(f"[ML-TRYON-2D][PASS-2 LOWER] Success via 'yisol/IDM-VTON' (custom lower-body mask) with Token {tok_label}!", flush=True)
                         with Image.open(out_path) as vton_img:
                             return vton_img.convert("RGB")
                     break
                 except Exception as err1:
                     err1_str = str(err1)
-                    print(f"[ML-TRYON-2D][PASS-2 LOWER] 'yisol/IDM-VTON' custom mask fallback: {err1_str}", flush=True)
-                    if ("quota" in err1_str.lower() or "zerogpu" in err1_str.lower()) and resolved_token:
-                        _EXHAUSTED_HF_TOKENS.add(resolved_token)
-                        next_tok = get_hf_token(explicit_token=hf_token)
-                        if next_tok and next_tok != resolved_token:
-                            print("[ML-TRYON-2D][PASS-2 LOWER] Rotating to next HF_TOKEN in pool and retrying 'yisol/IDM-VTON'...", flush=True)
-                            resolved_token = next_tok
-                            continue
+                    print(f"[ML-TRYON-2D][PASS-2 LOWER] 'yisol/IDM-VTON' (Token {tok_label}) error: {err1_str}", flush=True)
+                    if ("quota" in err1_str.lower() or "zerogpu" in err1_str.lower()) and cand_tok:
+                        if is_zerogpu_truly_exhausted(err1_str):
+                            _EXHAUSTED_HF_TOKENS.add(cand_tok)
+                            print(f"[ML-TRYON-2D][PASS-2 LOWER] Token {tok_label} daily quota exhausted; rotating to next HF_TOKEN in pool...", flush=True)
+                        else:
+                            print(f"[ML-TRYON-2D][PASS-2 LOWER] Token {tok_label} has remaining quota but concurrent lock busy; rotating to next HF_TOKEN in pool...", flush=True)
+                        continue
                     break
 
             # 2) Try jallenjia/Change-Clothes-AI with native `category="lower_body"`
@@ -3514,7 +3573,7 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
         )
 
         # ─────────────────────────────────────────────────────────────────────
-        # PASS 2: Lower-Body & Shoes Diffusion VTON
+        # PASS 2: Lower-Body & Shoes Diffusion VTON (with Shared Lower-Body Cache!)
         # ─────────────────────────────────────────────────────────────────────
         lower_vton_img: Optional[Image.Image] = None
         if bottom_item is not None and raw_bottom_pil is not None:
@@ -3526,17 +3585,42 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
                 s_name = (shoe_item.clothing_name or "").strip()
                 s_col = (shoe_item.color or "").strip()
                 s_desc = s_name if s_name.lower().startswith(s_col.lower()) else f"{s_col} {s_name}".strip()
-            lower_vton_img = _try_gradio_zerogpu_lower_vton(
-                person_img_rgb=base_after_upper.convert("RGB"),
-                p_bbox_orig=p_bbox,
-                orig_size=(W, H),
-                bottom_pil=raw_bottom_pil,
-                shoe_pil=raw_shoe_pil,
-                bottom_desc=b_desc,
-                shoe_desc=s_desc,
-                hf_token=hf_token,
-                budget_seconds=34.0,
-            )
+
+            lower_cache_key = f"{photo_hash}:{bottom_item.id}:{b_desc}:{shoe_item.id if shoe_item else 'none'}:{s_desc}"
+            if lower_cache_key in _LOWER_VTON_CACHE and upper_vton_img is not None:
+                print(
+                    f"[ML-TRYON-2D][PASS-2 LOWER] Cache HIT for lower-body '{b_desc} + {s_desc}' (0 ms, 0 ZeroGPU quota used)!",
+                    flush=True,
+                )
+                cached_lower_rgb = _LOWER_VTON_CACHE[lower_cache_key].resize((W, H), Image.Resampling.LANCZOS).convert("RGB")
+                upper_np = np.asarray(base_after_upper.convert("RGB"), dtype=np.float32)
+                lower_np = np.asarray(cached_lower_rgb, dtype=np.float32)
+                blend_mask = np.zeros((H, W, 1), dtype=np.float32)
+                y_waist_orig = max(0, p_top + int(0.485 * p_h))
+                y_feet_orig = min(H, p_bottom + 10)
+                leg_hw_orig = int(0.32 * p_w)
+                x0_orig = max(0, torso_cx - leg_hw_orig)
+                x1_orig = min(W, torso_cx + leg_hw_orig)
+                feather = 14
+                for ry in range(y_waist_orig, y_feet_orig):
+                    alpha_w = min(1.0, float(ry - y_waist_orig + 1) / float(feather))
+                    blend_mask[ry, x0_orig:x1_orig, 0] = alpha_w
+                blended_np = (upper_np * (1.0 - blend_mask) + lower_np * blend_mask).clip(0, 255).astype(np.uint8)
+                lower_vton_img = Image.fromarray(blended_np, mode="RGB")
+            else:
+                lower_vton_img = _try_gradio_zerogpu_lower_vton(
+                    person_img_rgb=base_after_upper.convert("RGB"),
+                    p_bbox_orig=p_bbox,
+                    orig_size=(W, H),
+                    bottom_pil=raw_bottom_pil,
+                    shoe_pil=raw_shoe_pil,
+                    bottom_desc=b_desc,
+                    shoe_desc=s_desc,
+                    hf_token=hf_token,
+                    budget_seconds=34.0,
+                )
+                if lower_vton_img is not None:
+                    _LOWER_VTON_CACHE[lower_cache_key] = lower_vton_img.copy()
 
         if lower_vton_img is not None:
             composite = lower_vton_img.resize((W, H), Image.Resampling.LANCZOS).convert("RGBA")
