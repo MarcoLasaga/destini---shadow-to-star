@@ -1075,6 +1075,15 @@ def extract_color_palette_kmeans(
         sorted_order = np.array([sorted_order[1], sorted_order[0]])
         weights[sorted_order[0]] = round(min(0.86, float(weights[sorted_order[0]]) + 0.40), 4)
         weights[sorted_order[1]] = round(max(0.14, 1.0 - float(weights[sorted_order[0]])), 4)
+    elif (
+        n0 == "White"
+        and n1 in ("Beige", "Cream", "Khaki")
+        and weights[sorted_order[1]] >= 0.18
+        and float(c0_lab[2]) >= 1.2
+    ):
+        sorted_order = np.array([sorted_order[1], sorted_order[0]])
+        weights[sorted_order[0]] = round(min(0.82, float(weights[sorted_order[0]]) + 0.52), 4)
+        weights[sorted_order[1]] = round(max(0.18, 1.0 - float(weights[sorted_order[0]])), 4)
 
     clusters: List[ColorClusterInfo] = []
     for idx in sorted_order:
@@ -1242,18 +1251,22 @@ def evaluate_5class_nsfw_safety(
 
     drawing_raw = float(np.clip(imagenet_drawing_prob * 1.65 + line_art_score, 0.0, 0.95))
     hentai_raw = float(np.clip(drawing_raw * (center_skin_ratio * 2.0 + imagenet_sexy_prob * 1.5), 0.0, 0.95))
+    skin_gate_factor = 1.0 if imagenet_sexy_prob >= 0.22 else float(imagenet_sexy_prob) * 0.15
     porn_raw = float(
         np.clip(
-            max(0.0, center_skin_ratio - 0.27) * 2.4 + max(0.0, full_skin_ratio - 0.39) * 2.0,
+            (max(0.0, center_skin_ratio - 0.27) * 2.4 + max(0.0, full_skin_ratio - 0.39) * 2.0) * skin_gate_factor,
             0.0,
             0.95,
         )
     )
     sexy_raw = float(
         np.clip(
-            max(0.0, center_skin_ratio - 0.18) * 1.45
-            + max(0.0, full_skin_ratio - 0.28) * 1.15
-            + (imagenet_sexy_prob * (1.25 if center_skin_ratio > 0.14 else 0.15)),
+            (
+                max(0.0, center_skin_ratio - 0.18) * 1.45
+                + max(0.0, full_skin_ratio - 0.28) * 1.15
+                + (imagenet_sexy_prob * (1.25 if center_skin_ratio > 0.14 else 0.15))
+            )
+            * skin_gate_factor,
             0.0,
             0.95,
         )
@@ -2407,7 +2420,7 @@ async def lifespan(_: FastAPI):
     AUX_IMAGENET_MODEL = None
 
 
-app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="8.0.0", lifespan=lifespan)
+app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="8.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -2427,7 +2440,7 @@ def health() -> Dict[str, object]:
     force_rembg_env = os.getenv("FORCE_REMBG", "false").strip().lower() in ("true", "1", "yes")
     return {
         "status": "ok",
-        "version": "8.0.0",
+        "version": "8.1.0",
         "device": str(DEVICE) if DEVICE is not None else "cpu",
         "cuda_available": bool(TORCH_AVAILABLE and torch is not None and torch.cuda.is_available()),
         "model": "resnet50-stylesense-5class" if IS_FINETUNED_HEAD else "resnet50-imagenet1k-v2",
@@ -2877,50 +2890,54 @@ def _try_gradio_zerogpu_upper_vton(
 
             deadline = time.time() + max(6.0, budget_seconds)
             for space_id in HF_VTON_SPACES:
-                remaining = deadline - time.time()
-                if remaining < 5.0:
-                    break
-                try:
-                    print(
-                        f"[ML-TRYON-2D][PASS-1 UPPER] Calling '{space_id}' | garment='{upper_desc}'",
-                        flush=True,
-                    )
-                    client = _instantiate_gradio_client(space_id, resolved_token)
-                    job = client.submit(
-                        dict={"background": gradio_handle_file(p_path), "layers": [], "composite": None},
-                        garm_img=gradio_handle_file(g_path),
-                        garment_des=upper_desc or "shirt",
-                        is_checked=True,
-                        is_checked_crop=False,
-                        denoise_steps=20,
-                        seed=42,
-                        api_name="/tryon",
-                    )
+                max_tok_attempts = max(1, len(token_pool) + 1)
+                for _tok_attempt in range(max_tok_attempts):
+                    remaining = deadline - time.time()
+                    if remaining < 5.0:
+                        break
                     try:
-                        res = job.result(timeout=max(1.0, deadline - time.time()))
-                    except Exception:
+                        print(
+                            f"[ML-TRYON-2D][PASS-1 UPPER] Calling '{space_id}' | garment='{upper_desc}'",
+                            flush=True,
+                        )
+                        client = _instantiate_gradio_client(space_id, resolved_token)
+                        job = client.submit(
+                            dict={"background": gradio_handle_file(p_path), "layers": [], "composite": None},
+                            garm_img=gradio_handle_file(g_path),
+                            garment_des=upper_desc or "shirt",
+                            is_checked=True,
+                            is_checked_crop=False,
+                            denoise_steps=20,
+                            seed=42,
+                            api_name="/tryon",
+                        )
                         try:
-                            job.cancel()
+                            res = job.result(timeout=max(1.0, deadline - time.time()))
                         except Exception:
-                            pass
-                        raise
-                    out_path = res[0] if isinstance(res, (list, tuple)) else res
-                    if isinstance(out_path, dict):
-                        out_path = out_path.get("path") or out_path.get("name")
-                    if isinstance(out_path, str) and os.path.exists(out_path):
-                        print(f"[ML-TRYON-2D][PASS-1 UPPER] Success via '{space_id}'!", flush=True)
-                        with Image.open(out_path) as vton_img:
-                            return vton_img.convert("RGB")
-                except Exception as space_err:
-                    err_str = str(space_err)
-                    print(f"[ML-TRYON-2D][PASS-1 UPPER] Space '{space_id}' error: {err_str}", flush=True)
-                    if ("quota" in err_str.lower() or "zerogpu" in err_str.lower()) and resolved_token:
-                        _EXHAUSTED_HF_TOKENS.add(resolved_token)
-                        next_tok = get_hf_token(explicit_token=hf_token)
-                        if next_tok and next_tok != resolved_token:
-                            print("[ML-TRYON-2D][PASS-1 UPPER] Rotating to next HF_TOKEN in pool...", flush=True)
-                            resolved_token = next_tok
-                    continue
+                            try:
+                                job.cancel()
+                            except Exception:
+                                pass
+                            raise
+                        out_path = res[0] if isinstance(res, (list, tuple)) else res
+                        if isinstance(out_path, dict):
+                            out_path = out_path.get("path") or out_path.get("name")
+                        if isinstance(out_path, str) and os.path.exists(out_path):
+                            print(f"[ML-TRYON-2D][PASS-1 UPPER] Success via '{space_id}'!", flush=True)
+                            with Image.open(out_path) as vton_img:
+                                return vton_img.convert("RGB")
+                        break
+                    except Exception as space_err:
+                        err_str = str(space_err)
+                        print(f"[ML-TRYON-2D][PASS-1 UPPER] Space '{space_id}' error: {err_str}", flush=True)
+                        if ("quota" in err_str.lower() or "zerogpu" in err_str.lower()) and resolved_token:
+                            _EXHAUSTED_HF_TOKENS.add(resolved_token)
+                            next_tok = get_hf_token(explicit_token=hf_token)
+                            if next_tok and next_tok != resolved_token:
+                                print(f"[ML-TRYON-2D][PASS-1 UPPER] Rotating to next HF_TOKEN in pool and retrying '{space_id}'...", flush=True)
+                                resolved_token = next_tok
+                                continue
+                        break
     except Exception as e:
         logger.debug(f"Pass-1 Upper VTON skipped: {e}")
     return None
@@ -3053,8 +3070,10 @@ def _try_gradio_zerogpu_lower_vton(
             )
             deadline = time.time() + max(6.0, budget_seconds)
 
-            # 1) Try yisol/IDM-VTON Custom Mask Mode (`is_checked=False` + `layers=[m_path]`)
-            if deadline - time.time() >= 5.0:
+            # 1) Try yisol/IDM-VTON Custom Mask Mode (`is_checked=False` + `layers=[m_path]`) with token rotation retry
+            for _lower_tok_attempt in range(max(1, len(token_pool) + 1)):
+                if deadline - time.time() < 5.0:
+                    break
                 try:
                     print(
                         f"[ML-TRYON-2D][PASS-2 LOWER] Calling 'yisol/IDM-VTON' (custom lower-body mask) | garment='{full_lower_prompt}'",
@@ -3090,8 +3109,18 @@ def _try_gradio_zerogpu_lower_vton(
                         print("[ML-TRYON-2D][PASS-2 LOWER] Success via 'yisol/IDM-VTON' (custom lower-body mask)!", flush=True)
                         with Image.open(out_path) as vton_img:
                             return vton_img.convert("RGB")
+                    break
                 except Exception as err1:
-                    print(f"[ML-TRYON-2D][PASS-2 LOWER] 'yisol/IDM-VTON' custom mask fallback: {err1}", flush=True)
+                    err1_str = str(err1)
+                    print(f"[ML-TRYON-2D][PASS-2 LOWER] 'yisol/IDM-VTON' custom mask fallback: {err1_str}", flush=True)
+                    if ("quota" in err1_str.lower() or "zerogpu" in err1_str.lower()) and resolved_token:
+                        _EXHAUSTED_HF_TOKENS.add(resolved_token)
+                        next_tok = get_hf_token(explicit_token=hf_token)
+                        if next_tok and next_tok != resolved_token:
+                            print("[ML-TRYON-2D][PASS-2 LOWER] Rotating to next HF_TOKEN in pool and retrying 'yisol/IDM-VTON'...", flush=True)
+                            resolved_token = next_tok
+                            continue
+                    break
 
             # 2) Try jallenjia/Change-Clothes-AI with native `category="lower_body"`
             if deadline - time.time() >= 5.0:
@@ -3465,12 +3494,15 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
                 )
                 upper_vton_img = _UPPER_VTON_CACHE[upper_cache_key].copy()
             else:
+                u_name = (primary_upper.clothing_name or "").strip()
+                u_col = (primary_upper.color or "").strip()
+                u_desc_clean = u_name if u_name.lower().startswith(u_col.lower()) else f"{u_col} {u_name}".strip()
                 upper_vton_img = _try_gradio_zerogpu_upper_vton(
                     studio_person_rgb=studio_person_rgba.convert("RGB"),
                     upper_pil=raw_upper_pil,
-                    upper_desc=f"{primary_upper.color} {primary_upper.clothing_name}",
+                    upper_desc=u_desc_clean,
                     hf_token=hf_token,
-                    budget_seconds=26.0,
+                    budget_seconds=34.0,
                 )
                 if upper_vton_img is not None:
                     _UPPER_VTON_CACHE[upper_cache_key] = upper_vton_img.copy()
@@ -3486,8 +3518,14 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
         # ─────────────────────────────────────────────────────────────────────
         lower_vton_img: Optional[Image.Image] = None
         if bottom_item is not None and raw_bottom_pil is not None:
-            b_desc = f"{bottom_item.color} {bottom_item.clothing_name}"
-            s_desc = f"{shoe_item.color} {shoe_item.clothing_name}" if shoe_item is not None else ""
+            b_name = (bottom_item.clothing_name or "").strip()
+            b_col = (bottom_item.color or "").strip()
+            b_desc = b_name if b_name.lower().startswith(b_col.lower()) else f"{b_col} {b_name}".strip()
+            s_desc = ""
+            if shoe_item is not None:
+                s_name = (shoe_item.clothing_name or "").strip()
+                s_col = (shoe_item.color or "").strip()
+                s_desc = s_name if s_name.lower().startswith(s_col.lower()) else f"{s_col} {s_name}".strip()
             lower_vton_img = _try_gradio_zerogpu_lower_vton(
                 person_img_rgb=base_after_upper.convert("RGB"),
                 p_bbox_orig=p_bbox,
@@ -3497,7 +3535,7 @@ def try_on_2d_endpoint(req: TryOn2DRequest, request: Request) -> TryOn2DResponse
                 bottom_desc=b_desc,
                 shoe_desc=s_desc,
                 hf_token=hf_token,
-                budget_seconds=26.0,
+                budget_seconds=34.0,
             )
 
         if lower_vton_img is not None:
@@ -3690,6 +3728,11 @@ def score_outfit_combination(
     if any(_is_item_dress_code_violation(it, target_occasion) for it in items):
         s_cb -= 100.0
         reasons.append(f"Dress-code mismatch for {target_occasion} (-100)")
+
+    occ_norm = (target_occasion or "").strip().lower()
+    if occ_norm not in ("athletic", "gym", "workout", "sporty", "sports"):
+        if any("tank" in (it.clothing_name or "").lower() or (it.vector_subtype or "").lower() in ("tank", "tank_top") for it in items):
+            s_cb -= 14.0
 
     styles = [it.style for it in items if it.style]
     if len(styles) > 1 and len(set(styles)) == 1:
