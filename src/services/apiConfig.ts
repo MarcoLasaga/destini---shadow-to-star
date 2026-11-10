@@ -1,7 +1,13 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
+export const ML_SERVICE_URL = 'https://jdyyy1-stylesense-ml.hf.space';
+
 const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL || process.env.VITE_API_URL;
+
+export function getMlServiceUrl(): string {
+  return ML_SERVICE_URL;
+}
 
 export function getApiUrl(): string {
   let url = configuredApiUrl;

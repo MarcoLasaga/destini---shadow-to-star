@@ -422,15 +422,7 @@ export default function AddClothesScreen() {
           return;
         }
 
-        const errMsg =
-          err?.message ||
-          'Could not connect to ML server — check your API URL / Wi-Fi connection.';
-        setError(errMsg);
-        setInfoModal({
-          visible: true,
-          title: 'ML Server Connection Error',
-          message: errMsg,
-        });
+        // Graceful fallback without showing "Analysis timed out after 30 seconds" error modal
         setIsImageVerified(true);
       } finally {
         setAnalyzing(false);
