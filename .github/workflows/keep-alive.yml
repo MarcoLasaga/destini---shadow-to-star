@@ -1,0 +1,15 @@
+name: Keep StyleSense Cloud Warm 24/7
+
+on:
+  schedule:
+    - cron: "*/14 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Hugging Face ML Service Health Endpoint
+        run: |
+          echo "Pinging Hugging Face Space /health..."
+          curl -sS -o /dev/null -w "HF Status: %{http_code}\n" https://jdyyy1-stylesense-ml.hf.space/health

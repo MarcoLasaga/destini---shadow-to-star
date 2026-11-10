@@ -1,0 +1,127 @@
+{
+  "queries_evaluated": 100,
+  "total_top3_outfits_evaluated": 300,
+  "relevant_top3_outfits": 274,
+  "alpha": 0.55,
+  "precision_at_3": 91.33,
+  "ndcg_at_3": 0.9242,
+  "avg_latency_ms": 1.44,
+  "target_precision_at_3": 85.0,
+  "target_latency_ms": 800.0,
+  "passed": true,
+  "ablation_study": {
+    "content_based_only": {
+      "alpha": 1.0,
+      "precision_at_3": 54.67,
+      "ndcg_at_3": 0.4771
+    },
+    "collaborative_only": {
+      "alpha": 0.0,
+      "precision_at_3": 67.67,
+      "ndcg_at_3": 0.6173
+    },
+    "weighted_hybrid": {
+      "alpha": 0.55,
+      "precision_at_3": 91.33,
+      "ndcg_at_3": 0.9242
+    }
+  },
+  "weight_sensitivity_sweep": [
+    {
+      "alpha": 0.0,
+      "collaborative_weight": 1.0,
+      "precision_at_3": 67.67,
+      "ndcg_at_3": 0.6173
+    },
+    {
+      "alpha": 0.2,
+      "collaborative_weight": 0.8,
+      "precision_at_3": 75.33,
+      "ndcg_at_3": 0.7015
+    },
+    {
+      "alpha": 0.4,
+      "collaborative_weight": 0.6,
+      "precision_at_3": 84.67,
+      "ndcg_at_3": 0.8184
+    },
+    {
+      "alpha": 0.55,
+      "collaborative_weight": 0.45,
+      "precision_at_3": 91.33,
+      "ndcg_at_3": 0.9242
+    },
+    {
+      "alpha": 0.7,
+      "collaborative_weight": 0.3,
+      "precision_at_3": 83.0,
+      "ndcg_at_3": 0.8041
+    },
+    {
+      "alpha": 0.85,
+      "collaborative_weight": 0.15,
+      "precision_at_3": 71.33,
+      "ndcg_at_3": 0.6625
+    },
+    {
+      "alpha": 1.0,
+      "collaborative_weight": 0.0,
+      "precision_at_3": 54.67,
+      "ndcg_at_3": 0.4771
+    }
+  ],
+  "per_occasion_performance": [
+    {
+      "occasion_label": "Casual Outings",
+      "relevant_slots": 57,
+      "total_slots": 60,
+      "precision_at_3": 95.0,
+      "interpretation": "Highest flexibility across owned tops and bottoms."
+    },
+    {
+      "occasion_label": "Academic Classes",
+      "relevant_slots": 56,
+      "total_slots": 60,
+      "precision_at_3": 93.33,
+      "interpretation": "Strong daily rotation with 7-day wear penalty."
+    },
+    {
+      "occasion_label": "Corporate / Office",
+      "relevant_slots": 55,
+      "total_slots": 60,
+      "precision_at_3": 91.67,
+      "interpretation": "High neutral CIELAB color harmony pairing."
+    },
+    {
+      "occasion_label": "Physical Workouts",
+      "relevant_slots": 54,
+      "total_slots": 60,
+      "precision_at_3": 90.0,
+      "interpretation": "Weather-adaptive breathable garment selection."
+    },
+    {
+      "occasion_label": "Formal Events",
+      "relevant_slots": 52,
+      "total_slots": 60,
+      "precision_at_3": 86.67,
+      "interpretation": "Strictest dress-code and color-matching constraints."
+    }
+  ],
+  "score_decomposition": {
+    "top3_accepted": {
+      "mean_hybrid": 86.8,
+      "weighted_cb": 48.4,
+      "weighted_cf": 38.4
+    },
+    "rank_4_to_10": {
+      "mean_hybrid": 68.4,
+      "weighted_cb": 38.5,
+      "weighted_cf": 29.9
+    },
+    "rejected": {
+      "mean_hybrid": 44.2,
+      "weighted_cb": 25.3,
+      "weighted_cf": 18.9
+    }
+  }
+}
