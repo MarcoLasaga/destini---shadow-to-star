@@ -1,4 +1,4 @@
-"""StyleSense Unified ML & Hybrid Recommendation Microservice (FastAPI v7.7 — ZeroGPU-Safe CPU Inference, Pass-1 VTON Cache, In-Flight Deduplication & Thesis-Aligned Hybrid Recommender Edition).
+"""StyleSense Unified ML & Hybrid Recommendation Microservice (FastAPI v7.8 — ZeroGPU-Safe CPU Inference, Pass-1 VTON Cache, In-Flight Deduplication & Thesis-Aligned Hybrid Recommender Edition).
 
 Implements:
 1. Official remove.bg API Background Removal (size="preview") with graceful local
@@ -285,7 +285,7 @@ else:
     CATEGORIES_LIST = ["TOP", "BOTTOM", "SHOES", "OUTERWEAR", "ACCESSORIES"]
 
 CONFIDENCE_THRESHOLD = 0.55
-MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 
 CANDIDATE_CHECKPOINT_PATHS: List[Path] = [
     Path(os.getenv("RESNET50_CHECKPOINT_PATH", "")),
@@ -1044,18 +1044,23 @@ def extract_color_palette_kmeans(
     if (
         n0 == "Gray"
         and n1 == "Black"
-        and weights[sorted_order[1]] >= 0.26
-        and float(np.hypot(c0_lab[1], c0_lab[2])) < 9.5
-        and float(c0_lab[0]) < 53.0
+        and weights[sorted_order[1]] >= 0.24
+        and float(np.hypot(c0_lab[1], c0_lab[2])) < 10.5
+        and float(c0_lab[0]) < 55.0
     ):
         sorted_order = np.array([sorted_order[1], sorted_order[0]])
+        # Absorb camera-glare gray pixels into the primary Black fabric weight so Primary > Secondary
+        weights[sorted_order[0]] = round(min(0.88, float(weights[sorted_order[0]]) + 0.44), 4)
+        weights[sorted_order[1]] = round(max(0.12, 1.0 - float(weights[sorted_order[0]])), 4)
     elif (
         n0 == "Light Blue"
         and n1 in ("Navy", "Blue")
-        and weights[sorted_order[1]] >= 0.30
-        and float(c0_lab[0]) <= 54.0
+        and weights[sorted_order[1]] >= 0.28
+        and float(c0_lab[0]) <= 55.0
     ):
         sorted_order = np.array([sorted_order[1], sorted_order[0]])
+        weights[sorted_order[0]] = round(min(0.86, float(weights[sorted_order[0]]) + 0.40), 4)
+        weights[sorted_order[1]] = round(max(0.14, 1.0 - float(weights[sorted_order[0]])), 4)
 
     clusters: List[ColorClusterInfo] = []
     for idx in sorted_order:
@@ -1586,6 +1591,7 @@ def _calibrate_category_and_subtype(
     hood_score = 0.0
     short_sleeve_score = 0.0
     is_short_sleeve_tee = False
+    is_sleeveless_tank = False
     leg_gap_ratio = 0.0
     has_graphic = False
     has_stripes = False
@@ -1671,7 +1677,21 @@ def _calibrate_category_and_subtype(
         lr_outer = crop_alpha[int(0.56 * ch) : int(0.90 * ch), min(cw - 1, int(0.88 * cw)) : cw]
         lower_outer_cov = 0.5 * (float(np.mean(ll_outer > 64)) + float(np.mean(lr_outer > 64)))
 
-        if upper_sleeve_cov > 0.18 and (
+        # Detect Sleeveless Tank Top / Muscle Tee / Singlet:
+        # A sleeveless tank top has armhole cutouts on the upper left/right (0.12*ch..0.42*ch) and no outward sleeves,
+        # so its upper chest width is nearly identical to its lower hem width (max_upper_span <= 1.10 * mean_lower_span).
+        armhole_left = crop_alpha[int(0.10 * ch) : int(0.38 * ch), 0 : max(1, int(0.16 * cw))]
+        armhole_right = crop_alpha[int(0.10 * ch) : int(0.38 * ch), min(cw - 1, int(0.84 * cw)) : cw]
+        armhole_cov = 0.5 * (float(np.mean(armhole_left > 64)) + float(np.mean(armhole_right > 64)))
+        is_sleeveless_tank = bool(
+            bbox_aspect_ratio <= 0.84
+            and max_upper_span <= 1.10 * max(mean_lower_span, 1.0)
+            and armhole_cov < 0.38
+            and center_placket_score < 1.35
+            and hood_score < 0.35
+        )
+
+        if not is_sleeveless_tank and upper_sleeve_cov > 0.18 and (
             (max_upper_span >= 1.14 * max(mean_lower_span, 1.0) and lower_outer_cov < 0.12)
             or lower_outer_cov < 0.045
             or (has_graphic and bbox_aspect_ratio >= 0.68 and center_placket_score < 1.25 and hood_score < 0.35)
@@ -1680,8 +1700,12 @@ def _calibrate_category_and_subtype(
             short_sleeve_score = 1.0
 
         leg_strip = crop_alpha[int(0.52 * ch) : int(0.94 * ch), int(0.42 * cw) : max(int(0.42 * cw) + 1, int(0.58 * cw))]
+        bottom_crotch_strip = crop_alpha[int(0.72 * ch) : int(0.98 * ch), int(0.40 * cw) : max(int(0.40 * cw) + 1, int(0.60 * cw))]
         if leg_strip.size > 0:
             leg_gap_ratio = float(np.mean(leg_strip < 48))
+        if bottom_crotch_strip.size > 0:
+            bottom_crotch_gap = float(np.mean(bottom_crotch_strip < 48))
+            leg_gap_ratio = max(leg_gap_ratio, bottom_crotch_gap * 0.85)
 
         waist_spans = []
         for ry in range(int(0.05 * ch), int(0.16 * ch)):
@@ -1786,13 +1810,16 @@ def _calibrate_category_and_subtype(
         raw_conf = max(raw_conf, 0.92)
 
     elif (
-        leg_gap_ratio >= 0.07
-        and bbox_aspect_ratio <= 0.86
+        (
+            (leg_gap_ratio >= 0.06 and bbox_aspect_ratio <= 1.32)
+            or (is_jogger_or_track_silhouette and 0.78 <= bbox_aspect_ratio <= 1.35 and leg_gap_ratio >= 0.035)
+        )
         and not is_short_sleeve_tee
-        and (prob_bottom >= 0.18 or pred_cat in ("BOTTOM", None, "OUTERWEAR", "TOP"))
+        and not is_sleeveless_tank
+        and (prob_bottom >= 0.12 or pred_cat in ("BOTTOM", None, "OUTERWEAR", "TOP"))
     ):
         pred_cat = "BOTTOM"
-        raw_conf = max(raw_conf, round(min(0.95, max(prob_bottom + 0.45, 0.88)), 4))
+        raw_conf = max(raw_conf, round(min(0.95, max(prob_bottom + 0.48, 0.89)), 4))
 
     elif (
         is_short_sleeve_tee
@@ -1867,7 +1894,10 @@ def _calibrate_category_and_subtype(
     )
 
     if pred_cat == "TOP":
-        if "polo" in fn or (is_short_sleeve_tee and (collar_placket_score > 1.38 or center_placket_score > 1.20) and not has_graphic):
+        if "tank" in fn or "sleeveless" in fn or "singlet" in fn or "muscle" in fn or is_sleeveless_tank or any(k in top_imagenet_name for k in ("maillot", "bikini", "brassiere", "vest", "singlet")):
+            sub_category, vector_subtype = "Tank Top", "tank_top"
+            pred_style, occasion = "SPORTY", "GYM"
+        elif "polo" in fn or (is_short_sleeve_tee and (collar_placket_score > 1.38 or center_placket_score > 1.20) and not has_graphic):
             sub_category, vector_subtype = "Polo Shirt", "polo"
             pred_style = "CLASSIC"
         elif is_short_sleeve_tee and has_graphic and "crop" not in fn:
@@ -1875,15 +1905,13 @@ def _calibrate_category_and_subtype(
             pred_style = "STREETWEAR"
         elif "crop" in fn or (bbox_aspect_ratio > 1.22 and short_sleeve_score > 0.0 and not has_graphic):
             sub_category, vector_subtype = "Crop Top", "crop_top"
-        elif "tank" in fn or "sleeveless" in fn or any(k in top_imagenet_name for k in ("maillot", "bikini", "brassiere")):
-            sub_category, vector_subtype = "Tank Top", "tank_top"
         elif "blouse" in fn or any(k in top_imagenet_name for k in ("overskirt", "gown", "kimono")):
             sub_category, vector_subtype = "Blouse", "button_down"
             pred_style = "FORMAL"
         elif "button" in fn or "oxford" in fn or "dress shirt" in fn or (center_placket_score > 1.45 and not is_short_sleeve_tee):
             sub_category, vector_subtype = "Button-Down Shirt", "button_down"
             pred_style, occasion = "FORMAL", "WORK"
-        elif "long" in fn or "sweater" in fn or "crewneck" in fn or (not is_short_sleeve_tee and bbox_aspect_ratio < 0.78):
+        elif "long" in fn or "sweater" in fn or "crewneck" in fn:
             sub_category, vector_subtype = "Long-Sleeve Top", "long_sleeve"
         elif has_graphic:
             sub_category, vector_subtype = "Graphic T-Shirt", "tshirt"
@@ -1926,8 +1954,9 @@ def _calibrate_category_and_subtype(
     elif pred_cat == "BOTTOM":
         if "skirt" in fn or any(k in top_imagenet_name for k in ("miniskirt", "hoopskirt", "overskirt", "sarong")) or (leg_gap_ratio < 0.04 and bbox_aspect_ratio > 0.74):
             sub_category, vector_subtype = "Pleated Skirt", "skirt"
-        elif "short" in fn or "swimming trunks" in top_imagenet_name or bbox_aspect_ratio > 0.88:
-            sub_category, vector_subtype = "Casual Shorts", "shorts"
+        elif "short" in fn or "swimming trunks" in top_imagenet_name or bbox_aspect_ratio >= 0.80:
+            sub_category, vector_subtype = "Athletic Shorts", "shorts"
+            pred_style, occasion = "SPORTY", "GYM"
         elif (
             "track" in fn
             or "jogger" in fn
@@ -1954,7 +1983,10 @@ def _calibrate_category_and_subtype(
         if "boot" in fn or any(k in top_imagenet_name for k in ("cowboy boot", "boot")):
             sub_category, vector_subtype = "Combat Boots", "combat_boots"
             pred_style = "STREETWEAR"
-        elif "heel" in fn or "stiletto" in fn or "sandal" in top_imagenet_name:
+        elif "sandal" in fn or "slide" in fn or "slipper" in fn or "sandal" in top_imagenet_name or "clog" in top_imagenet_name:
+            sub_category, vector_subtype = "Casual Sandals", "sneakers"
+            pred_style, occasion = "CASUAL", "EVERYDAY"
+        elif "heel" in fn or "stiletto" in fn:
             sub_category, vector_subtype = "Strappy Heels", "heels"
             pred_style, occasion = "FORMAL", "PARTY"
         elif "loafer" in fn or "oxford" in fn or "clog" in top_imagenet_name or (dom_color in ("Brown", "Black", "Burgundy") and len(clusters) > 0 and clusters[0].proportion > 0.86):
@@ -2361,7 +2393,7 @@ async def lifespan(_: FastAPI):
     AUX_IMAGENET_MODEL = None
 
 
-app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="7.7.0", lifespan=lifespan)
+app = FastAPI(title="StyleSense ML & Hybrid Recommendation Service", version="7.8.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -2381,7 +2413,7 @@ def health() -> Dict[str, object]:
     force_rembg_env = os.getenv("FORCE_REMBG", "false").strip().lower() in ("true", "1", "yes")
     return {
         "status": "ok",
-        "version": "7.7.0",
+        "version": "7.8.0",
         "device": str(DEVICE) if DEVICE is not None else "cpu",
         "cuda_available": bool(TORCH_AVAILABLE and torch is not None and torch.cuda.is_available()),
         "model": "resnet50-stylesense-5class" if IS_FINETUNED_HEAD else "resnet50-imagenet1k-v2",
@@ -2444,7 +2476,7 @@ async def analyze(request: Request, force_rembg: Optional[bool] = None) -> Predi
         raise HTTPException(status_code=415, detail="Send a JPEG, PNG, or WebP image body.")
 
     if not body or len(body) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Image must be between 1 byte and 5 MB.")
+        raise HTTPException(status_code=413, detail="Image must be between 1 byte and 25 MB.")
     try:
         image = Image.open(BytesIO(body)).convert("RGB")
     except UnidentifiedImageError as error:

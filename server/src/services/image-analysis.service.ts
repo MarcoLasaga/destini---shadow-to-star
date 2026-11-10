@@ -500,6 +500,8 @@ export const imageAnalysisService = {
             'ngrok-skip-browser-warning': 'true',
           },
           timeout: 25_000,
+          maxBodyLength: Infinity,
+          maxContentLength: Infinity,
         })
         responseData = data
         break

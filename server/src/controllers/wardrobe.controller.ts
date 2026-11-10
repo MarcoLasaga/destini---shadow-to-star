@@ -140,6 +140,8 @@ export const wardrobeController = {
             'ngrok-skip-browser-warning': 'true',
           },
           timeout: 30_000,
+          maxBodyLength: Infinity,
+          maxContentLength: Infinity,
         }
       )
       const results = (data && Array.isArray((data as any).results)) ? (data as any).results : data

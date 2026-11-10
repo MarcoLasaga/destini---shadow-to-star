@@ -19,7 +19,7 @@ export const uploadService = {
         if (!buckets?.find(b => b.id === 'wardrobe-images')) {
           await supabase.storage.createBucket('wardrobe-images', {
             public: true,
-            fileSizeLimit: 5242880, // 5MB
+            fileSizeLimit: 25 * 1024 * 1024, // 25MB
           })
         }
         bucketChecked = true
