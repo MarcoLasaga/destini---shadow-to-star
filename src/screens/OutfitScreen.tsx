@@ -43,7 +43,7 @@ import {
   resolveGarmentImageUrl,
 } from '../utils/garmentImageHelper';
 import { computeAccurateOutfitScore } from '../services/hybridScoreService';
-import { requestTryOn2D } from '../services/imageAnalysisService';
+import { healGarmentCategoryByName, requestTryOn2D } from '../services/imageAnalysisService';
 import { publishOutfit } from '../services/communityService';
 
 const PRIVATE_FULLBODY_URI_KEY = '@stylesense_private_fullbody_uri';
@@ -88,19 +88,19 @@ function formatCleanOutfitTitle(rawName?: string, occasionLabel?: string, _idx =
   return `${occ} Look`;
 }
 
-const getSlotRank = (item?: { category?: string; slotType?: string; name?: string } | null): number => {
+const getSlotRank = (item?: { category?: string; slotType?: string; name?: string; clothing_name?: string } | null): number => {
   if (!item) return 99;
-  const slot = (item.slotType || classifyAnatomicalSlot(item.name || '', item.category)).toLowerCase();
-  const cat = (item.category || '').toUpperCase();
-  if (slot === 'innertop' || cat === 'TOP' || cat.includes('TOP')) return 1;
-  if (slot === 'outerlayer' || cat === 'OUTERWEAR' || cat.includes('OUTER')) return 2;
-  if (slot === 'bottom' || cat === 'BOTTOM' || cat.includes('BOTTOM')) return 3;
-  if (slot === 'shoes' || cat === 'SHOES' || cat.includes('SHOE')) return 4;
-  if (slot === 'accessory' || cat === 'ACCESSORIES' || cat.includes('ACCESSOR')) return 5;
+  const itemName = item.name || item.clothing_name || '';
+  const healedCat = healGarmentCategoryByName(itemName, item.category, item.slotType);
+  if (healedCat === 'TOP') return 1;
+  if (healedCat === 'OUTERWEAR') return 2;
+  if (healedCat === 'BOTTOM') return 3;
+  if (healedCat === 'SHOES') return 4;
+  if (healedCat === 'ACCESSORIES') return 5;
   return 3;
 };
 
-const getSlotOrderedLabel = (item?: { category?: string; slotType?: string; name?: string } | null): string => {
+const getSlotOrderedLabel = (item?: { category?: string; slotType?: string; name?: string; clothing_name?: string } | null): string => {
   const rank = getSlotRank(item);
   if (rank === 1) return '1. TOP';
   if (rank === 2) return '2. OUTERWEAR';
@@ -374,18 +374,32 @@ export default function OutfitScreen() {
 
   const photoSourceForVton = userFullBodyPhotoBase64 || fullBodyPhotoUri;
 
-  // Normalize outfit items for POST /try-on-2d
+  // Normalize outfit items for POST /try-on-2d with name-based category healing
   const normalizeItemsForVton = useCallback((garments: OutfitClothingItem[] = []) => {
-    return garments.map((ci: any) => ({
-      id: ci.id || ci._id,
-      name: ci.name || ci.clothing_name,
-      clothing_name: ci.clothing_name || ci.name,
-      category: ci.category,
-      image: resolveGarmentImageUrl(ci) || ci.image || ci.image_url,
-      image_url: resolveGarmentImageUrl(ci) || ci.image_url || ci.image,
-      color: ci.color || ci.primary_color,
-      style: ci.style,
-    }));
+    return garments.map((ci: any) => {
+      const itemName = ci.name || ci.clothing_name || 'Garment';
+      const healedCat = healGarmentCategoryByName(itemName, ci.category, ci.slotType);
+      return {
+        id: ci.id || ci._id,
+        name: itemName,
+        clothing_name: itemName,
+        category: healedCat,
+        layerRole:
+          healedCat === 'OUTERWEAR'
+            ? 'OUTER_LAYER'
+            : healedCat === 'BOTTOM'
+            ? 'LOWER_BODY'
+            : healedCat === 'SHOES'
+            ? 'FOOTWEAR'
+            : healedCat === 'ACCESSORIES'
+            ? 'ACCESSORY'
+            : 'INNER_BASE',
+        image: resolveGarmentImageUrl(ci) || ci.image || ci.image_url,
+        image_url: resolveGarmentImageUrl(ci) || ci.image_url || ci.image,
+        color: ci.color || ci.primary_color,
+        style: ci.style,
+      };
+    });
   }, []);
 
   // Deduplicated single-outfit VTON renderer keyed by sorted garment IDs
@@ -871,15 +885,7 @@ export default function OutfitScreen() {
     );
   }, [activeOutfit?.clothingItems]);
 
-  const seeItOnMeButtonLabel = useMemo(() => {
-    if (!photoSourceForVton) {
-      return 'See It On Me';
-    }
-    if (isPreloadingVton && preloadedCount < top3.length) {
-      return `See It On Me · ${Math.max(1, preloadedCount)}/${top3.length}`;
-    }
-    return 'See It On Me';
-  }, [photoSourceForVton, isPreloadingVton, preloadedCount, top3.length]);
+  const seeItOnMeButtonLabel = 'See It On Me';
 
   const activeOutfitItemsKey = getOutfitItemsCacheKey(activeOutfit);
   const activeOutfitSig =

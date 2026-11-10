@@ -25,27 +25,41 @@ const CATEGORY: Record<string, ClothingRole> = {
   OUTERWEAR: 'Outerwear',
 };
 
-const OUTER_LAYER_REGEX = /\b(hoodie|sweatshirt|crewneck|jacket|blazer|coat|cardigan|suit|windbreaker|parka|trench|bomber|overcoat|vest)\b/i;
-const BOTTOM_REGEX = /\b(jean|denim|chino|trouser|pant|slack|short|skirt|legging|jogger)\b/i;
-const SHOES_REGEX = /\b(shoe|sneaker|loafer|boot|sandal|slipper|slide|heel|flat|trainer|oxford shoe)\b/i;
-const ACCESSORY_REGEX = /\b(watch|scarf|belt|bag|tote|purse|backpack|hat|cap|beanie|sunglass|glasses|necklace|chain|bracelet|ring|earring|tie)\b/i;
+const OUTER_LAYER_REGEX = /\b(hoodie|sweatshirt|jacket|blazer|coat|cardigan|suit|windbreaker|parka|trench|bomber|overcoat)\b/i;
+const TOP_NAME_REGEX = /\b(top|tank|t-shirt|tshirt|tee|shirt|polo|singlet|blouse|crewneck|henley|camisole|halter|sleeveless|short-sleeve|long-sleeve)\b/i;
+const BOTTOM_REGEX = /\b(jeans|jean|denim|chino|chinos|trouser|trousers|pant|pants|slack|slacks|short|shorts|skirt|legging|leggings|jogger|joggers|sweatpants|cargo)\b/i;
+const SHOES_REGEX = /\b(shoe|shoes|sneaker|sneakers|loafer|loafers|boot|boots|sandal|sandals|slipper|slippers|slide|heel|heels|flat|flats|trainer|trainers|oxford shoe|running shoes)\b/i;
+const ACCESSORY_REGEX = /\b(watch|wristwatch|smartwatch|scarf|belt|bag|tote|purse|backpack|hat|cap|beanie|sunglass|sunglasses|glasses|necklace|chain|bracelet|ring|earring|tie|necktie)\b/i;
 
 export function isOuterLayerGarment(name: string, category?: string, layerRole?: string): boolean {
+  const normName = (name || '').toLowerCase().trim();
+  if (OUTER_LAYER_REGEX.test(normName)) return true;
+  if (TOP_NAME_REGEX.test(normName) || BOTTOM_REGEX.test(normName) || SHOES_REGEX.test(normName) || ACCESSORY_REGEX.test(normName)) {
+    return false;
+  }
   if (layerRole === 'INNER_BASE') return false;
   if (layerRole === 'OUTER_LAYER') return true;
   const catUpper = (category || '').toUpperCase().trim();
   if (catUpper === 'TOP' || catUpper === 'TOPS') return false;
   if (catUpper === 'OUTERWEAR' || catUpper.includes('OUTER')) return true;
-  return OUTER_LAYER_REGEX.test(name || '');
+  return false;
 }
 
 export function classifyAnatomicalSlot(name: string, category?: string, layerRole?: string): AnatomicalSlotType {
+  const normName = (name || '').toLowerCase().trim();
+  // Name-first anatomical healing so "Tank Top", "Short-sleeve Top", "T-Shirt", "Polo", "Singlet"
+  // are ALWAYS classified as innerTop ('TOP') even if category in DB was accidentally "Bottoms"
+  if (OUTER_LAYER_REGEX.test(normName)) return 'outerLayer';
+  if (TOP_NAME_REGEX.test(normName)) return 'innerTop';
+  if (BOTTOM_REGEX.test(normName)) return 'bottom';
+  if (SHOES_REGEX.test(normName)) return 'shoes';
+  if (ACCESSORY_REGEX.test(normName)) return 'accessory';
+
   if (isOuterLayerGarment(name, category, layerRole)) return 'outerLayer';
   const catUpper = (category || '').toUpperCase().trim();
-  const normName = (name || '').toLowerCase();
-  if (layerRole === 'LOWER_BODY' || catUpper.includes('BOTTOM') || BOTTOM_REGEX.test(normName)) return 'bottom';
-  if (layerRole === 'FOOTWEAR' || catUpper.includes('SHOE') || SHOES_REGEX.test(normName)) return 'shoes';
-  if (layerRole === 'ACCESSORY' || catUpper.includes('ACCESSOR') || ACCESSORY_REGEX.test(normName)) return 'accessory';
+  if (layerRole === 'LOWER_BODY' || catUpper.includes('BOTTOM')) return 'bottom';
+  if (layerRole === 'FOOTWEAR' || catUpper.includes('SHOE')) return 'shoes';
+  if (layerRole === 'ACCESSORY' || catUpper.includes('ACCESSOR')) return 'accessory';
   return 'innerTop';
 }
 

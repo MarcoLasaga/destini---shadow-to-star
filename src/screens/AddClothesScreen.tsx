@@ -289,13 +289,13 @@ export default function AddClothesScreen() {
           mediaTypes: ['images'],
           allowsEditing: true,
           aspect: [4, 5],
-          quality: 0.8,
+          quality: 0.7,
         })
       : await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ['images'],
           allowsEditing: true,
           aspect: [4, 5],
-          quality: 0.8,
+          quality: 0.7,
         });
     if (result.canceled || !result.assets[0]) return;
 
@@ -306,14 +306,8 @@ export default function AddClothesScreen() {
     setLowConfidenceWarning(false);
 
     const asset = result.assets[0];
-    const compressedAsset = await compressImageForAnalysis(
-      asset.uri,
-      asset.width,
-      asset.height
-    );
-    const preparedUri = compressedAsset.uri || asset.uri;
-    setImageUri(preparedUri);
-    setOriginalUri(preparedUri);
+    setImageUri(asset.uri);
+    setOriginalUri(asset.uri);
     setCutoutUri(null);
     setBeautifiedUri(null);
     setBeautifiedMethod(null);
@@ -326,10 +320,19 @@ export default function AddClothesScreen() {
       setAnalyzing(true);
       setError('');
       try {
+        const compressedAsset = await compressImageForAnalysis(
+          asset.uri,
+          asset.width,
+          asset.height
+        );
+        const preparedUri = compressedAsset.uri || asset.uri;
+        setImageUri(preparedUri);
+        setOriginalUri(preparedUri);
+
         const prediction = await analyzeClothingImage(
           preparedUri,
           session.access_token,
-          30000,
+          90000,
           { width: asset.width, height: asset.height }
         );
         const scores = prediction.nsfw_scores;

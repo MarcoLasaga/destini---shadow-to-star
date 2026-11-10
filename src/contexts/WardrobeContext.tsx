@@ -41,15 +41,23 @@ export function isAccessoryItem(category?: string | null, name?: string | null):
 function mapSupabaseToMobile(row: any): ClothingItem {
   const timesWorn = row.wear_count || 0;
   const price = row.estimated_price ? parseFloat(row.estimated_price) : 0;
-  const displayCategory = CATEGORY_TO_DISPLAY[row.category] || row.category || '';
   const itemName = row.clothing_name || '';
+  const lowerName = itemName.toLowerCase();
+  let displayCategory = CATEGORY_TO_DISPLAY[row.category] || row.category || '';
+  // Auto-heal mis-categorized Tops or Bottoms based on explicit garment name tokens
+  if (/\b(top|tank|t-shirt|tshirt|tee|shirt|polo|singlet|blouse|crewneck|henley|camisole|halter|sleeveless|short-sleeve|long-sleeve)\b/i.test(lowerName) && !/\b(jacket|blazer|coat|cardigan|windbreaker|hoodie|parka|trench|bomber)\b/i.test(lowerName)) {
+    displayCategory = 'Tops';
+  } else if (/\b(jeans|jean|pants|pant|shorts|short|trousers|trouser|chinos|chino|slacks|skirt|leggings|joggers|jogger|sweatpants|cargo)\b/i.test(lowerName)) {
+    displayCategory = 'Bottoms';
+  }
   const isAccessory = isAccessoryItem(displayCategory, itemName);
-  const resolvedRole = row.layer_role || CATEGORY_TO_LAYER_ROLE[displayCategory] || getLayerRoleForCategory(displayCategory);
+  const resolvedCategory = isAccessory && !displayCategory ? 'Accessories' : displayCategory;
+  const resolvedRole = CATEGORY_TO_LAYER_ROLE[resolvedCategory] || getLayerRoleForCategory(resolvedCategory);
 
   return {
     id: row.id,
     name: itemName,
-    category: isAccessory && !displayCategory ? 'Accessories' : displayCategory,
+    category: resolvedCategory,
     subCategory: row.subcategory || undefined,
     vector_subtype: row.vector_subtype || undefined,
     layerRole: resolvedRole,

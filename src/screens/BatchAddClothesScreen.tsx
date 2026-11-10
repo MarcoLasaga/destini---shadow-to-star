@@ -277,6 +277,193 @@ function buildDraftFromPrediction(
   };
 }
 
+// ================= PERSISTENT BACKGROUND BATCH UPLOAD STORE =================
+let batchDraftsState: BatchDraftWardrobeItem[] = [];
+let batchAnalyzingIndexState: number | null = null;
+let batchTotalToAnalyzeState = 0;
+let batchRunIdCounter = 0;
+let isBatchWorkerRunning = false;
+const batchStoreListeners = new Set<() => void>();
+
+function notifyBatchStore() {
+  batchStoreListeners.forEach((listener) => listener());
+}
+
+export function setBatchDraftItems(
+  updater:
+    | BatchDraftWardrobeItem[]
+    | ((prev: BatchDraftWardrobeItem[]) => BatchDraftWardrobeItem[])
+) {
+  batchDraftsState =
+    typeof updater === 'function' ? updater(batchDraftsState) : updater;
+  batchTotalToAnalyzeState = batchDraftsState.length;
+  notifyBatchStore();
+}
+
+export function discardBatchUpload() {
+  batchRunIdCounter++;
+  isBatchWorkerRunning = false;
+  batchDraftsState = [];
+  batchAnalyzingIndexState = null;
+  batchTotalToAnalyzeState = 0;
+  notifyBatchStore();
+}
+
+export async function resumeBatchAnalysisIfNeeded(
+  accessToken?: string,
+  onErrorToast?: (msg: string) => void
+) {
+  if (isBatchWorkerRunning) return;
+  const runId = batchRunIdCounter;
+  if (!batchDraftsState.some((d) => d.analyzing)) {
+    batchAnalyzingIndexState = null;
+    notifyBatchStore();
+    return;
+  }
+
+  isBatchWorkerRunning = true;
+  try {
+    while (batchRunIdCounter === runId) {
+      const targetIdx = batchDraftsState.findIndex((d) => d.analyzing);
+      if (targetIdx === -1) break;
+
+      const targetItem = batchDraftsState[targetIdx];
+      batchAnalyzingIndexState = targetIdx + 1;
+      batchTotalToAnalyzeState = batchDraftsState.length;
+      notifyBatchStore();
+
+      try {
+        const compressedAsset = await compressImageForAnalysis(targetItem.originalUri);
+        if (batchRunIdCounter !== runId) return;
+        const compressedUri = compressedAsset.uri || targetItem.originalUri;
+
+        let prediction: ClothingPrediction | null = null;
+        if (accessToken) {
+          prediction = await analyzeClothingImage(compressedUri, accessToken, 90000);
+        }
+        if (batchRunIdCounter !== runId) return;
+
+        const populated = buildDraftFromPrediction(
+          targetItem.id,
+          compressedUri,
+          prediction
+        );
+        batchDraftsState = batchDraftsState.map((item) =>
+          item.id === targetItem.id ? populated : item
+        );
+        notifyBatchStore();
+      } catch (err: any) {
+        if (batchRunIdCounter !== runId) return;
+        if (onErrorToast) {
+          onErrorToast(
+            err?.message ||
+              'Could not connect to ML server — check your API URL / Wi-Fi connection.'
+          );
+        }
+        const fallback = buildDraftFromPrediction(
+          targetItem.id,
+          targetItem.originalUri,
+          null
+        );
+        fallback.name = 'Unanalyzed Garment';
+        fallback.confidence = 0;
+        fallback.isVerified = false;
+        fallback.analyzing = false;
+        batchDraftsState = batchDraftsState.map((item) =>
+          item.id === targetItem.id ? fallback : item
+        );
+        notifyBatchStore();
+      }
+    }
+  } finally {
+    if (batchRunIdCounter === runId) {
+      isBatchWorkerRunning = false;
+      batchAnalyzingIndexState = null;
+      notifyBatchStore();
+    }
+  }
+}
+
+export function enqueueBatchAssets(
+  assets: Array<{ uri: string; width?: number; height?: number; fileName?: string | null }>,
+  accessToken?: string,
+  onErrorToast?: (msg: string) => void
+) {
+  const remaining = Math.max(0, 15 - batchDraftsState.length);
+  const sliced = (assets || []).slice(0, remaining);
+  if (sliced.length === 0) return;
+
+  const baseIdx = batchDraftsState.length;
+  const now = Date.now();
+  const placeholders: BatchDraftWardrobeItem[] = sliced.map((asset, idx) => ({
+    id: `draft-${now}-${baseIdx + idx}`,
+    originalUri: asset.uri,
+    cutoutDataUri: null,
+    cutoutUri: null,
+    beautifiedUri: null,
+    beautifiedMethod: null,
+    useBeautified: false,
+    useCanonicalStudio: false,
+    name: `Analyzing Item #${baseIdx + idx + 1}...`,
+    category: 'Tops',
+    subCategory: 'Tshirt',
+    vector_subtype: 'tshirt',
+    layerRole: 'INNER_BASE',
+    layer_role: 'INNER_BASE',
+    color: 'Gray',
+    colorHex: '#7D8597',
+    style: 'Casual',
+    occasion: 'Casual',
+    occasions: ['Casual'],
+    seasons: ['All'],
+    material: 'Cotton',
+    brand: '',
+    confidence: 0,
+    moderation_reason: null,
+    isSafeGarment: true,
+    isVerified: false,
+    analyzing: true,
+  }));
+
+  batchDraftsState = [...batchDraftsState, ...placeholders].slice(0, 15);
+  batchTotalToAnalyzeState = batchDraftsState.length;
+  if (batchAnalyzingIndexState === null) {
+    batchAnalyzingIndexState = baseIdx + 1;
+  }
+  notifyBatchStore();
+
+  // Launch background analysis non-blockingly (0ms return)
+  setTimeout(() => {
+    resumeBatchAnalysisIfNeeded(accessToken, onErrorToast);
+  }, 0);
+}
+
+export function useBatchUploadStore() {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const listener = () => setTick((t) => t + 1);
+    batchStoreListeners.add(listener);
+    return () => {
+      batchStoreListeners.delete(listener);
+    };
+  }, []);
+
+  const totalCount = batchDraftsState.length;
+  const analyzedCount = batchDraftsState.filter((d) => !d.analyzing).length;
+  const isAnalyzing =
+    batchAnalyzingIndexState !== null || batchDraftsState.some((d) => d.analyzing);
+
+  return {
+    draftItems: batchDraftsState,
+    analyzingIndex: batchAnalyzingIndexState,
+    totalToAnalyze: batchTotalToAnalyzeState || totalCount,
+    totalCount,
+    analyzedCount,
+    isAnalyzing,
+    setDraftItems: setBatchDraftItems,
+  };
+}
+
 export default function BatchAddClothesScreen() {
   const theme = useAppTheme();
   const navigation = useNavigation<any>();
@@ -285,11 +472,16 @@ export default function BatchAddClothesScreen() {
   const { addItem } = useWardrobe();
   const { showToast } = useToast();
 
-  const [draftItems, setDraftItems] = useState<BatchDraftWardrobeItem[]>([]);
+  const {
+    draftItems,
+    analyzingIndex,
+    totalToAnalyze,
+    setDraftItems,
+  } = useBatchUploadStore();
+
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [analyzingIndex, setAnalyzingIndex] = useState<number | null>(null);
-  const [totalToAnalyze, setTotalToAnalyze] = useState(0);
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+  const [backPromptVisible, setBackPromptVisible] = useState(false);
   const [savingBatch, setSavingBatch] = useState(false);
   const [removeDraftTarget, setRemoveDraftTarget] = useState<BatchDraftWardrobeItem | null>(null);
 
@@ -306,107 +498,31 @@ export default function BatchAddClothesScreen() {
   useEffect(() => {
     const initialAssets = route.params?.initialAssets;
     if (initialAssets && initialAssets.length > 0) {
-      ingestAssets(initialAssets);
+      enqueueBatchAssets(initialAssets, session?.access_token, showToast);
+      // Clear initialAssets param so re-opening doesn't duplicate
+      navigation.setParams({ initialAssets: undefined });
+    } else if (draftItems.some((d) => d.analyzing) && session?.access_token) {
+      resumeBatchAnalysisIfNeeded(session.access_token, showToast);
     }
-  }, []);
+  }, [route.params?.initialAssets, session?.access_token]);
 
-  const ingestAssets = async (
-    assets: Array<{ uri: string; width?: number; height?: number; fileName?: string | null }>
-  ) => {
-    const sliced = assets.slice(0, 15);
-    setTotalToAnalyze(sliced.length);
-    setAnalyzingIndex(1);
-
-    // Prepare initial draft placeholders so thumbnails appear immediately like TikTok's multi-photo bar
-    const placeholders: BatchDraftWardrobeItem[] = sliced.map((asset, idx) => ({
-      id: `draft-${Date.now()}-${idx}`,
-      originalUri: asset.uri,
-      cutoutDataUri: null,
-      cutoutUri: null,
-      beautifiedUri: null,
-      beautifiedMethod: null,
-      useBeautified: false,
-      useCanonicalStudio: false,
-      name: `Analyzing Item #${idx + 1}...`,
-      category: 'Tops',
-      subCategory: 'Tshirt',
-      vector_subtype: 'tshirt',
-      layerRole: 'INNER_BASE',
-      layer_role: 'INNER_BASE',
-      color: 'Gray',
-      colorHex: '#7D8597',
-      style: 'Casual',
-      occasion: 'Casual',
-      occasions: ['Casual'],
-      seasons: ['All'],
-      material: 'Cotton',
-      brand: '',
-      confidence: 0,
-      moderation_reason: null,
-      isSafeGarment: true,
-      isVerified: false,
-      analyzing: true,
-    }));
-
-    setDraftItems((prev) => {
-      const combined = [...prev, ...placeholders].slice(0, 15);
-      return combined;
-    });
-
-    // Analyze each selected image (auto-compressed if >1200px to width:1024, compress:0.82) and update its draft entry in real time
-    for (let i = 0; i < placeholders.length; i++) {
-      setAnalyzingIndex(i + 1);
-      const placeholder = placeholders[i];
-      const rawAsset = sliced[i];
-
-      try {
-        const compressedAsset = await compressImageForAnalysis(
-          rawAsset.uri,
-          rawAsset.width,
-          rawAsset.height
-        );
-        const compressedUri = compressedAsset.uri || rawAsset.uri;
-
-        let prediction: ClothingPrediction | null = null;
-        if (session?.access_token) {
-          prediction = await analyzeClothingImage(
-            compressedUri,
-            session.access_token,
-            30000,
-            { width: rawAsset.width, height: rawAsset.height }
-          );
-        }
-
-        const populated = buildDraftFromPrediction(
-          placeholder.id,
-          compressedUri,
-          prediction
-        );
-
-        setDraftItems((prev) =>
-          prev.map((item) => (item.id === placeholder.id ? populated : item))
-        );
-      } catch (err: any) {
-        showToast(
-          err?.message ||
-            'Could not connect to ML server — check your API URL / Wi-Fi connection.'
-        );
-        const fallback = buildDraftFromPrediction(
-          placeholder.id,
-          rawAsset.uri,
-          null
-        );
-        fallback.name = 'Unanalyzed Garment';
-        fallback.confidence = 0;
-        fallback.isVerified = false;
-        fallback.analyzing = false;
-        setDraftItems((prev) =>
-          prev.map((item) => (item.id === placeholder.id ? fallback : item))
-        );
-      }
+  const handlePressBack = () => {
+    if (draftItems.length > 0 && !savingBatch) {
+      setBackPromptVisible(true);
+      return;
     }
+    navigation.goBack();
+  };
 
-    setAnalyzingIndex(null);
+  const handleContinueInBackground = () => {
+    setBackPromptVisible(false);
+    navigation.goBack();
+  };
+
+  const handleDiscardBatch = () => {
+    setBackPromptVisible(false);
+    discardBatchUpload();
+    navigation.goBack();
   };
 
   const pickMoreImages = async () => {
@@ -422,10 +538,10 @@ export default function BatchAddClothesScreen() {
       mediaTypes: ['images'],
       allowsMultipleSelection: true,
       selectionLimit: remaining,
-      quality: 0.8,
+      quality: 0.7,
     });
     if (result.canceled || !result.assets?.length) return;
-    await ingestAssets(result.assets);
+    enqueueBatchAssets(result.assets, session?.access_token, showToast);
   };
 
   const removeDraftItem = (id: string) => {
@@ -587,6 +703,7 @@ export default function BatchAddClothesScreen() {
         });
       }
       setConfirmModalVisible(false);
+      discardBatchUpload();
       showToast(`Added ${itemsToSave.length} items to your wardrobe!`);
       navigation.goBack();
     } catch {
@@ -603,7 +720,7 @@ export default function BatchAddClothesScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['left', 'right']}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.iconBtn}>
+        <Pressable onPress={handlePressBack} style={styles.iconBtn}>
           <Ionicons name="arrow-back" size={20} color={theme.text} />
         </Pressable>
         <View style={{ alignItems: 'center' }}>
@@ -1058,6 +1175,81 @@ export default function BatchAddClothesScreen() {
         onConfirm={confirmRemoveDraftItem}
         onCancel={() => setRemoveDraftTarget(null)}
       />
+
+      {/* Back-Button Confirmation Modal with 3 Options: Continue in Background | Discard Batch | Stay Here */}
+      <Modal
+        statusBarTranslucent={true}
+        visible={backPromptVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setBackPromptVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View
+            style={[
+              styles.confirmModalCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <View style={styles.confirmModalHeader}>
+              <View style={[styles.confirmIconWrap, { backgroundColor: 'rgba(54, 69, 54, 0.14)' }]}>
+                <Ionicons name="sparkles" size={20} color="#364536" />
+              </View>
+              <Text style={[styles.confirmModalTitle, { color: theme.text }]}>
+                Batch Upload in Progress
+              </Text>
+            </View>
+
+            <Text style={[styles.confirmModalMessage, { color: theme.textMuted }]}>
+              {isAnalyzingAny
+                ? `Your batch is still analyzing (${draftItems.filter((d) => !d.analyzing).length}/${draftItems.length} analyzed). Would you like to continue analyzing in the background or discard this batch?`
+                : `You have ${draftItems.length} analyzed ${draftItems.length === 1 ? 'garment' : 'garments'} waiting to be saved. Would you like to keep them in the background to review later?`}
+            </Text>
+
+            <View style={{ gap: 10, marginTop: 4 }}>
+              <Pressable
+                onPress={handleContinueInBackground}
+                style={[
+                  styles.yesAddAllButton,
+                  { backgroundColor: theme.secondaryAccent, flex: undefined },
+                ]}
+              >
+                <Text style={[styles.yesAddAllButtonText, { color: theme.onAccent }]}>
+                  Continue in Background
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handleDiscardBatch}
+                style={[
+                  styles.reviewAgainButton,
+                  {
+                    borderColor: '#DC2626',
+                    backgroundColor: 'rgba(220, 38, 38, 0.08)',
+                    flex: undefined,
+                  },
+                ]}
+              >
+                <Text style={[styles.reviewAgainButtonText, { color: '#DC2626' }]}>
+                  Discard Batch
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => setBackPromptVisible(false)}
+                style={[
+                  styles.reviewAgainButton,
+                  { borderColor: theme.border, backgroundColor: theme.background, flex: undefined },
+                ]}
+              >
+                <Text style={[styles.reviewAgainButtonText, { color: theme.text }]}>
+                  Stay Here
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

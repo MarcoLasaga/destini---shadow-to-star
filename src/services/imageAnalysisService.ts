@@ -3,18 +3,18 @@ import { getApiUrl } from './apiConfig';
 
 const ML_SPACE_URL = 'https://jdyyy1-stylesense-ml.hf.space';
 export const MAX_IMAGE_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB limit for Ultra-HD mobile camera photos
-export const MAX_ANALYSIS_IMAGE_DIMENSION = 1200;
-export const TARGET_ANALYSIS_IMAGE_WIDTH = 1024;
-export const ANALYSIS_IMAGE_COMPRESS_QUALITY = 0.82;
+export const MAX_ANALYSIS_IMAGE_DIMENSION = 800;
+export const TARGET_ANALYSIS_IMAGE_WIDTH = 800;
+export const ANALYSIS_IMAGE_COMPRESS_QUALITY = 0.75;
 
 /**
- * Auto-compresses Ultra-HD camera photos (> 1200px or multi-MB) down to width: 1024, compress: 0.82 JPEG (~250 KB)
- * before base64 encoding or multipart upload so /analyze and /analyze-batch complete in 1–2s without payload errors.
+ * Auto-compresses and resizes camera/gallery photos down to width: 800, compress: 0.75 JPEG (~80 KB)
+ * before base64 encoding or multipart upload so /analyze and /analyze-batch complete in <1s over 4G.
  */
 export async function compressImageForAnalysis(
   uri: string,
-  width?: number,
-  height?: number
+  _width?: number,
+  _height?: number
 ): Promise<{ uri: string; base64?: string }> {
   if (!uri) return { uri: '' };
   if (uri.startsWith('data:image')) {
@@ -25,19 +25,15 @@ export async function compressImageForAnalysis(
     return { uri };
   }
   try {
-    const needsResize =
-      !width ||
-      !height ||
-      width > MAX_ANALYSIS_IMAGE_DIMENSION ||
-      height > MAX_ANALYSIS_IMAGE_DIMENSION;
-    const actions: ImageManipulator.Action[] = needsResize
-      ? [{ resize: { width: TARGET_ANALYSIS_IMAGE_WIDTH } }]
-      : [];
-    const manip = await ImageManipulator.manipulateAsync(uri, actions, {
-      compress: ANALYSIS_IMAGE_COMPRESS_QUALITY,
-      format: ImageManipulator.SaveFormat.JPEG,
-      base64: true,
-    });
+    const manip = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: TARGET_ANALYSIS_IMAGE_WIDTH } }],
+      {
+        compress: ANALYSIS_IMAGE_COMPRESS_QUALITY,
+        format: ImageManipulator.SaveFormat.JPEG,
+        base64: true,
+      }
+    );
     return {
       uri: manip.uri || uri,
       base64: manip.base64 || undefined,
@@ -208,7 +204,7 @@ export async function verifyNsfw5ClassSafety(
 export async function analyzeClothingImage(
   uri: string,
   accessToken: string,
-  timeoutMs = 30000,
+  timeoutMs = 90000,
   dimensions?: { width?: number; height?: number }
 ): Promise<ClothingPrediction> {
   const compressed = await compressImageForAnalysis(
@@ -216,91 +212,118 @@ export async function analyzeClothingImage(
     dimensions?.width,
     dimensions?.height
   );
-  const form = new FormData();
-  form.append('image', { uri: compressed.uri, name: 'clothing.jpg', type: 'image/jpeg' } as any);
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let lastError: any = null;
+  const maxAttempts = 2; // 1 automatic retry on network timeout / transient 4G drop
 
-  try {
-    const response = await fetch(`${getApiUrl()}/wardrobe/analyze`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${accessToken}` },
-      body: form,
-      signal: controller.signal,
-    });
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const form = new FormData();
+    form.append('image', { uri: compressed.uri, name: 'clothing.jpg', type: 'image/jpeg' } as any);
 
-    clearTimeout(timer);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-    const body = await response.json();
-    if (!response.ok) {
-      throw new Error(body?.message || 'Image analysis failed.');
+    try {
+      const response = await fetch(`${getApiUrl()}/wardrobe/analyze`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: form,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timer);
+
+      const body = await response.json();
+      if (!response.ok) {
+        const httpErr: any = new Error(body?.message || 'Image analysis failed.');
+        httpErr.status = response.status;
+        httpErr.response = { status: response.status, data: body };
+        throw httpErr;
+      }
+
+      const rawData = (body.data || {}) as ClothingPrediction & {
+        cutout_data_uri?: string | null;
+        cutout_url?: string | null;
+        cutout_image?: string | null;
+        beautified_data_uri?: string | null;
+        beautified_url?: string | null;
+      };
+
+      const cutoutUri =
+        rawData.cutoutDataUri ??
+        rawData.cutout_data_uri ??
+        rawData.cutout_url ??
+        rawData.cutout_image ??
+        null;
+
+      const beautifiedUri =
+        rawData.beautifiedDataUri ??
+        rawData.beautified_data_uri ??
+        rawData.beautified_url ??
+        null;
+
+      const resolvedColor =
+        rawData.primary_color ||
+        rawData.color ||
+        rawData.palette?.dominant_color ||
+        undefined;
+
+      const prediction: ClothingPrediction = {
+        ...rawData,
+        color: resolvedColor,
+        primary_color: resolvedColor,
+        subCategory: rawData.subCategory || rawData.sub_category || rawData.vector_subtype || undefined,
+        vector_subtype: rawData.vector_subtype || rawData.subCategory || rawData.sub_category || undefined,
+        confidence:
+          typeof rawData.confidence === 'number'
+            ? rawData.confidence
+            : typeof rawData.categoryConfidence === 'number'
+            ? rawData.categoryConfidence
+            : 0,
+        categoryConfidence:
+          typeof rawData.categoryConfidence === 'number'
+            ? rawData.categoryConfidence
+            : typeof rawData.confidence === 'number'
+            ? rawData.confidence
+            : 0,
+        cutoutDataUri: cutoutUri,
+        beautifiedDataUri: beautifiedUri,
+      };
+
+      return prediction;
+    } catch (err: any) {
+      clearTimeout(timer);
+      lastError = err;
+      const isTimeoutOrNetwork =
+        err.name === 'AbortError' ||
+        err.message?.includes('aborted') ||
+        err.message?.includes('Network request failed') ||
+        err.message?.includes('Failed to fetch') ||
+        err.message?.includes('ECONNREFUSED');
+
+      // Do not retry 4xx moderation rejections
+      if (!isTimeoutOrNetwork && err.status && err.status >= 400 && err.status < 500) {
+        throw err;
+      }
+
+      if (attempt < maxAttempts && isTimeoutOrNetwork) {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        continue;
+      }
     }
-
-    const rawData = (body.data || {}) as ClothingPrediction & {
-      cutout_data_uri?: string | null;
-      cutout_url?: string | null;
-      cutout_image?: string | null;
-      beautified_data_uri?: string | null;
-      beautified_url?: string | null;
-    };
-
-    const cutoutUri =
-      rawData.cutoutDataUri ??
-      rawData.cutout_data_uri ??
-      rawData.cutout_url ??
-      rawData.cutout_image ??
-      null;
-
-    const beautifiedUri =
-      rawData.beautifiedDataUri ??
-      rawData.beautified_data_uri ??
-      rawData.beautified_url ??
-      null;
-
-    const resolvedColor =
-      rawData.primary_color ||
-      rawData.color ||
-      rawData.palette?.dominant_color ||
-      undefined;
-
-    const prediction: ClothingPrediction = {
-      ...rawData,
-      color: resolvedColor,
-      primary_color: resolvedColor,
-      subCategory: rawData.subCategory || rawData.sub_category || rawData.vector_subtype || undefined,
-      vector_subtype: rawData.vector_subtype || rawData.subCategory || rawData.sub_category || undefined,
-      confidence:
-        typeof rawData.confidence === 'number'
-          ? rawData.confidence
-          : typeof rawData.categoryConfidence === 'number'
-          ? rawData.categoryConfidence
-          : 0,
-      categoryConfidence:
-        typeof rawData.categoryConfidence === 'number'
-          ? rawData.categoryConfidence
-          : typeof rawData.confidence === 'number'
-          ? rawData.confidence
-          : 0,
-      cutoutDataUri: cutoutUri,
-      beautifiedDataUri: beautifiedUri,
-    };
-
-    return prediction;
-  } catch (err: any) {
-    clearTimeout(timer);
-    if (err.name === 'AbortError' || err.message?.includes('aborted')) {
-      throw new Error('Analysis timed out after 30 seconds. Could not connect to ML server — check your API URL / Wi-Fi connection.');
-    }
-    if (
-      err.message?.includes('Network request failed') ||
-      err.message?.includes('Failed to fetch') ||
-      err.message?.includes('ECONNREFUSED')
-    ) {
-      throw new Error('Could not connect to ML server — check your API URL / Wi-Fi connection.');
-    }
-    throw err;
   }
+
+  if (lastError?.name === 'AbortError' || lastError?.message?.includes('aborted')) {
+    throw new Error('Analysis timed out after 90 seconds. Could not connect to ML server — check your API URL / Wi-Fi connection.');
+  }
+  if (
+    lastError?.message?.includes('Network request failed') ||
+    lastError?.message?.includes('Failed to fetch') ||
+    lastError?.message?.includes('ECONNREFUSED')
+  ) {
+    throw new Error('Could not connect to ML server — check your API URL / Wi-Fi connection.');
+  }
+  throw lastError || new Error('Image analysis failed.');
 }
 
 /**
@@ -342,13 +365,13 @@ export async function uriToBase64(
 }
 
 /**
- * Batch Clothing Image Analysis (`POST /analyze-batch` with compressed ~250KB base64 images):
- * Auto-resizes images > 1200px down to width: 1024, compress: 0.82 before base64 encoding.
+ * Batch Clothing Image Analysis (`POST /analyze-batch` with compressed ~80KB base64 images):
+ * Auto-resizes images to width: 800, compress: 0.75 before base64 encoding with 90s timeout & 1 retry.
  */
 export async function analyzeBatchClothingImages(
   assets: Array<string | { uri: string; width?: number; height?: number }>,
   accessToken: string,
-  timeoutMs = 35000
+  timeoutMs = 90000
 ): Promise<ClothingPrediction[]> {
   const normalizedAssets = (assets || []).slice(0, 15).map((item) =>
     typeof item === 'string' ? { uri: item } : item
@@ -364,34 +387,37 @@ export async function analyzeBatchClothingImages(
     )
   );
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(`${getApiUrl()}/wardrobe/analyze-batch`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      },
-      body: JSON.stringify({ images: base64Images }),
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-    if (response.ok) {
-      const body = await response.json();
-      const rawList = Array.isArray(body?.data)
-        ? body.data
-        : Array.isArray(body?.results)
-        ? body.results
-        : Array.isArray(body)
-        ? body
-        : null;
-      if (rawList && rawList.length > 0) {
-        return rawList as ClothingPrediction[];
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(`${getApiUrl()}/wardrobe/analyze-batch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({ images: base64Images }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (response.ok) {
+        const body = await response.json();
+        const rawList = Array.isArray(body?.data)
+          ? body.data
+          : Array.isArray(body?.results)
+          ? body.results
+          : Array.isArray(body)
+          ? body
+          : null;
+        if (rawList && rawList.length > 0) {
+          return rawList as ClothingPrediction[];
+        }
       }
+      break;
+    } catch {
+      clearTimeout(timer);
     }
-  } catch {
-    clearTimeout(timer);
   }
 
   // Fallback to individual compressed analysis
@@ -409,12 +435,41 @@ export const normalizeCategory = (
   cat?: string
 ): 'TOP' | 'OUTERWEAR' | 'BOTTOM' | 'SHOES' | 'ACCESSORIES' => {
   const c = (cat || 'TOP').trim().toUpperCase();
-  if (c.startsWith('TOP') || c === 'SHIRT' || c === 'POLO' || c === 'TEE' || c === 'INNER_TOP' || c === 'INNERTOP') return 'TOP';
+  if (c.startsWith('TOP') || c === 'SHIRT' || c === 'POLO' || c === 'TEE' || c === 'TANK' || c === 'SINGLET' || c === 'INNER_TOP' || c === 'INNERTOP') return 'TOP';
   if (c.startsWith('OUTER') || c === 'JACKET' || c === 'HOODIE' || c === 'BLAZER' || c === 'COAT' || c === 'OUTER_LAYER' || c === 'OUTERLAYER') return 'OUTERWEAR';
   if (c.startsWith('BOTTOM') || c === 'PANTS' || c === 'JEANS' || c === 'SHORTS' || c === 'SKIRT' || c === 'TROUSERS') return 'BOTTOM';
   if (c.startsWith('SHOE') || c === 'FOOTWEAR' || c === 'SNEAKERS' || c === 'BOOTS' || c === 'LOAFERS') return 'SHOES';
   if (c.startsWith('ACCESSOR') || c === 'WATCH' || c === 'JEWELRY' || c === 'ACCESSORY') return 'ACCESSORIES';
   return 'TOP';
+};
+
+/**
+ * Auto-heals garment category from its name so items containing "Top", "Tank", "T-Shirt",
+ * "Shirt", "Polo", or "Singlet" ALWAYS resolve to 'TOP' (even if mis-saved in DB as "Bottoms"),
+ * and items containing "Jeans", "Pants", "Shorts", or "Trousers" ALWAYS resolve to 'BOTTOM'.
+ */
+export const healGarmentCategoryByName = (
+  name?: string | null,
+  rawCategory?: string | null,
+  rawSlotOrRole?: string | null
+): 'TOP' | 'OUTERWEAR' | 'BOTTOM' | 'SHOES' | 'ACCESSORIES' => {
+  const n = (name || '').toLowerCase().trim();
+  if (/\b(jacket|blazer|coat|cardigan|windbreaker|hoodie|parka|trench|bomber)\b/i.test(n)) {
+    return 'OUTERWEAR';
+  }
+  if (/\b(top|tank|t-shirt|tshirt|tee|shirt|polo|singlet|blouse|crewneck|henley|camisole|halter|sleeveless|short-sleeve|long-sleeve)\b/i.test(n)) {
+    return 'TOP';
+  }
+  if (/\b(jeans|jean|pants|pant|shorts|short|trousers|trouser|chinos|chino|slacks|skirt|leggings|joggers|jogger|sweatpants|cargo)\b/i.test(n)) {
+    return 'BOTTOM';
+  }
+  if (/\b(shoes|shoe|sneakers|sneaker|loafers|loafer|boots|boot|sandals|sandal|slippers|slipper|heels|heel|flats|trainer|trainers|running\s*shoes)\b/i.test(n)) {
+    return 'SHOES';
+  }
+  if (/\b(watch|wristwatch|smartwatch|bag|tote|belt|cap|hat|beanie|glasses|sunglasses|necklace|ring|bracelet|earring|scarf|tie|necktie|wallet|backpack|purse)\b/i.test(n)) {
+    return 'ACCESSORIES';
+  }
+  return normalizeCategory(rawCategory || rawSlotOrRole || 'TOP');
 };
 
 export const normalizeStyleForMlService = (style?: string): string => {
@@ -432,11 +487,14 @@ export const normalizeStyleForMlService = (style?: string): string => {
 };
 
 export const normalizeItemForMlService = (it: any) => {
-  const normCat = normalizeCategory(it.category || it.slotType);
+  const itemName = String(it.clothing_name || it.name || it.subCategory || 'Garment');
+  const normCat = healGarmentCategoryByName(
+    itemName,
+    it.category,
+    it.slotType || it.layerRole || it.layer_role
+  );
   const layerRole =
-    it.layerRole ||
-    it.layer_role ||
-    (normCat === 'OUTERWEAR'
+    normCat === 'OUTERWEAR'
       ? 'OUTER_LAYER'
       : normCat === 'BOTTOM'
       ? 'LOWER_BODY'
@@ -444,7 +502,7 @@ export const normalizeItemForMlService = (it: any) => {
       ? 'FOOTWEAR'
       : normCat === 'ACCESSORIES'
       ? 'ACCESSORY'
-      : 'INNER_BASE');
+      : 'INNER_BASE';
 
   return {
     id: String(it.id || it._id || 'item-0'),

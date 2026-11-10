@@ -6,10 +6,16 @@ import * as ImagePicker from 'expo-image-picker';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { useAuth } from '../contexts/AuthContext';
 import { useWardrobe } from '../contexts/WardrobeContext';
 import { useToast } from '../contexts/ToastContext';
 import ClothingCard from '../components/ClothingCard';
 import ConfirmDialogModal from '../components/common/ConfirmDialogModal';
+import {
+  discardBatchUpload,
+  enqueueBatchAssets,
+  useBatchUploadStore,
+} from './BatchAddClothesScreen';
 
 // Five unified categories per thesis Chapters 1–3 (Dresses removed)
 export const FILTER_CATEGORIES = ['ALL', 'TOP', 'BOTTOM', 'SHOES', 'OUTERWEAR', 'ACCESSORIES'] as const;
@@ -34,8 +40,10 @@ export default function WardrobeScreen() {
   const theme = useAppTheme();
   const isDark = theme.mode === 'dark';
   const navigation = useNavigation<any>();
+  const { session } = useAuth();
   const { items, loading, toggleFavorite, deleteItems } = useWardrobe();
   const { showToast } = useToast();
+  const batchStore = useBatchUploadStore();
 
   const handleToggleFavoriteWithFeedback = async (id: string) => {
     const target = items.find((i) => i.id === id);
@@ -71,17 +79,21 @@ export default function WardrobeScreen() {
       mediaTypes: ['images'],
       allowsMultipleSelection: true,
       selectionLimit: 10,
-      quality: 0.8,
+      quality: 0.7,
     });
     if (result.canceled || !result.assets?.length) return;
-    navigation.navigate('BatchAddClothes', {
-      initialAssets: result.assets.map((a) => ({
+    // Enqueue placeholders in 0ms and open Batch Add view immediately without blocking
+    enqueueBatchAssets(
+      result.assets.map((a) => ({
         uri: a.uri,
         width: a.width,
         height: a.height,
         fileName: a.fileName,
       })),
-    });
+      session?.access_token,
+      showToast
+    );
+    navigation.navigate('BatchAddClothes');
   };
 
   // Unified Filter State
@@ -250,6 +262,45 @@ export default function WardrobeScreen() {
           )}
         </View>
       </Animated.View>
+
+      {/* Persistent Floating Banner when Batch Upload is Analyzing in Background or Waiting to be Saved */}
+      {batchStore.totalCount > 0 && (
+        <Pressable
+          onPress={() => navigation.navigate('BatchAddClothes')}
+          style={[
+            styles.batchInProgressBanner,
+            {
+              backgroundColor: isDark ? '#273427' : '#364536',
+              borderColor: isDark ? '#8AB896' : '#364536',
+            },
+          ]}
+        >
+          <View style={styles.batchBannerLeft}>
+            {batchStore.isAnalyzing ? (
+              <ActivityIndicator size="small" color="#F3F1EF" />
+            ) : (
+              <Ionicons name="sparkles" size={16} color="#E83E35" />
+            )}
+            <Text style={styles.batchBannerText} numberOfLines={1}>
+              {`✨ Batch Upload (${batchStore.analyzedCount}/${batchStore.totalCount} analyzed) · Tap to Review & Save`}
+            </Text>
+          </View>
+          <View style={styles.batchBannerRight}>
+            <Pressable
+              hitSlop={8}
+              onPress={(e) => {
+                e.stopPropagation();
+                discardBatchUpload();
+                showToast('Discarded batch upload.');
+              }}
+              style={styles.batchBannerCloseBtn}
+            >
+              <Ionicons name="close" size={15} color="#F3F1EF" />
+            </Pressable>
+            <Ionicons name="chevron-forward" size={16} color="#F3F1EF" />
+          </View>
+        </Pressable>
+      )}
 
       {/* Unified Filter Bar Button */}
       <View style={styles.filterBarContainer}>
@@ -714,6 +765,49 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   addLabel: { color: '#FFFFFF', fontWeight: '700', fontSize: 13.5 },
+  batchInProgressBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 2,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: 14,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.16,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  batchBannerLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingRight: 8,
+  },
+  batchBannerText: {
+    flex: 1,
+    color: '#F3F1EF',
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  batchBannerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  batchBannerCloseBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   filterBarContainer: {
     flexDirection: 'row',
     alignItems: 'center',

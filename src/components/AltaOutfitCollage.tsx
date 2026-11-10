@@ -60,6 +60,52 @@ interface AltaOutfitCollageProps {
 type CollageSlotKey = 'TOP' | 'OUTERWEAR' | 'BOTTOM' | 'SHOES' | 'ACCESSORIES';
 
 function classifyCollageSlot(item: AltaCollageItem): CollageSlotKey {
+  const n = (
+    item.name ||
+    item.clothing_name ||
+    item.subCategory ||
+    item.sub_category ||
+    ''
+  )
+    .toLowerCase()
+    .trim();
+
+  // 1. Name-first anatomical healing so "Tank Top", "Short-sleeve Top", "T-Shirt", "Shirt", "Polo", "Singlet"
+  // ALWAYS resolve to 'TOP' (even if saved category in DB was accidentally "Bottoms"),
+  // and "Jeans", "Pants", "Shorts", "Trousers" ALWAYS resolve to 'BOTTOM'.
+  if (/\b(jacket|blazer|coat|cardigan|windbreaker|hoodie|parka|trench|bomber)\b/i.test(n)) {
+    return 'OUTERWEAR';
+  }
+  if (
+    /\b(top|tank|t-shirt|tshirt|tee|shirt|polo|singlet|blouse|crewneck|henley|camisole|halter|sleeveless|short-sleeve|long-sleeve)\b/i.test(
+      n
+    )
+  ) {
+    return 'TOP';
+  }
+  if (
+    /\b(jeans|jean|denim|chino|chinos|trouser|trousers|pant|pants|slack|slacks|short|shorts|skirt|legging|leggings|jogger|joggers|sweatpants|cargo)\b/i.test(
+      n
+    )
+  ) {
+    return 'BOTTOM';
+  }
+  if (
+    /\b(shoe|shoes|sneaker|sneakers|loafer|loafers|boot|boots|sandal|sandals|slipper|slippers|slide|heel|heels|flat|flats|trainer|trainers|running\s*shoes)\b/i.test(
+      n
+    )
+  ) {
+    return 'SHOES';
+  }
+  if (
+    /\b(watch|wristwatch|smartwatch|bag|tote|belt|cap|hat|beanie|glasses|sunglasses|necklace|ring|bracelet|earring|scarf|tie|necktie|wallet|backpack|purse)\b/i.test(
+      n
+    )
+  ) {
+    return 'ACCESSORIES';
+  }
+
+  // 2. Fallback to explicit role / slotType / category when name has no garment keyword
   const role = (item.layerRole || item.layer_role || '').toUpperCase().trim();
   if (role === 'INNER_BASE') return 'TOP';
   if (role === 'OUTER_LAYER') return 'OUTERWEAR';
@@ -79,21 +125,6 @@ function classifyCollageSlot(item: AltaCollageItem): CollageSlotKey {
   if (cat.startsWith('BOTTOM') || cat === 'PANTS' || cat === 'JEANS') return 'BOTTOM';
   if (cat.startsWith('SHOE') || cat === 'FOOTWEAR') return 'SHOES';
   if (cat.startsWith('ACCESSOR')) return 'ACCESSORIES';
-  if (cat.startsWith('TOP')) return 'TOP';
-
-  const n = (item.name || item.clothing_name || '').toLowerCase();
-  if (/\b(jacket|blazer|coat|cardigan|windbreaker|hoodie|parka|trench|bomber|vest)\b/.test(n)) {
-    return 'OUTERWEAR';
-  }
-  if (/\b(jean|denim|chino|trouser|pant|slack|short|skirt|legging|jogger)\b/.test(n)) {
-    return 'BOTTOM';
-  }
-  if (/\b(shoe|sneaker|loafer|boot|sandal|slipper|slide|heel|flat|trainer)\b/.test(n)) {
-    return 'SHOES';
-  }
-  if (/\b(watch|bag|tote|belt|cap|hat|glasses|sunglasses|necklace|ring|bracelet|earring|scarf)\b/.test(n)) {
-    return 'ACCESSORIES';
-  }
   return 'TOP';
 }
 
@@ -400,44 +431,52 @@ export default function AltaOutfitCollage({
       ]}
     >
       <View style={styles.flatLayStage}>
-        {/* Left/Center Primary Column: Top (upper-left) + Bottom tucked closely underneath */}
-        <View style={[styles.leftPrimaryColumn, { flex: rightColumnHasUpper ? 1.18 : 1.1 }]}>
-          {renderFlatLayCutout(grouped.top, 1.08, 'TOP', 'left-top', {
-            marginBottom: compact ? -4 : -8,
-            zIndex: 2,
-          })}
-          {rightColumnHasUpper
-            ? renderFlatLayCutout(grouped.bottom, 1.18, 'BOTTOM', 'left-bottom', {
-                marginTop: compact ? -4 : -6,
-                zIndex: 1,
-              })
-            : renderFlatLayCutout(grouped.shoes, 0.82, 'SHOES', 'left-shoes')}
+        {/* Fixed Anatomical Left Column:
+            - Top-Left: TOP (T-Shirt, Polo, Tank Top)
+            - Bottom-Left (directly below the Top): BOTTOM (Jeans, Pants, Shorts) */}
+        <View style={[styles.leftPrimaryColumn, { flex: 1.15 }]}>
+          {grouped.top ? (
+            renderFlatLayCutout(grouped.top, 1.08, 'TOP', 'left-top', {
+              marginBottom: compact ? -4 : -8,
+              zIndex: 2,
+            })
+          ) : (
+            <View style={{ flex: 1.08 }} />
+          )}
+          {grouped.bottom ? (
+            renderFlatLayCutout(grouped.bottom, 1.15, 'BOTTOM', 'left-bottom', {
+              marginTop: compact ? -4 : -6,
+              zIndex: 1,
+            })
+          ) : (
+            <View style={{ flex: 1.15 }} />
+          )}
         </View>
 
-        {/* Right Companion Column: Outerwear / Accessory (upper-right) + Shoes (lower-right) */}
+        {/* Fixed Anatomical Right Column:
+            - Top-Right: OUTERWEAR (if present) or ACCESSORIES (Watch, Cap, Bag)
+            - Bottom-Right: SHOES (Running Shoes, Sneakers) */}
         <View style={[styles.rightCompanionColumn, { flex: 0.92 }]}>
           {hasOuterwear ? (
             <>
-              {renderFlatLayCutout(grouped.outerwear, 1.12, 'OUTERWEAR', 'right-outer')}
+              {renderFlatLayCutout(grouped.outerwear, 1.1, 'OUTERWEAR', 'right-outer')}
               {hasAccessories
                 ? renderFlatLayCutout(grouped.accessories[0], 0.68, 'ACCESSORIES', 'right-acc-0')
                 : null}
-              {renderFlatLayCutout(grouped.shoes, 0.82, 'SHOES', 'right-shoes')}
             </>
           ) : hasAccessories ? (
             <>
               {grouped.accessories.slice(0, 2).map((acc, idx) =>
-                renderFlatLayCutout(acc, 0.78, 'ACCESSORIES', `right-acc-${idx}`)
+                renderFlatLayCutout(acc, 0.85, 'ACCESSORIES', `right-acc-${idx}`)
               )}
-              {renderFlatLayCutout(grouped.shoes, 0.92, 'SHOES', 'right-shoes-with-acc')}
             </>
           ) : (
-            <>
-              {renderFlatLayCutout(grouped.bottom, 1.15, 'BOTTOM', 'right-bottom-solo')}
-              {grouped.shoes
-                ? renderFlatLayCutout(grouped.shoes, 0.85, 'SHOES', 'right-shoes-solo')
-                : null}
-            </>
+            <View style={{ flex: 1 }} />
+          )}
+          {grouped.shoes ? (
+            renderFlatLayCutout(grouped.shoes, 0.9, 'SHOES', 'right-shoes')
+          ) : (
+            <View style={{ flex: 0.9 }} />
           )}
         </View>
       </View>
